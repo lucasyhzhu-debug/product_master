@@ -486,6 +486,12 @@ export {
   useCreateManualJournalEntry,
 } from "./useManualJournal";
 
+// Bulk Price Update (Phase 68: COGS Bulk Price Update)
+export {
+  useBulkUpdateIngredientPrices,
+  useBulkUpdateMaterialPrices,
+} from "./useBulkPriceUpdate";
+
 // Fixed Assets (Asset Register & Depreciation - Phase 60)
 export {
   useFixedAssets,

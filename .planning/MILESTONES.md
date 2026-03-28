@@ -1,4 +1,13 @@
 # Milestones
+## v1.9 Bugs & Quality of Life (Shipped: 2026-03-28)
+
+**Phases completed:** 7 phases, 12 plans, 11 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 
 ## v1.8 Support & Quality of Life (Shipped: 2026-03-27)
 

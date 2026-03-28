@@ -49,18 +49,20 @@ export function ChannelRow({
   const delta = computeDelta(channel.gross, prevGross);
 
   // Channel gross margin (current)
+  // Denominator: channel.gross (not netRevenue) — margin should reflect
+  // profit relative to total gross revenue before deductions.
   const channelGrossProfit = channel.netRevenue - channel.cogs.total;
   const channelGrossMargin =
-    channel.netRevenue !== 0
-      ? (channelGrossProfit / channel.netRevenue) * 100
+    channel.gross !== 0
+      ? (channelGrossProfit / channel.gross) * 100
       : null;
 
   // Channel gross margin (previous)
-  const prevNetRevenue = previousChannel?.netRevenue ?? 0;
   const prevCogs = previousChannel?.cogs?.total ?? 0;
+  const prevNetRevenue = previousChannel?.netRevenue ?? 0;
   const prevGrossProfit = prevNetRevenue - prevCogs;
   const prevGrossMargin =
-    prevNetRevenue !== 0 ? (prevGrossProfit / prevNetRevenue) * 100 : null;
+    prevGross !== 0 ? (prevGrossProfit / prevGross) * 100 : null;
 
   // Gross margin delta in percentage points
   const grossMarginDeltaPp =

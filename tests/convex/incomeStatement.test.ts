@@ -832,7 +832,7 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.totalPackagingCogs).toBe(15000);     // 4000 + 5000 + 6000
     expect(result.current.totalCogs).toBe(65000);              // 50000 + 15000
     expect(result.current.grossProfit).toBe(130000);           // 195000 - 65000
-    expect(result.current.grossMarginPercent).toBeCloseTo(66.67, 2); // 130000/195000 * 100
+    expect(result.current.grossMarginPercent).toBeCloseTo(56.52, 2); // 130000/230000 * 100 (uses totalGross denominator)
     expect(result.current.totalAdBurn).toBe(0);
     expect(result.current.totalPromoBurn).toBe(0);
 
@@ -1075,7 +1075,7 @@ describe("P&L OpEx/EBIT/Other/NetIncome", () => {
     expect(result.current.totalOpEx).toBe(0);
   });
 
-  test("EBIT = grossProfit - totalOpEx, margins use netRevenue as denominator", async () => {
+  test("EBIT = grossProfit - totalOpEx, margins use totalGross as denominator", async () => {
     const t = convexTest(schema);
     const userId = await seedUser(t);
 
@@ -1108,7 +1108,7 @@ describe("P&L OpEx/EBIT/Other/NetIncome", () => {
     expect(result.current.grossProfit).toBe(1000000);
     // ebit = grossProfit - totalOpEx = 1000000 - 200000 = 800000
     expect(result.current.ebit).toBe(800000);
-    // ebitMarginPercent = ebit / netRevenue * 100 = 800000 / 1000000 * 100 = 80
+    // ebitMarginPercent = ebit / totalGross * 100 = 800000 / 1000000 * 100 = 80
     expect(result.current.ebitMarginPercent).toBeCloseTo(80, 1);
   });
 
@@ -1240,5 +1240,155 @@ describe("P&L OpEx/EBIT/Other/NetIncome", () => {
     expect(result.deltas.totalOther).toBeDefined();
     expect(result.deltas.netIncome).toBeDefined();
     expect(result.deltas.netMarginPp).toBeDefined();
+  });
+
+  test("EBITDA = EBIT + depreciation + amortization, ebitdaMarginPercent uses totalGross", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    // Revenue: gross 2000000
+    await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 2000000,
+    });
+
+    // OpEx accounts: Salaries (6100), Depreciation (6150), Amortization (6160)
+    const acc6100 = await seedAccount(t, { code: "6100", name: "Salaries & Wages", type: "opex" });
+    const acc6150 = await seedAccount(t, { code: "6150", name: "Depreciation Expense", type: "opex" });
+    const acc6160 = await seedAccount(t, { code: "6160", name: "Amortization Expense", type: "opex" });
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    const entryDate = TEST_WEEK_START + DAY_MS;
+
+    // Salaries: DR 400000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6100, debitAmount: 400000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 400000 },
+      ],
+    });
+
+    // Depreciation: DR 150000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6150, debitAmount: 150000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 150000 },
+      ],
+    });
+
+    // Amortization: DR 50000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6160, debitAmount: 50000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 50000 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // grossProfit = 2000000 (no COGS)
+    // totalOpEx = 400000 + 150000 + 50000 = 600000
+    // EBIT = grossProfit - totalOpEx = 2000000 - 600000 = 1400000
+    expect(result.current.ebit).toBe(1400000);
+    expect(result.current.depreciationAmount).toBe(150000);
+    expect(result.current.amortizationAmount).toBe(50000);
+
+    // EBITDA = EBIT + depreciation + amortization = 1400000 + 150000 + 50000 = 1600000
+    expect(result.current.ebitda).toBe(1600000);
+
+    // ebitdaMarginPercent = ebitda / totalGross * 100 = 1600000 / 2000000 * 100 = 80
+    expect(result.current.ebitdaMarginPercent).toBeCloseTo(80, 1);
+
+    // Verify EBITDA relationship explicitly
+    expect(result.current.ebitda).toBe(
+      result.current.ebit + result.current.depreciationAmount + result.current.amortizationAmount
+    );
+  });
+
+  test("all margin percents use totalGross (not netRevenue) as denominator", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+
+    // Seed gobiz revenue with NON-ZERO commission (deduction) to distinguish totalGross from netRevenue
+    // Gross: 500000, Commission: 100000 => Net: 400000
+    await seedExternalRevenue(t, {
+      source: "gobiz",
+      periodStart: TEST_WEEK_START,
+      revenueGross: 500000,
+      commission: 100000,
+    });
+
+    // OpEx: DR 50000 (salaries)
+    const acc6100 = await seedAccount(t, { code: "6100", name: "Salaries & Wages", type: "opex" });
+    const acc6150 = await seedAccount(t, { code: "6150", name: "Depreciation Expense", type: "opex" });
+    const accCash = await seedAccount(t, { code: "1100", name: "Cash", type: "asset" });
+
+    const entryDate = TEST_WEEK_START + DAY_MS;
+
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6100, debitAmount: 50000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 50000 },
+      ],
+    });
+
+    // Depreciation: DR 25000
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc6150, debitAmount: 25000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 25000 },
+      ],
+    });
+
+    // Other: Interest Expense DR 10000
+    const acc7200 = await seedAccount(t, { code: "7200", name: "Interest Expense", type: "other" });
+    await seedJournalEntryWithLines(t, {
+      userId,
+      entryDate,
+      lines: [
+        { accountId: acc7200, debitAmount: 10000, creditAmount: 0 },
+        { accountId: accCash, debitAmount: 0, creditAmount: 10000 },
+      ],
+    });
+
+    const result = await t.query(
+      api.reports.incomeStatement.getWeeklyIncomeStatement,
+      { weekStart: TEST_WEEK_START }
+    );
+
+    // Key values:
+    // totalGross = 500000, netRevenue = 400000 (500000 - 100000 commission)
+    // grossProfit = 400000 - 0 COGS = 400000
+    // ebit = 400000 - 75000 (50000 + 25000) = 325000
+    // ebitda = 325000 + 25000 (depreciation) = 350000
+    // netIncome = 325000 - 10000 = 315000
+    expect(result.current.totalGross).toBe(500000);
+    expect(result.current.netRevenue).toBe(400000);
+    expect(result.current.grossProfit).toBe(400000);
+    expect(result.current.ebit).toBe(325000);
+    expect(result.current.ebitda).toBe(350000);
+    expect(result.current.netIncome).toBe(315000);
+
+    // All margins MUST use totalGross (500000) as denominator, NOT netRevenue (400000).
+    // If denominator were netRevenue, the values would be 100%, 81.25%, 87.5%, 78.75%
+    // respectively — all different from the expected values below.
+    expect(result.current.grossMarginPercent).toBeCloseTo(80, 1);     // 400000/500000 * 100 = 80
+    expect(result.current.ebitMarginPercent).toBeCloseTo(65, 1);      // 325000/500000 * 100 = 65
+    expect(result.current.ebitdaMarginPercent).toBeCloseTo(70, 1);    // 350000/500000 * 100 = 70
+    expect(result.current.netMarginPercent).toBeCloseTo(63, 1);       // 315000/500000 * 100 = 63
   });
 });

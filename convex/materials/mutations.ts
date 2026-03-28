@@ -111,3 +111,77 @@ export const remove = protectedMutation({
     return true;
   },
 });
+
+/**
+ * Bulk update prices for multiple packaging materials.
+ * Each item includes the material ID and new price fields.
+ * Recalculates costPerBaseUnit for each changed item.
+ * Requires manager or admin role.
+ */
+export const bulkUpdatePrices = protectedMutation({
+  roles: ["manager", "admin"],
+  args: {
+    updates: v.array(
+      v.object({
+        id: v.id("packagingMaterials"),
+        volumePurchased: v.number(),
+        priceExclShipping: v.number(),
+        shippingCost: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const results: { id: string; success: boolean; error?: string }[] = [];
+
+    for (const update of args.updates) {
+      const current = await ctx.db.get(update.id);
+      if (!current) {
+        results.push({ id: update.id, success: false, error: "Not found" });
+        continue;
+      }
+
+      // Recalculate cost per base unit
+      const { costPerUnit, baseUnit } = calculateCostPerBaseUnit(
+        update.priceExclShipping,
+        update.shippingCost,
+        update.volumePurchased,
+        current.unitType
+      );
+
+      // Log price changes before patching
+      const now = Date.now();
+      const changedBy = ctx.user.name;
+      const fields: { field: string; old: number; new: number }[] = [];
+      if (current.volumePurchased !== update.volumePurchased)
+        fields.push({ field: "volumePurchased", old: current.volumePurchased, new: update.volumePurchased });
+      if (current.priceExclShipping !== update.priceExclShipping)
+        fields.push({ field: "priceExclShipping", old: current.priceExclShipping, new: update.priceExclShipping });
+      if (current.shippingCost !== update.shippingCost)
+        fields.push({ field: "shippingCost", old: current.shippingCost, new: update.shippingCost });
+      for (const f of fields) {
+        await ctx.db.insert("priceChangeLog", {
+          entityType: "material",
+          entityId: update.id,
+          entityName: current.name,
+          field: f.field,
+          oldValue: f.old,
+          newValue: f.new,
+          changedBy,
+          changedAt: now,
+        });
+      }
+
+      await ctx.db.patch(update.id, {
+        volumePurchased: update.volumePurchased,
+        priceExclShipping: update.priceExclShipping,
+        shippingCost: update.shippingCost,
+        costPerBaseUnit: costPerUnit,
+        baseUnit: baseUnit,
+      });
+
+      results.push({ id: update.id, success: true });
+    }
+
+    return { updated: results.filter((r) => r.success).length, results };
+  },
+});

@@ -1616,3 +1616,31 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 - Disposal JEs use `sourceType="manual"` to prevent accidental void by depreciation void operation
 - GL accounts: DR 6150 (Depreciation Expense), CR 1610-1670 (per-category Accumulated Depreciation)
 - Disposal gain/loss: 7300 (Gain on Asset Disposal), 7400 (Loss on Asset Disposal)
+
+## Kitchen Component Reporting (Phase 69)
+
+### `kitchenComponents` -- Kitchen Pre-Cursor Ingredients
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Display name (e.g., "Outer-Marshmallow") |
+| `code` | `string` | Unique code (e.g., "OUTER_MARSHMALLOW") |
+| `ballTypeGroup` | `optional string` | "BIG_BALL" or "MID_BALL" for grouping |
+| `unit` | `string` | Always "g" (grams) |
+| `isActive` | `boolean` | Whether component is active |
+| `sortOrder` | `number` | Display ordering |
+| `createdAt` | `number` | Epoch ms |
+| `updatedAt` | `number` | Epoch ms |
+
+**Indexes:** `by_active` (isActive), `by_code` (code)
+
+**Purpose:** Defines available pre-cursor ingredients that kitchen staff can log production for in grams. Separate from BOM `componentTypes`. Managed by admin/manager. Default seed includes 10 components (Outer-Marshmallow, Filling-Pistachio, etc.).
+
+### Schema Changes to Existing Tables
+
+**`kitchenShiftRecords`** -- Added optional fields:
+- `componentProduced`: array of `{kitchenComponentCode, kitchenComponentName, grams}` -- gram-based production tracking
+- `componentWaste`: array of `{kitchenComponentCode, kitchenComponentName, reason, grams}` -- component waste tracking
+
+**`kitchenConfig`** -- Added optional field:
+- `enabledKitchenComponents`: `string[]` -- which kitchen component codes appear in the shift form (null = all enabled)

@@ -128,6 +128,7 @@ const configItems: NavItem[] = [
   { path: '/inventory/locations', label: 'Locations', icon: MapPin, permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' },
   { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessOrders' },
+  { path: '/bulk-price-update', label: 'Bulk Prices', icon: Calculator, permission: 'canAccessIngredients' },
 ];
 
 // Admin dropdown - Admin only

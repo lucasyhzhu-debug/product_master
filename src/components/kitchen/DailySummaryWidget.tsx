@@ -1,3 +1,13 @@
+/**
+ * DailySummaryWidget (Phase 69 — updated)
+ *
+ * Collapsible daily summary with:
+ *   - Existing stats grid (balls, orders, boxed, stickers)
+ *   - Component production breakdown with per-person attribution (D-13, D-14, D-15, D-16)
+ *   - Ball production per-person breakdown (D-17)
+ *   - Materials consumed list
+ */
+
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,9 +23,33 @@ interface DailySummaryWidgetProps {
       quantity: number;
     }>;
   };
+  /** Phase 69: Component production summary from getDailyComponentSummary */
+  componentSummary?: Array<{
+    code: string;
+    name: string;
+    totalProducedGrams: number;
+    totalWasteGrams: number;
+    perPerson: Array<{
+      submittedBy: string;
+      chefName?: string;
+      producedGrams: number;
+      wasteGrams: number;
+    }>;
+  }>;
+  /** Phase 69: Ball production per-person attribution from shift records */
+  ballPerPerson?: Array<{
+    submittedBy: string;
+    chefName?: string;
+    totalProduced: number;
+    totalWaste: number;
+  }>;
 }
 
-export function DailySummaryWidget({ stats }: DailySummaryWidgetProps) {
+export function DailySummaryWidget({
+  stats,
+  componentSummary,
+  ballPerPerson,
+}: DailySummaryWidgetProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
@@ -38,13 +72,77 @@ export function DailySummaryWidget({ stats }: DailySummaryWidgetProps) {
 
       {isExpanded && (
         <div className="px-4 pb-4 pt-2 space-y-4 border-t border-border">
-          {/* Stats Grid */}
+          {/* Stats Grid — only show stats with data to avoid misleading zeros */}
           <div className="grid grid-cols-2 gap-3">
             <StatItem label="Balls" value={stats.ballsProduced} color="text-[var(--color-station-production)]" />
-            <StatItem label="Orders" value={stats.ordersCompleted} color="text-[var(--color-kitchen-success)]" />
-            <StatItem label="Boxed" value={stats.packagesBoxed} color="text-[var(--color-station-boxing)]" />
-            <StatItem label="Stickers" value={stats.stickersApplied} color="text-[var(--color-status-info)]" />
+            {stats.ordersCompleted > 0 && (
+              <StatItem label="Orders" value={stats.ordersCompleted} color="text-[var(--color-kitchen-success)]" />
+            )}
+            {stats.packagesBoxed > 0 && (
+              <StatItem label="Boxed" value={stats.packagesBoxed} color="text-[var(--color-station-boxing)]" />
+            )}
+            {stats.stickersApplied > 0 && (
+              <StatItem label="Stickers" value={stats.stickersApplied} color="text-[var(--color-status-info)]" />
+            )}
           </div>
+
+          {/* Component Production Breakdown (D-13, D-14) */}
+          {componentSummary && componentSummary.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Component Production</h4>
+              <div className="space-y-3">
+                {componentSummary.map((comp) => (
+                  <div key={comp.code} className="bg-muted rounded-lg p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground">{comp.name}</span>
+                      <div className="flex items-center gap-2 text-xs tabular-nums">
+                        <span className="font-bold text-foreground">{comp.totalProducedGrams}g</span>
+                        {comp.totalWasteGrams > 0 && (
+                          <span className="text-destructive">-{comp.totalWasteGrams}g waste</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Per-person attribution (D-15, D-16) */}
+                    {comp.perPerson.length > 0 && (
+                      <div className="space-y-0.5">
+                        {comp.perPerson.map((person, i) => (
+                          <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{person.chefName ?? person.submittedBy}</span>
+                            <div className="flex items-center gap-2 tabular-nums">
+                              <span>{person.producedGrams}g</span>
+                              {person.wasteGrams > 0 && (
+                                <span className="text-destructive">-{person.wasteGrams}g</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Ball Production Per-Person (D-17) */}
+          {ballPerPerson && ballPerPerson.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Production by Person</h4>
+              <div className="space-y-1">
+                {ballPerPerson.map((person, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-muted px-2 py-1 rounded">
+                    <span className="text-foreground font-medium">{person.chefName ?? person.submittedBy}</span>
+                    <div className="flex items-center gap-2 text-xs tabular-nums">
+                      <span className="font-semibold">{person.totalProduced} produced</span>
+                      {person.totalWaste > 0 && (
+                        <span className="text-destructive">{person.totalWaste} waste</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Inventory Consumed */}
           {stats.inventoryConsumed.length > 0 && (

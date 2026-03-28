@@ -1,0 +1,104 @@
+# Staff Review: Phase 69 — Kitchen Component Reporting
+
+**Date:** 2026-03-28
+**Plans:** `.planning/phases/69-kitchen-component-reporting/69-01-PLAN.md`, `69-02-PLAN.md`
+**Reviewers:** Staff Developer (Implementation) + Principal Developer (Architecture)
+
+---
+
+## 1. Summary
+
+**Overall Assessment:** Approve with minor revisions
+
+The plans are well-structured with clear wave separation (backend first, then frontend). The schema design correctly separates kitchen pre-cursor components from BOM componentTypes. All 21 context decisions (D-01 through D-21) are addressed. Three minor issues identified: missing updateShiftRecord update, a Convex `undefined` field hazard in seed data, and unnecessary type casts in frontend code.
+
+---
+
+## 2. Critical Issues (Must Fix)
+
+None.
+
+---
+
+## 3. Improvements (Recommended)
+
+| # | Improvement | Impact | Effort |
+|---|-------------|--------|--------|
+| I-1 | Update `updateShiftRecord` mutation for component data | Medium | Low |
+| I-2 | Fix `undefined` field in seedDefaults | Low | Low |
+| I-3 | Remove unnecessary type casts in KitchenViewV2 | Low | Low |
+
+### I-1: Update `updateShiftRecord` for component editing (D-20)
+
+Plan 69-01 Task 5 only updates `submitShiftRecord` but the existing `updateShiftRecord` mutation (manager edits) should also accept `componentProduced` and `componentWaste` optional args. Per D-20, staff can edit entries within the same day. Without this, edited records would lose component data.
+
+**Recommendation:** Add the same optional component args to `updateShiftRecord` and include them in the patch operation.
+
+### I-2: Convex `undefined` field hazard in seedDefaults
+
+Plan 69-01 Task 3 seeds with `ballTypeGroup: undefined`. In Convex, explicitly passing `undefined` for an optional field in `ctx.db.insert()` may cause type errors. The field should be omitted entirely when not set.
+
+**Recommendation:** Remove `ballTypeGroup: undefined` from seed data objects. Instead, conditionally spread only when the value exists.
+
+### I-3: Remove type casts in KitchenViewV2
+
+Plan 69-02 Task 6 and Task 8 use `(record as { chefName?: string })` type casts. Since `chefName` is defined in the `kitchenShiftRecords` schema and the query returns full documents, the Convex-generated types should already include this field. Type casts are fragile and may mask actual type errors.
+
+**Recommendation:** Access `record.chefName` directly. If TypeScript complains, check the query return type rather than using casts.
+
+---
+
+## 4. Refinements (Minor Suggestions)
+
+- Plan 69-02 Task 4: The `DailySummaryWidget` passes `ordersCompleted: 0, packagesBoxed: 0, stickersApplied: 0` as hard-coded zeros. Consider whether these should be wired from actual data or if the stats grid layout should be simplified for the kitchen view.
+- The `kitchenComponents.mutations.update` allows changing `ballTypeGroup` but uses `v.optional(v.string())` in args — this means you can't clear the field to null/undefined. Consider accepting `v.union(v.string(), v.null_())` if clearing is needed.
+- Both plans pass verification but lack dedicated unit tests. Consider adding convex-test coverage for `getDailyComponentSummary` aggregation logic in a follow-up.
+
+---
+
+## 5. Duplication Analysis
+
+### Existing Code to Leverage
+| Existing Code | Location | How to Use |
+|---------------|----------|------------|
+| `EndOfShiftForm` waste pattern | `src/components/kitchen/EndOfShiftForm.tsx` | ComponentProductionSection follows same accordion pattern |
+| `kitchenConfig` toggle pattern | `kitchenConfig.enabledProductionComponents` | `enabledKitchenComponents` follows identical pattern |
+| `WASTE_REASONS` constant | `EndOfShiftForm.tsx` | Duplicated in ComponentProductionSection — could extract to shared constant |
+
+### Potential Duplication Risks
+- `WASTE_REASONS` array is defined identically in both `EndOfShiftForm.tsx` and `ComponentProductionSection.tsx`. Extract to a shared file or import from one.
+
+---
+
+## 6. Phase/Wave Accuracy
+
+| Wave | Assessment | Notes |
+|------|------------|-------|
+| Wave 1 (69-01 Backend) | Good | Schema + mutations + queries. No frontend dependencies. |
+| Wave 2 (69-02 Frontend) | Good | All UI changes. Correctly depends on 69-01. |
+
+No ordering issues. No missing waves.
+
+---
+
+## 10. Testing Plan Assessment
+
+**Overall Testing Verdict:** Insufficient (known project pattern)
+
+The plans include `npm run type-check` and `npm run build` verification but no dedicated unit tests. This is consistent with the project's existing testing approach (manual/UAT focused), but component aggregation logic in `getDailyComponentSummary` would benefit from convex-test coverage.
+
+---
+
+## 12. Approval Conditions
+
+**For Approval, address:**
+1. I-1: Update `updateShiftRecord` for component data (prevents data loss on edits)
+
+**Recommended before implementation:**
+1. I-2: Fix seed data `undefined` field
+2. I-3: Remove type casts
+
+---
+
+*Generated by /staffreview skill*
+*Staff Developer Review + Principal Developer Review*

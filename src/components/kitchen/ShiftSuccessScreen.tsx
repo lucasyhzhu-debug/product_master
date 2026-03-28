@@ -41,6 +41,8 @@ interface ShiftSuccessScreenProps {
   waste: WasteEntry[];
   targets?: TargetItem[];
   onDone: () => void;
+  /** Phase 69: Component production data */
+  componentProduced?: Array<{ kitchenComponentName: string; grams: number }>;
 }
 
 // Framer Motion stagger variants
@@ -63,6 +65,7 @@ export function ShiftSuccessScreen({
   produced,
   waste,
   onDone,
+  componentProduced,
 }: ShiftSuccessScreenProps) {
   return (
     <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-800">
@@ -95,6 +98,33 @@ export function ShiftSuccessScreen({
                   <span className="text-sm font-medium">{p.menuProductName}</span>
                 </div>
                 <span className="text-sm font-semibold tabular-nums">{p.quantity} units</span>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Phase 69: Component production items */}
+        {componentProduced && componentProduced.length > 0 && (
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="space-y-2"
+          >
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Components
+            </p>
+            {componentProduced.map((c, idx) => (
+              <motion.div
+                key={idx}
+                variants={itemVariant}
+                className="flex items-center justify-between rounded-lg border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-card p-3"
+              >
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <span className="text-sm font-medium">{c.kitchenComponentName}</span>
+                </div>
+                <span className="text-sm font-semibold tabular-nums">{c.grams}g</span>
               </motion.div>
             ))}
           </motion.div>
