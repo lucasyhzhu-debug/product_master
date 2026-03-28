@@ -251,14 +251,11 @@ export {
   useProductionReadiness,
   useInventorySources,
   useOutletDetail,
-  useStockMovementHistory,
   // Action hooks
   useFetchOutletDashboard,
   useSubmitStockFlow,
   useSubmitBulkStockIns,
   useCancelStockFlow,
-  useFetchStockFlowHistory,
-  useFetchStockFlowDetail,
   useVerifySubmissionStatuses,
   useRefreshOutlets,
   // Protected mutation hooks

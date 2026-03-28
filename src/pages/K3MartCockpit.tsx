@@ -186,6 +186,13 @@ export function K3MartCockpit() {
         }).find(([, code]) => code === data.externalProductCode);
         const productId = productEntry ? parseInt(productEntry[0]) : 0;
 
+        // Resolve price from outlet product data, fall back to K3MART_CONFIG values
+        const outletProduct = outlet.products.find(
+          (p: any) => p.externalProductCode === data.externalProductCode
+        );
+        const productConfigPrice = productId === 47068 ? 80000 : productId === 47069 ? 45000 : 0;
+        const resolvedPrice = (outletProduct?.price && outletProduct.price > 0) ? outletProduct.price : productConfigPrice;
+
         await submitStockFlow({
           outletExternalId: parseInt(outlet.externalId),
           outletId: outletId as any, // Id<"externalOutlets">
@@ -195,6 +202,7 @@ export function K3MartCockpit() {
             productCode: data.externalProductCode,
             productName: data.externalProductCode, // Will be resolved by action
             qty: data.quantity,
+            price: resolvedPrice,
           }],
           note: data.note || undefined,
           source: data.source,
@@ -308,7 +316,6 @@ export function K3MartCockpit() {
         outlets: [],
         availableSources: [],
         availableDestinations: [],
-        movements: {},
       };
     }
 
@@ -361,7 +368,6 @@ export function K3MartCockpit() {
       outlets,
       availableSources,
       availableDestinations,
-      movements: {},
     };
   }, [outletStockData, inventorySources]);
 
@@ -511,7 +517,6 @@ export function K3MartCockpit() {
             outlets={outletCardGridData.outlets}
             availableSources={outletCardGridData.availableSources}
             availableDestinations={outletCardGridData.availableDestinations}
-            movements={outletCardGridData.movements}
             onStockFlowSubmit={handleStockFlowSubmit}
             canAct={canAct}
           />
