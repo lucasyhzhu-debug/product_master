@@ -57,7 +57,7 @@ export function ChannelRow({
       ? (channelGrossProfit / channel.gross) * 100
       : null;
 
-  // Channel gross margin (previous) — reuses prevGross from delta computation above
+  // Channel gross margin (previous)
   const prevCogs = previousChannel?.cogs?.total ?? 0;
   const prevNetRevenue = previousChannel?.netRevenue ?? 0;
   const prevGrossProfit = prevNetRevenue - prevCogs;

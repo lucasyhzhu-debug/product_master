@@ -18,6 +18,10 @@ import { type Confidence, worstConfidence } from "../lib/confidence";
 import { sourceToPlatform } from "../lib/externalSource";
 import { fetchInternalOrderDataMap } from "../externalData/queries";
 import { aggregateJournalLines } from "../lib/journalHelpers";
+import {
+  DEPRECIATION_EXPENSE_CODE,
+  AMORTIZATION_EXPENSE_CODE,
+} from "../fixedAssets/helpers";
 
 interface ProductDetail {
   name: string;
@@ -81,7 +85,7 @@ interface WeekData {
   totalOpEx: number;
   ebit: number;
   ebitMarginPercent: number | null;
-  // EBITDA (Phase 69)
+  // EBITDA
   depreciationAmount: number;
   amortizationAmount: number;
   ebitda: number;
@@ -461,12 +465,12 @@ function aggregateWeek(
   const ebitMarginPercent =
     totalGross !== 0 ? (ebit / totalGross) * 100 : null;
 
-  // EBITDA: add back depreciation (6150) and amortization (6160) from OpEx
+  // EBITDA: add back depreciation and amortization from OpEx
   const depreciationAmount = opex.items
-    .filter((item) => item.code === "6150")
+    .filter((item) => item.code === DEPRECIATION_EXPENSE_CODE)
     .reduce((sum, item) => sum + item.total, 0);
   const amortizationAmount = opex.items
-    .filter((item) => item.code === "6160")
+    .filter((item) => item.code === AMORTIZATION_EXPENSE_CODE)
     .reduce((sum, item) => sum + item.total, 0);
   const ebitda = ebit + depreciationAmount + amortizationAmount;
   const ebitdaMarginPercent =

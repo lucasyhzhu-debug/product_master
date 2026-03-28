@@ -67,7 +67,7 @@ interface WeekData {
   totalOpEx: number;
   ebit: number;
   ebitMarginPercent: number | null;
-  // EBITDA (Phase 69)
+  // EBITDA
   depreciationAmount: number;
   amortizationAmount: number;
   ebitda: number;
@@ -95,7 +95,7 @@ export interface IncomeStatementData {
     totalOpEx: { amount: number; percent: number | null };
     ebit: { amount: number; percent: number | null };
     ebitMarginPp: number | null;
-    // EBITDA deltas (Phase 69)
+    // EBITDA deltas
     ebitda: { amount: number; percent: number | null };
     ebitdaMarginPp: number | null;
     totalOther: { amount: number; percent: number | null };
