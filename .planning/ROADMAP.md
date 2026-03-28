@@ -166,7 +166,7 @@ Full details: `.planning/milestones/v1.8-ROADMAP.md`
 - [x] **Phase 65: K3Mart Cockpit Fixes** (2/2 plans) — completed 2026-03-28
 - [x] **Phase 66: Employee Roster & Payroll Link** (2/2 plans) — completed 2026-03-28
 - [x] **Phase 67: Inventory Drift & Daily Stock Update** (2/2 plans) -- completed 2026-03-28
-- [ ] **Phase 68: COGS Bulk Price Update** - Bulk edit UI for ingredient and material costs
+- [x] **Phase 68: COGS Bulk Price Update** (2/2 plans) -- completed 2026-03-28
 - [ ] **Phase 69: Kitchen Component Reporting** - Component-level (Big Ball, Mid Ball) reporting alongside products
 
 ## Phase Details
@@ -248,7 +248,7 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 | 65. K3Mart Cockpit Fixes | v1.9 | 2/2 | Complete | 2026-03-28 |
 | 66. Employee Roster & Payroll Link | v1.9 | 2/2 | Complete | 2026-03-28 |
 | 67. Inventory Drift & Daily Stock Update | v1.9 | Complete    | 2026-03-28 | 2026-03-28 |
-| 68. COGS Bulk Price Update | v1.9 | 0/TBD | Not started | - |
+| 68. COGS Bulk Price Update | v1.9 | 2/2 | Complete | 2026-03-28 |
 | 69. Kitchen Component Reporting | v1.9 | 0/TBD | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |

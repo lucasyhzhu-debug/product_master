@@ -35,14 +35,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-27)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 67 complete -- ready for next phase
+**Current focus:** Phase 68 complete -- ready for merge and next phase
 
 ## Current Position
 
-Phase: 67 of 69 (Inventory Drift & Daily Stock Update) -- COMPLETE
+Phase: 68 of 69 (COGS Bulk Price Update) -- COMPLETE
 Plan: 2 of 2
-Status: Phase 67 complete, ready for merge
-Last activity: 2026-03-28 -- Phase 67 Inventory Drift & Daily Stock Update executed (2/2 plans complete)
+Status: Phase 68 complete, ready for merge
+Last activity: 2026-03-28 -- Phase 68 COGS Bulk Price Update executed (2/2 plans complete)
 
 Progress: [██████░░░░] 57%
 
