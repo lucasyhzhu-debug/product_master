@@ -49,6 +49,10 @@ interface ShiftReviewModalProps {
   isSubmitting: boolean;
   /** Inline error from mutation failure — rendered above action buttons */
   error?: string | null;
+  /** Phase 69: Component production data */
+  componentProduced?: Array<{ kitchenComponentName: string; grams: number }>;
+  /** Phase 69: Component waste data */
+  componentWaste?: Array<{ kitchenComponentName: string; grams: number; reason: string }>;
 }
 
 export function ShiftReviewModal({
@@ -59,6 +63,8 @@ export function ShiftReviewModal({
   onBack,
   isSubmitting,
   error,
+  componentProduced,
+  componentWaste,
 }: ShiftReviewModalProps) {
   const totalProduced = produced.reduce((s, p) => s + p.quantity, 0);
   const totalWaste = waste.reduce((s, w) => s + w.quantity, 0);
@@ -126,6 +132,59 @@ export function ShiftReviewModal({
             })}
           </ul>
         </div>
+
+        {/* Phase 69: Component production summary */}
+        {componentProduced && componentProduced.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                Components
+              </p>
+              <ul className="space-y-1">
+                {componentProduced.map((item, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-foreground">{item.kitchenComponentName}</span>
+                    <span className="font-semibold tabular-nums">{item.grams}g</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
+
+        {/* Phase 69: Component waste summary */}
+        {componentWaste && componentWaste.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                Component Waste
+              </p>
+              <ul className="space-y-1">
+                {componentWaste.map((item, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="text-foreground">
+                      {item.kitchenComponentName}{" "}
+                      <span className="text-muted-foreground">
+                        ({REASON_LABELS[item.reason] ?? item.reason})
+                      </span>
+                    </span>
+                    <span className="font-semibold tabular-nums text-destructive">
+                      -{item.grams}g
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        )}
 
         {/* Waste summary (only if any) */}
         {waste.length > 0 && (

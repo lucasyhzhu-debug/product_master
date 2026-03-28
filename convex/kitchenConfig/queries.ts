@@ -31,6 +31,8 @@ export const getConfig = query({
         defaultPackagingMix: [] as Array<{ menuProductId: Id<"menuProducts">; quantity: number }>,
         // Phase 21-08: null = all production components enabled (frontend resolves from componentTypes)
         enabledProductionComponents: null as string[] | null,
+        // Phase 69: null = all kitchen components enabled
+        enabledKitchenComponents: null as string[] | null,
         showJumbo: true,  // backward-compat default: show Jumbo
         updatedAt: null,
         updatedBy: null,
@@ -51,6 +53,8 @@ export const getConfig = query({
       defaultPackagingMix: config.defaultPackagingMix ?? [],
       // Phase 21-08: null = all enabled; array = explicit enabled list
       enabledProductionComponents: config.enabledProductionComponents ?? null,
+      // Phase 69: null = all kitchen components enabled
+      enabledKitchenComponents: config.enabledKitchenComponents ?? null,
       showJumbo: derivedShowJumbo,
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,

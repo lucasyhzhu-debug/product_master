@@ -30,6 +30,9 @@ async function enrichRecord(
     chefUserId?: string;
     produced: Array<{ menuProductId: string; quantity: number }>;
     waste: Array<{ menuProductId: string; reason: string; quantity: number }>;
+    // Phase 69: Component production data
+    componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number }>;
+    componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number }>;
     editedAt?: number;
     editedBy?: string;
     editNote?: string;
@@ -71,6 +74,9 @@ async function enrichRecord(
       reason: w.reason,
       quantity: w.quantity,
     })),
+    // Phase 69: Component production data (pass through)
+    componentProduced: record.componentProduced ?? [],
+    componentWaste: record.componentWaste ?? [],
     editedAt: record.editedAt,
     editedBy: record.editedBy,
     editNote: record.editNote,
@@ -115,12 +121,122 @@ export const getShiftRecordsByDate = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
+          // Phase 69: Pass through component production data
+          componentProduced: record.componentProduced,
+          componentWaste: record.componentWaste,
           editedAt: record.editedAt,
           editedBy: record.editedBy,
           editNote: record.editNote,
         })
       )
     );
+  },
+});
+
+/**
+ * getDailyComponentSummary — Aggregate component production across all shift records for a date.
+ *
+ * Returns per-component totals with per-person attribution (Phase 69).
+ * No auth required — kitchen staff need to view daily summaries.
+ */
+export const getDailyComponentSummary = query({
+  args: { date: v.string() },
+  handler: async (ctx, args) => {
+    const records = await ctx.db
+      .query("kitchenShiftRecords")
+      .withIndex("by_date", (q) => q.eq("date", args.date))
+      .collect();
+
+    // Aggregate per component
+    const componentMap = new Map<
+      string,
+      {
+        code: string;
+        name: string;
+        totalProducedGrams: number;
+        totalWasteGrams: number;
+        perPerson: Array<{
+          submittedBy: string;
+          chefName?: string;
+          producedGrams: number;
+          wasteGrams: number;
+        }>;
+      }
+    >();
+
+    for (const record of records) {
+      const personKey = record.chefName ?? record.submittedBy;
+
+      // Process component produced
+      if (record.componentProduced) {
+        for (const item of record.componentProduced) {
+          if (item.grams <= 0) continue;
+
+          if (!componentMap.has(item.kitchenComponentCode)) {
+            componentMap.set(item.kitchenComponentCode, {
+              code: item.kitchenComponentCode,
+              name: item.kitchenComponentName,
+              totalProducedGrams: 0,
+              totalWasteGrams: 0,
+              perPerson: [],
+            });
+          }
+          const entry = componentMap.get(item.kitchenComponentCode)!;
+          entry.totalProducedGrams += item.grams;
+
+          // Per-person attribution
+          const existing = entry.perPerson.find(
+            (p) => (p.chefName ?? p.submittedBy) === personKey
+          );
+          if (existing) {
+            existing.producedGrams += item.grams;
+          } else {
+            entry.perPerson.push({
+              submittedBy: record.submittedBy,
+              chefName: record.chefName,
+              producedGrams: item.grams,
+              wasteGrams: 0,
+            });
+          }
+        }
+      }
+
+      // Process component waste
+      if (record.componentWaste) {
+        for (const item of record.componentWaste) {
+          if (item.grams <= 0) continue;
+
+          if (!componentMap.has(item.kitchenComponentCode)) {
+            componentMap.set(item.kitchenComponentCode, {
+              code: item.kitchenComponentCode,
+              name: item.kitchenComponentName,
+              totalProducedGrams: 0,
+              totalWasteGrams: 0,
+              perPerson: [],
+            });
+          }
+          const entry = componentMap.get(item.kitchenComponentCode)!;
+          entry.totalWasteGrams += item.grams;
+
+          // Per-person waste attribution
+          const existing = entry.perPerson.find(
+            (p) => (p.chefName ?? p.submittedBy) === personKey
+          );
+          if (existing) {
+            existing.wasteGrams += item.grams;
+          } else {
+            entry.perPerson.push({
+              submittedBy: record.submittedBy,
+              chefName: record.chefName,
+              producedGrams: 0,
+              wasteGrams: item.grams,
+            });
+          }
+        }
+      }
+    }
+
+    return Array.from(componentMap.values());
   },
 });
 
@@ -188,6 +304,9 @@ export const getShiftHistory = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
+          // Phase 69: Pass through component production data
+          componentProduced: record.componentProduced,
+          componentWaste: record.componentWaste,
           editedAt: record.editedAt,
           editedBy: record.editedBy,
           editNote: record.editNote,
