@@ -172,7 +172,7 @@ describe("BUG-03: TikTok buyerShippingFee normalization", () => {
 // BUG-03: TikTok commissionFee missing
 // ============================================
 describe("BUG-03: TikTok commissionFee normalization", () => {
-  it("TikTok: computes commissionFee from 6 platform-specific fee fields (already negative)", () => {
+  it("TikTok: computes commissionFee from 6 platform-specific fee fields (normalized to positive)", () => {
     const order = makeOrder({
       commissionFee: undefined as unknown as number,
       platformCommissionAmount: -53000,
@@ -184,7 +184,7 @@ describe("BUG-03: TikTok commissionFee normalization", () => {
       revenueAmount: 530000,
     });
     const result = normalizePlatformFees(order, "tiktok");
-    expect(result.commissionFee).toBe(-79500); // -53000 + -26500
+    expect(result.commissionFee).toBe(79500); // Math.abs(-53000 + -26500)
   });
 });
 
@@ -192,14 +192,14 @@ describe("BUG-03: TikTok commissionFee normalization", () => {
 // BUG-03: TikTok otherFee missing
 // ============================================
 describe("BUG-03: TikTok otherFee normalization", () => {
-  it("TikTok: populates otherFee from extraCostsFee (already negative)", () => {
+  it("TikTok: populates otherFee from extraCostsFee (normalized to positive)", () => {
     const order = makeOrder({
       otherFee: undefined as unknown as number,
       extraCostsFee: -1250,
       revenueAmount: 530000,
     });
     const result = normalizePlatformFees(order, "tiktok");
-    expect(result.otherFee).toBe(-1250);
+    expect(result.otherFee).toBe(1250);
   });
 });
 
@@ -231,7 +231,7 @@ describe("BUG-04: condition triggers for undefined and null", () => {
       originalPrice: 270000,
     });
     const result = normalizePlatformFees(order, "shopee");
-    expect(result.commissionFee).toBe(-29970);
+    expect(result.commissionFee).toBe(29970);
   });
 
   it("triggers normalization when commissionFee is null", () => {
@@ -244,15 +244,15 @@ describe("BUG-04: condition triggers for undefined and null", () => {
       originalPrice: 270000,
     });
     const result = normalizePlatformFees(order, "shopee");
-    expect(result.commissionFee).toBe(-29970);
+    expect(result.commissionFee).toBe(29970);
   });
 });
 
 // ============================================
 // BUG-05: Shopee sign convention
 // ============================================
-describe("BUG-05: Shopee fee sign negation", () => {
-  it("Shopee: negates commission fees via -Math.abs() (HAR-confirmed)", () => {
+describe("BUG-05: Shopee fee sign normalization", () => {
+  it("Shopee: normalizes commission fees to positive via Math.abs() (HAR-confirmed)", () => {
     // HAR: Shopee order 260307H1VR6UCW has orderAmsCommissionFee=29970 (POSITIVE)
     const order = makeOrder({
       commissionFee: undefined as unknown as number,
@@ -263,27 +263,27 @@ describe("BUG-05: Shopee fee sign negation", () => {
       originalPrice: 270000,
     });
     const result = normalizePlatformFees(order, "shopee");
-    expect(result.commissionFee).toBe(-29970); // NEGATED
+    expect(result.commissionFee).toBe(29970); // POSITIVE
   });
 
-  it("Shopee: negates sellerShippingFee from finalShippingFee", () => {
+  it("Shopee: normalizes sellerShippingFee to positive from finalShippingFee", () => {
     const order = makeOrder({
       sellerShippingFee: undefined as unknown as number,
       finalShippingFee: 5000,
       originalPrice: 270000,
     });
     const result = normalizePlatformFees(order, "shopee");
-    expect(result.sellerShippingFee).toBe(-5000); // NEGATED
+    expect(result.sellerShippingFee).toBe(5000); // POSITIVE
   });
 
-  it("Shopee: negates otherFee from serviceFee", () => {
+  it("Shopee: normalizes otherFee to positive from serviceFee", () => {
     const order = makeOrder({
       otherFee: undefined as unknown as number,
       serviceFee: 1000,
       originalPrice: 270000,
     });
     const result = normalizePlatformFees(order, "shopee");
-    expect(result.otherFee).toBe(-1000); // NEGATED
+    expect(result.otherFee).toBe(1000); // POSITIVE
   });
 });
 
@@ -309,8 +309,8 @@ describe("CASE-01: otherfee/otherFee case mismatch", () => {
 // ============================================
 // No-op cases
 // ============================================
-describe("No-op cases", () => {
-  it("platform 'common' makes no changes", () => {
+describe("Normalization cases", () => {
+  it("platform 'common' normalizes negative fees to positive", () => {
     const order = makeOrder({
       saleAmount: 50000,
       platformIncome: 44000,
@@ -323,19 +323,19 @@ describe("No-op cases", () => {
     const result = normalizePlatformFees(order, "common");
     expect(result.saleAmount).toBe(50000);
     expect(result.platformIncome).toBe(44000);
-    expect(result.commissionFee).toBe(-6000);
+    expect(result.commissionFee).toBe(6000);
     expect(result.sellerShippingFee).toBe(0);
     expect(result.otherFee).toBe(0);
     expect(result.orderAmount).toBe(50000);
   });
 
-  it("Shopee: does not overwrite already populated non-zero fields", () => {
+  it("Shopee: re-normalizes already populated fields to positive", () => {
     const order = makeOrder({
       saleAmount: 270000,
       platformIncome: 240030,
-      commissionFee: -29970,
-      sellerShippingFee: -5000,
-      otherFee: -1000,
+      commissionFee: 29970,
+      sellerShippingFee: 5000,
+      otherFee: 1000,
       buyerShippingFee: 15000,
       orderAmount: 285000,
       // Platform-specific fields also present
@@ -348,9 +348,9 @@ describe("No-op cases", () => {
     const result = normalizePlatformFees(order, "shopee");
     // Should not overwrite existing non-zero values
     expect(result.saleAmount).toBe(270000);
-    expect(result.commissionFee).toBe(-29970);
-    expect(result.sellerShippingFee).toBe(-5000);
-    expect(result.otherFee).toBe(-1000);
+    expect(result.commissionFee).toBe(29970);
+    expect(result.sellerShippingFee).toBe(5000);
+    expect(result.otherFee).toBe(1000);
     expect(result.orderAmount).toBe(285000);
   });
 });

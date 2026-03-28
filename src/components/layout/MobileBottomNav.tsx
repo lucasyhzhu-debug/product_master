@@ -8,7 +8,6 @@ import {
   MoreHorizontal,
   Circle,
   MessageSquare,
-  Home,
   Tag,
   Ticket,
   Users,
@@ -20,6 +19,9 @@ import {
   HandCoins,
   Landmark,
   DollarSign,
+  Building2,
+  BookMarked,
+  FileUp,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/lib/types';
@@ -43,13 +45,11 @@ interface TabItem {
 }
 
 // Prefetch factories for primary tabs
-const _prefetchHome = () => import('@/pages/HubPage');
 const _prefetchOrders = () => import('@/pages/OrderManager');
 const _prefetchKitchen = () => import('@/pages/KitchenViewV2');
 const _prefetchInventory = () => import('@/pages/InventoryManager');
 
 const primaryTabs: TabItem[] = [
-  { path: '/home', icon: Home, label: 'Home', permission: 'canAccessDashboard', preload: _prefetchHome },
   { path: '/sales', icon: TrendingUp, label: 'Sales', permission: 'canAccessSalesAnalytics' },
   { path: '/orders', icon: ShoppingCart, label: 'Orders', permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', icon: UtensilsCrossed, label: 'Kitchen', permission: 'canAccessKitchen', preload: _prefetchKitchen },
@@ -63,6 +63,10 @@ const moreItems: TabItem[] = [
   { path: '/reimbursements', icon: HandCoins, label: 'Reimburse', permission: 'canManageReimbursements' },
   { path: '/bank-accounts', icon: Landmark, label: 'Bank Accts', permission: 'canManageReimbursements' },
   { path: '/payroll', icon: DollarSign, label: 'Payroll', permission: 'canManageReimbursements' },
+  { path: '/journal', icon: BookMarked, label: 'Journal Entry', permission: 'canManageReimbursements' },
+  { path: '/accounts', icon: Landmark, label: 'Accounts', permission: 'canManageReimbursements' },
+  { path: '/import', icon: FileUp, label: 'Hist. Import', permission: 'canManageReimbursements' },
+  { path: '/assets', icon: Building2, label: 'Assets', permission: 'canAccessAssets' },
   { path: '/k3mart-cockpit', icon: Store, label: 'K3 Mart', permission: 'canAccessSalesAnalytics' },
   { path: '/components/production', icon: Circle, label: 'Production', permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },

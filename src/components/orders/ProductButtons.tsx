@@ -42,6 +42,10 @@ export function ProductButtons({ products, onAddProduct, label, columns = 2 }: P
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
+  const touchStartY = useRef<number>(0);
+  const touchStartX = useRef<number>(0);
+  const isScrolling = useRef(false);
+  const SCROLL_THRESHOLD = 10;
 
   const handlePressStart = (product: ProductButtonProduct) => {
     isLongPress.current = false;
@@ -73,6 +77,39 @@ export function ProductButtons({ products, onAddProduct, label, columns = 2 }: P
     isLongPress.current = false;
   };
 
+  const handleTouchStart = (product: ProductButtonProduct, e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartX.current = touch.clientX;
+    touchStartY.current = touch.clientY;
+    isScrolling.current = false;
+    handlePressStart(product);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isScrolling.current) return;
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartX.current);
+    const deltaY = Math.abs(touch.clientY - touchStartY.current);
+    if (deltaX > SCROLL_THRESHOLD || deltaY > SCROLL_THRESHOLD) {
+      isScrolling.current = true;
+      handlePressCancel();
+    }
+  };
+
+  const handleTouchEnd = (product: ProductButtonProduct) => {
+    if (isScrolling.current) {
+      isScrolling.current = false;
+      handlePressCancel();
+      return;
+    }
+    handlePressEnd(product);
+  };
+
+  const handleTouchCancel = () => {
+    isScrolling.current = false;
+    handlePressCancel();
+  };
+
   const handleQuantitySubmit = () => {
     if (!selectedProduct) return;
 
@@ -90,16 +127,18 @@ export function ProductButtons({ products, onAddProduct, label, columns = 2 }: P
       {label && (
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</p>
       )}
-      <div className={`grid gap-3 ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      <div className={`grid gap-4 ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {products.map((product) => (
           <button
             key={product._id}
-            className="flex flex-col items-start p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left active:scale-95"
+            className="flex flex-col items-start p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left active:scale-95 min-h-[56px]"
             onMouseDown={() => handlePressStart(product)}
             onMouseUp={() => handlePressEnd(product)}
             onMouseLeave={handlePressCancel}
-            onTouchStart={() => handlePressStart(product)}
-            onTouchEnd={() => handlePressEnd(product)}
+            onTouchStart={(e) => handleTouchStart(product, e)}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={() => handleTouchEnd(product)}
+            onTouchCancel={handleTouchCancel}
             onContextMenu={(e) => e.preventDefault()}
           >
             <span className="font-semibold">{product.name}</span>

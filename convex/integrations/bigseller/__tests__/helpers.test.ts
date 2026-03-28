@@ -142,7 +142,7 @@ describe("mapOrderToRevenue", () => {
     platform: "shopee",
     saleAmount: 50000,
     platformIncome: 44150,
-    commissionFee: -5850, // Negative -- platform fee deduction
+    commissionFee: 5850, // Positive -- normalized at sync time
     sellerShippingFee: 0,
     otherFee: 0,
     costFee: 0,
@@ -163,9 +163,9 @@ describe("mapOrderToRevenue", () => {
     expect(result.source).not.toBe("bigseller");
   });
 
-  it("converts negative commissionFee to positive commission", () => {
+  it("passes through positive commissionFee directly as commission", () => {
     const result = mapOrderToRevenue(mockOrder, "synclog-id" as any, mockOrder.platform);
-    expect(result.commission).toBe(5850); // Math.abs(-5850)
+    expect(result.commission).toBe(5850); // direct: 5850
   });
 
   it("uses externalTransactionId with bigseller prefix for dedup", () => {
@@ -227,8 +227,8 @@ describe("mapOrderToStorage", () => {
     platform: "tiktok",
     saleAmount: 30000,
     platformIncome: 27000,
-    commissionFee: -3000,
-    sellerShippingFee: -1500,
+    commissionFee: 3000,
+    sellerShippingFee: 1500,
     otherFee: 0,
     costFee: 0,
     orderState: "shipped",
@@ -242,10 +242,10 @@ describe("mapOrderToStorage", () => {
     skuVoList: [{ sku: "FROLLIE-ORI", skuNum: 2, returnNum: 0, isAddition: 0 }],
   };
 
-  it("stores raw negative fee values (do not abs in storage)", () => {
+  it("stores normalized positive fee values", () => {
     const result = mapOrderToStorage(mockOrder, "synclog-id" as any, mockOrder.platform);
-    expect(result.commissionFee).toBe(-3000);
-    expect(result.sellerShippingFee).toBe(-1500);
+    expect(result.commissionFee).toBe(3000);
+    expect(result.sellerShippingFee).toBe(1500);
   });
 
   it("includes skuVoList", () => {
