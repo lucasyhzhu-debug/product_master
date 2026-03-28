@@ -43,7 +43,7 @@ import type { ShiftRecord } from "./ShiftHistoryList";
 // Types
 // -------------------------------------------------------
 
-type WasteReason = "qa_testing" | "spoilage" | "waste";
+import { WASTE_REASONS, type WasteReason } from './index';
 
 interface ProducedRow {
   menuProductId: string;
@@ -75,12 +75,6 @@ interface ShiftEditDialogProps {
 // -------------------------------------------------------
 // Constants
 // -------------------------------------------------------
-
-const WASTE_REASONS: { value: WasteReason; label: string }[] = [
-  { value: "qa_testing", label: "QA / Testing" },
-  { value: "spoilage", label: "Spoilage" },
-  { value: "waste", label: "Waste" },
-];
 
 // -------------------------------------------------------
 // Component

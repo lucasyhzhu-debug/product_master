@@ -72,12 +72,18 @@ export function DailySummaryWidget({
 
       {isExpanded && (
         <div className="px-4 pb-4 pt-2 space-y-4 border-t border-border">
-          {/* Stats Grid */}
+          {/* Stats Grid — only show stats with data to avoid misleading zeros */}
           <div className="grid grid-cols-2 gap-3">
             <StatItem label="Balls" value={stats.ballsProduced} color="text-[var(--color-station-production)]" />
-            <StatItem label="Orders" value={stats.ordersCompleted} color="text-[var(--color-kitchen-success)]" />
-            <StatItem label="Boxed" value={stats.packagesBoxed} color="text-[var(--color-station-boxing)]" />
-            <StatItem label="Stickers" value={stats.stickersApplied} color="text-[var(--color-status-info)]" />
+            {stats.ordersCompleted > 0 && (
+              <StatItem label="Orders" value={stats.ordersCompleted} color="text-[var(--color-kitchen-success)]" />
+            )}
+            {stats.packagesBoxed > 0 && (
+              <StatItem label="Boxed" value={stats.packagesBoxed} color="text-[var(--color-station-boxing)]" />
+            )}
+            {stats.stickersApplied > 0 && (
+              <StatItem label="Stickers" value={stats.stickersApplied} color="text-[var(--color-status-info)]" />
+            )}
           </div>
 
           {/* Component Production Breakdown (D-13, D-14) */}

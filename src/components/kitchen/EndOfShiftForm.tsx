@@ -54,7 +54,7 @@ import type { KitchenTargets } from "./ProductionTargetsBar";
 // Types
 // -------------------------------------------------------
 
-type WasteReason = "qa_testing" | "spoilage" | "waste";
+import { WASTE_REASONS, type WasteReason } from './index';
 
 interface WasteEntry {
   menuProductId: string;
@@ -96,12 +96,6 @@ interface EndOfShiftFormProps {
 // -------------------------------------------------------
 // Component
 // -------------------------------------------------------
-
-const WASTE_REASONS: { value: WasteReason; label: string }[] = [
-  { value: "qa_testing", label: "QA / Testing" },
-  { value: "spoilage", label: "Spoilage" },
-  { value: "waste", label: "Waste" },
-];
 
 export function EndOfShiftForm({
   targets,
@@ -237,11 +231,14 @@ export function EndOfShiftForm({
   // -------------------------------------------------------
 
   function validate(): string | null {
-    const hasAnyProduced = visibleItems.some(
+    const hasAnyBallProduced = visibleItems.some(
       (item) => getProducedQty(item.menuProductId) > 0
     );
-    if (!hasAnyProduced) {
-      return "Enter at least one produced quantity before reviewing.";
+    const hasAnyComponentProduced = visibleKitchenComponents.some(
+      (c) => (componentProduced[c.code] ?? 0) > 0
+    );
+    if (!hasAnyBallProduced && !hasAnyComponentProduced) {
+      return "Enter at least one produced quantity (balls or components) before reviewing.";
     }
 
     // Check waste <= produced for each product
@@ -312,7 +309,7 @@ export function EndOfShiftForm({
       .map((c) => ({
         kitchenComponentCode: c.code,
         kitchenComponentName: c.name,
-        grams: componentProduced[c.code],
+        grams: componentProduced[c.code]!,
       }));
 
     const componentWasteList = componentWaste
@@ -381,7 +378,7 @@ export function EndOfShiftForm({
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentName: c.name,
-        grams: componentProduced[c.code],
+        grams: componentProduced[c.code]!,
       }));
 
     return (
@@ -405,7 +402,7 @@ export function EndOfShiftForm({
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentName: c.name,
-        grams: componentProduced[c.code],
+        grams: componentProduced[c.code]!,
       }));
     const reviewComponentWaste = componentWaste
       .filter((e) => e.grams > 0)

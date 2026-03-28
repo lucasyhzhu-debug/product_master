@@ -307,7 +307,9 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         </div>
 
         {/* Phase 69: Kitchen Component Toggles */}
-        {kitchenComponentsList && kitchenComponentsList.length > 0 && (
+        {kitchenComponentsList && kitchenComponentsList.length > 0 && (() => {
+          const allCodes = kitchenComponentsList.map((c) => c.code);
+          return (
           <div>
             <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
               Kitchen Components
@@ -317,7 +319,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
             </p>
             <div className="flex flex-wrap gap-3">
               {kitchenComponentsList.map((comp) => {
-                const allCodes = kitchenComponentsList.map((c) => c.code);
                 const isOn = enabledKitchenComponents === null
                   ? true
                   : enabledKitchenComponents.includes(comp.code);
@@ -356,7 +357,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
               })}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Packaging Mix */}
         <div>

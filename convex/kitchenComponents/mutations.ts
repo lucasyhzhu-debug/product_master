@@ -127,13 +127,13 @@ export const update = mutation({
       }
     }
 
-    const patchData: Record<string, unknown> = { updatedAt: Date.now() };
-    if (args.name !== undefined) patchData.name = args.name;
-    if (args.code !== undefined) patchData.code = args.code;
-    if (args.ballTypeGroup !== undefined) patchData.ballTypeGroup = args.ballTypeGroup;
-    if (args.isActive !== undefined) patchData.isActive = args.isActive;
-    if (args.sortOrder !== undefined) patchData.sortOrder = args.sortOrder;
-
-    await ctx.db.patch(args.id, patchData);
+    await ctx.db.patch(args.id, {
+      updatedAt: Date.now(),
+      ...(args.name !== undefined ? { name: args.name } : {}),
+      ...(args.code !== undefined ? { code: args.code } : {}),
+      ...(args.ballTypeGroup !== undefined ? { ballTypeGroup: args.ballTypeGroup } : {}),
+      ...(args.isActive !== undefined ? { isActive: args.isActive } : {}),
+      ...(args.sortOrder !== undefined ? { sortOrder: args.sortOrder } : {}),
+    });
   },
 });

@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type WasteReason = "qa_testing" | "spoilage" | "waste";
+import { WASTE_REASONS, type WasteReason } from './index';
 
 export interface KitchenComponent {
   _id: string;
@@ -52,12 +52,6 @@ interface ComponentProductionSectionProps {
   onUpdateWaste: (index: number, field: "reason" | "grams", value: string | number) => void;
   onRemoveWaste: (index: number) => void;
 }
-
-const WASTE_REASONS: { value: WasteReason; label: string }[] = [
-  { value: "qa_testing", label: "QA / Testing" },
-  { value: "spoilage", label: "Spoilage" },
-  { value: "waste", label: "Waste" },
-];
 
 export function ComponentProductionSection({
   components,

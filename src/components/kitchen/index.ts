@@ -32,6 +32,15 @@ export { KitchenOrderChecklist } from './KitchenOrderChecklist';
 export { K3MartSyntheticCard } from './K3MartSyntheticCard';
 export { DueDateOrderList } from './DueDateOrderList';
 
+// Shared kitchen constants
+export type WasteReason = "qa_testing" | "spoilage" | "waste";
+
+export const WASTE_REASONS: { value: WasteReason; label: string }[] = [
+  { value: "qa_testing", label: "QA / Testing" },
+  { value: "spoilage", label: "Spoilage" },
+  { value: "waste", label: "Waste" },
+];
+
 // Kitchen V4 Redesign — Phase 21
 export { ProductionTargetsBar } from './ProductionTargetsBar';
 export type { KitchenTargets } from './ProductionTargetsBar';

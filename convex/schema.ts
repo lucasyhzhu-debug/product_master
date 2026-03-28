@@ -61,6 +61,19 @@ export default defineSchema({
   // OI-01: removed by_name -- zero withIndex references
   // QFIX-05: removed by_brand -- zero withIndex references
 
+  // Phase 68: Audit trail for bulk price changes (ingredients + materials)
+  priceChangeLog: defineTable({
+    entityType: v.union(v.literal("ingredient"), v.literal("material")),
+    entityId: v.string(),
+    entityName: v.string(),
+    field: v.string(),
+    oldValue: v.number(),
+    newValue: v.number(),
+    changedBy: v.string(),
+    changedAt: v.number(),
+  }).index("by_entity", ["entityType", "entityId"])
+    .index("by_date", ["changedAt"]),
+
   packagingMaterials: defineTable({
     name: v.string(),
     brand: v.optional(v.string()),

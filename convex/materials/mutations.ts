@@ -148,6 +148,29 @@ export const bulkUpdatePrices = protectedMutation({
         current.unitType
       );
 
+      // Log price changes before patching
+      const now = Date.now();
+      const changedBy = ctx.user.name;
+      const fields: { field: string; old: number; new: number }[] = [];
+      if (current.volumePurchased !== update.volumePurchased)
+        fields.push({ field: "volumePurchased", old: current.volumePurchased, new: update.volumePurchased });
+      if (current.priceExclShipping !== update.priceExclShipping)
+        fields.push({ field: "priceExclShipping", old: current.priceExclShipping, new: update.priceExclShipping });
+      if (current.shippingCost !== update.shippingCost)
+        fields.push({ field: "shippingCost", old: current.shippingCost, new: update.shippingCost });
+      for (const f of fields) {
+        await ctx.db.insert("priceChangeLog", {
+          entityType: "material",
+          entityId: update.id,
+          entityName: current.name,
+          field: f.field,
+          oldValue: f.old,
+          newValue: f.new,
+          changedBy,
+          changedAt: now,
+        });
+      }
+
       await ctx.db.patch(update.id, {
         volumePurchased: update.volumePurchased,
         priceExclShipping: update.priceExclShipping,
