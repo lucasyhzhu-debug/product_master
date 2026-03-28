@@ -43,6 +43,9 @@ interface GapAnalysis {
   totalProducts: number;
 }
 
+// TODO: This WeekData interface is duplicated from the canonical definition in
+// convex/reports/incomeStatement.ts. Consider extracting a shared type if Convex
+// ever supports importing server types on the client without bundling server code.
 interface WeekData {
   channels: ChannelData[];
   totalGross: number;
