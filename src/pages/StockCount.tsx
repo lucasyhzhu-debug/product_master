@@ -32,28 +32,8 @@ import {
   useLastStockCount,
   useStorageLocations,
 } from "@/hooks/convex";
+import { formatRelativeTime } from "@/lib/formatters";
 import type { Id } from "../../convex/_generated/dataModel";
-
-// ============================================================================
-// HELPERS
-// ============================================================================
-
-/** Format a relative time string from a timestamp */
-function formatRelativeTime(timestamp: number): string {
-  const now = Date.now();
-  const diffMs = now - timestamp;
-  const diffMins = Math.floor(diffMs / 60_000);
-
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "yesterday";
-  return `${diffDays}d ago`;
-}
 
 // ============================================================================
 // MAIN COMPONENT
