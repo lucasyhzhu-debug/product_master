@@ -129,6 +129,9 @@ const AssetRegister = lazyWithPreload(() =>
 const StockCount = lazyWithPreload(() =>
   import('./pages/StockCount').then(m => ({ default: m.StockCount }))
 );
+const BulkPriceUpdate = lazyWithPreload(() =>
+  import('./pages/BulkPriceUpdate').then(m => ({ default: m.BulkPriceUpdate }))
+);
 
 function App() {
   return (
@@ -246,6 +249,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessIngredients">
                         <IngredientsManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Bulk Price Update - Manager and Admin (Phase 68) */}
+                  <Route
+                    path="bulk-price-update"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessIngredients">
+                        <BulkPriceUpdate />
                       </ProtectedRoute>
                     }
                   />

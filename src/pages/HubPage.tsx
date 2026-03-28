@@ -83,6 +83,7 @@ const HUB_AREAS: AreaCard[] = [
       { label: "Locations", path: "/inventory/locations" },
       { label: "Planner", path: "/restock-planner" },
       { label: "Ingredients", path: "/ingredients" },
+      { label: "Bulk Prices", path: "/bulk-price-update" },
     ],
     visible: (hp) => hp("canAccessInventory"),
   },
@@ -210,6 +211,7 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   "All Guides": BookOpen,
   "Expenses Guide": CreditCard,
   "Asset Register": Building2,
+  "Bulk Prices": DollarSign,
 };
 
 // ---------------------------------------------------------------------------
