@@ -202,7 +202,7 @@ Full details: `.planning/milestones/v1.8-ROADMAP.md`
   1. Admin can create, edit, and view employees with name, role, and bank account information
   2. Payroll entry form shows a dropdown/picker of employees from the roster instead of a free-text name field
   3. Existing payroll entries still display correctly (backward compatible with free-text recipientName)
-**Plans**: TBD
+**Plans**: 2 (66-01 backend, 66-02 frontend)
 **UI hint**: yes
 
 ### Phase 67: Inventory Drift & Daily Stock Update
@@ -246,7 +246,7 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 |-------|-----------|----------------|--------|-----------|
 | 64. UI Polish & Data Quality | v1.9 | 0/TBD | Not started | - |
 | 65. K3Mart Cockpit Fixes | v1.9 | 0/2 | Planned    |  |
-| 66. Employee Roster & Payroll Link | v1.9 | 0/TBD | Not started | - |
+| 66. Employee Roster & Payroll Link | v1.9 | 0/2 | Planned | - |
 | 67. Inventory Drift & Daily Stock Update | v1.9 | 0/TBD | Not started | - |
 | 68. COGS Bulk Price Update | v1.9 | 0/TBD | Not started | - |
 | 69. Kitchen Component Reporting | v1.9 | 0/TBD | Not started | - |
