@@ -162,8 +162,8 @@ Full details: `.planning/milestones/v1.8-ROADMAP.md`
 
 **Milestone Goal:** Fix production bugs, polish UI friction points, and add missing operational features across K3Mart, inventory, payroll, and kitchen reporting.
 
-- [ ] **Phase 64: UI Polish & Data Quality** - Fix navbar, mobile order modal, and BigSeller commission sign convention
-- [ ] **Phase 65: K3Mart Cockpit Fixes** - Push price on stock flows, fix history tab, refresh active outlets
+- [x] **Phase 64: UI Polish & Data Quality** (3/3 plans) — completed 2026-03-28
+- [ ] **Phase 65: K3Mart Cockpit Fixes** (2 plans) - Push price on stock flows, remove history tab, refresh active outlets
 - [ ] **Phase 66: Employee Roster & Payroll Link** - Employee table with roster picker replacing free-text payroll input
 - [ ] **Phase 67: Inventory Drift & Daily Stock Update** - Fix stock count drift and add quick daily stock update by location
 - [ ] **Phase 68: COGS Bulk Price Update** - Bulk edit UI for ingredient and material costs
@@ -181,7 +181,7 @@ Full details: `.planning/milestones/v1.8-ROADMAP.md`
   3. On mobile order creation, tapping empty space around product buttons does not add products to the order
   4. The delete button on mobile order line items is clearly visible (not hidden or tiny) and requires confirmation before removing
   5. BigSeller commission/fee values display as positive numbers in the orders table and are stored with consistent sign convention
-**Plans**: TBD
+**Plans**: 3 (64-01 navbar, 64-02 mobile order, 64-03 BigSeller fees)
 **UI hint**: yes
 
 ### Phase 65: K3Mart Cockpit Fixes
@@ -190,9 +190,9 @@ Full details: `.planning/milestones/v1.8-ROADMAP.md`
 **Requirements**: K3M-01, K3M-02, K3M-03
 **Success Criteria** (what must be TRUE):
   1. Stock-in and stock-out API calls include the product price (harga) so outlet inventory shows correct IDR values instead of 0
-  2. The History tab in the K3Mart cockpit loads and displays past stock movements without errors
+  2. History tab removed — cockpit focuses on dashboard and stock-in/out operations
   3. The active outlet list shows exactly 4 outlets: Bintaro, Lippo Puri Mall, SCBD, Old Shanghai (no stale outlets)
-**Plans**: TBD
+**Plans**: 2 (65-01 backend, 65-02 frontend)
 
 ### Phase 66: Employee Roster & Payroll Link
 **Goal**: Managers maintain an employee roster that payroll entries select from, replacing free-text name input
@@ -245,7 +245,7 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 64. UI Polish & Data Quality | v1.9 | 0/TBD | Not started | - |
-| 65. K3Mart Cockpit Fixes | v1.9 | 0/TBD | Not started | - |
+| 65. K3Mart Cockpit Fixes | v1.9 | 0/2 | Planned | - |
 | 66. Employee Roster & Payroll Link | v1.9 | 0/TBD | Not started | - |
 | 67. Inventory Drift & Daily Stock Update | v1.9 | 0/TBD | Not started | - |
 | 68. COGS Bulk Price Update | v1.9 | 0/TBD | Not started | - |
