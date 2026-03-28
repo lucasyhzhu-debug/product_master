@@ -126,6 +126,9 @@ const ManualJournalEntry = lazyWithPreload(() =>
 const AssetRegister = lazyWithPreload(() =>
   import('./pages/AssetRegister').then(m => ({ default: m.AssetRegister }))
 );
+const StockCount = lazyWithPreload(() =>
+  import('./pages/StockCount').then(m => ({ default: m.StockCount }))
+);
 
 function App() {
   return (
@@ -427,6 +430,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessInventory">
                         <LocationsManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Stock Count - All roles with inventory access */}
+                  <Route
+                    path="inventory/stock-count"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessInventory">
+                        <StockCount />
                       </ProtectedRoute>
                     }
                   />

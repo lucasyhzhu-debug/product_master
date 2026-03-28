@@ -990,6 +990,7 @@ export default defineSchema({
       v.literal("gofood_sale"),   // GoFood sync auto-deduction
       v.literal("adjust"),        // Manager adjustment (spoilage, correction, transfer)
       v.literal("transfer"),      // Phase 19: Stock transfer between locations
+      v.literal("stock_count"),   // Phase 67: Daily stock count correction
     ),
     quantity: v.number(),          // + for add/adjust-up, - for drawdown/adjust-down
     previousQuantity: v.number(),

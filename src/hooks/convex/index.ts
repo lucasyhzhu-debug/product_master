@@ -289,6 +289,8 @@ export {
   useProductInventory,
   useProductInventoryGrouped,
   useProductInventoryTransactions,
+  useBulkStockCount,
+  useLastStockCount,
   type ProductStockRow,
   type ProductLowStockAlert,
   type ProductInventorySettings,

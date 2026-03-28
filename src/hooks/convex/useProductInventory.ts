@@ -72,6 +72,29 @@ export function useProductInventoryTransactions(filters: {
 }
 
 // ============================================================================
+// STOCK COUNT HOOKS
+// ============================================================================
+
+/**
+ * Hook for submitting a bulk stock count.
+ * Used by the daily stock count UI.
+ */
+export function useBulkStockCount() {
+  return useMutation(api.productInventory.mutations.bulkStockCount);
+}
+
+/**
+ * Hook for fetching last stock count timestamps per product at a location.
+ * Returns undefined while loading, or an object keyed by menuProductId string.
+ */
+export function useLastStockCount(locationId: Id<"storageLocations"> | undefined) {
+  return useQuery(
+    api.productInventory.queries.getLastStockCount,
+    locationId ? { locationId } : "skip"
+  );
+}
+
+// ============================================================================
 // TYPES
 // ============================================================================
 

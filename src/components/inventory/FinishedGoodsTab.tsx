@@ -21,6 +21,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Plus,
@@ -28,6 +29,7 @@ import {
   ChevronDown,
   ShoppingBag,
   ArrowLeftRight,
+  ClipboardCheck,
   Package,
   MapPin,
   Layers,
@@ -64,6 +66,7 @@ import { api } from "../../../convex/_generated/api";
 // ============================================================================
 
 export function FinishedGoodsTab() {
+  const navigate = useNavigate();
   const { user, hasRole } = useAuth();
   const isManager = hasRole("manager", "admin");
   const isAdmin = hasRole("admin");
@@ -289,6 +292,16 @@ export function FinishedGoodsTab() {
               Move Stock
             </Button>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/inventory/stock-count")}
+            className="gap-2"
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            Count Stock
+          </Button>
         </div>
 
         {/* Right: grouping toggle + settings */}

@@ -163,9 +163,9 @@ Full details: `.planning/milestones/v1.8-ROADMAP.md`
 **Milestone Goal:** Fix production bugs, polish UI friction points, and add missing operational features across K3Mart, inventory, payroll, and kitchen reporting.
 
 - [x] **Phase 64: UI Polish & Data Quality** (3/3 plans) — completed 2026-03-28
-- [ ] **Phase 65: K3Mart Cockpit Fixes** (2 plans) - Push price on stock flows, remove history tab, refresh active outlets
-- [ ] **Phase 66: Employee Roster & Payroll Link** (2 plans) - Employee table with roster picker replacing free-text payroll input
-- [ ] **Phase 67: Inventory Drift & Daily Stock Update** - Fix stock count drift and add quick daily stock update by location
+- [x] **Phase 65: K3Mart Cockpit Fixes** (2/2 plans) — completed 2026-03-28
+- [x] **Phase 66: Employee Roster & Payroll Link** (2/2 plans) — completed 2026-03-28
+- [x] **Phase 67: Inventory Drift & Daily Stock Update** (2/2 plans) -- completed 2026-03-28
 - [ ] **Phase 68: COGS Bulk Price Update** - Bulk edit UI for ingredient and material costs
 - [ ] **Phase 69: Kitchen Component Reporting** - Component-level (Big Ball, Mid Ball) reporting alongside products
 
@@ -244,10 +244,10 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 64. UI Polish & Data Quality | v1.9 | 0/TBD | Not started | - |
-| 65. K3Mart Cockpit Fixes | v1.9 | 0/2 | Planned    |  |
-| 66. Employee Roster & Payroll Link | v1.9 | 0/2 | Planned | - |
-| 67. Inventory Drift & Daily Stock Update | v1.9 | 0/TBD | Not started | - |
+| 64. UI Polish & Data Quality | v1.9 | 3/3 | Complete | 2026-03-28 |
+| 65. K3Mart Cockpit Fixes | v1.9 | 2/2 | Complete | 2026-03-28 |
+| 66. Employee Roster & Payroll Link | v1.9 | 2/2 | Complete | 2026-03-28 |
+| 67. Inventory Drift & Daily Stock Update | v1.9 | 2/2 | Complete | 2026-03-28 |
 | 68. COGS Bulk Price Update | v1.9 | 0/TBD | Not started | - |
 | 69. Kitchen Component Reporting | v1.9 | 0/TBD | Not started | - |
 
