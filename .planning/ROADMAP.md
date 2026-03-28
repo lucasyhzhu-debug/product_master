@@ -164,7 +164,7 @@ Full details: `.planning/milestones/v1.8-ROADMAP.md`
 
 - [x] **Phase 64: UI Polish & Data Quality** (3/3 plans) — completed 2026-03-28
 - [ ] **Phase 65: K3Mart Cockpit Fixes** (2 plans) - Push price on stock flows, remove history tab, refresh active outlets
-- [ ] **Phase 66: Employee Roster & Payroll Link** - Employee table with roster picker replacing free-text payroll input
+- [ ] **Phase 66: Employee Roster & Payroll Link** (2 plans) - Employee table with roster picker replacing free-text payroll input
 - [ ] **Phase 67: Inventory Drift & Daily Stock Update** - Fix stock count drift and add quick daily stock update by location
 - [ ] **Phase 68: COGS Bulk Price Update** - Bulk edit UI for ingredient and material costs
 - [ ] **Phase 69: Kitchen Component Reporting** - Component-level (Big Ball, Mid Ball) reporting alongside products
@@ -245,7 +245,7 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 64. UI Polish & Data Quality | v1.9 | 0/TBD | Not started | - |
-| 65. K3Mart Cockpit Fixes | v1.9 | 0/2 | Planned | - |
+| 65. K3Mart Cockpit Fixes | v1.9 | 0/2 | Planned    |  |
 | 66. Employee Roster & Payroll Link | v1.9 | 0/TBD | Not started | - |
 | 67. Inventory Drift & Daily Stock Update | v1.9 | 0/TBD | Not started | - |
 | 68. COGS Bulk Price Update | v1.9 | 0/TBD | Not started | - |
@@ -280,7 +280,7 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 - Reverse accumulated depreciation JEs
 
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 0/2 plans executed
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
