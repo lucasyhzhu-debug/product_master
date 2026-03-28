@@ -64,6 +64,11 @@ interface WeekData {
   totalOpEx: number;
   ebit: number;
   ebitMarginPercent: number | null;
+  // EBITDA (Phase 69)
+  depreciationAmount: number;
+  amortizationAmount: number;
+  ebitda: number;
+  ebitdaMarginPercent: number | null;
   otherItems: Array<{ code: string; name: string; total: number }>;
   totalOther: number;
   netIncome: number;
@@ -87,6 +92,9 @@ export interface IncomeStatementData {
     totalOpEx: { amount: number; percent: number | null };
     ebit: { amount: number; percent: number | null };
     ebitMarginPp: number | null;
+    // EBITDA deltas (Phase 69)
+    ebitda: { amount: number; percent: number | null };
+    ebitdaMarginPp: number | null;
     totalOther: { amount: number; percent: number | null };
     netIncome: { amount: number; percent: number | null };
     netMarginPp: number | null;
@@ -441,6 +449,40 @@ export function generateIncomeStatementCSV(
     prevEbitMarginStr,
     data.deltas.ebitMarginPp !== null
       ? data.deltas.ebitMarginPp.toFixed(1) + "pp"
+      : "",
+  ]);
+
+  // EBITDA
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "EBITDA",
+    String(data.current.ebitda),
+    "exact",
+    String(data.previous.ebitda),
+    formatPrecomputedDelta(data.deltas.ebitda),
+  ]);
+
+  // EBITDA Margin %
+  const ebitdaMarginStr =
+    data.current.ebitdaMarginPercent !== null
+      ? data.current.ebitdaMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  const prevEbitdaMarginStr =
+    data.previous.ebitdaMarginPercent !== null
+      ? data.previous.ebitdaMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "EBITDA Margin %",
+    ebitdaMarginStr,
+    "",
+    prevEbitdaMarginStr,
+    data.deltas.ebitdaMarginPp !== null
+      ? data.deltas.ebitdaMarginPp.toFixed(1) + "pp"
       : "",
   ]);
 

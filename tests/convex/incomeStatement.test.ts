@@ -832,7 +832,7 @@ describe("getWeeklyIncomeStatement", () => {
     expect(result.current.totalPackagingCogs).toBe(15000);     // 4000 + 5000 + 6000
     expect(result.current.totalCogs).toBe(65000);              // 50000 + 15000
     expect(result.current.grossProfit).toBe(130000);           // 195000 - 65000
-    expect(result.current.grossMarginPercent).toBeCloseTo(66.67, 2); // 130000/195000 * 100
+    expect(result.current.grossMarginPercent).toBeCloseTo(56.52, 2); // 130000/230000 * 100 (uses totalGross denominator)
     expect(result.current.totalAdBurn).toBe(0);
     expect(result.current.totalPromoBurn).toBe(0);
 
@@ -1075,7 +1075,7 @@ describe("P&L OpEx/EBIT/Other/NetIncome", () => {
     expect(result.current.totalOpEx).toBe(0);
   });
 
-  test("EBIT = grossProfit - totalOpEx, margins use netRevenue as denominator", async () => {
+  test("EBIT = grossProfit - totalOpEx, margins use totalGross as denominator", async () => {
     const t = convexTest(schema);
     const userId = await seedUser(t);
 
@@ -1108,7 +1108,7 @@ describe("P&L OpEx/EBIT/Other/NetIncome", () => {
     expect(result.current.grossProfit).toBe(1000000);
     // ebit = grossProfit - totalOpEx = 1000000 - 200000 = 800000
     expect(result.current.ebit).toBe(800000);
-    // ebitMarginPercent = ebit / netRevenue * 100 = 800000 / 1000000 * 100 = 80
+    // ebitMarginPercent = ebit / totalGross * 100 = 800000 / 1000000 * 100 = 80
     expect(result.current.ebitMarginPercent).toBeCloseTo(80, 1);
   });
 

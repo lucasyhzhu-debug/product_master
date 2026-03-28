@@ -665,6 +665,26 @@ export function FinancialStatement() {
                 showComparison={showComparison}
               />
 
+              {/* -- EBITDA -- */}
+              <PLRow
+                label="EBITDA"
+                currentAmount={data.current.ebitda}
+                previousAmount={data.previous.ebitda}
+                delta={data.deltas.ebitda}
+                isBold
+                showComparison={showComparison}
+                isTopBorder
+              />
+
+              {/* EBITDA Margin % row */}
+              <MarginRow
+                label="EBITDA Margin %"
+                currentPct={data.current.ebitdaMarginPercent}
+                previousPct={data.previous.ebitdaMarginPercent}
+                deltaPp={data.deltas.ebitdaMarginPp}
+                showComparison={showComparison}
+              />
+
               {/* -- OTHER INCOME/EXPENSE SECTION -- */}
               <SectionHeaderRow
                 label="Other Income / Expense"

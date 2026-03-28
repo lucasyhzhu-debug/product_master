@@ -81,6 +81,11 @@ interface WeekData {
   totalOpEx: number;
   ebit: number;
   ebitMarginPercent: number | null;
+  // EBITDA (Phase 69)
+  depreciationAmount: number;
+  amortizationAmount: number;
+  ebitda: number;
+  ebitdaMarginPercent: number | null;
   otherItems: Array<{ code: string; name: string; total: number }>;
   totalOther: number;
   netIncome: number;
@@ -443,19 +448,34 @@ function aggregateWeek(
   );
   const totalCogs = totalProductionCogs + totalPackagingCogs;
   const grossProfit = netRevenue - totalCogs;
+  // Margin denominator: use totalGross (not netRevenue) so margins reflect
+  // the full pre-deduction revenue base. This matches standard accounting
+  // practice where gross margin = gross profit / gross revenue.
   const grossMarginPercent =
-    netRevenue !== 0 ? (grossProfit / netRevenue) * 100 : null;
+    totalGross !== 0 ? (grossProfit / totalGross) * 100 : null;
 
-  // ── 4f: Below Gross Profit — OpEx, EBIT, Other, Net Income (Phase 49) ──
+  // ── 4f: Below Gross Profit — OpEx, EBIT, EBITDA, Other, Net Income ──
   const { opex, other } = journalAggregation;
   const totalOpEx = opex.total;
   const ebit = grossProfit - totalOpEx;
   const ebitMarginPercent =
-    netRevenue !== 0 ? (ebit / netRevenue) * 100 : null;
+    totalGross !== 0 ? (ebit / totalGross) * 100 : null;
+
+  // EBITDA: add back depreciation (6150) and amortization (6160) from OpEx
+  const depreciationAmount = opex.items
+    .filter((item) => item.code === "6150")
+    .reduce((sum, item) => sum + item.total, 0);
+  const amortizationAmount = opex.items
+    .filter((item) => item.code === "6160")
+    .reduce((sum, item) => sum + item.total, 0);
+  const ebitda = ebit + depreciationAmount + amortizationAmount;
+  const ebitdaMarginPercent =
+    totalGross !== 0 ? (ebitda / totalGross) * 100 : null;
+
   const totalOther = other.total;
   const netIncomeValue = ebit - totalOther;
   const netMarginPercentValue =
-    netRevenue !== 0 ? (netIncomeValue / netRevenue) * 100 : null;
+    totalGross !== 0 ? (netIncomeValue / totalGross) * 100 : null;
 
   return {
     channels,
@@ -477,6 +497,10 @@ function aggregateWeek(
     totalOpEx,
     ebit,
     ebitMarginPercent,
+    depreciationAmount,
+    amortizationAmount,
+    ebitda,
+    ebitdaMarginPercent,
     otherItems: other.items,
     totalOther,
     netIncome: netIncomeValue,
@@ -696,6 +720,13 @@ async function fetchAndAggregate(
       currentPeriod.ebitMarginPercent !== null &&
       previousPeriod.ebitMarginPercent !== null
         ? currentPeriod.ebitMarginPercent - previousPeriod.ebitMarginPercent
+        : null,
+    // EBITDA deltas
+    ebitda: computeDelta(currentPeriod.ebitda, previousPeriod.ebitda),
+    ebitdaMarginPp:
+      currentPeriod.ebitdaMarginPercent !== null &&
+      previousPeriod.ebitdaMarginPercent !== null
+        ? currentPeriod.ebitdaMarginPercent - previousPeriod.ebitdaMarginPercent
         : null,
     totalOther: computeDelta(
       currentPeriod.totalOther,
