@@ -713,3 +713,36 @@ export const copyLastWeek = mutation({
     return { copiedCount };
   },
 });
+
+/**
+ * One-time mutation to deactivate stale K3Mart outlets.
+ * Stale outlets: Gading Serpong (45), Kota Kasablanka (48), LM Nusantara (78), Tamtem (81).
+ * Sets isActive=false — does NOT hard-delete to preserve historical data.
+ */
+export const deactivateStaleOutlets = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const staleExternalIds = ["45", "48", "78", "81"];
+    const results: Array<{ externalId: string; name: string; status: string }> = [];
+
+    for (const externalId of staleExternalIds) {
+      const outlets = await ctx.db
+        .query("externalOutlets")
+        .withIndex("by_source_active", (q) => q.eq("source", "k3mart").eq("isActive", true))
+        .collect();
+
+      const outlet = outlets.find((o) => o.externalId === externalId);
+
+      if (outlet) {
+        await ctx.db.patch(outlet._id, { isActive: false });
+        results.push({ externalId, name: outlet.name, status: "deactivated" });
+      } else {
+        results.push({ externalId, name: "not found or already inactive", status: "skipped" });
+      }
+    }
+
+    return results;
+  },
+});

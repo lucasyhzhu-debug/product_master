@@ -609,56 +609,6 @@ export const getOutletDetail = query({
 });
 
 /**
- * Query 6: getStockMovementHistory
- * Filterable audit log of all stock movements.
- */
-export const getStockMovementHistory = query({
-  args: {
-    outletId: v.optional(v.id("externalOutlets")),
-    date: v.optional(v.string()), // YYYY-MM-DD
-    limit: v.optional(v.number()), // Default 50
-  },
-  handler: async (ctx, args) => {
-    const limit = args.limit ?? 50;
-
-    let movements;
-
-    if (args.outletId && args.date) {
-      // Filter by both outlet and date
-      movements = await ctx.db
-        .query("k3martStockMovements")
-        .withIndex("by_outlet_date", (q) =>
-          q.eq("outletId", args.outletId!).eq("date", args.date!)
-        )
-        .order("desc")
-        .take(limit);
-    } else if (args.outletId) {
-      // Filter by outlet only
-      movements = await ctx.db
-        .query("k3martStockMovements")
-        .withIndex("by_outlet_date", (q) => q.eq("outletId", args.outletId!))
-        .order("desc")
-        .take(limit);
-    } else if (args.date) {
-      // Filter by date only
-      movements = await ctx.db
-        .query("k3martStockMovements")
-        .withIndex("by_date", (q) => q.eq("date", args.date!))
-        .order("desc")
-        .take(limit);
-    } else {
-      // No filters - get most recent movements
-      movements = await ctx.db
-        .query("k3martStockMovements")
-        .order("desc")
-        .take(limit);
-    }
-
-    return movements.reverse(); // Return oldest first for chronological audit log
-  },
-});
-
-/**
  * Query 7: getOutletSettings
  * Returns all outlet configs (active/inactive, product visibility, custom pricing).
  */
