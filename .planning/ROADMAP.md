@@ -265,3 +265,22 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 | v1.9 Bugs & Quality of Life | 64-69 | TBD | In progress | - |
 
 **Total: 63 phases, 232 plans shipped across 9 milestones + 6 phases planned for v1.9**
+
+## Backlog
+
+### Phase 999.1: Reclassify-to-Expense Disposal Type (BACKLOG)
+
+**Goal:** Add a "Reclassify to Expense" option to the fixed asset disposal flow for items incorrectly capitalized. Current disposal types (Sold, Scrapped, Written Off) route remaining NBV to "Loss on Disposal" (7400). Reclassification should reverse the capitalization JE and re-book as operating expense (6100), which is the technically correct accounting treatment.
+
+**Scope:**
+- Add `reclassify_to_expense` to `disposalType` union in schema + mutations
+- Update dispose JE logic to DR Expense (6100) instead of DR Loss (7400)
+- Add the option to DisposeAssetDialog UI
+- Optionally let user pick the target expense account
+- Reverse accumulated depreciation JEs
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
