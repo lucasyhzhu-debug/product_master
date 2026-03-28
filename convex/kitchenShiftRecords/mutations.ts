@@ -53,6 +53,22 @@ export const submitShiftRecord = mutation({
     // Phase 21-08: Actual cook (may differ from submitter)
     chefName: v.optional(v.string()),
     chefUserId: v.optional(v.id("users")),
+    // Phase 69: Component production (pre-cursor ingredients in grams)
+    componentProduced: v.optional(v.array(v.object({
+      kitchenComponentCode: v.string(),
+      kitchenComponentName: v.string(),
+      grams: v.number(),
+    }))),
+    componentWaste: v.optional(v.array(v.object({
+      kitchenComponentCode: v.string(),
+      kitchenComponentName: v.string(),
+      reason: v.union(
+        v.literal("qa_testing"),
+        v.literal("spoilage"),
+        v.literal("waste")
+      ),
+      grams: v.number(),
+    }))),
   },
   handler: async (ctx, args) => {
     // 1. Auth: all roles can submit shift records
@@ -93,6 +109,28 @@ export const submitShiftRecord = mutation({
         throw new ConvexError(
           `Waste cannot exceed produced quantity for ${productName}`
         );
+      }
+    }
+
+    // 3b. Validate: component waste cannot exceed component produced per component
+    if (args.componentProduced && args.componentWaste) {
+      const compProducedMap = new Map<string, number>();
+      for (const item of args.componentProduced) {
+        if (item.grams > 0) {
+          compProducedMap.set(
+            item.kitchenComponentCode,
+            (compProducedMap.get(item.kitchenComponentCode) ?? 0) + item.grams
+          );
+        }
+      }
+      for (const wasteItem of args.componentWaste) {
+        if (wasteItem.grams <= 0) continue;
+        const producedGrams = compProducedMap.get(wasteItem.kitchenComponentCode) ?? 0;
+        if (wasteItem.grams > producedGrams) {
+          throw new ConvexError(
+            `Component waste for "${wasteItem.kitchenComponentName}" (${wasteItem.grams}g) cannot exceed produced (${producedGrams}g)`
+          );
+        }
       }
     }
 
@@ -211,6 +249,9 @@ export const submitShiftRecord = mutation({
     }
 
     // 6. Insert the shift record
+    const filteredComponentProduced = args.componentProduced?.filter((c) => c.grams > 0);
+    const filteredComponentWaste = args.componentWaste?.filter((c) => c.grams > 0);
+
     const recordId = await ctx.db.insert("kitchenShiftRecords", {
       date: args.date,
       submittedAt: now,
@@ -221,6 +262,12 @@ export const submitShiftRecord = mutation({
       produced: args.produced.filter((item) => item.quantity > 0),
       waste: args.waste.filter((item) => item.quantity > 0),
       inventoryUpdates,
+      ...(filteredComponentProduced && filteredComponentProduced.length > 0
+        ? { componentProduced: filteredComponentProduced }
+        : {}),
+      ...(filteredComponentWaste && filteredComponentWaste.length > 0
+        ? { componentWaste: filteredComponentWaste }
+        : {}),
     });
 
     // 7. Deduct raw ingredients consumed by produced ball quantities.
@@ -283,6 +330,22 @@ export const updateShiftRecord = mutation({
     // Phase 21-08: Actual cook (manager can correct who cooked)
     chefName: v.optional(v.string()),
     chefUserId: v.optional(v.id("users")),
+    // Phase 69: Component production (pre-cursor ingredients in grams)
+    componentProduced: v.optional(v.array(v.object({
+      kitchenComponentCode: v.string(),
+      kitchenComponentName: v.string(),
+      grams: v.number(),
+    }))),
+    componentWaste: v.optional(v.array(v.object({
+      kitchenComponentCode: v.string(),
+      kitchenComponentName: v.string(),
+      reason: v.union(
+        v.literal("qa_testing"),
+        v.literal("spoilage"),
+        v.literal("waste")
+      ),
+      grams: v.number(),
+    }))),
   },
   handler: async (ctx, args) => {
     // 1. Auth: only managers and admins can edit shift records
@@ -462,7 +525,29 @@ export const updateShiftRecord = mutation({
     // 6. Build new inventoryUpdates array (original + adjustments)
     const newInventoryUpdates = [...existingRecord.inventoryUpdates, ...adjustmentUpdates];
 
-    // 7. Patch the record with updated data and audit trail
+    // 7. Validate component waste (Phase 69)
+    if (args.componentProduced && args.componentWaste) {
+      const compProducedMap = new Map<string, number>();
+      for (const item of args.componentProduced) {
+        if (item.grams > 0) {
+          compProducedMap.set(
+            item.kitchenComponentCode,
+            (compProducedMap.get(item.kitchenComponentCode) ?? 0) + item.grams
+          );
+        }
+      }
+      for (const wasteItem of args.componentWaste) {
+        if (wasteItem.grams <= 0) continue;
+        const producedGrams = compProducedMap.get(wasteItem.kitchenComponentCode) ?? 0;
+        if (wasteItem.grams > producedGrams) {
+          throw new ConvexError(
+            `Component waste for "${wasteItem.kitchenComponentName}" (${wasteItem.grams}g) cannot exceed produced (${producedGrams}g)`
+          );
+        }
+      }
+    }
+
+    // 8. Patch the record with updated data and audit trail
     await ctx.db.patch(args.recordId, {
       produced: args.produced.filter((item) => item.quantity > 0),
       waste: args.waste.filter((item) => item.quantity > 0),
@@ -472,6 +557,12 @@ export const updateShiftRecord = mutation({
       ...(args.editNote !== undefined ? { editNote: args.editNote } : {}),
       ...(args.chefName !== undefined ? { chefName: args.chefName } : {}),
       ...(args.chefUserId !== undefined ? { chefUserId: args.chefUserId } : {}),
+      ...(args.componentProduced !== undefined
+        ? { componentProduced: args.componentProduced.filter((c) => c.grams > 0) }
+        : {}),
+      ...(args.componentWaste !== undefined
+        ? { componentWaste: args.componentWaste.filter((c) => c.grams > 0) }
+        : {}),
     });
 
     return { success: true, adjustments: adjustmentUpdates.length };

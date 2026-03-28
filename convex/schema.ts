@@ -1329,9 +1329,33 @@ export default defineSchema({
     // Array of enabled production component codes, e.g. ["BIG_BALL", "MID_BALL"]
     // When unset, defaults to all active production component codes (all enabled)
     enabledProductionComponents: v.optional(v.array(v.string())),
+    // Phase 69: Kitchen component visibility toggles
+    // Array of kitchenComponent codes that are enabled in shift form
+    // When unset, defaults to all active kitchen components (all enabled)
+    enabledKitchenComponents: v.optional(v.array(v.string())),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),
+
+  // ============================================
+  // KITCHEN COMPONENTS
+  // Pre-cursor ingredients tracked in grams (e.g. Outer-Marshmallow, Filling-Pistachio)
+  // These are the raw components that go INTO making balls (not the output balls themselves)
+  // Managed by admin/manager via kitchen settings
+  // ============================================
+
+  kitchenComponents: defineTable({
+    name: v.string(),                       // "Outer-Marshmallow", "Filling-Pistachio"
+    code: v.string(),                       // "OUTER_MARSHMALLOW", "FILLING_PISTACHIO"
+    ballTypeGroup: v.optional(v.string()),  // "MID_BALL" or "BIG_BALL" — for grouping in daily summary
+    unit: v.string(),                       // "g" (grams) — always grams per D-06
+    isActive: v.boolean(),
+    sortOrder: v.number(),                  // Display ordering
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active", ["isActive"])
+    .index("by_code", ["code"]),
 
   // ============================================
   // KITCHEN SHIFT RECORDS
@@ -1366,6 +1390,22 @@ export default defineSchema({
       previousQuantity: v.number(),
       newQuantity: v.number(),
     })),
+    // Phase 69: Component production (pre-cursor ingredients in grams)
+    componentProduced: v.optional(v.array(v.object({
+      kitchenComponentCode: v.string(),     // e.g. "OUTER_MARSHMALLOW"
+      kitchenComponentName: v.string(),     // snapshot at submission time
+      grams: v.number(),                    // Amount produced in grams
+    }))),
+    componentWaste: v.optional(v.array(v.object({
+      kitchenComponentCode: v.string(),
+      kitchenComponentName: v.string(),
+      reason: v.union(
+        v.literal("qa_testing"),
+        v.literal("spoilage"),
+        v.literal("waste")
+      ),
+      grams: v.number(),
+    }))),
     editedAt: v.optional(v.number()),
     editedBy: v.optional(v.string()),
     editNote: v.optional(v.string()),

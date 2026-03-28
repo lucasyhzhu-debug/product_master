@@ -26,6 +26,8 @@ export const updateConfig = mutation({
     // Provide an array of component codes to enable, e.g. ["BIG_BALL", "MID_BALL"]
     // When provided, showJumbo is auto-synced for backward compat
     enabledProductionComponents: v.optional(v.array(v.string())),
+    // Phase 69: Kitchen component visibility toggles
+    enabledKitchenComponents: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
@@ -55,6 +57,9 @@ export const updateConfig = mutation({
         enabledProductionComponents: args.enabledProductionComponents,
       }),
       ...(derivedShowJumbo !== undefined && { showJumbo: derivedShowJumbo }),
+      ...(args.enabledKitchenComponents !== undefined && {
+        enabledKitchenComponents: args.enabledKitchenComponents,
+      }),
       updatedAt: Date.now(),
       updatedBy: user.name,
     };
