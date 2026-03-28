@@ -7,7 +7,7 @@
  * Auth: manager/admin for CRUD, admin-only for depreciation/disposal/void.
  */
 
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import {
   createJournalEntryWithLines,
@@ -44,8 +44,8 @@ export async function resolveAccount(
     .withIndex("by_code", (q) => q.eq("code", code))
     .first();
   if (!account) {
-    throw new Error(
-      `System account ${code} not found. Run accounts:seedDefaults.`
+    throw new ConvexError(
+      `System account ${code} not found. Please ask an admin to run accounts:seedDefaults from the Convex dashboard.`
     );
   }
   return account;

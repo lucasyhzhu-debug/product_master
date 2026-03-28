@@ -157,6 +157,18 @@ export function isVoidableStatus(status: string): boolean {
  */
 export function detectAssetCategory(description: string): AssetCategoryKey {
   const lower = description.toLowerCase();
+  // Intangible: Trademarks/Brands
+  if (/brand|branding|merek|trademark|logo|merk/.test(lower)) {
+    return "merek_dagang";
+  }
+  // Intangible: Patents
+  if (/paten|patent/.test(lower)) {
+    return "hak_paten";
+  }
+  // Intangible: Software
+  if (/software|perangkat lunak|license|lisensi|saas|subscription/.test(lower)) {
+    return "perangkat_lunak";
+  }
   // Kitchen/production equipment
   if (/mixer|sealer|vacuum|fomac|oven|mesin|blender|grinder/.test(lower)) {
     return "mesin_produksi";

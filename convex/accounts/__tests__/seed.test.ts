@@ -10,9 +10,9 @@ import { describe, it, expect } from "vitest";
 import { DEFAULT_ACCOUNTS } from "../mutations";
 
 describe("DEFAULT_ACCOUNTS data integrity", () => {
-  it("has exactly 49 entries", () => {
-    // 7 Revenue + 4 COGS + 12 OpEx + 5 Other + 13 Assets + 5 Liabilities + 3 Equity = 49
-    expect(DEFAULT_ACCOUNTS).toHaveLength(49);
+  it("has exactly 54 entries", () => {
+    // 7 Revenue + 4 COGS + 13 OpEx + 5 Other + 17 Assets + 5 Liabilities + 3 Equity = 54
+    expect(DEFAULT_ACCOUNTS).toHaveLength(54);
   });
 
   it("all entries have isSystem: true", () => {
@@ -81,9 +81,9 @@ describe("DEFAULT_ACCOUNTS data integrity", () => {
 
     expect(typeCounts.revenue).toBe(7);
     expect(typeCounts.cogs).toBe(4);
-    expect(typeCounts.opex).toBe(12); // +1: 6150 Depreciation Expense (Phase 60)
+    expect(typeCounts.opex).toBe(13); // +1: 6150 Depreciation, +1: 6160 Amortization
     expect(typeCounts.other).toBe(5); // +2: 7300 Gain, 7400 Loss on Asset Disposal (Phase 60)
-    expect(typeCounts.asset).toBe(13); // +7: 1610-1670 per-category Accum Depr (Phase 60)
+    expect(typeCounts.asset).toBe(17); // +7: 1610-1670 Accum Depr, +4: 1700, 1710-1730 Intangible
     expect(typeCounts.liability).toBe(5);
     expect(typeCounts.equity).toBe(3);
   });
@@ -111,6 +111,13 @@ describe("DEFAULT_ACCOUNTS data integrity", () => {
     expect(codes.has("1670")).toBe(true); // Accum. Depr. - Leasehold Improvements
     expect(codes.has("7300")).toBe(true); // Gain on Asset Disposal
     expect(codes.has("7400")).toBe(true); // Loss on Asset Disposal
+
+    // Intangible asset accounts (quick-260327-p5x)
+    expect(codes.has("6160")).toBe(true); // Amortization Expense
+    expect(codes.has("1700")).toBe(true); // Intangible Assets
+    expect(codes.has("1710")).toBe(true); // Accum. Amort. - Trademarks
+    expect(codes.has("1720")).toBe(true); // Accum. Amort. - Patents
+    expect(codes.has("1730")).toBe(true); // Accum. Amort. - Software
   });
 
   it("all entries have required fields with correct types", () => {

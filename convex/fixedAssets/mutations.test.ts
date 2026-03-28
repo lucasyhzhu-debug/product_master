@@ -370,13 +370,13 @@ describe("GL account constants", () => {
     expect(DEPRECIATION_EXPENSE_CODE).toBe("6150");
   });
 
-  it("each depreciable category has a unique glAccumCode in 1610-1670 range", () => {
+  it("each depreciable category has a unique glAccumCode in 1610-1730 range", () => {
     const depreciable = ASSET_CATEGORIES.filter((c) => c.depreciable);
     const codes = depreciable.map((c) => c.glAccumCode!);
 
-    // All should be strings starting with "16"
+    // All should be strings: tangible 1610-1670, intangible 1710-1730
     for (const code of codes) {
-      expect(code).toMatch(/^16[1-7]0$/);
+      expect(code).toMatch(/^1[67][1-7]0$/);
     }
 
     // All unique

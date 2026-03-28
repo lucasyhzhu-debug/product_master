@@ -33,7 +33,7 @@ import { ArrowRightLeft, Package, FileCheck, ChevronDown } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { utcToWibDateStr } from "@/lib/dateUtils";
 import { useConvertToCapex } from "@/hooks/convex/useExpenses";
-import { ASSET_CATEGORIES, calculateMonthlyDepreciation } from "../../../convex/fixedAssets/helpers";
+import { ASSET_CATEGORIES, calculateMonthlyDepreciation, getAssetAccountCode } from "../../../convex/fixedAssets/helpers";
 import { detectAssetCategory } from "../../../convex/expenses/helpers";
 import { toast } from "sonner";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -92,13 +92,23 @@ export function CapexConversionModal({
     const salvageValue = Math.round(expense.amount * (cat.salvagePercent / 100));
     const usefulLifeMonths = cat.usefulLifeYears * 12;
     const monthly = calculateMonthlyDepreciation(expense.amount, salvageValue, usefulLifeMonths);
+    const isIntangible = cat.type === "intangible";
     return {
       monthly,
       years: cat.usefulLifeYears,
       salvageValue,
       salvagePercent: cat.salvagePercent,
+      isIntangible,
     };
   }, [selectedCategory, expense.amount]);
+
+  // Determine debit (asset) account label based on selected category
+  const debitAccountLabel = useMemo(() => {
+    const cat = ASSET_CATEGORIES.find((c) => c.key === selectedCategory);
+    if (!cat) return "1500 Fixed Assets";
+    const code = getAssetAccountCode(cat);
+    return code === "1700" ? "1700 Intangible Assets" : "1500 Fixed Assets";
+  }, [selectedCategory]);
 
   // Determine credit account label for JE preview
   const creditAccountLabel = expense.paymentMethod === "employee_paid"
@@ -129,10 +139,10 @@ export function CapexConversionModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-blue-600" />
-            Convert Expense to Equipment Purchase
+            Convert Expense to Capital Expenditure
           </DialogTitle>
           <DialogDescription>
-            Reclassify this expense as a fixed asset with proper depreciation tracking.
+            Reclassify this expense as a fixed or intangible asset with proper depreciation/amortization tracking.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,14 +192,16 @@ export function CapexConversionModal({
             <div className="rounded-md border p-3 bg-blue-50/50 dark:bg-blue-900/10 space-y-1">
               <div className="flex items-center gap-1.5">
                 <Package className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Depreciation Preview</span>
+                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                  {depreciationPreview.isIntangible ? "Amortization" : "Depreciation"} Preview
+                </span>
               </div>
               <p className="text-sm">
                 {formatCurrency(depreciationPreview.monthly)}/month for {depreciationPreview.years} years
               </p>
               <p className="text-xs text-muted-foreground">
                 Salvage value: {formatCurrency(depreciationPreview.salvageValue)} ({depreciationPreview.salvagePercent}%)
-                {" | "} Straight-line method (PSAK 16)
+                {" | "} Straight-line method ({depreciationPreview.isIntangible ? "PSAK 19" : "PSAK 16"})
               </p>
             </div>
           )}
@@ -223,7 +235,7 @@ export function CapexConversionModal({
                   </Badge>
                   <div className="font-mono space-y-0.5">
                     <div className="flex justify-between">
-                      <span>DR 1500 Fixed Assets</span>
+                      <span>DR {debitAccountLabel}</span>
                       <span>{formatCurrency(expense.amount)}</span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">

@@ -23,8 +23,8 @@ import type { AssetCategoryKey } from "../helpers";
 // ---------------------------------------------------------------------------
 
 describe("ASSET_CATEGORIES", () => {
-  it("has exactly 8 entries", () => {
-    expect(ASSET_CATEGORIES).toHaveLength(8);
+  it("has exactly 11 entries", () => {
+    expect(ASSET_CATEGORIES).toHaveLength(11); // 8 tangible + 3 intangible
   });
 
   it("Tanah (land) is not depreciable", () => {
@@ -37,7 +37,7 @@ describe("ASSET_CATEGORIES", () => {
 
   it("all categories except Tanah are depreciable", () => {
     const depreciable = ASSET_CATEGORIES.filter((c) => c.depreciable);
-    expect(depreciable).toHaveLength(7);
+    expect(depreciable).toHaveLength(10); // 7 tangible + 3 intangible
   });
 
   it("each category has a unique abbr", () => {
