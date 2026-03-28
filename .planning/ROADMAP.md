@@ -247,7 +247,7 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 | 64. UI Polish & Data Quality | v1.9 | 3/3 | Complete | 2026-03-28 |
 | 65. K3Mart Cockpit Fixes | v1.9 | 2/2 | Complete | 2026-03-28 |
 | 66. Employee Roster & Payroll Link | v1.9 | 2/2 | Complete | 2026-03-28 |
-| 67. Inventory Drift & Daily Stock Update | v1.9 | 2/2 | Complete | 2026-03-28 |
+| 67. Inventory Drift & Daily Stock Update | v1.9 | Complete    | 2026-03-28 | 2026-03-28 |
 | 68. COGS Bulk Price Update | v1.9 | 0/TBD | Not started | - |
 | 69. Kitchen Component Reporting | v1.9 | 0/TBD | Not started | - |
 
@@ -280,7 +280,7 @@ Phases 64 and 65 can run in parallel. Phases 66, 67, and 68 can run in parallel.
 - Reverse accumulated depreciation JEs
 
 **Requirements:** TBD
-**Plans:** 0/2 plans executed
+**Plans:** 2/0 plans complete
 
 Plans:
 - [ ] TBD (promote with /gsd:review-backlog when ready)
