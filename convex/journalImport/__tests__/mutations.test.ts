@@ -14,16 +14,16 @@ const acc6300 = "acc_6300" as unknown as Id<"accounts">;
 
 // Mock account maps
 const activeAccounts: AccountMap = new Map([
-  ["6100", { id: acc6100, isActive: true }],
-  ["6200", { id: acc6200, isActive: true }],
-  ["1100", { id: acc1100, isActive: true }],
+  ["6100", { id: acc6100, type: "expense", isActive: true }],
+  ["6200", { id: acc6200, type: "expense", isActive: true }],
+  ["1100", { id: acc1100, type: "asset", isActive: true }],
 ]);
 
 const accountsWithInactive: AccountMap = new Map([
-  ["6100", { id: acc6100, isActive: true }],
-  ["6200", { id: acc6200, isActive: true }],
-  ["1100", { id: acc1100, isActive: true }],
-  ["6300", { id: acc6300, isActive: false }],
+  ["6100", { id: acc6100, type: "expense", isActive: true }],
+  ["6200", { id: acc6200, type: "expense", isActive: true }],
+  ["1100", { id: acc1100, type: "asset", isActive: true }],
+  ["6300", { id: acc6300, type: "expense", isActive: false }],
 ]);
 
 function validRow(overrides?: Partial<ImportRow>): ImportRow {
@@ -32,6 +32,8 @@ function validRow(overrides?: Partial<ImportRow>): ImportRow {
     amount: 50000,
     description: "Office supplies purchase",
     accountCode: "6100",
+    paymentMethod: "company_paid",
+    submitterName: "Test User",
     ...overrides,
   };
 }
