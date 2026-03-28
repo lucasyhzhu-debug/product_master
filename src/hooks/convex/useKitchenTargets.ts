@@ -1,8 +1,11 @@
 /**
  * Kitchen targets hook for the redesigned KitchenViewV2.
  *
- * Provides today's production targets (ball totals + packaging breakdown)
- * and today's shift records. Uses WIB (UTC+7) date, same as useKitchenProduction.ts.
+ * Provides today's production targets (ball totals + packaging breakdown),
+ * today's shift records, kitchen components, and daily component summary.
+ * Uses WIB (UTC+7) date, same as useKitchenProduction.ts.
+ *
+ * Phase 69: Added kitchenComponents + dailyComponentSummary queries.
  */
 
 import { useMemo } from "react";
@@ -24,5 +27,20 @@ export function useKitchenTargets() {
     { date: today }
   );
 
-  return { today, targets, todayShiftRecords };
+  // Phase 69: Kitchen component data
+  const kitchenComponents = useQuery(api.kitchenComponents.queries.list, {
+    activeOnly: true,
+  });
+  const dailyComponentSummary = useQuery(
+    api.kitchenShiftRecords.queries.getDailyComponentSummary,
+    { date: today }
+  );
+
+  return {
+    today,
+    targets,
+    todayShiftRecords,
+    kitchenComponents,
+    dailyComponentSummary,
+  };
 }

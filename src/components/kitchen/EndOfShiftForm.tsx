@@ -46,6 +46,8 @@ import {
 } from "@/components/ui/select";
 import { ShiftReviewModal } from "./ShiftReviewModal";
 import { ShiftSuccessScreen } from "./ShiftSuccessScreen";
+import { ComponentProductionSection } from "./ComponentProductionSection";
+import type { ComponentWasteEntry } from "./ComponentProductionSection";
 import type { KitchenTargets } from "./ProductionTargetsBar";
 
 // -------------------------------------------------------
@@ -78,6 +80,17 @@ interface EndOfShiftFormProps {
   productBallTypes?: Record<string, string[]>;
   /** Active users for chef selector */
   users?: Array<{ _id: string; name: string }>;
+  /** Phase 69: Available kitchen components from backend */
+  kitchenComponents?: Array<{
+    _id: string;
+    name: string;
+    code: string;
+    ballTypeGroup?: string;
+    unit: string;
+    sortOrder: number;
+  }>;
+  /** Phase 69: Enabled kitchen component codes from config (D-04) */
+  enabledKitchenComponentCodes?: string[];
 }
 
 // -------------------------------------------------------
@@ -96,6 +109,8 @@ export function EndOfShiftForm({
   enabledComponents,
   productBallTypes,
   users,
+  kitchenComponents,
+  enabledKitchenComponentCodes,
 }: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
@@ -128,6 +143,11 @@ export function EndOfShiftForm({
 
   // Inline error from mutation failure on review screen
   const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  // Phase 69: Component production state
+  const [componentProduced, setComponentProduced] = useState<Record<string, number>>({});
+  const [componentWasteOpen, setComponentWasteOpen] = useState(false);
+  const [componentWaste, setComponentWaste] = useState<ComponentWasteEntry[]>([]);
 
   // -------------------------------------------------------
   // Helpers
@@ -165,6 +185,12 @@ export function EndOfShiftForm({
     const ballTypes = productBallTypes[entry.menuProductId] ?? [];
     if (ballTypes.length === 0) return true;
     return ballTypes.some((bt) => enabledComponents.includes(bt));
+  });
+
+  // Phase 69: Filter kitchen components by enabled codes
+  const visibleKitchenComponents = (kitchenComponents ?? []).filter((comp) => {
+    if (!enabledKitchenComponentCodes) return true; // null = all enabled
+    return enabledKitchenComponentCodes.includes(comp.code);
   });
 
   function getProducedQty(menuProductId: string): number {
@@ -227,6 +253,15 @@ export function EndOfShiftForm({
       }
     }
 
+    // Phase 69: Check component waste <= component produced
+    for (const entry of componentWaste) {
+      if (entry.grams <= 0) continue;
+      const producedGrams = componentProduced[entry.code] ?? 0;
+      if (entry.grams > producedGrams) {
+        return `Component waste for "${entry.name}" (${entry.grams}g) cannot exceed produced (${producedGrams}g).`;
+      }
+    }
+
     return null;
   }
 
@@ -271,6 +306,24 @@ export function EndOfShiftForm({
     const chefName = selectedUser?.name;
     const chefUserId = selectedChefId || undefined;
 
+    // Phase 69: Build component production/waste lists
+    const componentProducedList = visibleKitchenComponents
+      .filter((c) => (componentProduced[c.code] ?? 0) > 0)
+      .map((c) => ({
+        kitchenComponentCode: c.code,
+        kitchenComponentName: c.name,
+        grams: componentProduced[c.code],
+      }));
+
+    const componentWasteList = componentWaste
+      .filter((e) => e.grams > 0)
+      .map((e) => ({
+        kitchenComponentCode: e.code,
+        kitchenComponentName: e.name,
+        reason: e.reason as "qa_testing" | "spoilage" | "waste",
+        grams: e.grams,
+      }));
+
     setIsSubmitting(true);
     try {
       await submitShiftRecord({
@@ -286,6 +339,8 @@ export function EndOfShiftForm({
         })),
         ...(chefName ? { chefName } : {}),
         ...(chefUserId ? { chefUserId: chefUserId as Id<"users"> } : {}),
+        ...(componentProducedList.length > 0 ? { componentProduced: componentProducedList } : {}),
+        ...(componentWasteList.length > 0 ? { componentWaste: componentWasteList } : {}),
       });
 
       // Store for success screen before resetting
@@ -299,7 +354,7 @@ export function EndOfShiftForm({
     } finally {
       setIsSubmitting(false);
     }
-  }, [produced, wasteEntries, today, submitShiftRecord, selectedChefId, users, visibleItems]);
+  }, [produced, wasteEntries, today, submitShiftRecord, selectedChefId, users, visibleItems, componentProduced, componentWaste, visibleKitchenComponents]);
 
   function handleDone() {
     // Reset form to initial state
@@ -309,6 +364,10 @@ export function EndOfShiftForm({
     setSubmittedProduced([]);
     setSubmittedWaste([]);
     setSelectedChefId("");
+    // Phase 69: Reset component state
+    setComponentProduced({});
+    setComponentWaste([]);
+    setComponentWasteOpen(false);
     setStep("input");
   }
 
@@ -317,12 +376,21 @@ export function EndOfShiftForm({
   // -------------------------------------------------------
 
   if (step === "success") {
+    // Phase 69: Build submitted component lists for success screen
+    const successComponentProduced = visibleKitchenComponents
+      .filter((c) => (componentProduced[c.code] ?? 0) > 0)
+      .map((c) => ({
+        kitchenComponentName: c.name,
+        grams: componentProduced[c.code],
+      }));
+
     return (
       <ShiftSuccessScreen
         produced={submittedProduced}
         waste={submittedWaste}
         targets={packagingItems}
         onDone={handleDone}
+        componentProduced={successComponentProduced.length > 0 ? successComponentProduced : undefined}
       />
     );
   }
@@ -332,6 +400,21 @@ export function EndOfShiftForm({
   // -------------------------------------------------------
 
   if (step === "review") {
+    // Phase 69: Build component lists for review
+    const reviewComponentProduced = visibleKitchenComponents
+      .filter((c) => (componentProduced[c.code] ?? 0) > 0)
+      .map((c) => ({
+        kitchenComponentName: c.name,
+        grams: componentProduced[c.code],
+      }));
+    const reviewComponentWaste = componentWaste
+      .filter((e) => e.grams > 0)
+      .map((e) => ({
+        kitchenComponentName: e.name,
+        grams: e.grams,
+        reason: e.reason,
+      }));
+
     return (
       <ShiftReviewModal
         produced={buildProducedList()}
@@ -341,6 +424,8 @@ export function EndOfShiftForm({
         onBack={() => setStep("input")}
         isSubmitting={isSubmitting}
         error={confirmError}
+        componentProduced={reviewComponentProduced.length > 0 ? reviewComponentProduced : undefined}
+        componentWaste={reviewComponentWaste.length > 0 ? reviewComponentWaste : undefined}
       />
     );
   }
@@ -390,10 +475,10 @@ export function EndOfShiftForm({
           </div>
         )}
 
-        {/* Produced quantities */}
+        {/* Produced quantities (D-01: renamed to "Balls Produced") */}
         <div className="space-y-3">
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Produced
+            Balls Produced
           </p>
           {visibleItems.map((item) => {
             const isFlagged = flaggedItemIds.has(item.menuProductId);
@@ -562,6 +647,46 @@ export function EndOfShiftForm({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Phase 69: Component Production Section (D-01, D-03, D-05) */}
+        {visibleKitchenComponents.length > 0 && (
+          <div className="border-t border-border pt-4">
+            <ComponentProductionSection
+              components={visibleKitchenComponents}
+              produced={componentProduced}
+              waste={componentWaste}
+              wasteOpen={componentWasteOpen}
+              onProducedChange={(code, grams) =>
+                setComponentProduced((prev) => ({ ...prev, [code]: Math.max(0, grams) }))
+              }
+              onWasteToggle={() => setComponentWasteOpen((v) => !v)}
+              onAddWaste={(code, name) =>
+                setComponentWaste((prev) => [
+                  ...prev,
+                  { code, name, reason: "qa_testing" as const, grams: 0 },
+                ])
+              }
+              onUpdateWaste={(index, field, value) =>
+                setComponentWaste((prev) =>
+                  prev.map((e, i) =>
+                    i === index
+                      ? {
+                          ...e,
+                          [field]:
+                            field === "grams"
+                              ? Math.max(0, Number(value))
+                              : value,
+                        }
+                      : e
+                  )
+                )
+              }
+              onRemoveWaste={(index) =>
+                setComponentWaste((prev) => prev.filter((_, i) => i !== index))
+              }
+            />
           </div>
         )}
 

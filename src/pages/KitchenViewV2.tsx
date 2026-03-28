@@ -24,6 +24,7 @@ import { EndOfShiftForm } from '@/components/kitchen/EndOfShiftForm';
 import { ManagerTargetSettings } from '@/components/kitchen/ManagerTargetSettings';
 import { ShiftHistoryList } from '@/components/kitchen/ShiftHistoryList';
 import { KitchenOrderSummary } from '@/components/kitchen/KitchenOrderSummary';
+import { DailySummaryWidget } from '@/components/kitchen/DailySummaryWidget';
 import { useKitchenTargets } from '@/hooks/convex/useKitchenTargets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from 'convex/react';
@@ -53,7 +54,7 @@ export function KitchenViewV2() {
   // Kitchen targets + shift records (Phase 21)
   // ============================================
 
-  const { today, targets, todayShiftRecords } = useKitchenTargets();
+  const { today, targets, todayShiftRecords, kitchenComponents, dailyComponentSummary } = useKitchenTargets();
 
   // ============================================
   // Kitchen config (for ManagerTargetSettings + enabledComponents)
@@ -101,6 +102,34 @@ export function KitchenViewV2() {
     () => (allUsers ?? []).filter((u) => u.isActive).map((u) => ({ _id: String(u._id), name: u.name })),
     [allUsers]
   );
+
+  // ============================================
+  // Phase 69: Ball production per-person attribution for DailySummaryWidget
+  // ============================================
+
+  const ballPerPerson = useMemo(() => {
+    if (!todayShiftRecords || todayShiftRecords.length === 0) return [];
+    const personMap = new Map<string, { submittedBy: string; chefName?: string; totalProduced: number; totalWaste: number }>();
+
+    for (const record of todayShiftRecords) {
+      const key = record.chefName ?? record.submittedBy;
+      const produced = record.produced.reduce((sum: number, p: { quantity: number }) => sum + p.quantity, 0);
+      const waste = record.waste.reduce((sum: number, w: { quantity: number }) => sum + w.quantity, 0);
+      const existing = personMap.get(key);
+      if (existing) {
+        existing.totalProduced += produced;
+        existing.totalWaste += waste;
+      } else {
+        personMap.set(key, {
+          submittedBy: record.submittedBy,
+          chefName: record.chefName,
+          totalProduced: produced,
+          totalWaste: waste,
+        });
+      }
+    }
+    return Array.from(personMap.values());
+  }, [todayShiftRecords]);
 
   // ============================================
   // Chef name from most recent today shift record (Gap 8 header display)
@@ -202,6 +231,8 @@ export function KitchenViewV2() {
           enabledComponents={enabledComponents}
           productBallTypes={productBallTypes}
           users={kitchenUsers}
+          kitchenComponents={kitchenComponents ?? []}
+          enabledKitchenComponentCodes={config?.enabledKitchenComponents ?? undefined}
         />
       </section>
 
@@ -214,11 +245,16 @@ export function KitchenViewV2() {
           <div className="space-y-2">
             {todayShiftRecords.map((record) => {
               const totalProduced = record.produced.reduce(
-                (sum, p) => sum + p.quantity,
+                (sum: number, p: { quantity: number }) => sum + p.quantity,
                 0
               );
               const totalWaste = record.waste.reduce(
-                (sum, w) => sum + w.quantity,
+                (sum: number, w: { quantity: number }) => sum + w.quantity,
+                0
+              );
+              // Phase 69: Component gram totals
+              const componentGrams = (record.componentProduced ?? []).reduce(
+                (sum: number, c: { grams: number }) => sum + c.grams,
                 0
               );
               return (
@@ -242,6 +278,11 @@ export function KitchenViewV2() {
                             <span className="font-medium text-destructive">{totalWaste}</span> waste
                           </span>
                         )}
+                        {componentGrams > 0 && (
+                          <span>
+                            <span className="font-medium text-foreground">{componentGrams}g</span> components
+                          </span>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -249,6 +290,26 @@ export function KitchenViewV2() {
               );
             })}
           </div>
+        </section>
+      )}
+
+      {/* Section 3b: Daily Summary (Phase 69) */}
+      {todayShiftRecords !== undefined && todayShiftRecords.length > 0 && (
+        <section>
+          <DailySummaryWidget
+            stats={{
+              ballsProduced: todayShiftRecords.reduce(
+                (sum: number, r) => sum + r.produced.reduce((s: number, p: { quantity: number }) => s + p.quantity, 0),
+                0
+              ),
+              ordersCompleted: 0,
+              packagesBoxed: 0,
+              stickersApplied: 0,
+              inventoryConsumed: [],
+            }}
+            componentSummary={dailyComponentSummary ?? []}
+            ballPerPerson={ballPerPerson}
+          />
         </section>
       )}
 

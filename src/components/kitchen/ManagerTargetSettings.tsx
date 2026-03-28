@@ -46,6 +46,7 @@ interface KitchenConfig {
   defaultPackagingMix: Array<{ menuProductId: string; quantity: number }>;
   showJumbo: boolean;
   enabledProductionComponents: string[] | null;
+  enabledKitchenComponents: string[] | null;
   updatedAt: number | null;
   updatedBy: string | null;
 }
@@ -67,6 +68,11 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     activeOnly: true,
   });
 
+  // Phase 69: Kitchen components for toggle management
+  const kitchenComponentsList = useQuery(api.kitchenComponents.queries.list, {
+    activeOnly: true,
+  });
+
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
   const clearDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.clearDailyOverride);
@@ -76,6 +82,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   const [midBallTarget, setMidBallTarget] = useState(0);   // Original (45g)
   const [packagingMix, setPackagingMix] = useState<PackagingMixRow[]>([]);
   const [enabledComponents, setEnabledComponents] = useState<string[]>(["BIG_BALL", "MID_BALL"]);
+  // Phase 69: Enabled kitchen component codes (null = all enabled)
+  const [enabledKitchenComponents, setEnabledKitchenComponents] = useState<string[] | null>(null);
 
   // -- Saving states --
   const [isSavingDefaults, setIsSavingDefaults] = useState(false);
@@ -98,6 +106,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       );
       // null means all enabled — resolve default from ["BIG_BALL", "MID_BALL"]
       setEnabledComponents(config.enabledProductionComponents ?? ["BIG_BALL", "MID_BALL"]);
+      // Phase 69: Kitchen component toggles
+      setEnabledKitchenComponents(config.enabledKitchenComponents);
     }
   }, [config]);
 
@@ -109,6 +119,21 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     setEnabledComponents((prev) =>
       prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
     );
+  }
+
+  // -------------------------------------------------------
+  // Phase 69: Kitchen component toggle handler
+  // -------------------------------------------------------
+
+  function toggleKitchenComponent(code: string, enabled: boolean) {
+    const allCodes = kitchenComponentsList?.map((c) => c.code) ?? [];
+    const currentEnabled = enabledKitchenComponents === null ? allCodes : enabledKitchenComponents;
+
+    const newEnabled = enabled
+      ? [...currentEnabled, code]
+      : currentEnabled.filter((c) => c !== code);
+
+    setEnabledKitchenComponents(newEnabled);
   }
 
   // -------------------------------------------------------
@@ -125,6 +150,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         bigBallTarget,
         midBallTarget,
         enabledProductionComponents: enabledComponents,
+        // Phase 69: Save kitchen component toggles
+        enabledKitchenComponents: enabledKitchenComponents ?? undefined,
         defaultPackagingMix:
           validMix.length > 0
             ? validMix.map((row) => ({
@@ -278,6 +305,58 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
             )}
           </div>
         </div>
+
+        {/* Phase 69: Kitchen Component Toggles */}
+        {kitchenComponentsList && kitchenComponentsList.length > 0 && (
+          <div>
+            <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
+              Kitchen Components
+            </Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Toggle which pre-cursor components appear in the shift form.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {kitchenComponentsList.map((comp) => {
+                const allCodes = kitchenComponentsList.map((c) => c.code);
+                const isOn = enabledKitchenComponents === null
+                  ? true
+                  : enabledKitchenComponents.includes(comp.code);
+                return (
+                  <label
+                    key={comp._id}
+                    className="flex items-center gap-2 cursor-pointer select-none"
+                  >
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isOn}
+                      onClick={() => {
+                        // If null (all enabled), clicking OFF means create explicit list with one removed
+                        if (enabledKitchenComponents === null) {
+                          setEnabledKitchenComponents(allCodes.filter((c) => c !== comp.code));
+                        } else {
+                          toggleKitchenComponent(comp.code, !isOn);
+                        }
+                      }}
+                      className={[
+                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                        isOn ? "bg-primary" : "bg-input",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={[
+                          "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+                          isOn ? "translate-x-4" : "translate-x-0",
+                        ].join(" ")}
+                      />
+                    </button>
+                    <span className="text-sm">{comp.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Packaging Mix */}
         <div>
