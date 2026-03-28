@@ -14,6 +14,25 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] - v1.9 Bugs & Quality of Life
+
+### Phase 64: UI Polish & Data Quality -- 2026-03-28
+
+**For the team:** The navigation bar is now cleaner -- the Frollie Pro logo takes you home (no separate Home button), and Financial pages are split into two menus: Financials (income, expenses, payroll) and Accounting (journal, accounts, assets). On mobile, scrolling through products when creating orders no longer accidentally adds items, and you can now swipe left on a line item to delete it. Behind the scenes, BigSeller fee data is now stored consistently as positive numbers, fixing display inconsistencies in analytics.
+
+#### Changed
+- Navbar: logo links to /home, Home button removed, Financials split into Financials + Accounting dropdowns
+- Mobile bottom nav: 4 tabs (Sales, Orders, Kitchen, Inventory) + accounting pages in More sheet
+- Order creation: touch-scroll guard, always-visible delete button, swipe-to-delete, minus-to-zero removal
+- BigSeller: all platform fees (Shopee, TikTok, common) normalized to positive at sync time
+- BigSeller: Math.abs removed from mapOrderToRevenue (redundant after normalization)
+
+#### Added
+- `SwipeableLineItem` component (Framer Motion swipe-to-delete gesture)
+- `bigsellerFeeSignFix` migration (48 records patched in production)
+
+---
+
 ## [Unreleased] - v1.8 Support & Quality of Life
 
 ### Bulk Import: CapEx & Intangible Asset Support (Quick Task 260327-sin) -- 2026-03-27
