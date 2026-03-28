@@ -1,7 +1,7 @@
 /**
  * ExpandedOutletPanel - Orchestrator for expanded outlet view
  *
- * Composes OutletStockDetail, StockFlowForm, and StockMovementHistory into
+ * Composes OutletStockDetail and StockFlowForm into
  * an inline expandable panel shown when user clicks an OutletCard.
  * Uses framer-motion for smooth expand/collapse animation.
  */
@@ -11,7 +11,6 @@ import { motion } from 'framer-motion';
 
 import { OutletStockDetail } from './OutletStockDetail';
 import { StockFlowForm } from './StockFlowForm';
-import { StockMovementHistory, type StockMovement } from './StockMovementHistory';
 
 interface ExpandedOutletPanelProps {
   outletId: string;
@@ -40,7 +39,6 @@ interface ExpandedOutletPanelProps {
     label: string;
     outletId?: string;
   }>;
-  movements: StockMovement[];
   onStockFlowSubmit: (data: {
     direction: 'stock_in' | 'stock_out';
     menuProductId: string;
@@ -52,7 +50,6 @@ interface ExpandedOutletPanelProps {
     destinationOutletId?: string;
     note: string;
   }) => Promise<void>;
-  onCancelMovement?: (movementId: string) => Promise<void>;
   /** Whether this user can perform actions (manager+) vs view-only (kitchen) */
   canAct: boolean;
   isSubmitting?: boolean;
@@ -64,9 +61,7 @@ export const ExpandedOutletPanel = React.memo(function ExpandedOutletPanel({
   products,
   availableSources,
   availableDestinations,
-  movements,
   onStockFlowSubmit,
-  onCancelMovement,
   canAct,
   isSubmitting = false,
 }: ExpandedOutletPanelProps) {
@@ -86,32 +81,22 @@ export const ExpandedOutletPanel = React.memo(function ExpandedOutletPanel({
 
         {/* Section 2: Stock Flow Form - Only for users with canAct permission */}
         {canAct && (
-          <div className="border-b border-border">
-            <StockFlowForm
-              outletId={outletId}
-              outletName={outletName}
-              products={products.map(p => ({
-                menuProductId: p.menuProductId,
-                externalProductCode: p.externalProductCode,
-                productName: p.productName,
-                currentStock: p.currentStock,
-                price: p.price,
-              }))}
-              availableSources={availableSources}
-              availableDestinations={availableDestinations}
-              onSubmit={onStockFlowSubmit}
-              isSubmitting={isSubmitting}
-            />
-          </div>
-        )}
-
-        {/* Section 3: Movement History - Always visible */}
-        <div className="p-3">
-          <StockMovementHistory
-            movements={movements}
-            onCancel={onCancelMovement}
+          <StockFlowForm
+            outletId={outletId}
+            outletName={outletName}
+            products={products.map(p => ({
+              menuProductId: p.menuProductId,
+              externalProductCode: p.externalProductCode,
+              productName: p.productName,
+              currentStock: p.currentStock,
+              price: p.price,
+            }))}
+            availableSources={availableSources}
+            availableDestinations={availableDestinations}
+            onSubmit={onStockFlowSubmit}
+            isSubmitting={isSubmitting}
           />
-        </div>
+        )}
       </div>
     </motion.div>
   );

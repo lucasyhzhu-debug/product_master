@@ -142,7 +142,7 @@ export const getTransactions = query({
       // Filter by type
       paginatedResult = await ctx.db
         .query("productInventoryTransactions")
-        .withIndex("by_type", (q) => q.eq("transactionType", args.transactionType as "add" | "drawdown" | "gofood_sale" | "adjust" | "transfer"))
+        .withIndex("by_type", (q) => q.eq("transactionType", args.transactionType as "add" | "drawdown" | "gofood_sale" | "adjust" | "transfer" | "stock_count"))
         .order("desc")
         .paginate(args.paginationOpts);
     } else {
@@ -359,5 +359,45 @@ export const getStockForOrder = query({
     }
 
     return availability;
+  },
+});
+
+/**
+ * Get the most recent stock_count transaction per product at a given location.
+ * Returns a map of menuProductId -> { countedAt, countedBy, previousQuantity, newQuantity }.
+ * Used by the stock count UI to show "last counted" info.
+ */
+export const getLastStockCount = query({
+  args: {
+    locationId: v.id("storageLocations"),
+  },
+  handler: async (ctx, args) => {
+    const transactions = await ctx.db
+      .query("productInventoryTransactions")
+      .withIndex("by_location", (q) => q.eq("locationId", args.locationId))
+      .order("desc")
+      .filter((q) => q.eq(q.field("transactionType"), "stock_count"))
+      .collect();
+
+    const lastCounts = new Map<string, {
+      countedAt: number;
+      countedBy: string;
+      previousQuantity: number;
+      newQuantity: number;
+    }>();
+
+    for (const tx of transactions) {
+      const key = tx.menuProductId as string;
+      if (!lastCounts.has(key)) {
+        lastCounts.set(key, {
+          countedAt: tx.createdAt,
+          countedBy: tx.performedBy,
+          previousQuantity: tx.previousQuantity,
+          newQuantity: tx.newQuantity,
+        });
+      }
+    }
+
+    return Object.fromEntries(lastCounts);
   },
 });

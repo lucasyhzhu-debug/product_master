@@ -2,7 +2,6 @@ export { OutletCard } from './OutletCard';
 export { OutletStockDetail } from './OutletStockDetail';
 export { ProductionReadinessBar } from './ProductionReadinessBar';
 export { InventorySourcePanel } from './InventorySourcePanel';
-export { StockMovementHistory } from './StockMovementHistory';
 export { StockFlowForm } from './StockFlowForm';
 export { StockFlowConfirmDialog } from './StockFlowConfirmDialog';
 export { ExpandedOutletPanel } from './ExpandedOutletPanel';

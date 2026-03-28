@@ -94,6 +94,9 @@ export function StockFlowForm({
   const [destination, setDestination] = useState<string>("");
   const [note, setNote] = useState<string>("");
 
+  // Price override state
+  const [priceOverride, setPriceOverride] = useState<number | null>(null);
+
   // Confirmation dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmData, setConfirmData] = useState<StockFlowConfirmData | null>(null);
@@ -116,6 +119,15 @@ export function StockFlowForm({
       setRotationStockInQty(30);
     }
   }, [mode, selectedProduct]);
+
+  // Auto-populate price from product data when selection changes
+  useEffect(() => {
+    if (selectedProduct?.price && selectedProduct.price > 0) {
+      setPriceOverride(selectedProduct.price);
+    } else {
+      setPriceOverride(null);
+    }
+  }, [selectedProduct]);
 
   // Validation
   const validate = (): string | null => {
@@ -163,7 +175,7 @@ export function StockFlowForm({
     }
     if (!selectedProduct) return;
 
-    const price = selectedProduct.price ?? 0;
+    const price = priceOverride && priceOverride > 0 ? priceOverride : (selectedProduct.price ?? 0);
 
     // Price validation
     if (!price || price <= 0) {
@@ -255,6 +267,7 @@ export function StockFlowForm({
 
       // Reset form on success
       setQuantity(1);
+      setPriceOverride(null);
       setSource("");
       setDestination("");
       setNote("");
@@ -379,6 +392,36 @@ export function StockFlowForm({
       <div className="text-[10px] text-muted-foreground/70 text-right">{note.length}/200</div>
     </div>
   );
+
+  // Editable price field
+  const renderPriceField = (idSuffix: string) => {
+    const currentPrice = priceOverride ?? selectedProduct?.price ?? 0;
+    return (
+      <div className="space-y-1.5">
+        <Label htmlFor={`price-${idSuffix}`} className="text-xs text-muted-foreground">
+          Price per unit (IDR)
+        </Label>
+        <Input
+          id={`price-${idSuffix}`}
+          type="number"
+          min="0"
+          step="1000"
+          value={currentPrice}
+          onChange={(e) => {
+            const val = parseInt(e.target.value) || 0;
+            setPriceOverride(val);
+          }}
+          className="h-9 text-sm tabular-nums"
+          disabled={isSubmitting}
+        />
+        {currentPrice <= 0 && (
+          <p className="text-xs text-red-500">
+            Price cannot be 0. Set the correct price before submitting.
+          </p>
+        )}
+      </div>
+    );
+  };
 
   // Error retry bar
   const renderErrorRetry = () => {
@@ -511,6 +554,7 @@ export function StockFlowForm({
             <div className="p-3 space-y-3">
               {renderProductSelector("in")}
               {renderQuantityControls("in")}
+              {renderPriceField("in")}
 
               {/* Source Selector */}
               <div className="space-y-1.5">
@@ -560,6 +604,7 @@ export function StockFlowForm({
             <div className="p-3 space-y-3">
               {renderProductSelector("out")}
               {renderQuantityControls("out", selectedProduct?.currentStock)}
+              {renderPriceField("out")}
 
               {/* Destination Selector */}
               <div className="space-y-1.5">

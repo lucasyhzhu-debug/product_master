@@ -15,7 +15,6 @@ import {
   type K3MartStockFlowAddPayload,
   type K3MartStockFlowAddResponse,
   type K3MartStockFlowListResponse,
-  type K3MartStockFlowDetailResponse,
   type K3MartCancelResponse,
   type K3MartOutletProfileResponse,
 } from "./config";
@@ -666,6 +665,7 @@ export const submitStockFlow = action({
       productCode: v.string(),
       productName: v.string(),
       qty: v.number(),
+      price: v.number(),
     })),
     note: v.optional(v.string()),
     source: v.optional(v.string()), // "kitchen"|"goldfinch"|"outlet"
@@ -693,14 +693,15 @@ export const submitStockFlow = action({
       const dashItem = Array.isArray(dashboardProducts)
         ? dashboardProducts.find((d: any) => d.productId === item.productId)
         : undefined;
+      const price = item.price > 0 ? item.price : (dashItem?.price ?? 0);
       return {
         productId: item.productId,
         productName: item.productName,
         productCode: item.productCode,
         qty: item.qty,
-        price: dashItem?.price ?? 0,
+        price,
         currentStock: dashItem?.quantity ?? 0,
-        currentPrice: dashItem?.price ?? 0,
+        currentPrice: price,
         edit: false,
       };
     });
@@ -762,7 +763,7 @@ export const submitStockFlow = action({
               menuProductId: mapping.menuProductId,
               externalProductId: String(item.productId),
               quantity: item.qty,
-              priceAtSubmission: dashItem?.price ?? 0,
+              priceAtSubmission: item.price > 0 ? item.price : (dashItem?.price ?? 0),
               currentStockAtSubmission: dashItem?.quantity ?? 0,
               source: args.source as any,
               k3martStatus: "pending",
@@ -873,14 +874,16 @@ export const submitBulkStockIns = action({
         const dashProducts = dashboardCache.get(outletExternalId);
         const detail = items.map((item: { productId: number; productCode: string; productName: string; qty: number }) => {
           const dashItem = dashProducts?.find((d: any) => d.productId === item.productId);
+          const configPrice = K3MART_CONFIG.productMap[item.productId as keyof typeof K3MART_CONFIG.productMap]?.price ?? 0;
+          const price = dashItem?.price && dashItem.price > 0 ? dashItem.price : configPrice;
           return {
             productId: item.productId,
             productName: item.productName,
             productCode: item.productCode,
             qty: item.qty,
-            price: dashItem?.price ?? 0,
+            price,
             currentStock: dashItem?.quantity ?? 0,
-            currentPrice: dashItem?.price ?? 0,
+            currentPrice: price,
             edit: false,
           };
         });
@@ -980,42 +983,6 @@ export const cancelStockFlow = action({
     }
 
     return { success: result.success };
-  },
-});
-
-/**
- * Fetch stock flow history for an outlet.
- */
-export const fetchStockFlowHistory = action({
-  args: { outletExternalId: v.number() },
-  handler: async (ctx, args) => {
-    const token = await getK3MartToken(ctx);
-    const url = `${K3MART_CONFIG.baseUrl}${K3MART_CONFIG.endpoints.stockFlowList}?outletId=${args.outletExternalId}`;
-    const resp = await fetch(url, {
-      headers: { Authorization: `JWT ${token}`, ...K3MART_CONFIG.headers },
-    });
-    if (resp.status === 401) throw new Error("TOKEN_EXPIRED");
-    if (!resp.ok) throw new Error(`Flow list failed: HTTP ${resp.status}`);
-    const data = (await resp.json()) as K3MartStockFlowListResponse;
-    return data.data;
-  },
-});
-
-/**
- * Fetch detail of a specific stock flow request.
- */
-export const fetchStockFlowDetail = action({
-  args: { requestId: v.number() },
-  handler: async (ctx, args) => {
-    const token = await getK3MartToken(ctx);
-    const url = `${K3MART_CONFIG.baseUrl}${K3MART_CONFIG.endpoints.stockFlowDetail}?requestId=${args.requestId}`;
-    const resp = await fetch(url, {
-      headers: { Authorization: `JWT ${token}`, ...K3MART_CONFIG.headers },
-    });
-    if (resp.status === 401) throw new Error("TOKEN_EXPIRED");
-    if (!resp.ok) throw new Error(`Flow detail failed: HTTP ${resp.status}`);
-    const data = (await resp.json()) as K3MartStockFlowDetailResponse;
-    return data.data;
   },
 });
 

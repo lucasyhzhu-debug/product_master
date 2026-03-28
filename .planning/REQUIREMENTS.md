@@ -30,8 +30,8 @@ Requirements for milestone v1.9 Bugs & Quality of Life. Each maps to roadmap pha
 
 ### Inventory
 
-- [ ] **INV-01**: Stock count drift identified and fixed (packaging and product inventory stay accurate)
-- [ ] **INV-02**: Quick daily stock update UI allows staff to set current stock per product per location
+- [x] **INV-01**: Stock count drift identified and fixed (packaging and product inventory stay accurate)
+- [x] **INV-02**: Quick daily stock update UI allows staff to set current stock per product per location
 
 ### Employee & Payroll
 
@@ -82,8 +82,8 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | UI-03 | Phase 64 | Pending |
 | UI-04 | Phase 64 | Pending |
 | KIT-01 | Phase 69 | Pending |
-| INV-01 | Phase 67 | Pending |
-| INV-02 | Phase 67 | Pending |
+| INV-01 | Phase 67 | Verified |
+| INV-02 | Phase 67 | Verified |
 | EMP-01 | Phase 66 | Pending |
 | EMP-02 | Phase 66 | Pending |
 | COGS-01 | Phase 68 | Pending |
@@ -96,4 +96,4 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after roadmap creation*
+*Last updated: 2026-03-28 after Phase 67 verification*

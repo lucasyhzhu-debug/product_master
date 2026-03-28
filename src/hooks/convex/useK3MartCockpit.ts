@@ -83,22 +83,6 @@ export function useOutletDetail(outletId?: Id<"externalOutlets">, days?: number)
 }
 
 /**
- * Fetch stock movement history for a specific outlet and date.
- * Skips the query if required parameters are not provided.
- */
-export function useStockMovementHistory(
-  outletId?: Id<"externalOutlets">,
-  date?: string,
-  limit?: number
-) {
-  const data = useQuery(
-    api.k3martCockpit.queries.getStockMovementHistory,
-    outletId && date ? { outletId, date, limit } : "skip"
-  );
-  return { data, isLoading: data === undefined };
-}
-
-/**
  * Fetch outlet settings (active/inactive, product visibility, custom pricing).
  */
 export function useOutletSettings() {
@@ -124,14 +108,6 @@ export function useSubmitBulkStockIns() {
 
 export function useCancelStockFlow() {
   return useAction(api.integrations.k3mart.adapter.cancelStockFlow);
-}
-
-export function useFetchStockFlowHistory() {
-  return useAction(api.integrations.k3mart.adapter.fetchStockFlowHistory);
-}
-
-export function useFetchStockFlowDetail() {
-  return useAction(api.integrations.k3mart.adapter.fetchStockFlowDetail);
 }
 
 export function useVerifySubmissionStatuses() {

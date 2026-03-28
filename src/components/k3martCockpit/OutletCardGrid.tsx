@@ -2,14 +2,13 @@
  * OutletCardGrid - Responsive grid wrapper for OutletCards with accordion expansion.
  *
  * Renders a responsive grid of OutletCards with accordion state (one expanded at a time).
- * When expanded, shows detailed product stock information, stock flow controls, and movement history.
+ * When expanded, shows detailed product stock information and stock flow controls.
  */
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { OutletCard } from './OutletCard';
 import { ExpandedOutletPanel } from './ExpandedOutletPanel';
-import type { StockMovement } from './StockMovementHistory';
 
 interface OutletCardGridProps {
   outlets: Array<{
@@ -43,7 +42,6 @@ interface OutletCardGridProps {
     label: string;
     outletId?: string;
   }>;
-  movements: Record<string, StockMovement[]>;
   onStockFlowSubmit: (outletId: string, data: {
     direction: "stock_in" | "stock_out";
     menuProductId: string;
@@ -55,7 +53,6 @@ interface OutletCardGridProps {
     destinationOutletId?: string;
     note: string;
   }) => Promise<void>;
-  onCancelMovement?: (movementId: string) => Promise<void>;
   canAct: boolean;
   isSubmitting?: boolean;
 }
@@ -64,9 +61,7 @@ export function OutletCardGrid({
   outlets,
   availableSources,
   availableDestinations,
-  movements,
   onStockFlowSubmit,
-  onCancelMovement,
   canAct,
   isSubmitting = false,
 }: OutletCardGridProps) {
@@ -80,7 +75,6 @@ export function OutletCardGrid({
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {outlets.map((outlet, index) => {
         const isExpanded = expandedOutletId === outlet.outletId;
-        const outletMovements = movements[outlet.outletId] || [];
 
         return (
           <motion.div
@@ -128,9 +122,7 @@ export function OutletCardGrid({
                     products={outlet.products}
                     availableSources={availableSources}
                     availableDestinations={availableDestinations}
-                    movements={outletMovements}
                     onStockFlowSubmit={(data) => onStockFlowSubmit(outlet.outletId, data)}
-                    onCancelMovement={onCancelMovement}
                     canAct={canAct}
                     isSubmitting={isSubmitting}
                   />

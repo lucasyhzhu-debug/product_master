@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
+### Phase 67: Inventory Drift & Daily Stock Update -- 2026-03-28
+
+**For the team:** Staff can now do a daily stock count to keep inventory numbers accurate. Go to Inventory, click "Count Stock", pick a location, and enter the actual quantities on the shelf. The system automatically calculates and records the difference. This fixes the problem where stock numbers drift at locations with untracked sales (cafes, walk-ins, direct POS).
+
+#### Added
+- `src/pages/StockCount.tsx`: Daily stock count page with location selector, product grid, and bulk submit
+- `convex/productInventory/mutations.ts`: `bulkStockCount` mutation with full audit logging
+- `convex/productInventory/queries.ts`: `getLastStockCount` query for "last counted" timestamps
+- `convex/schema.ts`: `stock_count` transaction type in productInventoryTransactions
+- Route `/inventory/stock-count` with `canAccessInventory` permission guard
+- "Count Stock" button on Finished Goods tab
+- `useBulkStockCount` and `useLastStockCount` hooks
+
+#### Changed
+- `src/pages/StockCount.tsx`: Deduplicated `formatRelativeTime` to use shared `src/lib/formatters.ts`
+
 ### Bug Fix: Intangible Asset Conversion -- 2026-03-28
 
 **For the team:** Converting expenses to intangible assets (brands, trademarks, patents, software licenses) now works correctly. Previously, clicking "Confirm Conversion" on a branding expense would fail with a server error, and the journal entry preview always showed "Fixed Assets" even for intangible items. Now the preview correctly shows "Intangible Assets" with the right account codes, and the conversion completes successfully.

@@ -534,6 +534,95 @@ export const transferStock = mutation({
 });
 
 /**
+ * Bulk stock count -- Staff enters actual physical counts for products at a location.
+ * Calculates delta for each product and records stock_count transactions.
+ * Auth: all roles (kitchen, order_staff, manager, admin).
+ */
+export const bulkStockCount = mutation({
+  args: {
+    token: v.string(),
+    locationId: v.id("storageLocations"),
+    counts: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      actualCount: v.number(),
+      note: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["kitchen", "order_staff", "manager", "admin"]);
+
+    if (args.counts.length === 0) {
+      throw new Error("No stock counts provided");
+    }
+
+    const location = await ctx.db.get(args.locationId);
+    if (!location) {
+      throw new Error("Location not found");
+    }
+    if (!location.isActive) {
+      throw new Error("Location is not active");
+    }
+
+    for (const item of args.counts) {
+      if (item.actualCount < 0) {
+        throw new Error("Stock count cannot be negative");
+      }
+    }
+
+    const now = Date.now();
+    let updated = 0;
+    let skipped = 0;
+
+    for (const item of args.counts) {
+      const existing = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q.eq("menuProductId", item.menuProductId).eq("locationId", args.locationId)
+        )
+        .first();
+
+      const previousQuantity = existing?.quantity ?? 0;
+      const delta = item.actualCount - previousQuantity;
+
+      if (delta === 0) {
+        skipped++;
+        continue;
+      }
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          quantity: item.actualCount,
+          lastUpdated: now,
+        });
+      } else {
+        await ctx.db.insert("productInventory", {
+          menuProductId: item.menuProductId,
+          locationId: args.locationId,
+          quantity: item.actualCount,
+          lastUpdated: now,
+        });
+      }
+
+      await ctx.db.insert("productInventoryTransactions", {
+        menuProductId: item.menuProductId,
+        locationId: args.locationId,
+        transactionType: "stock_count",
+        quantity: delta,
+        previousQuantity,
+        newQuantity: item.actualCount,
+        reason: item.note || "Daily stock count",
+        performedBy: user.name,
+        createdAt: now,
+      });
+
+      updated++;
+    }
+
+    return { updated, skipped };
+  },
+});
+
+/**
  * Process GoFood sales — Auto-deduct finished goods for GoFood sync.
  *
  * Internal-only (called from GoBiz adapter Phase D).
