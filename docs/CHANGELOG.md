@@ -16,6 +16,25 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
+### Phase 69: Kitchen Component Reporting -- 2026-03-28
+
+**For the team:** Kitchen staff can now log pre-cursor ingredient production in grams (e.g., Outer-Marshmallow 500g, Filling-Pistachio 200g) alongside the normal ball production. The End of Shift form has two sections: "Balls Produced" (as before, with targets) and "Components Produced" (new, gram-based, no targets). Managers can toggle which components appear in the form via Manager Settings. Today's Summary shows a component breakdown with per-person attribution so you can see who made what.
+
+#### Added
+- `convex/kitchenComponents/`: New table + CRUD for kitchen pre-cursor ingredients (mutations + queries)
+- `convex/schema.ts`: `kitchenComponents` table with `by_active` and `by_code` indexes; `componentProduced` and `componentWaste` optional arrays on `kitchenShiftRecords`; `enabledKitchenComponents` on `kitchenConfig`
+- `src/components/kitchen/ComponentProductionSection.tsx`: Gram-based input section with per-component waste tracking
+- `convex/kitchenShiftRecords/queries.ts`: `getDailyComponentSummary` query with per-person attribution
+- Component production data in ShiftReviewModal and ShiftSuccessScreen
+- Component gram totals on shift record cards in KitchenViewV2
+- DailySummaryWidget: component breakdown and ball production per-person sections
+- Kitchen component toggles in ManagerTargetSettings
+
+#### Changed
+- `src/components/kitchen/EndOfShiftForm.tsx`: "Produced" renamed to "Balls Produced"; new "Components Produced" section
+- `src/hooks/convex/useKitchenTargets.ts`: Now fetches `kitchenComponents` and `dailyComponentSummary`
+- `convex/kitchenShiftRecords/mutations.ts`: `submitShiftRecord` and `updateShiftRecord` accept optional component data with waste validation
+
 ### Phase 68: COGS Bulk Price Update -- 2026-03-28
 
 **For the team:** You can now update ingredient and material costs in bulk from a single screen instead of editing them one by one. Go to Inventory & Supply on the Hub and click "Bulk Prices". The page shows two tabs -- Ingredients and Materials -- where you can change Volume, Price, and Shipping for multiple items at once, see the new cost-per-unit previewed live, and save all changes with one button. COGS recalculates automatically.
