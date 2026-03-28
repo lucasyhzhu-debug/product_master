@@ -16,6 +16,19 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
+### Bug Fix: Income Statement Margins & EBITDA -- 2026-03-29
+
+**For the team:** Profit margins on the Income Statement now use gross revenue (before platform commissions) as the denominator, giving you a more accurate picture of profitability. A new EBITDA line shows earnings before depreciation and amortization — useful for understanding operating cash flow.
+
+#### Fixed
+- All margin calculations (Gross Margin %, EBIT Margin %, Net Margin %) now use gross revenue as denominator instead of net revenue
+- Per-channel gross margins also corrected to use channel gross revenue
+
+#### Added
+- EBITDA row and EBITDA Margin % in the Income Statement (between EBIT and Other Income/Expense)
+- EBITDA included in CSV export
+- Magic string account codes replaced with shared constants (DEPRECIATION_EXPENSE_CODE, AMORTIZATION_EXPENSE_CODE)
+
 ### Phase 69: Kitchen Component Reporting -- 2026-03-28
 
 **For the team:** Kitchen staff can now log pre-cursor ingredient production in grams (e.g., Outer-Marshmallow 500g, Filling-Pistachio 200g) alongside the normal ball production. The End of Shift form has two sections: "Balls Produced" (as before, with targets) and "Components Produced" (new, gram-based, no targets). Managers can toggle which components appear in the form via Manager Settings. Today's Summary shows a component breakdown with per-person attribution so you can see who made what.
