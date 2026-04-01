@@ -16,6 +16,21 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
+### Fix: Component Units in Shift History -- 2026-04-01
+
+**For the team:** Shift history now shows component production/waste data in grams (e.g., "Outer-Marshmallow: 500g produced, 20g waste"). You can also edit component grams when correcting past shift records. Includes validation that waste can't exceed produced amount, and a confirmation dialog showing what changed before saving.
+
+#### Fixed
+- ShiftHistoryList displays component grams alongside ball production data
+- ShiftEditDialog supports editing component produced grams and waste entries
+- Regenerated Convex API types that were stale after Phase 69 merge (missing `kitchenComponents` module)
+
+#### Improved
+- Client-side validation: component waste cannot exceed produced amount
+- Confirmation dialog shows component changes before saving
+- Performance: extracted memos and O(1) lookups for component validation (was O(n²))
+- Fixed React key warnings on waste rows
+
 ### Bug Fix: Income Statement Margins & EBITDA -- 2026-03-29
 
 **For the team:** Profit margins on the Income Statement now use gross revenue (before platform commissions) as the denominator, giving you a more accurate picture of profitability. A new EBITDA line shows earnings before depreciation and amortization — useful for understanding operating cash flow.
