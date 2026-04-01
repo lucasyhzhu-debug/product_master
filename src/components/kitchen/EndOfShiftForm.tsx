@@ -431,7 +431,7 @@ export function EndOfShiftForm({
   // Render: Input
   // -------------------------------------------------------
 
-  if (visibleItems.length === 0) {
+  if (visibleItems.length === 0 && visibleKitchenComponents.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -439,8 +439,9 @@ export function EndOfShiftForm({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            No products in today's target plan. Add a dispatch plan or configure
-            a default packaging mix to enable shift recording.
+            No products in today's target plan and no kitchen components enabled.
+            Add a dispatch plan, configure a default packaging mix, or enable
+            kitchen components in Manager Settings.
           </p>
         </CardContent>
       </Card>
@@ -473,178 +474,182 @@ export function EndOfShiftForm({
         )}
 
         {/* Produced quantities (D-01: renamed to "Balls Produced") */}
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Balls Produced
-          </p>
-          {visibleItems.map((item) => {
-            const isFlagged = flaggedItemIds.has(item.menuProductId);
-            const qty = getProducedQty(item.menuProductId);
-            const delta = qty > 0 ? qty - item.quantity : null;
-
-            return (
-              <div key={item.menuProductId} className="space-y-1">
-                {/* Row 1: Product name (full width, wraps freely) */}
-                <Label
-                  htmlFor={`produced-${item.menuProductId}`}
-                  className="text-sm font-normal break-words"
-                >
-                  {item.name}
-                  {isFlagged && (
-                    <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                      <AlertTriangle className="h-3 w-3" />
-                      Mixed ball types — one type disabled
-                    </span>
-                  )}
-                </Label>
-
-                {/* Row 2: Target + input + delta in a single line */}
-                <div className="flex items-center gap-2">
-                  {/* Target label */}
-                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
-                    target: {item.quantity}
-                  </span>
-
-                  {/* Spacer */}
-                  <span className="flex-1" />
-
-                  {/* Produced input */}
-                  <Input
-                    id={`produced-${item.menuProductId}`}
-                    type="number"
-                    min={0}
-                    value={qty || ""}
-                    placeholder="0"
-                    onChange={(e) =>
-                      setProducedQty(item.menuProductId, Number(e.target.value))
-                    }
-                    className="w-20 text-right tabular-nums shrink-0"
-                  />
-
-                  {/* Live delta — only shown when quantity > 0; invisible reserves space */}
-                  <span
-                    className={`text-xs font-medium tabular-nums whitespace-nowrap shrink-0 ${
-                      delta === null
-                        ? "invisible"
-                        : delta >= 0
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-amber-600 dark:text-amber-400"
-                    }`}
-                  >
-                    {delta === null
-                      ? ""
-                      : delta === 0
-                        ? "on target"
-                        : delta > 0
-                          ? `+${delta} over`
-                          : `${delta} under`}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Waste section toggle */}
-        <button
-          type="button"
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
-          onClick={() => setWasteOpen((v) => !v)}
-        >
-          {wasteOpen ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-          Any waste to capture?
-          {wasteEntries.length > 0 && (
-            <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
-              {wasteEntries.length}
-            </span>
-          )}
-        </button>
-
-        {/* Waste entries */}
-        {wasteOpen && (
-          <div className="space-y-3 border-l-2 border-muted pl-4">
-            {visibleWasteEntries.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No waste entries yet. Add one below.
+        {visibleItems.length > 0 && (
+          <>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                Balls Produced
               </p>
-            )}
+              {visibleItems.map((item) => {
+                const isFlagged = flaggedItemIds.has(item.menuProductId);
+                const qty = getProducedQty(item.menuProductId);
+                const delta = qty > 0 ? qty - item.quantity : null;
 
-            {wasteEntries.map((entry, index) => {
-              // Skip entries for disabled-component products (preserve original index for callbacks)
-              const ballTypes = productBallTypes?.[entry.menuProductId] ?? [];
-              const isDisabled =
-                enabledComponents &&
-                productBallTypes &&
-                ballTypes.length > 0 &&
-                ballTypes.every((bt) => !enabledComponents.includes(bt));
-              if (isDisabled) return null;
-              return (
-              <div key={index} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    {entry.menuProductName}
-                  </span>
-                  <button
-                    type="button"
-                    className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                    onClick={() => removeWasteEntry(index)}
-                  >
-                    Remove
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <Select
-                    value={entry.reason}
-                    onValueChange={(val) =>
-                      updateWasteEntry(index, "reason", val)
-                    }
-                  >
-                    <SelectTrigger className="flex-1 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WASTE_REASONS.map((r) => (
-                        <SelectItem key={r.value} value={r.value}>
-                          {r.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={entry.quantity || ""}
-                    placeholder="0"
-                    onChange={(e) =>
-                      updateWasteEntry(index, "quantity", Number(e.target.value))
-                    }
-                    className="w-20 text-right tabular-nums"
-                  />
+                return (
+                  <div key={item.menuProductId} className="space-y-1">
+                    {/* Row 1: Product name (full width, wraps freely) */}
+                    <Label
+                      htmlFor={`produced-${item.menuProductId}`}
+                      className="text-sm font-normal break-words"
+                    >
+                      {item.name}
+                      {isFlagged && (
+                        <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                          <AlertTriangle className="h-3 w-3" />
+                          Mixed ball types — one type disabled
+                        </span>
+                      )}
+                    </Label>
+
+                    {/* Row 2: Target + input + delta in a single line */}
+                    <div className="flex items-center gap-2">
+                      {/* Target label */}
+                      <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                        target: {item.quantity}
+                      </span>
+
+                      {/* Spacer */}
+                      <span className="flex-1" />
+
+                      {/* Produced input */}
+                      <Input
+                        id={`produced-${item.menuProductId}`}
+                        type="number"
+                        min={0}
+                        value={qty || ""}
+                        placeholder="0"
+                        onChange={(e) =>
+                          setProducedQty(item.menuProductId, Number(e.target.value))
+                        }
+                        className="w-20 text-right tabular-nums shrink-0"
+                      />
+
+                      {/* Live delta — only shown when quantity > 0; invisible reserves space */}
+                      <span
+                        className={`text-xs font-medium tabular-nums whitespace-nowrap shrink-0 ${
+                          delta === null
+                            ? "invisible"
+                            : delta >= 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-amber-600 dark:text-amber-400"
+                        }`}
+                      >
+                        {delta === null
+                          ? ""
+                          : delta === 0
+                            ? "on target"
+                            : delta > 0
+                              ? `+${delta} over`
+                              : `${delta} under`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Waste section toggle */}
+            <button
+              type="button"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+              onClick={() => setWasteOpen((v) => !v)}
+            >
+              {wasteOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              Any waste to capture?
+              {wasteEntries.length > 0 && (
+                <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
+                  {wasteEntries.length}
+                </span>
+              )}
+            </button>
+
+            {/* Waste entries */}
+            {wasteOpen && (
+              <div className="space-y-3 border-l-2 border-muted pl-4">
+                {visibleWasteEntries.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No waste entries yet. Add one below.
+                  </p>
+                )}
+
+                {wasteEntries.map((entry, index) => {
+                  // Skip entries for disabled-component products (preserve original index for callbacks)
+                  const ballTypes = productBallTypes?.[entry.menuProductId] ?? [];
+                  const isDisabled =
+                    enabledComponents &&
+                    productBallTypes &&
+                    ballTypes.length > 0 &&
+                    ballTypes.every((bt) => !enabledComponents.includes(bt));
+                  if (isDisabled) return null;
+                  return (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {entry.menuProductName}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                        onClick={() => removeWasteEntry(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Select
+                        value={entry.reason}
+                        onValueChange={(val) =>
+                          updateWasteEntry(index, "reason", val)
+                        }
+                      >
+                        <SelectTrigger className="flex-1 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {WASTE_REASONS.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={entry.quantity || ""}
+                        placeholder="0"
+                        onChange={(e) =>
+                          updateWasteEntry(index, "quantity", Number(e.target.value))
+                        }
+                        className="w-20 text-right tabular-nums"
+                      />
+                    </div>
+                  </div>
+                  );
+                })}
+
+                {/* Add waste entry buttons */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {visibleItems.map((item) => (
+                    <button
+                      key={item.menuProductId}
+                      type="button"
+                      className="text-xs rounded-full border border-dashed border-muted-foreground/50 px-2.5 py-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+                      onClick={() =>
+                        addWasteEntry(item.menuProductId, item.name)
+                      }
+                    >
+                      + {item.name}
+                    </button>
+                  ))}
                 </div>
               </div>
-              );
-            })}
-
-            {/* Add waste entry buttons */}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {visibleItems.map((item) => (
-                <button
-                  key={item.menuProductId}
-                  type="button"
-                  className="text-xs rounded-full border border-dashed border-muted-foreground/50 px-2.5 py-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
-                  onClick={() =>
-                    addWasteEntry(item.menuProductId, item.name)
-                  }
-                >
-                  + {item.name}
-                </button>
-              ))}
-            </div>
-          </div>
+            )}
+          </>
         )}
 
         {/* Phase 69: Component Production Section (D-01, D-03, D-05) */}
