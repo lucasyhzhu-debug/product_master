@@ -58,6 +58,19 @@ interface WasteRow {
   quantity: number;
 }
 
+interface ComponentProducedRow {
+  kitchenComponentCode: string;
+  kitchenComponentName: string;
+  grams: number;
+}
+
+interface ComponentWasteRow {
+  kitchenComponentCode: string;
+  kitchenComponentName: string;
+  reason: WasteReason;
+  grams: number;
+}
+
 interface InventoryDelta {
   menuProductId: string;
   menuProductName: string;
@@ -106,6 +119,28 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       reason: (w.reason as WasteReason) ?? "waste",
       quantity: w.quantity,
     }))
+  );
+
+  // Component production rows (Phase 69)
+  const [componentProducedRows, setComponentProducedRows] = useState<ComponentProducedRow[]>(() =>
+    (record.componentProduced ?? []).map((c) => ({
+      kitchenComponentCode: c.kitchenComponentCode,
+      kitchenComponentName: c.kitchenComponentName,
+      grams: c.grams,
+    }))
+  );
+
+  const [componentWasteRows, setComponentWasteRows] = useState<ComponentWasteRow[]>(() =>
+    (record.componentWaste ?? []).map((c) => ({
+      kitchenComponentCode: c.kitchenComponentCode,
+      kitchenComponentName: c.kitchenComponentName,
+      reason: (c.reason as WasteReason) ?? "waste",
+      grams: c.grams,
+    }))
+  );
+
+  const [componentWasteOpen, setComponentWasteOpen] = useState(
+    (record.componentWaste ?? []).length > 0
   );
 
   const [editNote, setEditNote] = useState("");
@@ -249,6 +284,21 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
           })),
         editNote: editNote.trim() || undefined,
         chefName: chefName.trim() || undefined,
+        componentProduced: componentProducedRows
+          .filter((c) => c.grams > 0)
+          .map((c) => ({
+            kitchenComponentCode: c.kitchenComponentCode,
+            kitchenComponentName: c.kitchenComponentName,
+            grams: c.grams,
+          })),
+        componentWaste: componentWasteRows
+          .filter((c) => c.grams > 0)
+          .map((c) => ({
+            kitchenComponentCode: c.kitchenComponentCode,
+            kitchenComponentName: c.kitchenComponentName,
+            reason: c.reason,
+            grams: c.grams,
+          })),
       });
 
       toast.success("Shift record updated");
@@ -464,6 +514,145 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
               </div>
             )}
           </div>
+
+          {/* Component production section */}
+          {componentProducedRows.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Components Produced
+              </Label>
+              {componentProducedRows.map((row, index) => (
+                <div key={row.kitchenComponentCode} className="flex items-center gap-3">
+                  <span className="flex-1 text-sm">{row.kitchenComponentName}</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={row.grams || ""}
+                    placeholder="0"
+                    onChange={(e) =>
+                      setComponentProducedRows((prev) =>
+                        prev.map((r, i) =>
+                          i === index ? { ...r, grams: Math.max(0, Number(e.target.value)) } : r
+                        )
+                      )
+                    }
+                    className="w-24 text-right tabular-nums"
+                  />
+                  <span className="text-xs text-muted-foreground w-4">g</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Component waste section */}
+          {componentProducedRows.length > 0 && (
+            <div className="space-y-3">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+                onClick={() => setComponentWasteOpen((v) => !v)}
+              >
+                {componentWasteOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+                Component waste
+                {componentWasteRows.length > 0 && (
+                  <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium">
+                    {componentWasteRows.length}
+                  </span>
+                )}
+              </button>
+
+              {componentWasteOpen && (
+                <div className="space-y-3 border-l-2 border-muted pl-4">
+                  {componentWasteRows.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No component waste entries.</p>
+                  )}
+
+                  {componentWasteRows.map((row, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{row.kitchenComponentName}</span>
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={() =>
+                            setComponentWasteRows((prev) => prev.filter((_, i) => i !== index))
+                          }
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <Select
+                          value={row.reason}
+                          onValueChange={(val) =>
+                            setComponentWasteRows((prev) =>
+                              prev.map((r, i) =>
+                                i === index ? { ...r, reason: val as WasteReason } : r
+                              )
+                            )
+                          }
+                        >
+                          <SelectTrigger className="flex-1 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {WASTE_REASONS.map((r) => (
+                              <SelectItem key={r.value} value={r.value}>
+                                {r.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={row.grams || ""}
+                          placeholder="0"
+                          onChange={(e) =>
+                            setComponentWasteRows((prev) =>
+                              prev.map((r, i) =>
+                                i === index ? { ...r, grams: Math.max(0, Number(e.target.value)) } : r
+                              )
+                            )
+                          }
+                          className="w-20 text-right tabular-nums"
+                        />
+                        <span className="text-xs text-muted-foreground w-4">g</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add component waste buttons */}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {componentProducedRows.map((c) => (
+                      <button
+                        key={c.kitchenComponentCode}
+                        type="button"
+                        className="text-xs rounded-full border border-dashed border-muted-foreground/50 px-2.5 py-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+                        onClick={() =>
+                          setComponentWasteRows((prev) => [
+                            ...prev,
+                            {
+                              kitchenComponentCode: c.kitchenComponentCode,
+                              kitchenComponentName: c.kitchenComponentName,
+                              reason: "qa_testing",
+                              grams: 0,
+                            },
+                          ])
+                        }
+                      >
+                        + {c.kitchenComponentName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Chef name */}
           <div className="space-y-1.5">
