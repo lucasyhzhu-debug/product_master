@@ -22,6 +22,7 @@ import {
   Building2,
   BookMarked,
   FileUp,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/lib/types';
@@ -58,6 +59,7 @@ const primaryTabs: TabItem[] = [
 
 const moreItems: TabItem[] = [
   { path: '/expenses', icon: Receipt, label: 'Expenses', permission: 'canSubmitExpenses' },
+  { path: '/expenses/approve', icon: ClipboardCheck, label: 'Approvals', permission: 'canApproveExpenses' },
   { path: '/expense-analytics', icon: BarChart3, label: 'Exp. Analytics', permission: 'canAccessExpenseAnalytics' },
   { path: '/financials', icon: FileText, label: 'Income Stmt', permission: 'canAccessDashboard' },
   { path: '/reimbursements', icon: HandCoins, label: 'Reimburse', permission: 'canManageReimbursements' },

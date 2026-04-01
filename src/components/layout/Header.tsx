@@ -37,6 +37,7 @@ import {
   Calculator,
   BookMarked,
   FileUp,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -100,6 +101,7 @@ const mainNavItems: NavItem[] = [
 const financialItems: NavItem[] = [
   { path: '/financials', label: 'Income Statement', icon: FileText, permission: 'canAccessDashboard' },
   { path: '/expenses', label: 'Expenses', icon: Receipt, permission: 'canSubmitExpenses' },
+  { path: '/expenses/approve', label: 'Approvals', icon: ClipboardCheck, permission: 'canApproveExpenses' },
   { path: '/expense-analytics', label: 'Exp. Analytics', icon: BarChart3, permission: 'canAccessExpenseAnalytics' },
   { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },

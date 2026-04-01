@@ -29,6 +29,7 @@ import {
   Calculator,
   BookMarked,
   Building2,
+  ClipboardCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -41,6 +42,8 @@ import { cn } from "@/lib/utils";
 interface NavLink {
   label: string;
   path: string;
+  /** Optional permission — link hidden if user lacks this permission */
+  permission?: string;
 }
 
 interface AreaCard {
@@ -110,6 +113,7 @@ const HUB_AREAS: AreaCard[] = [
     links: [
       { label: "Income Statement", path: "/financials" },
       { label: "Expenses", path: "/expenses" },
+      { label: "Approvals", path: "/expenses/approve", permission: "canApproveExpenses" },
       { label: "Exp. Analytics", path: "/expense-analytics" },
       { label: "Reimburse", path: "/reimbursements" },
       { label: "Payroll", path: "/payroll" },
@@ -201,6 +205,7 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   Users: UserCog,
   "Income Statement": FileText,
   Expenses: Receipt,
+  Approvals: ClipboardCheck,
   "Exp. Analytics": BarChart3,
   Reimburse: HandCoins,
   "Bank Accounts": Landmark,
@@ -218,8 +223,19 @@ const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function AreaNavCard({ area }: { area: AreaCard }) {
+function AreaNavCard({
+  area,
+  hasPermission,
+}: {
+  area: AreaCard;
+  hasPermission: ReturnType<typeof useAuth>["hasPermission"];
+}) {
   const Icon = area.icon;
+
+  // Filter links by optional per-link permission
+  const visibleLinks = area.links.filter(
+    (link) => !link.permission || hasPermission(link.permission as Parameters<typeof hasPermission>[0])
+  );
 
   return (
     <Card className="group flex flex-col overflow-hidden border transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
@@ -249,7 +265,7 @@ function AreaNavCard({ area }: { area: AreaCard }) {
 
       <CardContent className="pt-0 pb-4 flex-1">
         <div className="flex flex-wrap gap-1.5">
-          {area.links.map((link) => {
+          {visibleLinks.map((link) => {
             const LinkIcon = LINK_ICONS[link.label];
             return (
               <Link
@@ -315,7 +331,7 @@ export function HubPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {visibleAreas.map((area) => (
-            <AreaNavCard key={area.title} area={area} />
+            <AreaNavCard key={area.title} area={area} hasPermission={hasPermission} />
           ))}
         </div>
       )}
