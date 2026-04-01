@@ -342,10 +342,13 @@ function groupByDate(
 ): Array<{ date: string; records: ShiftRecord[] }> {
   const dateMap = new Map<string, ShiftRecord[]>();
   for (const record of records) {
-    const existing = dateMap.get(record.date) ?? [];
-    dateMap.set(record.date, [...existing, record]);
+    const existing = dateMap.get(record.date);
+    if (existing) {
+      existing.push(record);
+    } else {
+      dateMap.set(record.date, [record]);
+    }
   }
-  // Already sorted by backend (date desc)
   return Array.from(dateMap.entries()).map(([date, recs]) => ({
     date,
     records: recs,

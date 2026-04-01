@@ -86,7 +86,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     api.kitchenShiftRecords.mutations.updateShiftRecord
   );
 
-  // Query available kitchen components so managers can add to old records (M1)
+  // Query available kitchen components so managers can add to old records
   const kitchenComponents = useQuery(api.kitchenComponents.queries.list, {
     activeOnly: true,
   });
@@ -146,19 +146,34 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   const [deltas, setDeltas] = useState<InventoryDelta[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Available components not yet in the produced rows (M1: add to old records)
+  // Stable set of component codes already tracked — only changes on add/remove, not gram edits
+  const existingComponentCodes = useMemo(
+    () => new Set(componentProducedRows.map((r) => r.kitchenComponentCode)),
+    [componentProducedRows]
+  );
+
   const addableComponents = useMemo(() => {
     if (!kitchenComponents) return [];
     const enabledCodes = kitchenConfig?.enabledKitchenComponents;
-    const existingCodes = new Set(componentProducedRows.map((r) => r.kitchenComponentCode));
     return kitchenComponents
       .filter((c) => {
-        if (existingCodes.has(c.code)) return false;
+        if (existingComponentCodes.has(c.code)) return false;
         if (enabledCodes && !enabledCodes.includes(c.code)) return false;
         return true;
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [kitchenComponents, kitchenConfig, componentProducedRows]);
+  }, [kitchenComponents, kitchenConfig, existingComponentCodes]);
+
+  // Pre-computed produced grams by component code for O(1) validation lookups
+  const producedGramsByCode = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of componentProducedRows) {
+      if (row.grams > 0) {
+        map.set(row.kitchenComponentCode, (map.get(row.kitchenComponentCode) ?? 0) + row.grams);
+      }
+    }
+    return map;
+  }, [componentProducedRows]);
 
   // -------------------------------------------------------
   // Produced row handlers
@@ -267,12 +282,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   // -------------------------------------------------------
 
   function handleReviewChanges() {
-    // Validate component waste <= produced (I2: client-side validation)
     for (const wasteRow of componentWasteRows) {
       if (wasteRow.grams <= 0) continue;
-      const producedGrams = componentProducedRows
-        .filter((r) => r.kitchenComponentCode === wasteRow.kitchenComponentCode)
-        .reduce((sum, r) => sum + r.grams, 0);
+      const producedGrams = producedGramsByCode.get(wasteRow.kitchenComponentCode) ?? 0;
       if (wasteRow.grams > producedGrams) {
         toast.error(
           `Component waste for "${wasteRow.kitchenComponentName}" (${wasteRow.grams}g) cannot exceed produced (${producedGrams}g).`
@@ -389,7 +401,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
               )}
             </div>
 
-            {/* Component changes summary (I3) */}
+            {/* Component changes summary */}
             {componentProducedRows.some((c) => c.grams > 0) && (
               <div className="space-y-2 rounded-lg border border-border p-3">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -588,7 +600,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                   <span className="text-xs text-muted-foreground w-4">g</span>
                 </div>
               ))}
-              {/* Add component buttons for components not yet tracked (M1) */}
+              {/* Add component buttons for components not yet tracked */}
               {addableComponents.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {addableComponents.map((c) => (
