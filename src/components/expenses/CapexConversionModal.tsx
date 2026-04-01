@@ -206,6 +206,14 @@ export function CapexConversionModal({
             </div>
           )}
 
+          {/* Reimbursement note for employee-paid expenses */}
+          {expense.paymentMethod === "employee_paid" && (
+            <div className="rounded-md border border-amber-200 bg-amber-50/50 dark:bg-amber-900/10 p-3 text-sm text-amber-800 dark:text-amber-300">
+              This employee-paid expense will remain in the reimbursement queue after conversion.
+              The employee still needs to be reimbursed for this equipment purchase.
+            </div>
+          )}
+
           {/* JE preview (collapsible) */}
           <Collapsible open={jePreviewOpen} onOpenChange={setJePreviewOpen}>
             <CollapsibleTrigger asChild>
