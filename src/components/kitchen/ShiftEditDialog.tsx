@@ -116,7 +116,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   );
 
   // Component production rows (Phase 69)
-  const [componentProducedRows, setComponentProducedEntrys] = useState<ComponentProducedEntry[]>(() =>
+  const [componentProducedRows, setComponentProducedRows] = useState<ComponentProducedEntry[]>(() =>
     (record.componentProduced ?? []).map((c) => ({
       kitchenComponentCode: c.kitchenComponentCode,
       kitchenComponentName: c.kitchenComponentName,
@@ -124,7 +124,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     }))
   );
 
-  const [componentWasteRows, setComponentWasteEntrys] = useState<ComponentWasteEntry[]>(() =>
+  const [componentWasteRows, setComponentWasteRows] = useState<ComponentWasteEntry[]>(() =>
     (record.componentWaste ?? []).map((c) => ({
       kitchenComponentCode: c.kitchenComponentCode,
       kitchenComponentName: c.kitchenComponentName,
@@ -577,7 +577,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                     value={row.grams || ""}
                     placeholder="0"
                     onChange={(e) =>
-                      setComponentProducedEntrys((prev) =>
+                      setComponentProducedRows((prev) =>
                         prev.map((r, i) =>
                           i === index ? { ...r, grams: Math.max(0, Number(e.target.value)) } : r
                         )
@@ -597,7 +597,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                       type="button"
                       className="text-xs rounded-full border border-dashed border-muted-foreground/50 px-2.5 py-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
                       onClick={() =>
-                        setComponentProducedEntrys((prev) => [
+                        setComponentProducedRows((prev) => [
                           ...prev,
                           {
                             kitchenComponentCode: c.code,
@@ -650,7 +650,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                           type="button"
                           className="text-xs text-muted-foreground hover:text-destructive transition-colors"
                           onClick={() =>
-                            setComponentWasteEntrys((prev) => prev.filter((_, i) => i !== index))
+                            setComponentWasteRows((prev) => prev.filter((_, i) => i !== index))
                           }
                         >
                           <X className="h-3.5 w-3.5" />
@@ -660,7 +660,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                         <Select
                           value={row.reason}
                           onValueChange={(val) =>
-                            setComponentWasteEntrys((prev) =>
+                            setComponentWasteRows((prev) =>
                               prev.map((r, i) =>
                                 i === index ? { ...r, reason: val as WasteReason } : r
                               )
@@ -684,7 +684,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                           value={row.grams || ""}
                           placeholder="0"
                           onChange={(e) =>
-                            setComponentWasteEntrys((prev) =>
+                            setComponentWasteRows((prev) =>
                               prev.map((r, i) =>
                                 i === index ? { ...r, grams: Math.max(0, Number(e.target.value)) } : r
                               )
@@ -705,7 +705,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                         type="button"
                         className="text-xs rounded-full border border-dashed border-muted-foreground/50 px-2.5 py-1 text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
                         onClick={() =>
-                          setComponentWasteEntrys((prev) => [
+                          setComponentWasteRows((prev) => [
                             ...prev,
                             {
                               kitchenComponentCode: c.kitchenComponentCode,
