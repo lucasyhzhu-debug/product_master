@@ -884,24 +884,53 @@ export const convertToCapex = protectedMutation({
     // Store JE reference on asset
     await ctx.db.patch(assetId, { acquisitionJeId });
 
-    // --- Step 4: Void the expense record ---
+    // --- Step 4: Update expense record ---
+    // Employee-paid expenses stay in the reimbursement pipeline (awaiting_payment)
+    // since the employee still needs to be reimbursed for the equipment purchase.
+    // Company-paid / payment_request expenses are voided (no reimbursement needed).
 
     const previousStatus = expense.status;
-    await ctx.db.patch(args.expenseId, {
-      status: "voided",
-      voidedBy: ctx.user._id,
-      voidedAt: Date.now(),
-      voidReason: `Converted to fixed asset: ${assetNumber}`,
-    });
+    const isEmployeePaid = expense.paymentMethod === "employee_paid";
 
-    await recordStatusChange(
-      ctx,
-      args.expenseId,
-      previousStatus,
-      "voided",
-      ctx.user._id,
-      `Converted to fixed asset: ${assetNumber}`
-    );
+    if (isEmployeePaid) {
+      // Keep expense reimbursable -- transition to awaiting_payment if not already there
+      const patchFields: Record<string, unknown> = {
+        convertedToAssetId: assetId,
+      };
+      if (previousStatus !== "awaiting_payment") {
+        patchFields.status = "awaiting_payment";
+      }
+      await ctx.db.patch(args.expenseId, patchFields);
+
+      if (previousStatus !== "awaiting_payment") {
+        await recordStatusChange(
+          ctx,
+          args.expenseId,
+          previousStatus,
+          "awaiting_payment",
+          ctx.user._id,
+          `Converted to fixed asset: ${assetNumber} (employee-paid, kept for reimbursement)`
+        );
+      }
+    } else {
+      // Company-paid / payment_request: void as before
+      await ctx.db.patch(args.expenseId, {
+        status: "voided",
+        convertedToAssetId: assetId,
+        voidedBy: ctx.user._id,
+        voidedAt: Date.now(),
+        voidReason: `Converted to fixed asset: ${assetNumber}`,
+      });
+
+      await recordStatusChange(
+        ctx,
+        args.expenseId,
+        previousStatus,
+        "voided",
+        ctx.user._id,
+        `Converted to fixed asset: ${assetNumber}`
+      );
+    }
 
     return {
       assetId,
