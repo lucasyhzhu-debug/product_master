@@ -1758,6 +1758,7 @@ export default defineSchema({
     paidAt: v.optional(v.number()),
     paidBy: v.optional(v.id("users")), // Who executed the bank transfer (markAsPaid)
     sharedReceiptAcknowledged: v.optional(v.boolean()), // User confirmed intentional receipt reuse
+    convertedToAssetId: v.optional(v.id("fixedAssets")), // Linked fixed asset when expense was converted to CapEx
     createdAt: v.number(),
   })
     .index("by_submitter_status", ["submittedBy", "status"])
