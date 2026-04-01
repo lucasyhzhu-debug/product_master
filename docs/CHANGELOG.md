@@ -16,6 +16,15 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
+### Fix: Component Production Section Missing from End of Shift Form -- 2026-04-01
+
+**For the team:** The "Components Produced" section (for logging grams of Outer-Marshmallow, Filling-Pistachio, etc.) now actually appears in the End of Shift form when you toggle components ON in Manager Settings. Previously it was hidden behind a guard that blocked the entire form when there were no ball targets.
+
+#### Fixed
+- End of Shift form now shows Component Production Section independently of ball targets
+- Component-only shifts (no ball targets, only gram inputs) are now possible
+- Updated empty-state message to mention kitchen component settings
+
 ### Fix: Component Units in Shift History -- 2026-04-01
 
 **For the team:** Shift history now shows component production/waste data in grams (e.g., "Outer-Marshmallow: 500g produced, 20g waste"). You can also edit component grams when correcting past shift records. Includes validation that waste can't exceed produced amount, and a confirmation dialog showing what changed before saving.
