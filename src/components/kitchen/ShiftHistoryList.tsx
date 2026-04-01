@@ -47,6 +47,19 @@ interface WasteEntry {
   quantity: number;
 }
 
+export interface ComponentProducedEntry {
+  kitchenComponentCode: string;
+  kitchenComponentName: string;
+  grams: number;
+}
+
+export interface ComponentWasteEntry {
+  kitchenComponentCode: string;
+  kitchenComponentName: string;
+  reason: string;
+  grams: number;
+}
+
 export interface ShiftRecord {
   _id: string;
   date: string;
@@ -56,6 +69,8 @@ export interface ShiftRecord {
   chefUserId?: string;
   produced: ProducedEntry[];
   waste: WasteEntry[];
+  componentProduced?: ComponentProducedEntry[];
+  componentWaste?: ComponentWasteEntry[];
   editedAt?: number;
   editedBy?: string;
   editNote?: string;
@@ -218,6 +233,16 @@ export function ShiftHistoryList() {
 // Record card
 // -------------------------------------------------------
 
+function buildComponentSummary(components: ComponentProducedEntry[]): string {
+  if (components.length === 0) return "";
+  return components.map((c) => `${c.kitchenComponentName}: ${c.grams}g`).join(", ");
+}
+
+function buildComponentWasteSummary(waste: ComponentWasteEntry[]): string {
+  if (waste.length === 0) return "";
+  return waste.map((w) => `${w.kitchenComponentName}: ${w.grams}g (${w.reason.replace("_", " ")})`).join(", ");
+}
+
 function ShiftRecordCard({
   record,
   onEdit,
@@ -228,6 +253,10 @@ function ShiftRecordCard({
   const totalProduced = record.produced.reduce((sum, p) => sum + p.quantity, 0);
   const totalWaste = record.waste.reduce((sum, w) => sum + w.quantity, 0);
   const wasteSummary = buildWasteSummary(record.waste);
+  const componentProduced = record.componentProduced ?? [];
+  const componentWaste = record.componentWaste ?? [];
+  const totalComponentGrams = componentProduced.reduce((sum, c) => sum + c.grams, 0);
+  const totalComponentWasteGrams = componentWaste.reduce((sum, c) => sum + c.grams, 0);
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 space-y-1.5">
@@ -250,6 +279,16 @@ function ShiftRecordCard({
           {totalWaste > 0 && (
             <p className="text-xs text-destructive/80">{wasteSummary}</p>
           )}
+          {componentProduced.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {buildComponentSummary(componentProduced)}
+            </p>
+          )}
+          {totalComponentWasteGrams > 0 && (
+            <p className="text-xs text-destructive/80">
+              {buildComponentWasteSummary(componentWaste)}
+            </p>
+          )}
           {record.editedAt && record.editedBy && (
             <div className="flex items-center gap-1 mt-1">
               <Badge variant="outline" className="text-xs h-5 px-1.5">
@@ -268,6 +307,17 @@ function ShiftRecordCard({
               </>
             )}
           </div>
+          {totalComponentGrams > 0 && (
+            <div className="text-right text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{totalComponentGrams}g</span> components
+              {totalComponentWasteGrams > 0 && (
+                <>
+                  {" "}
+                  <span className="font-medium text-destructive">{totalComponentWasteGrams}g</span> waste
+                </>
+              )}
+            </div>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -292,10 +342,13 @@ function groupByDate(
 ): Array<{ date: string; records: ShiftRecord[] }> {
   const dateMap = new Map<string, ShiftRecord[]>();
   for (const record of records) {
-    const existing = dateMap.get(record.date) ?? [];
-    dateMap.set(record.date, [...existing, record]);
+    const existing = dateMap.get(record.date);
+    if (existing) {
+      existing.push(record);
+    } else {
+      dateMap.set(record.date, [record]);
+    }
   }
-  // Already sorted by backend (date desc)
   return Array.from(dateMap.entries()).map(([date, recs]) => ({
     date,
     records: recs,

@@ -103,6 +103,8 @@ import type * as k3martCockpit_queries from "../k3martCockpit/queries.js";
 import type * as k3martCockpit_queryHelpers_dispatchHelpers from "../k3martCockpit/queryHelpers/dispatchHelpers.js";
 import type * as k3martCockpit_queryHelpers_stockHelpers from "../k3martCockpit/queryHelpers/stockHelpers.js";
 import type * as k3martKitchen_queries from "../k3martKitchen/queries.js";
+import type * as kitchenComponents_mutations from "../kitchenComponents/mutations.js";
+import type * as kitchenComponents_queries from "../kitchenComponents/queries.js";
 import type * as kitchenConfig_mutations from "../kitchenConfig/mutations.js";
 import type * as kitchenConfig_queries from "../kitchenConfig/queries.js";
 import type * as kitchenDailyOverrides_mutations from "../kitchenDailyOverrides/mutations.js";
@@ -132,6 +134,7 @@ import type * as menuProductComponents_mutations from "../menuProductComponents/
 import type * as menuProductComponents_queries from "../menuProductComponents/queries.js";
 import type * as menuProducts_mutations from "../menuProducts/mutations.js";
 import type * as menuProducts_queries from "../menuProducts/queries.js";
+import type * as migrations_bigsellerFeeSignFix from "../migrations/bigsellerFeeSignFix.js";
 import type * as migrations_bigsellerRevenueBackfill from "../migrations/bigsellerRevenueBackfill.js";
 import type * as migrations_bomBackfill from "../migrations/bomBackfill.js";
 import type * as migrations_bomRefactorV2 from "../migrations/bomRefactorV2.js";
@@ -309,6 +312,8 @@ declare const fullApi: ApiFromModules<{
   "k3martCockpit/queryHelpers/dispatchHelpers": typeof k3martCockpit_queryHelpers_dispatchHelpers;
   "k3martCockpit/queryHelpers/stockHelpers": typeof k3martCockpit_queryHelpers_stockHelpers;
   "k3martKitchen/queries": typeof k3martKitchen_queries;
+  "kitchenComponents/mutations": typeof kitchenComponents_mutations;
+  "kitchenComponents/queries": typeof kitchenComponents_queries;
   "kitchenConfig/mutations": typeof kitchenConfig_mutations;
   "kitchenConfig/queries": typeof kitchenConfig_queries;
   "kitchenDailyOverrides/mutations": typeof kitchenDailyOverrides_mutations;
@@ -338,6 +343,7 @@ declare const fullApi: ApiFromModules<{
   "menuProductComponents/queries": typeof menuProductComponents_queries;
   "menuProducts/mutations": typeof menuProducts_mutations;
   "menuProducts/queries": typeof menuProducts_queries;
+  "migrations/bigsellerFeeSignFix": typeof migrations_bigsellerFeeSignFix;
   "migrations/bigsellerRevenueBackfill": typeof migrations_bigsellerRevenueBackfill;
   "migrations/bomBackfill": typeof migrations_bomBackfill;
   "migrations/bomRefactorV2": typeof migrations_bomRefactorV2;
