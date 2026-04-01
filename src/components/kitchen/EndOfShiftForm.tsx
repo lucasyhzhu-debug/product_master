@@ -182,8 +182,9 @@ export function EndOfShiftForm({
   });
 
   // Phase 69: Filter kitchen components by enabled codes
+  // null/undefined/empty = all enabled; non-empty array = only those codes
   const visibleKitchenComponents = (kitchenComponents ?? []).filter((comp) => {
-    if (!enabledKitchenComponentCodes) return true; // null = all enabled
+    if (!enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0) return true;
     return enabledKitchenComponentCodes.includes(comp.code);
   });
 

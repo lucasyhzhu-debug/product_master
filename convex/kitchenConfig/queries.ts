@@ -53,8 +53,11 @@ export const getConfig = query({
       defaultPackagingMix: config.defaultPackagingMix ?? [],
       // Phase 21-08: null = all enabled; array = explicit enabled list
       enabledProductionComponents: config.enabledProductionComponents ?? null,
-      // Phase 69: null = all kitchen components enabled
-      enabledKitchenComponents: config.enabledKitchenComponents ?? null,
+      // Phase 69: null = all kitchen components enabled; normalize empty array to null
+      enabledKitchenComponents:
+        config.enabledKitchenComponents && config.enabledKitchenComponents.length > 0
+          ? config.enabledKitchenComponents
+          : null,
       showJumbo: derivedShowJumbo,
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,

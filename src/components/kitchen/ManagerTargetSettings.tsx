@@ -151,7 +151,11 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         midBallTarget,
         enabledProductionComponents: enabledComponents,
         // Phase 69: Save kitchen component toggles
-        enabledKitchenComponents: enabledKitchenComponents ?? undefined,
+        // null or empty = all enabled (don't write field); non-empty = explicit list
+        enabledKitchenComponents:
+          enabledKitchenComponents && enabledKitchenComponents.length > 0
+            ? enabledKitchenComponents
+            : undefined,
         defaultPackagingMix:
           validMix.length > 0
             ? validMix.map((row) => ({

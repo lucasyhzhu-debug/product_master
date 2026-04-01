@@ -1,16 +1,16 @@
 ---
 status: awaiting_human_verify
-trigger: "Kitchen End of Shift form does not show Components Produced section even though Outer-Marshmallow and Filling-Pistachio are toggled ON in Manager Settings"
+trigger: "Kitchen End of Shift form STILL does not show Components Produced section after early-return fix was deployed. Deeper issue."
 created: 2026-04-01T00:00:00Z
-updated: 2026-04-01T00:00:00Z
+updated: 2026-04-01T23:20:00+07:00
 ---
 
 ## Current Focus
 
-hypothesis: CONFIRMED - Early return in EndOfShiftForm when visibleItems.length === 0 hides the entire form including ComponentProductionSection.
-test: Applied fix, build passes
-expecting: End of Shift form now shows "Components Produced" section when kitchen components are active
-next_action: Await user verification that the Components Produced section now appears in the Kitchen End of Shift form
+hypothesis: CONFIRMED — enabledKitchenComponents in config is likely empty array [] which filters out ALL components. The code treats [] differently from null/undefined: null = all enabled, [] = NONE enabled. Also possible the kitchenComponents table was never seeded. Both are fixable defensively.
+test: Traced all code paths — filter at EndOfShiftForm line 185-188 returns nothing when enabledKitchenComponentCodes is []. Also verified Convex deploy history: Phase 69 backend IS deployed.
+expecting: Fix empty-array-as-none-enabled bug and add seedDefaults to CLAUDE.md instructions
+next_action: Apply fix: treat empty array as null (all enabled) in filter logic, prevent saving empty array in ManagerTargetSettings
 
 ## Symptoms
 
@@ -69,9 +69,24 @@ started: Likely since Phase 69 (kitchen component reporting) — may have never 
   found: Phase 69 merged 2026-03-28 but API types weren't regenerated until 2026-04-01. However, Convex runtime uses anyApi so this is compile-time only.
   implication: Not a runtime issue
 
+- timestamp: 2026-04-01T23:30:00+07:00
+  checked: CI deploy history via gh run list and gh run view
+  found: Phase 69 backend WAS deployed — commit 81eb746f (squash merge of #116) included Phase 69 files and triggered successful convex deploy at 2026-03-28T21:00Z
+  implication: Convex backend IS deployed — not a deploy issue
+
+- timestamp: 2026-04-01T23:35:00+07:00
+  checked: enabledKitchenComponents empty array behavior
+  found: filter uses !enabledKitchenComponentCodes which is false for [] (arrays truthy), then [].includes(code) returns false for all. Empty array silently hides ALL components.
+  implication: THIS is the root cause — if config ever gets enabledKitchenComponents:[], all components invisible
+
+- timestamp: 2026-04-01T23:40:00+07:00
+  checked: ManagerTargetSettings save flow line 154
+  found: enabledKitchenComponents ?? undefined sends [] to mutation when all toggles OFF ([] is not nullish). Mutation writes enabledKitchenComponents:[] to config. Once saved, getConfig returns [] (not null) because [] ?? null = [].
+  implication: The empty array persists in config once saved, permanently hiding components until user re-enables and saves
+
 ## Resolution
 
-root_cause: EndOfShiftForm has an early return (line 434) when visibleItems.length === 0 (no ball production targets). This early return replaces the entire form with a "No products" message, which hides the ComponentProductionSection. The form should allow component-only rendering when kitchen components are available, since validation already supports component-only shifts (I2 fix). Secondary issue: if enabledKitchenComponents is saved as [] in the database, the filter removes all components.
-fix: Modified EndOfShiftForm.tsx early return (line 434) to check BOTH visibleItems AND visibleKitchenComponents. Previously, visibleItems.length === 0 would short-circuit the entire form. Now the form renders if EITHER balls OR kitchen components are available. The Balls Produced section + its waste sub-section are wrapped in {visibleItems.length > 0 && <> ... </>} so they only appear when ball targets exist. The Component Production Section (already gated by visibleKitchenComponents.length > 0) now has a chance to render even without ball targets.
-verification: TypeScript type check passes. Full build (tsc + vite) passes. Pre-existing test failures (k3mart, bigseller, csvImport) are unrelated. Needs manual verification in browser.
-files_changed: [src/components/kitchen/EndOfShiftForm.tsx]
+root_cause: TWO bugs compound to hide the Components Produced section. Bug 1 (fixed in commit 82dab066): Early return guard blocked entire form when visibleItems was empty. Bug 2 (STILL PRESENT until this fix): The code treats empty array [] as "none enabled" but null/undefined as "all enabled". If enabledKitchenComponents in kitchenConfig is ever saved as [] (e.g., user toggled all OFF then saved, or config was saved via another code path), the filter at EndOfShiftForm line 185-188 removes ALL kitchen components. The check `!enabledKitchenComponentCodes` is false for [] (arrays are truthy), so it falls through to `.includes()` which returns false for every component against an empty array. An empty array should semantically mean "all enabled" (same as null), not "none enabled".
+fix: Applied defensive normalization at 4 layers — (1) getConfig query normalizes [] to null before returning to client, (2) EndOfShiftForm filter treats empty array same as null (all pass), (3) ManagerTargetSettings prevents saving empty array (converts to undefined so field is not written), (4) ShiftEditDialog addable components filter gets same empty-array guard.
+verification: TypeScript type check passes. Full build (tsc + vite) passes. Needs manual verification in browser — deploy to production and confirm Components Produced section appears.
+files_changed: [convex/kitchenConfig/queries.ts, src/components/kitchen/EndOfShiftForm.tsx, src/components/kitchen/ManagerTargetSettings.tsx, src/components/kitchen/ShiftEditDialog.tsx]

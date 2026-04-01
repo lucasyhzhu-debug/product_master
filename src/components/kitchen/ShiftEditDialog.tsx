@@ -158,7 +158,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     return kitchenComponents
       .filter((c) => {
         if (existingComponentCodes.has(c.code)) return false;
-        if (enabledCodes && !enabledCodes.includes(c.code)) return false;
+        if (enabledCodes && enabledCodes.length > 0 && !enabledCodes.includes(c.code)) return false;
         return true;
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
