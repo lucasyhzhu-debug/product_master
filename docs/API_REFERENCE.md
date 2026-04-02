@@ -1751,6 +1751,51 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 
 ---
 
+### Reimbursement Batches
+
+#### `reimbursements.queries.listAwaitingPayment`
+**Type:** Protected Query (admin)
+**Returns:** Expenses awaiting payment, grouped by employee. Each group includes user name, bank details, sorted expenses, total amount, and count. Sorted by totalAmount descending.
+
+#### `reimbursements.queries.listBatches`
+**Type:** Protected Query (admin)
+**Args:** `status?: "pending" | "confirmed" | "voided"`, `search?: string`
+**Returns:** Up to 100 batches (excluding soft-deleted), enriched with employee name, sorted by createdAt descending. Search matches batchNumber or bankReference.
+
+#### `reimbursements.queries.getPendingBatchForEmployee`
+**Type:** Protected Query (admin)
+**Args:** `employeeUserId: Id<"users">`
+**Returns:** Existing pending batch for the employee (with expense count and total), or null. Uses `by_employee_status` index.
+
+#### `reimbursements.mutations.createBatch`
+**Type:** Protected Mutation (admin)
+**Args:** `employeeUserId: Id<"users">`, `expenseIds: Id<"expenses">[]`
+**Returns:** `{ batchId, batchNumber, totalAmount }`
+**Validates:** Non-empty, all expenses exist and belong to employee, all are `awaiting_payment`, no expense already in a pending batch. Deduplicates expense IDs.
+
+#### `reimbursements.mutations.addExpensesToBatch`
+**Type:** Protected Mutation (admin)
+**Args:** `batchId: Id<"reimbursementBatches">`, `expenseIds: Id<"expenses">[]`
+**Returns:** `{ batchId, batchNumber, totalAmount, addedCount, addedAmount }`
+**Validates:** Batch must be pending. Same validation as createBatch. Distinct error message for same-batch vs cross-batch duplicates. Updates batch totalAmount.
+
+#### `reimbursements.mutations.confirmBatch`
+**Type:** Protected Mutation (admin)
+**Args:** `batchId`, `bankAccountId`, `bankReference`, `transferDate`
+**Effect:** Creates JE (DR 2200, CR 1100), marks expenses as `reimbursed`, records audit trail. Uses `transferDate` as JE business date.
+
+#### `reimbursements.mutations.deleteBatch`
+**Type:** Protected Mutation (admin)
+**Args:** `batchId: Id<"reimbursementBatches">`
+**Effect:** Soft-deletes a pending batch (sets status="deleted", records deletedBy/deletedAt). Removes batch items so expenses can be re-batched. Only works on pending batches.
+
+#### `reimbursements.mutations.voidBatch`
+**Type:** Protected Mutation (admin)
+**Args:** `batchId`, `reason: string`
+**Effect:** Creates reversing JE, returns expenses to `awaiting_payment`, records audit trail. Only works on confirmed batches.
+
+---
+
 ### Library Utilities
 
 #### `buildProductCOGSMap` (convex/lib/costCalculator.ts)

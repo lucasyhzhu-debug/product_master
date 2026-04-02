@@ -27,9 +27,6 @@ export function validateTransferDate(date: number): void {
 /**
  * Validate that a void reason is non-empty.
  */
-/**
- * Validate that a void reason is non-empty.
- */
 export function validateVoidReason(reason: string): void {
   if (!reason.trim()) {
     throw new ConvexError("Void reason is required");

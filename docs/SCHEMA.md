@@ -1617,6 +1617,49 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 - GL accounts: DR 6150 (Depreciation Expense), CR 1610-1670 (per-category Accumulated Depreciation)
 - Disposal gain/loss: 7300 (Gain on Asset Disposal), 7400 (Loss on Asset Disposal)
 
+## Reimbursement Batch Tables
+
+### `reimbursementBatches` -- Group expenses for bank transfer
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `batchNumber` | `string` | Sequential RMB-MMDD-NNN format |
+| `employeeUserId` | `id("users")` | Employee being reimbursed |
+| `totalAmount` | `number` | Sum of all linked expense amounts (IDR) |
+| `status` | `union` | `"pending"` \| `"confirmed"` \| `"voided"` \| `"deleted"` |
+| `bankAccountId` | `optional id("bankAccounts")` | Company bank account used for transfer |
+| `bankReference` | `optional string` | Bank transfer reference number |
+| `transferDate` | `optional number` | Epoch ms of bank transfer date (JE business date) |
+| `confirmedBy` | `optional id("users")` | Admin who confirmed the batch |
+| `confirmedAt` | `optional number` | Epoch ms of confirmation |
+| `voidedBy` | `optional id("users")` | Admin who voided the batch |
+| `voidedAt` | `optional number` | Epoch ms of void |
+| `voidReason` | `optional string` | Reason for voiding |
+| `deletedBy` | `optional id("users")` | Admin who soft-deleted the batch |
+| `deletedAt` | `optional number` | Epoch ms of deletion |
+| `journalEntryId` | `optional id("journalEntries")` | JE created on confirmation (DR 2200, CR 1100) |
+| `createdBy` | `id("users")` | Admin who created the batch |
+| `createdAt` | `number` | Epoch ms of creation |
+
+**Indexes:** `by_batch_number` (batchNumber), `by_employee_status` (employeeUserId, status), `by_status` (status)
+
+**Status workflow:** `pending` -> `confirmed` (with JE) | `deleted` (soft-delete, items removed). `confirmed` -> `voided` (with reversing JE).
+
+**Relationships:**
+- Journal entries: DR 2200 Employee Reimb Payable, CR 1100 Cash (on confirm). Reversed on void.
+- Expenses transition `awaiting_payment` -> `reimbursed` on confirm, reversed on void.
+
+### `reimbursementBatchItems` -- Link expenses to batches
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `batchId` | `id("reimbursementBatches")` | Parent batch |
+| `expenseId` | `id("expenses")` | Linked expense |
+
+**Indexes:** `by_batch` (batchId), `by_expense` (expenseId)
+
+**Guard:** Double-batching prevented at mutation level -- an expense cannot be in two pending batches simultaneously.
+
 ## Kitchen Component Reporting (Phase 69)
 
 ### `kitchenComponents` -- Kitchen Pre-Cursor Ingredients

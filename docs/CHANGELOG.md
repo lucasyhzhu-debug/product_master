@@ -16,6 +16,28 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
+### Fix: Reimbursement Batch Error Messages + Delete & Merge Batch Features -- 2026-04-02
+
+**For the team:** When creating a reimbursement batch fails, you now see the actual reason (e.g., "Expense EXP-0317-030 is already in a pending batch") instead of a generic "Server Error". You can also delete pending batches to re-group expenses, and add expenses to an existing pending batch instead of creating duplicates.
+
+#### Fixed
+- All reimbursement mutation errors now show meaningful messages to the client (was showing generic "Server Error")
+- Same fix applied globally to shared validation helpers (affects expenses and payroll modules too)
+
+#### Added
+- **Delete Batch**: Pending batches can be soft-deleted (with audit trail) so expenses return to the queue for re-batching
+- **Add to Existing Batch**: When creating a batch for an employee who already has a pending batch, a dialog offers to add expenses to the existing batch or create a new one
+- **Duplicate Protection**: Backend deduplicates expense IDs in a single request and shows distinct error for same-batch vs cross-batch duplicates
+
+#### Schema
+- `reimbursementBatches.status`: added `"deleted"` literal
+- `reimbursementBatches`: added optional `deletedBy` (id), `deletedAt` (number) fields
+
+#### Backend (new endpoints)
+- `reimbursements.mutations.deleteBatch` -- soft-delete a pending batch (admin)
+- `reimbursements.mutations.addExpensesToBatch` -- add expenses to existing pending batch (admin)
+- `reimbursements.queries.getPendingBatchForEmployee` -- check for existing pending batch (admin)
+
 ### Fix: Component Production Section Missing from End of Shift Form -- 2026-04-01
 
 **For the team:** The "Components Produced" section (for logging grams of Outer-Marshmallow, Filling-Pistachio, etc.) now actually appears in the End of Shift form when you toggle components ON in Manager Settings. Previously it was hidden behind a guard that blocked the entire form when there were no ball targets.
