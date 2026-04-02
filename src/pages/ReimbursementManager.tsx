@@ -125,10 +125,17 @@ export function ReimbursementManager() {
     [voidBatch, voidTarget],
   );
 
+  const [deleting, setDeleting] = useState(false);
+
   const handleDeleteBatch = useCallback(async () => {
     if (!deleteTarget) return;
-    await deleteBatch.mutate({ batchId: deleteTarget.batchId });
-    setDeleteTarget(null);
+    setDeleting(true);
+    try {
+      await deleteBatch.mutate({ batchId: deleteTarget.batchId });
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   }, [deleteBatch, deleteTarget]);
 
   return (
@@ -188,11 +195,12 @@ export function ReimbursementManager() {
         description="This will remove the batch. All expenses will remain in the awaiting payment queue and can be re-batched."
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open && !deleting) setDeleteTarget(null);
         }}
         onConfirm={handleDeleteBatch}
         confirmLabel="Delete Batch"
         variant="destructive"
+        loading={deleting}
       />
     </div>
   );
@@ -232,38 +240,8 @@ function PendingTab({ onConfirmOpen }: PendingTabProps) {
   const showExistingBatchDialog =
     pendingAction !== null && existingBatch !== undefined && existingBatch !== null;
 
-  const handleCreateBatchClick = useCallback(
-    (employeeUserId: Id<"users">, expenseIds: Id<"expenses">[]) => {
-      // Calculate selected total from groups
-      const group = groups?.find(
-        (g: AwaitingPaymentGroup) => g.userId === employeeUserId,
-      );
-      const selectedTotal = group
-        ? group.expenses
-            .filter((e: { _id: string; amount: number }) =>
-              (expenseIds as string[]).includes(e._id),
-            )
-            .reduce((sum: number, e: { amount: number }) => sum + e.amount, 0)
-        : 0;
-      // Store the intent -- the query will check for existing batches
-      setPendingAction({ employeeUserId, expenseIds, selectedTotal });
-    },
-    [groups],
-  );
-
-  // When pendingAction is set but no existing batch, auto-create
-  useEffect(() => {
-    if (
-      pendingAction &&
-      existingBatch !== undefined &&
-      existingBatch === null &&
-      !creating
-    ) {
-      doCreateBatch(pendingAction.employeeUserId, pendingAction.expenseIds);
-      setPendingAction(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingAction, existingBatch, creating]);
+  // Ref to prevent double-fire of auto-create effect
+  const autoCreateFiredRef = useRef(false);
 
   const doCreateBatch = useCallback(
     async (employeeUserId: Id<"users">, expenseIds: Id<"expenses">[]) => {
@@ -284,14 +262,50 @@ function PendingTab({ onConfirmOpen }: PendingTabProps) {
     [createBatch, onConfirmOpen],
   );
 
+  const handleCreateBatchClick = useCallback(
+    (employeeUserId: Id<"users">, expenseIds: Id<"expenses">[]) => {
+      // Calculate selected total from groups
+      const group = groups?.find(
+        (g: AwaitingPaymentGroup) => g.userId === employeeUserId,
+      );
+      const selectedTotal = group
+        ? group.expenses
+            .filter((e: { _id: string; amount: number }) =>
+              (expenseIds as string[]).includes(e._id),
+            )
+            .reduce((sum: number, e: { amount: number }) => sum + e.amount, 0)
+        : 0;
+      // Store the intent -- the query will check for existing batches
+      autoCreateFiredRef.current = false;
+      setPendingAction({ employeeUserId, expenseIds, selectedTotal });
+    },
+    [groups],
+  );
+
+  // When pendingAction is set but no existing batch, auto-create
+  useEffect(() => {
+    if (
+      pendingAction &&
+      existingBatch !== undefined &&
+      existingBatch === null &&
+      !creating &&
+      !autoCreateFiredRef.current
+    ) {
+      autoCreateFiredRef.current = true;
+      const { employeeUserId, expenseIds } = pendingAction;
+      setPendingAction(null);
+      doCreateBatch(employeeUserId, expenseIds);
+    }
+  }, [pendingAction, existingBatch, creating, doCreateBatch]);
+
   const handleAddToExisting = useCallback(async () => {
     if (!pendingAction || !existingBatch) return;
+    const { expenseIds } = pendingAction;
+    const batchId = existingBatch._id as Id<"reimbursementBatches">;
+    setPendingAction(null);
     setCreating(true);
     try {
-      const result = await addExpensesToBatch.mutate({
-        batchId: existingBatch._id as Id<"reimbursementBatches">,
-        expenseIds: pendingAction.expenseIds,
-      });
+      const result = await addExpensesToBatch.mutate({ batchId, expenseIds });
       if (result) {
         onConfirmOpen(
           result.batchId as Id<"reimbursementBatches">,
@@ -301,14 +315,14 @@ function PendingTab({ onConfirmOpen }: PendingTabProps) {
       }
     } finally {
       setCreating(false);
-      setPendingAction(null);
     }
   }, [pendingAction, existingBatch, addExpensesToBatch, onConfirmOpen]);
 
   const handleCreateNew = useCallback(async () => {
     if (!pendingAction) return;
+    const { employeeUserId, expenseIds } = pendingAction;
     setPendingAction(null);
-    await doCreateBatch(pendingAction.employeeUserId, pendingAction.expenseIds);
+    await doCreateBatch(employeeUserId, expenseIds);
   }, [pendingAction, doCreateBatch]);
 
   // Loading state
