@@ -4,12 +4,14 @@
  * No ctx dependency -- suitable for unit testing.
  */
 
+import { ConvexError } from "convex/values";
+
 /**
  * Validate that a bank reference is non-empty.
  */
 export function validateBankReference(ref: string): void {
   if (!ref.trim()) {
-    throw new Error("Bank reference number is required");
+    throw new ConvexError("Bank reference number is required");
   }
 }
 
@@ -18,7 +20,7 @@ export function validateBankReference(ref: string): void {
  */
 export function validateTransferDate(date: number): void {
   if (!date || date <= 0) {
-    throw new Error("Transfer date is required");
+    throw new ConvexError("Transfer date is required");
   }
 }
 

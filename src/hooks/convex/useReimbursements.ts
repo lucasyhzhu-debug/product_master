@@ -48,6 +48,16 @@ export function useBatchItems(
   );
 }
 
+/** Check for existing pending batch for an employee */
+export function usePendingBatchForEmployee(
+  employeeUserId: Id<"users"> | undefined,
+) {
+  return useSessionQuery(
+    api.reimbursements.queries.getPendingBatchForEmployee,
+    employeeUserId ? { employeeUserId } : "skip",
+  );
+}
+
 // ============================================================================
 // MUTATION HOOKS
 // ============================================================================
@@ -73,6 +83,24 @@ export const useVoidBatch = createMutationHook(
   {
     successMessage: "Batch voided -- expenses returned to awaiting payment",
     errorMessage: "Failed to void batch",
+  },
+);
+
+/** Delete a pending batch so expenses can be re-batched */
+export const useDeleteBatch = createMutationHook(
+  api.reimbursements.mutations.deleteBatch,
+  {
+    successMessage: "Batch deleted -- expenses can be re-batched",
+    errorMessage: "Failed to delete batch",
+  },
+);
+
+/** Add expenses to an existing pending batch */
+export const useAddExpensesToBatch = createMutationHook(
+  api.reimbursements.mutations.addExpensesToBatch,
+  {
+    successMessage: "Expenses added to existing batch",
+    errorMessage: "Failed to add expenses to batch",
   },
 );
 

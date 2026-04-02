@@ -21,6 +21,7 @@ import {
   ChevronRight,
   CheckCircle,
   XCircle,
+  Trash2,
   Landmark,
   Calendar,
 } from "lucide-react";
@@ -47,9 +48,13 @@ interface BatchCardProps {
     batchId: Id<"reimbursementBatches">,
     batchNumber: string,
   ) => void;
+  onDelete?: (
+    batchId: Id<"reimbursementBatches">,
+    batchNumber: string,
+  ) => void;
 }
 
-export function BatchCard({ batch, onConfirm, onVoid }: BatchCardProps) {
+export function BatchCard({ batch, onConfirm, onVoid, onDelete }: BatchCardProps) {
   const [expanded, setExpanded] = useState(false);
   const badgeInfo = STATUS_BADGE[batch.status] || STATUS_BADGE.pending;
 
@@ -114,6 +119,22 @@ export function BatchCard({ batch, onConfirm, onVoid }: BatchCardProps) {
             </CollapsibleTrigger>
 
             <div className="flex items-center gap-2">
+              {batch.status === "pending" && onDelete && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                  onClick={() =>
+                    onDelete(
+                      batch._id as Id<"reimbursementBatches">,
+                      batch.batchNumber,
+                    )
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete
+                </Button>
+              )}
               {batch.status === "pending" && onConfirm && (
                 <Button
                   size="sm"

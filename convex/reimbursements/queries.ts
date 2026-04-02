@@ -248,3 +248,43 @@ export const getBatchItems = protectedQuery({
     return expenses.filter(Boolean);
   },
 });
+
+// ---------------------------------------------------------------------------
+// getPendingBatchForEmployee -- check for existing pending batch
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the pending batch for an employee (if any).
+ *
+ * Used by the frontend to offer "add to existing batch" when creating a new one.
+ * Returns null if no pending batch exists.
+ */
+export const getPendingBatchForEmployee = protectedQuery({
+  roles: ["admin"],
+  args: {
+    employeeUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const pendingBatch = await ctx.db
+      .query("reimbursementBatches")
+      .withIndex("by_employee_status", (q) =>
+        q.eq("employeeUserId", args.employeeUserId).eq("status", "pending")
+      )
+      .first();
+
+    if (!pendingBatch) return null;
+
+    // Get existing batch items count and total
+    const batchItems = await ctx.db
+      .query("reimbursementBatchItems")
+      .withIndex("by_batch", (q) => q.eq("batchId", pendingBatch._id))
+      .collect();
+
+    return {
+      _id: pendingBatch._id,
+      batchNumber: pendingBatch.batchNumber,
+      totalAmount: pendingBatch.totalAmount,
+      expenseCount: batchItems.length,
+    };
+  },
+});
