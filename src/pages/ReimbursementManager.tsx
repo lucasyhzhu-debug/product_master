@@ -8,6 +8,7 @@
  * Real-time: Convex auto-updates when batches are created/confirmed/voided.
  */
 import { useState, useCallback, useEffect, useRef } from "react";
+import { formatCurrency } from "@/lib/utils";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,9 +17,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Search,
   Inbox,
   Package,
+  Plus,
   AlertCircle,
 } from "lucide-react";
 
@@ -27,10 +37,13 @@ import {
   useCreateBatch,
   useBatches,
   useVoidBatch,
+  useDeleteBatch,
+  useAddExpensesToBatch,
+  usePendingBatchForEmployee,
   type AwaitingPaymentGroup,
   type Batch,
 } from "@/hooks/convex/useReimbursements";
-import { VoidReasonDialog } from "@/components/shared";
+import { VoidReasonDialog, ConfirmDialog } from "@/components/shared";
 import { PendingExpensesGroup } from "@/components/reimbursements/PendingExpensesGroup";
 import { ConfirmBatchDialog } from "@/components/reimbursements/ConfirmBatchDialog";
 import { BatchCard } from "@/components/reimbursements/BatchCard";
@@ -70,6 +83,12 @@ export function ReimbursementManager() {
     batchNumber: string;
   } | null>(null);
 
+  // Delete dialog state
+  const [deleteTarget, setDeleteTarget] = useState<{
+    batchId: Id<"reimbursementBatches">;
+    batchNumber: string;
+  } | null>(null);
+
   const handleConfirmOpen = useCallback(
     (
       batchId: Id<"reimbursementBatches">,
@@ -82,10 +101,18 @@ export function ReimbursementManager() {
   );
 
   const voidBatch = useVoidBatch();
+  const deleteBatch = useDeleteBatch();
 
   const handleVoidOpen = useCallback(
     (batchId: Id<"reimbursementBatches">, batchNumber: string) => {
       setVoidTarget({ batchId, batchNumber });
+    },
+    [],
+  );
+
+  const handleDeleteOpen = useCallback(
+    (batchId: Id<"reimbursementBatches">, batchNumber: string) => {
+      setDeleteTarget({ batchId, batchNumber });
     },
     [],
   );
@@ -97,6 +124,19 @@ export function ReimbursementManager() {
     },
     [voidBatch, voidTarget],
   );
+
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteBatch = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteBatch.mutate({ batchId: deleteTarget.batchId });
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteBatch, deleteTarget]);
 
   return (
     <div className="space-y-4">
@@ -121,6 +161,7 @@ export function ReimbursementManager() {
           <BatchHistoryTab
             onConfirmOpen={handleConfirmOpen}
             onVoidOpen={handleVoidOpen}
+            onDeleteOpen={handleDeleteOpen}
           />
         </TabsContent>
       </Tabs>
@@ -147,6 +188,20 @@ export function ReimbursementManager() {
         onConfirm={handleVoidBatch}
         confirmLabel="Void Batch"
       />
+
+      {/* Delete Batch Dialog */}
+      <ConfirmDialog
+        title={`Delete Batch ${deleteTarget?.batchNumber ?? ""}`}
+        description="This will remove the batch. All expenses will remain in the awaiting payment queue and can be re-batched."
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+        onConfirm={handleDeleteBatch}
+        confirmLabel="Delete Batch"
+        variant="destructive"
+        loading={deleting}
+      />
     </div>
   );
 }
@@ -166,14 +221,33 @@ interface PendingTabProps {
 function PendingTab({ onConfirmOpen }: PendingTabProps) {
   const groups = useAwaitingPayment();
   const createBatch = useCreateBatch();
+  const addExpensesToBatch = useAddExpensesToBatch();
   const [creating, setCreating] = useState(false);
 
-  const handleCreateBatch = useCallback(
+  // Pending action state for "add to existing batch" dialog
+  const [pendingAction, setPendingAction] = useState<{
+    employeeUserId: Id<"users">;
+    expenseIds: Id<"expenses">[];
+    selectedTotal: number;
+  } | null>(null);
+
+  // Query for existing pending batch when an action is pending
+  const existingBatch = usePendingBatchForEmployee(
+    pendingAction?.employeeUserId,
+  );
+
+  // Show dialog when we have a pending action AND found an existing batch
+  const showExistingBatchDialog =
+    pendingAction !== null && existingBatch !== undefined && existingBatch !== null;
+
+  // Ref to prevent double-fire of auto-create effect
+  const autoCreateFiredRef = useRef(false);
+
+  const doCreateBatch = useCallback(
     async (employeeUserId: Id<"users">, expenseIds: Id<"expenses">[]) => {
       setCreating(true);
       try {
         const result = await createBatch.mutate({ employeeUserId, expenseIds });
-        // Auto-open confirm dialog for the new batch
         if (result) {
           onConfirmOpen(
             result.batchId as Id<"reimbursementBatches">,
@@ -187,6 +261,69 @@ function PendingTab({ onConfirmOpen }: PendingTabProps) {
     },
     [createBatch, onConfirmOpen],
   );
+
+  const handleCreateBatchClick = useCallback(
+    (employeeUserId: Id<"users">, expenseIds: Id<"expenses">[]) => {
+      // Calculate selected total from groups
+      const group = groups?.find(
+        (g: AwaitingPaymentGroup) => g.userId === employeeUserId,
+      );
+      const selectedTotal = group
+        ? group.expenses
+            .filter((e: { _id: string; amount: number }) =>
+              (expenseIds as string[]).includes(e._id),
+            )
+            .reduce((sum: number, e: { amount: number }) => sum + e.amount, 0)
+        : 0;
+      // Store the intent -- the query will check for existing batches
+      autoCreateFiredRef.current = false;
+      setPendingAction({ employeeUserId, expenseIds, selectedTotal });
+    },
+    [groups],
+  );
+
+  // When pendingAction is set but no existing batch, auto-create
+  useEffect(() => {
+    if (
+      pendingAction &&
+      existingBatch !== undefined &&
+      existingBatch === null &&
+      !creating &&
+      !autoCreateFiredRef.current
+    ) {
+      autoCreateFiredRef.current = true;
+      const { employeeUserId, expenseIds } = pendingAction;
+      setPendingAction(null);
+      doCreateBatch(employeeUserId, expenseIds);
+    }
+  }, [pendingAction, existingBatch, creating, doCreateBatch]);
+
+  const handleAddToExisting = useCallback(async () => {
+    if (!pendingAction || !existingBatch) return;
+    const { expenseIds } = pendingAction;
+    const batchId = existingBatch._id as Id<"reimbursementBatches">;
+    setPendingAction(null);
+    setCreating(true);
+    try {
+      const result = await addExpensesToBatch.mutate({ batchId, expenseIds });
+      if (result) {
+        onConfirmOpen(
+          result.batchId as Id<"reimbursementBatches">,
+          result.batchNumber,
+          result.totalAmount,
+        );
+      }
+    } finally {
+      setCreating(false);
+    }
+  }, [pendingAction, existingBatch, addExpensesToBatch, onConfirmOpen]);
+
+  const handleCreateNew = useCallback(async () => {
+    if (!pendingAction) return;
+    const { employeeUserId, expenseIds } = pendingAction;
+    setPendingAction(null);
+    await doCreateBatch(employeeUserId, expenseIds);
+  }, [pendingAction, doCreateBatch]);
 
   // Loading state
   if (groups === undefined) {
@@ -234,11 +371,61 @@ function PendingTab({ onConfirmOpen }: PendingTabProps) {
           <PendingExpensesGroup
             key={group.userId}
             group={group}
-            onCreateBatch={handleCreateBatch}
+            onCreateBatch={handleCreateBatchClick}
             disabled={creating}
           />
         ))}
       </div>
+
+      {/* Existing Batch Dialog */}
+      <Dialog
+        open={showExistingBatchDialog}
+        onOpenChange={(open) => {
+          if (!open) setPendingAction(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Existing Batch Found</DialogTitle>
+            <DialogDescription>
+              There&apos;s already a pending batch{" "}
+              <span className="font-mono font-semibold">
+                {existingBatch?.batchNumber}
+              </span>{" "}
+              with {existingBatch?.expenseCount} expense
+              {existingBatch?.expenseCount !== 1 ? "s" : ""} totalling{" "}
+              <span className="font-semibold">
+                {formatCurrency(existingBatch?.totalAmount ?? 0)}
+              </span>
+              .
+              <br />
+              <br />
+              Do you want to add the{" "}
+              {pendingAction?.expenseIds.length} new expense
+              {(pendingAction?.expenseIds.length ?? 0) !== 1 ? "s" : ""}{" "}
+              totalling{" "}
+              <span className="font-semibold">
+                {formatCurrency(pendingAction?.selectedTotal ?? 0)}
+              </span>{" "}
+              to that batch, or create a separate new batch?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={handleCreateNew}
+              disabled={creating}
+            >
+              <Package className="h-4 w-4 mr-1" />
+              Create New Batch
+            </Button>
+            <Button onClick={handleAddToExisting} disabled={creating}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add to {existingBatch?.batchNumber}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -257,9 +444,13 @@ interface BatchHistoryTabProps {
     batchId: Id<"reimbursementBatches">,
     batchNumber: string,
   ) => void;
+  onDeleteOpen: (
+    batchId: Id<"reimbursementBatches">,
+    batchNumber: string,
+  ) => void;
 }
 
-function BatchHistoryTab({ onConfirmOpen, onVoidOpen }: BatchHistoryTabProps) {
+function BatchHistoryTab({ onConfirmOpen, onVoidOpen, onDeleteOpen }: BatchHistoryTabProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -343,6 +534,7 @@ function BatchHistoryTab({ onConfirmOpen, onVoidOpen }: BatchHistoryTabProps) {
               batch={batch}
               onConfirm={onConfirmOpen}
               onVoid={onVoidOpen}
+              onDelete={onDeleteOpen}
             />
           ))}
         </div>

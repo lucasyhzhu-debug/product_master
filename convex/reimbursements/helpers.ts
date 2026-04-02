@@ -4,12 +4,14 @@
  * No ctx dependency -- suitable for unit testing.
  */
 
+import { ConvexError } from "convex/values";
+
 /**
  * Validate that a bank reference is non-empty.
  */
 export function validateBankReference(ref: string): void {
   if (!ref.trim()) {
-    throw new Error("Bank reference number is required");
+    throw new ConvexError("Bank reference number is required");
   }
 }
 
@@ -18,13 +20,18 @@ export function validateBankReference(ref: string): void {
  */
 export function validateTransferDate(date: number): void {
   if (!date || date <= 0) {
-    throw new Error("Transfer date is required");
+    throw new ConvexError("Transfer date is required");
   }
 }
 
 /**
  * Validate that a void reason is non-empty.
  */
-// Re-export from shared validation -- backward compatible alias
-import { validateRequiredReason } from "../lib/validation";
-export const validateVoidReason = validateRequiredReason;
+/**
+ * Validate that a void reason is non-empty.
+ */
+export function validateVoidReason(reason: string): void {
+  if (!reason.trim()) {
+    throw new ConvexError("Void reason is required");
+  }
+}

@@ -9,7 +9,7 @@
  * All mutations are admin-only and record full audit trails.
  */
 
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { getNextNumber } from "../lib/counter";
 import {
@@ -46,39 +46,42 @@ export const createBatch = protectedMutation({
   },
   handler: async (ctx, args) => {
     if (args.expenseIds.length === 0) {
-      throw new Error("At least one expense is required");
+      throw new ConvexError("At least one expense is required");
     }
+
+    // Deduplicate expense IDs
+    const uniqueExpenseIds = [...new Set(args.expenseIds)];
 
     // Verify employee exists
     const employee = await ctx.db.get(args.employeeUserId);
     if (!employee) {
-      throw new Error("Employee not found");
+      throw new ConvexError("Employee not found");
     }
 
     // Fetch all expenses in parallel
     const expenses = await Promise.all(
-      args.expenseIds.map((id) => ctx.db.get(id))
+      uniqueExpenseIds.map((id) => ctx.db.get(id))
     );
 
     let totalAmount = 0;
 
     // Validate sequentially (order matters for error messages)
-    for (let i = 0; i < args.expenseIds.length; i++) {
+    for (let i = 0; i < uniqueExpenseIds.length; i++) {
       const expense = expenses[i];
       if (!expense) {
-        throw new Error("Expense not found");
+        throw new ConvexError("Expense not found");
       }
 
       // Must be awaiting_payment
       if (expense.status !== "awaiting_payment") {
-        throw new Error(
+        throw new ConvexError(
           `Expense ${expense.expenseNumber} is not awaiting payment`
         );
       }
 
       // Must belong to the specified employee
       if (expense.submittedBy !== args.employeeUserId) {
-        throw new Error(
+        throw new ConvexError(
           `Expense ${expense.expenseNumber} does not belong to this employee`
         );
       }
@@ -86,13 +89,13 @@ export const createBatch = protectedMutation({
       // Double-batching guard: check if expense is already in a pending batch
       const existingItems = await ctx.db
         .query("reimbursementBatchItems")
-        .withIndex("by_expense", (q) => q.eq("expenseId", args.expenseIds[i]))
+        .withIndex("by_expense", (q) => q.eq("expenseId", uniqueExpenseIds[i]))
         .collect();
 
       for (const item of existingItems) {
         const existingBatch = await ctx.db.get(item.batchId);
         if (existingBatch && existingBatch.status === "pending") {
-          throw new Error(
+          throw new ConvexError(
             `Expense ${expense.expenseNumber} is already in a pending batch (${existingBatch.batchNumber})`
           );
         }
@@ -115,7 +118,7 @@ export const createBatch = protectedMutation({
     });
 
     // Insert batch items
-    for (const expenseId of args.expenseIds) {
+    for (const expenseId of uniqueExpenseIds) {
       await ctx.db.insert("reimbursementBatchItems", {
         batchId,
         expenseId,
@@ -153,11 +156,11 @@ export const confirmBatch = protectedMutation({
   handler: async (ctx, args) => {
     const batch = await ctx.db.get(args.batchId);
     if (!batch) {
-      throw new Error("Batch not found");
+      throw new ConvexError("Batch not found");
     }
 
     if (batch.status !== "pending") {
-      throw new Error("Batch is not pending");
+      throw new ConvexError("Batch is not pending");
     }
 
     // Validate inputs
@@ -167,10 +170,10 @@ export const confirmBatch = protectedMutation({
     // Validate bank account
     const bankAccount = await ctx.db.get(args.bankAccountId);
     if (!bankAccount) {
-      throw new Error("Bank account not found");
+      throw new ConvexError("Bank account not found");
     }
     if (!bankAccount.isActive) {
-      throw new Error("Bank account is not active");
+      throw new ConvexError("Bank account is not active");
     }
 
     // Get batch items
@@ -180,7 +183,7 @@ export const confirmBatch = protectedMutation({
       .collect();
 
     if (batchItems.length === 0) {
-      throw new Error("Batch has no expenses");
+      throw new ConvexError("Batch has no expenses");
     }
 
     // Look up accounts by code in parallel (NEVER hardcode IDs)
@@ -190,7 +193,7 @@ export const confirmBatch = protectedMutation({
     ]);
 
     if (!accrued || !cash) {
-      throw new Error(
+      throw new ConvexError(
         "System accounts 1100/2200 not found. Run accounts:seedDefaults."
       );
     }
@@ -227,7 +230,7 @@ export const confirmBatch = protectedMutation({
 
       // Concurrency guard
       if (expense.status !== "awaiting_payment") {
-        throw new Error(
+        throw new ConvexError(
           `Expense ${expense.expenseNumber} is no longer awaiting payment`
         );
       }
@@ -278,11 +281,11 @@ export const voidBatch = protectedMutation({
   handler: async (ctx, args) => {
     const batch = await ctx.db.get(args.batchId);
     if (!batch) {
-      throw new Error("Batch not found");
+      throw new ConvexError("Batch not found");
     }
 
     if (batch.status !== "confirmed") {
-      throw new Error("Only confirmed batches can be voided");
+      throw new ConvexError("Only confirmed batches can be voided");
     }
 
     validateVoidReason(args.reason);
@@ -312,7 +315,7 @@ export const voidBatch = protectedMutation({
       if (!expense) continue;
 
       if (expense.status !== "reimbursed") {
-        throw new Error(
+        throw new ConvexError(
           `Expense ${expense.expenseNumber} is not in reimbursed status`
         );
       }
@@ -335,5 +338,158 @@ export const voidBatch = protectedMutation({
       voidedAt: Date.now(),
       voidReason: args.reason.trim(),
     });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// deleteBatch -- soft-delete a pending batch so expenses can be re-batched
+// ---------------------------------------------------------------------------
+
+/**
+ * Soft-delete a pending reimbursement batch.
+ *
+ * Only pending batches can be deleted (confirmed/voided have journal entries).
+ * Removes batch items (releasing expenses) and marks batch as "deleted"
+ * with an audit trail (deletedBy, deletedAt).
+ * Expenses remain in awaiting_payment status and can be re-batched.
+ */
+export const deleteBatch = protectedMutation({
+  roles: ["admin"],
+  args: {
+    batchId: v.id("reimbursementBatches"),
+  },
+  handler: async (ctx, args) => {
+    const batch = await ctx.db.get(args.batchId);
+    if (!batch) {
+      throw new ConvexError("Batch not found");
+    }
+
+    if (batch.status !== "pending") {
+      throw new ConvexError(
+        "Only pending batches can be deleted. Use void for confirmed batches."
+      );
+    }
+
+    // Delete all batch items (releases expenses for re-batching)
+    const batchItems = await ctx.db
+      .query("reimbursementBatchItems")
+      .withIndex("by_batch", (q) => q.eq("batchId", args.batchId))
+      .collect();
+
+    for (const item of batchItems) {
+      await ctx.db.delete(item._id);
+    }
+
+    // Soft-delete: mark as deleted with audit trail
+    await ctx.db.patch(args.batchId, {
+      status: "deleted",
+      deletedBy: ctx.user._id,
+      deletedAt: Date.now(),
+    });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// addExpensesToBatch -- add new expenses to an existing pending batch
+// ---------------------------------------------------------------------------
+
+/**
+ * Add expenses to an existing pending batch.
+ *
+ * Validates:
+ * - Batch exists and is pending
+ * - All expenses exist, belong to the same employee, and are awaiting_payment
+ * - No expense is already in the batch or another pending batch
+ *
+ * Updates the batch totalAmount after adding.
+ */
+export const addExpensesToBatch = protectedMutation({
+  roles: ["admin"],
+  args: {
+    batchId: v.id("reimbursementBatches"),
+    expenseIds: v.array(v.id("expenses")),
+  },
+  handler: async (ctx, args) => {
+    if (args.expenseIds.length === 0) {
+      throw new ConvexError("At least one expense is required");
+    }
+
+    // Deduplicate expense IDs
+    const uniqueExpenseIds = [...new Set(args.expenseIds)];
+
+    const batch = await ctx.db.get(args.batchId);
+    if (!batch) {
+      throw new ConvexError("Batch not found");
+    }
+
+    if (batch.status !== "pending") {
+      throw new ConvexError("Can only add expenses to a pending batch");
+    }
+
+    // Fetch and validate all expenses
+    const expenses = await Promise.all(
+      uniqueExpenseIds.map((id) => ctx.db.get(id))
+    );
+
+    let addedAmount = 0;
+
+    for (let i = 0; i < uniqueExpenseIds.length; i++) {
+      const expense = expenses[i];
+      if (!expense) {
+        throw new ConvexError("Expense not found");
+      }
+
+      if (expense.status !== "awaiting_payment") {
+        throw new ConvexError(
+          `Expense ${expense.expenseNumber} is not awaiting payment`
+        );
+      }
+
+      if (expense.submittedBy !== batch.employeeUserId) {
+        throw new ConvexError(
+          `Expense ${expense.expenseNumber} does not belong to this employee`
+        );
+      }
+
+      // Double-batching guard
+      const existingItems = await ctx.db
+        .query("reimbursementBatchItems")
+        .withIndex("by_expense", (q) => q.eq("expenseId", uniqueExpenseIds[i]))
+        .collect();
+
+      for (const item of existingItems) {
+        const existingBatch = await ctx.db.get(item.batchId);
+        if (existingBatch && existingBatch.status === "pending") {
+          const msg =
+            item.batchId === args.batchId
+              ? `Expense ${expense.expenseNumber} is already in this batch`
+              : `Expense ${expense.expenseNumber} is already in a pending batch (${existingBatch.batchNumber})`;
+          throw new ConvexError(msg);
+        }
+      }
+
+      addedAmount += expense.amount;
+    }
+
+    // Insert new batch items
+    for (const expenseId of uniqueExpenseIds) {
+      await ctx.db.insert("reimbursementBatchItems", {
+        batchId: args.batchId,
+        expenseId,
+      });
+    }
+
+    // Update batch total
+    await ctx.db.patch(args.batchId, {
+      totalAmount: batch.totalAmount + addedAmount,
+    });
+
+    return {
+      batchId: args.batchId,
+      batchNumber: batch.batchNumber,
+      totalAmount: batch.totalAmount + addedAmount,
+      addedCount: uniqueExpenseIds.length,
+      addedAmount,
+    };
   },
 });
