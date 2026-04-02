@@ -49,6 +49,9 @@ export const createBatch = protectedMutation({
       throw new ConvexError("At least one expense is required");
     }
 
+    // Deduplicate expense IDs
+    const uniqueExpenseIds = [...new Set(args.expenseIds)];
+
     // Verify employee exists
     const employee = await ctx.db.get(args.employeeUserId);
     if (!employee) {
@@ -57,13 +60,13 @@ export const createBatch = protectedMutation({
 
     // Fetch all expenses in parallel
     const expenses = await Promise.all(
-      args.expenseIds.map((id) => ctx.db.get(id))
+      uniqueExpenseIds.map((id) => ctx.db.get(id))
     );
 
     let totalAmount = 0;
 
     // Validate sequentially (order matters for error messages)
-    for (let i = 0; i < args.expenseIds.length; i++) {
+    for (let i = 0; i < uniqueExpenseIds.length; i++) {
       const expense = expenses[i];
       if (!expense) {
         throw new ConvexError("Expense not found");
@@ -86,7 +89,7 @@ export const createBatch = protectedMutation({
       // Double-batching guard: check if expense is already in a pending batch
       const existingItems = await ctx.db
         .query("reimbursementBatchItems")
-        .withIndex("by_expense", (q) => q.eq("expenseId", args.expenseIds[i]))
+        .withIndex("by_expense", (q) => q.eq("expenseId", uniqueExpenseIds[i]))
         .collect();
 
       for (const item of existingItems) {
@@ -115,7 +118,7 @@ export const createBatch = protectedMutation({
     });
 
     // Insert batch items
-    for (const expenseId of args.expenseIds) {
+    for (const expenseId of uniqueExpenseIds) {
       await ctx.db.insert("reimbursementBatchItems", {
         batchId,
         expenseId,
@@ -411,6 +414,9 @@ export const addExpensesToBatch = protectedMutation({
       throw new ConvexError("At least one expense is required");
     }
 
+    // Deduplicate expense IDs
+    const uniqueExpenseIds = [...new Set(args.expenseIds)];
+
     const batch = await ctx.db.get(args.batchId);
     if (!batch) {
       throw new ConvexError("Batch not found");
@@ -422,12 +428,12 @@ export const addExpensesToBatch = protectedMutation({
 
     // Fetch and validate all expenses
     const expenses = await Promise.all(
-      args.expenseIds.map((id) => ctx.db.get(id))
+      uniqueExpenseIds.map((id) => ctx.db.get(id))
     );
 
     let addedAmount = 0;
 
-    for (let i = 0; i < args.expenseIds.length; i++) {
+    for (let i = 0; i < uniqueExpenseIds.length; i++) {
       const expense = expenses[i];
       if (!expense) {
         throw new ConvexError("Expense not found");
@@ -448,15 +454,17 @@ export const addExpensesToBatch = protectedMutation({
       // Double-batching guard
       const existingItems = await ctx.db
         .query("reimbursementBatchItems")
-        .withIndex("by_expense", (q) => q.eq("expenseId", args.expenseIds[i]))
+        .withIndex("by_expense", (q) => q.eq("expenseId", uniqueExpenseIds[i]))
         .collect();
 
       for (const item of existingItems) {
         const existingBatch = await ctx.db.get(item.batchId);
         if (existingBatch && existingBatch.status === "pending") {
-          throw new ConvexError(
-            `Expense ${expense.expenseNumber} is already in a pending batch (${existingBatch.batchNumber})`
-          );
+          const msg =
+            item.batchId === args.batchId
+              ? `Expense ${expense.expenseNumber} is already in this batch`
+              : `Expense ${expense.expenseNumber} is already in a pending batch (${existingBatch.batchNumber})`;
+          throw new ConvexError(msg);
         }
       }
 
@@ -464,7 +472,7 @@ export const addExpensesToBatch = protectedMutation({
     }
 
     // Insert new batch items
-    for (const expenseId of args.expenseIds) {
+    for (const expenseId of uniqueExpenseIds) {
       await ctx.db.insert("reimbursementBatchItems", {
         batchId: args.batchId,
         expenseId,
@@ -480,7 +488,7 @@ export const addExpensesToBatch = protectedMutation({
       batchId: args.batchId,
       batchNumber: batch.batchNumber,
       totalAmount: batch.totalAmount + addedAmount,
-      addedCount: args.expenseIds.length,
+      addedCount: uniqueExpenseIds.length,
       addedAmount,
     };
   },
