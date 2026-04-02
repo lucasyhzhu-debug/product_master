@@ -339,14 +339,15 @@ export const voidBatch = protectedMutation({
 });
 
 // ---------------------------------------------------------------------------
-// deleteBatch -- remove a pending batch so expenses can be re-batched
+// deleteBatch -- soft-delete a pending batch so expenses can be re-batched
 // ---------------------------------------------------------------------------
 
 /**
- * Delete a pending reimbursement batch.
+ * Soft-delete a pending reimbursement batch.
  *
  * Only pending batches can be deleted (confirmed/voided have journal entries).
- * Deletes all batch items first, then the batch record itself.
+ * Removes batch items (releasing expenses) and marks batch as "deleted"
+ * with an audit trail (deletedBy, deletedAt).
  * Expenses remain in awaiting_payment status and can be re-batched.
  */
 export const deleteBatch = protectedMutation({
@@ -366,7 +367,7 @@ export const deleteBatch = protectedMutation({
       );
     }
 
-    // Delete all batch items first
+    // Delete all batch items (releases expenses for re-batching)
     const batchItems = await ctx.db
       .query("reimbursementBatchItems")
       .withIndex("by_batch", (q) => q.eq("batchId", args.batchId))
@@ -376,8 +377,12 @@ export const deleteBatch = protectedMutation({
       await ctx.db.delete(item._id);
     }
 
-    // Delete the batch record
-    await ctx.db.delete(args.batchId);
+    // Soft-delete: mark as deleted with audit trail
+    await ctx.db.patch(args.batchId, {
+      status: "deleted",
+      deletedBy: ctx.user._id,
+      deletedAt: Date.now(),
+    });
   },
 });
 

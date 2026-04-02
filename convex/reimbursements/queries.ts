@@ -131,10 +131,13 @@ export const listBatches = protectedQuery({
         .order("desc")
         .take(100);
     } else {
-      batches = await ctx.db
-        .query("reimbursementBatches")
-        .order("desc")
-        .take(100);
+      // Exclude soft-deleted batches from the "All" view
+      batches = (
+        await ctx.db
+          .query("reimbursementBatches")
+          .order("desc")
+          .take(100)
+      ).filter((b) => b.status !== "deleted");
     }
 
     // Apply search filter if provided

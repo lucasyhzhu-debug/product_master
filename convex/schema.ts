@@ -1788,7 +1788,8 @@ export default defineSchema({
     status: v.union(
       v.literal("pending"),
       v.literal("confirmed"),
-      v.literal("voided")
+      v.literal("voided"),
+      v.literal("deleted")
     ),
     bankAccountId: v.optional(v.id("bankAccounts")),
     bankReference: v.optional(v.string()),
@@ -1798,6 +1799,8 @@ export default defineSchema({
     voidedBy: v.optional(v.id("users")),
     voidedAt: v.optional(v.number()),
     voidReason: v.optional(v.string()),
+    deletedBy: v.optional(v.id("users")),
+    deletedAt: v.optional(v.number()),
     journalEntryId: v.optional(v.id("journalEntries")),
     createdBy: v.id("users"),
     createdAt: v.number(),
