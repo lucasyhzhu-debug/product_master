@@ -14,6 +14,29 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased]
+
+### Feature: Staff Performance Report -- 2026-04-07
+
+**For the team:** New "Staff Perf." page under Financials lets managers see each kitchen staff member's monthly production at a glance -- how many balls they made, how much component (marshmallow/pistachio) they prepared, waste, shifts worked, and days active. Pick any month, expand a row to see the full breakdown, then export to CSV for payment calculations in Excel. Two export formats: a quick summary (one row per person) and a detailed version you can pivot in a spreadsheet.
+
+#### Added
+- Staff Performance page at `/staff-performance` (Financials dropdown, manager + admin only)
+- `getStaffPerformanceSummary` backend query with BOM-resolved ball counting
+- Month picker defaulting to current WIB month
+- Summary cards: staff count, total balls, total shifts, total waste
+- Expandable per-staff table with product, component, and waste breakdowns
+- Two CSV export formats: Summary (one row per staff) and Detailed (pivot-ready)
+- Component waste tracking (grams wasted per component per staff)
+
+#### Technical
+- Ball counts follow Business Rule 10/13: resolved via `menuProductComponents` + `componentTypes`
+- Pre-fetches `componentTypes` table once to avoid N+1 reads
+- Extracted `escapeCell` as shared export from `csvExport.ts`
+- Reuses `MONTH_NAMES` from `financialHelpers` and `getCurrentWibMonth` from `dateUtils`
+
+---
+
 ## [Unreleased] - v1.9 Bugs & Quality of Life
 
 ### Fix: Component Production Section Missing from End of Shift Form -- 2026-04-01
