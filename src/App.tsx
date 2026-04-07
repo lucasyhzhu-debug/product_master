@@ -132,6 +132,9 @@ const StockCount = lazyWithPreload(() =>
 const BulkPriceUpdate = lazyWithPreload(() =>
   import('./pages/BulkPriceUpdate').then(m => ({ default: m.BulkPriceUpdate }))
 );
+const StaffPerformance = lazyWithPreload(() =>
+  import('./pages/StaffPerformance').then(m => ({ default: m.StaffPerformance }))
+);
 
 function App() {
   return (
@@ -423,6 +426,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessAssets">
                         <AssetRegister />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Staff Performance Report (manager + admin) */}
+                  <Route
+                    path="staff-performance"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessDashboard">
+                        <StaffPerformance />
                       </ProtectedRoute>
                     }
                   />

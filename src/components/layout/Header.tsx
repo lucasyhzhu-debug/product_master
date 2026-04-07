@@ -38,6 +38,7 @@ import {
   BookMarked,
   FileUp,
   ClipboardCheck,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -105,6 +106,7 @@ const financialItems: NavItem[] = [
   { path: '/expense-analytics', label: 'Exp. Analytics', icon: BarChart3, permission: 'canAccessExpenseAnalytics' },
   { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
+  { path: '/staff-performance', label: 'Staff Perf.', icon: UserCheck, permission: 'canAccessDashboard' },
 ];
 
 // Accounting dropdown - journal & ledger pages
