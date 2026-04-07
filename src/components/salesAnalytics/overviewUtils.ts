@@ -27,6 +27,7 @@ export type PeriodData = {
   totalPromoBurn: number;
   totalDiscounts: number;
   totalDeliveryFees: number;
+  totalPiecesSold?: number;
   platformGross: number;
   internalGross: number;
   channels: Array<{

@@ -10,7 +10,7 @@ import { isExternalSource, sourceToPlatform } from "../lib/externalSource";
 import { aggregatePeriodRevenue } from "./helpers/dashboardHelpers";
 import { bucketKey, formatBucketLabel } from "./helpers/timeSeriesHelpers";
 import type { Granularity } from "./helpers/timeSeriesHelpers";
-import { computeLifetimeTotals } from "./helpers/lifetimeHelpers";
+import { computeLifetimeTotals, computePiecesSold } from "./helpers/lifetimeHelpers";
 import { countDayTypes, buildSellThroughProducts } from "./helpers/sellThroughHelpers";
 import type { ProductAnalysis } from "./helpers/sellThroughHelpers";
 import { buildK3MartOutletProducts, buildDemandProducts } from "./helpers/restockHelpers";
@@ -498,6 +498,25 @@ export const periodPresetValidator = v.union(
   v.literal("allTime")
 );
 
+/**
+ * Fetch all externalRevenueItems for a set of revenue records.
+ * Fans out parallel index lookups (same pattern as getLifetimeTotalsInternal).
+ */
+async function fetchPeriodItems(
+  ctx: QueryCtx,
+  revenueRecords: Doc<"externalRevenue">[]
+): Promise<Doc<"externalRevenueItems">[]> {
+  if (revenueRecords.length === 0) return [];
+  const batches = await Promise.all(
+    revenueRecords.map((r) =>
+      ctx.db.query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
+        .collect()
+    )
+  );
+  return batches.flat();
+}
+
 export const getDashboardSummaryByPeriodInternal = internalQuery({
   args: { preset: periodPresetValidator },
   handler: async (ctx, args) => {
@@ -552,13 +571,23 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
         .map((r) => r.outletId!)
     );
 
-    // Pre-fetch order data maps, then run pure aggregation
-    const [currentOrderDataMap, previousOrderDataMap] = await Promise.all([
+    // Pre-fetch order data, BOM data, and period items in parallel
+    const [currentOrderDataMap, previousOrderDataMap, bomComponents, componentTypes, currentItems, previousItems] = await Promise.all([
       fetchInternalOrderDataMap(ctx, currentRevenue),
       fetchInternalOrderDataMap(ctx, previousRevenue),
+      ctx.db.query("menuProductComponents").collect(),
+      ctx.db.query("componentTypes").collect(),
+      fetchPeriodItems(ctx, currentRevenue),
+      fetchPeriodItems(ctx, previousRevenue),
     ]);
     const currentAgg = aggregatePeriodRevenue(currentRevenue, currentOrderDataMap);
     const previousAgg = aggregatePeriodRevenue(previousRevenue, previousOrderDataMap);
+
+    // Compute pieces sold from revenue records (not aggregated totals) for BOM estimation consistency
+    const currentGrossFromRecords = currentRevenue.reduce((s, r) => s + (r.revenueGross ?? 0), 0);
+    const previousGrossFromRecords = previousRevenue.reduce((s, r) => s + (r.revenueGross ?? 0), 0);
+    const currentPiecesSold = computePiecesSold(currentItems, currentGrossFromRecords, bomComponents, componentTypes);
+    const previousPiecesSold = computePiecesSold(previousItems, previousGrossFromRecords, bomComponents, componentTypes);
 
     return {
       platforms: {
@@ -580,12 +609,13 @@ export const getDashboardSummaryByPeriodInternal = internalQuery({
       },
       currentPeriod: {
         ...currentAgg,
+        totalPiecesSold: currentPiecesSold,
         periodLabel: range.periodLabel,
         comparisonLabel: range.comparisonLabel,
         periodStart: range.currentStart,
         periodEnd: range.currentEnd,
       },
-      previousPeriod: previousAgg,
+      previousPeriod: { ...previousAgg, totalPiecesSold: previousPiecesSold },
     };
   },
 });

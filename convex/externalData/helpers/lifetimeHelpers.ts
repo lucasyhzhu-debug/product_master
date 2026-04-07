@@ -12,6 +12,60 @@ import type { Doc } from "../../_generated/dataModel";
 const FALLBACK_REVENUE_PER_BALL = 35_000;
 
 /**
+ * Build a map from menuProductId -> total ball count from BOM.
+ * Filters componentTypes to production-only, then sums BOM component quantities.
+ *
+ * Shared between lifetime and period-filtered computations.
+ */
+export function buildBallCountMap(
+  bomComponents: Doc<"menuProductComponents">[],
+  componentTypes: Doc<"componentTypes">[]
+): Map<string, number> {
+  const productionComponentIds = new Set(
+    componentTypes
+      .filter((ct) => ct.category === "production")
+      .map((ct) => ct._id as string)
+  );
+
+  const menuProductBallCount = new Map<string, number>();
+  for (const comp of bomComponents) {
+    if (productionComponentIds.has(comp.componentTypeId as string)) {
+      const existing = menuProductBallCount.get(comp.menuProductId as string) ?? 0;
+      menuProductBallCount.set(comp.menuProductId as string, existing + comp.quantity);
+    }
+  }
+  return menuProductBallCount;
+}
+
+/**
+ * Compute avgRevenuePerBall from BOM-linked revenue items.
+ * "Known" items have a linkedMenuProductId with production BOM components.
+ * Returns the dynamic weighted average, or FALLBACK_REVENUE_PER_BALL when
+ * no linked items exist.
+ */
+function computeAvgRevenuePerBall(
+  items: Doc<"externalRevenueItems">[],
+  menuProductBallCount: Map<string, number>
+): { avgRevenuePerBall: number; knownBalls: number; knownRevenue: number } {
+  let knownRevenue = 0;
+  let knownBalls = 0;
+
+  for (const item of items) {
+    if (!item.linkedMenuProductId) continue;
+    const ballsPerProduct = menuProductBallCount.get(item.linkedMenuProductId as string);
+    if (!ballsPerProduct || ballsPerProduct <= 0) continue;
+    knownRevenue += item.totalPrice;
+    knownBalls += item.quantity * ballsPerProduct;
+  }
+
+  const avgRevenuePerBall = knownBalls > 0
+    ? knownRevenue / knownBalls
+    : FALLBACK_REVENUE_PER_BALL;
+
+  return { avgRevenuePerBall, knownBalls, knownRevenue };
+}
+
+/**
  * Compute lifetime totals from pre-fetched table data.
  * Resolves BOM to count actual balls, computes dynamic avgRevenuePerBall.
  *
@@ -31,38 +85,8 @@ export function computeLifetimeTotals(
   lifetimeTransactions: number;
   avgRevenuePerBall: number;
 } {
-  // Build set of production component type IDs (BIG_BALL, MID_BALL, etc.)
-  const productionComponentIds = new Set(
-    componentTypes
-      .filter((ct) => ct.category === "production")
-      .map((ct) => ct._id as string)
-  );
-
-  // Build menuProductId -> total ball count map from BOM
-  // A product with 1 BIG_BALL + 2 MID_BALL = 3 balls total
-  const menuProductBallCount = new Map<string, number>();
-  for (const comp of bomComponents) {
-    if (productionComponentIds.has(comp.componentTypeId as string)) {
-      const existing = menuProductBallCount.get(comp.menuProductId as string) ?? 0;
-      menuProductBallCount.set(comp.menuProductId as string, existing + comp.quantity);
-    }
-  }
-
-  // Calculate dynamic avgRevenuePerBall from BOM-linked items.
-  // "Known" items have a linkedMenuProductId with production BOM components.
-  // Their weighted average revenue/ball is used to estimate total balls from
-  // all revenue (including unmapped items).
-  let knownRevenue = 0;
-  let knownBalls = 0;
-
-  for (const item of items) {
-    if (!item.linkedMenuProductId) continue;
-    const ballsPerProduct = menuProductBallCount.get(item.linkedMenuProductId as string);
-    if (!ballsPerProduct || ballsPerProduct <= 0) continue;
-    // This item has a valid BOM mapping with production components
-    knownRevenue += item.totalPrice;
-    knownBalls += item.quantity * ballsPerProduct;
-  }
+  const menuProductBallCount = buildBallCountMap(bomComponents, componentTypes);
+  const { avgRevenuePerBall } = computeAvgRevenuePerBall(items, menuProductBallCount);
 
   // Aggregate lifetime totals from externalRevenue
   let lifetimeRevenue = 0;
@@ -72,16 +96,37 @@ export function computeLifetimeTotals(
     lifetimeTransactions += rev.transactionCount ?? 1;
   }
 
-  // Dynamic weighted average: revenue / balls from known products.
-  // Falls back to FALLBACK_REVENUE_PER_BALL when no known products exist.
-  const avgRevenuePerBall = knownBalls > 0
-    ? knownRevenue / knownBalls
-    : FALLBACK_REVENUE_PER_BALL;
-
   // Estimate total balls sold from lifetime gross revenue
   const totalBalls = lifetimeRevenue > 0
     ? Math.round(lifetimeRevenue / avgRevenuePerBall)
     : 0;
 
   return { totalBalls, lifetimeRevenue, lifetimeTransactions, avgRevenuePerBall };
+}
+
+/**
+ * Compute pieces (balls) sold for a given set of revenue items and gross revenue.
+ * Resolves BOM to count actual balls for linked items, then estimates total
+ * using avgRevenuePerBall (dynamic from known items, or FALLBACK_REVENUE_PER_BALL).
+ *
+ * Used by period-filtered hero cards (as opposed to computeLifetimeTotals which
+ * operates on all-time data).
+ *
+ * @param items - externalRevenueItems for the period
+ * @param periodGrossRevenue - sum of revenueGross from externalRevenue records
+ * @param bomComponents - all menuProductComponents records
+ * @param componentTypes - all componentTypes records
+ */
+export function computePiecesSold(
+  items: Doc<"externalRevenueItems">[],
+  periodGrossRevenue: number,
+  bomComponents: Doc<"menuProductComponents">[],
+  componentTypes: Doc<"componentTypes">[]
+): number {
+  const menuProductBallCount = buildBallCountMap(bomComponents, componentTypes);
+  const { avgRevenuePerBall } = computeAvgRevenuePerBall(items, menuProductBallCount);
+
+  return periodGrossRevenue > 0
+    ? Math.round(periodGrossRevenue / avgRevenuePerBall)
+    : 0;
 }
