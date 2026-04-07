@@ -23,6 +23,7 @@ import {
   BookMarked,
   FileUp,
   ClipboardCheck,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/lib/types';
@@ -65,6 +66,7 @@ const moreItems: TabItem[] = [
   { path: '/reimbursements', icon: HandCoins, label: 'Reimburse', permission: 'canManageReimbursements' },
   { path: '/bank-accounts', icon: Landmark, label: 'Bank Accts', permission: 'canManageReimbursements' },
   { path: '/payroll', icon: DollarSign, label: 'Payroll', permission: 'canManageReimbursements' },
+  { path: '/staff-performance', icon: UserCheck, label: 'Staff Perf.', permission: 'canAccessDashboard' },
   { path: '/journal', icon: BookMarked, label: 'Journal Entry', permission: 'canManageReimbursements' },
   { path: '/accounts', icon: Landmark, label: 'Accounts', permission: 'canManageReimbursements' },
   { path: '/import', icon: FileUp, label: 'Hist. Import', permission: 'canManageReimbursements' },

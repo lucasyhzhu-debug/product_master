@@ -623,6 +623,18 @@ export function generateIncomeStatementCSV(
     .join("\n");
 }
 
+/**
+ * Sanitize a single CSV cell value: prevent formula injection and
+ * quote cells containing delimiters.
+ */
+export function escapeCell(value: string): string {
+  const sanitized = /^[=+\-@\t\r]/.test(value) ? "'" + value : value;
+  if (sanitized.includes(",") || sanitized.includes('"') || sanitized.includes("\n")) {
+    return '"' + sanitized.replace(/"/g, '""') + '"';
+  }
+  return sanitized;
+}
+
 /** Trigger a browser download of the CSV content. */
 export function downloadCSV(csv: string, filename: string): void {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });

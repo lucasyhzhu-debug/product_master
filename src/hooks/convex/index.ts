@@ -505,3 +505,10 @@ export {
   useVoidDepreciationMonth,
   useGenerateAssetUploadUrl,
 } from "./useFixedAssets";
+
+// Staff Performance (Kitchen production reporting)
+export {
+  useStaffPerformance,
+  type StaffPerformanceData,
+  type StaffSummary,
+} from "./useStaffPerformance";
