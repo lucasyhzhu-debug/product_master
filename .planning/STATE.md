@@ -1,89 +1,45 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Bugs & Quality of Life
-status: executing
-stopped_at: Phase 67 complete
-last_updated: "2026-03-28T16:09:58.305Z"
-last_activity: 2026-03-28 -- Phase 69 Kitchen Component Reporting executed (2/2 plans complete)
+milestone: v2.0
+milestone_name: Financial Management & Data Quality
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-04-07T00:00:00.000Z"
+last_activity: 2026-04-07 -- Milestone v2.0 started
 progress:
-  total_phases: 7
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 7
----
-
----
-gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Bugs & Quality of Life
-status: executing
-stopped_at: Phase 67 complete
-last_updated: "2026-03-28T13:58:59.510Z"
-last_activity: 2026-03-28 -- Phase 67 Inventory Drift & Daily Stock Update executed (2/2 plans complete)
-progress:
-  total_phases: 7
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 7
----
-
----
-gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Bugs & Quality of Life
-status: executing
-stopped_at: Phase 69 complete
-last_updated: "2026-03-28T22:15:00.000Z"
-last_activity: 2026-03-28 -- Phase 69 Kitchen Component Reporting executed (2/2 plans complete)
-progress:
-  total_phases: 7
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
-  percent: 71
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-27)
+See: .planning/PROJECT.md (updated 2026-04-07)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 69 complete -- all v1.9 phases done
+**Current focus:** Defining requirements for v2.0 Financial Management & Data Quality
 
 ## Current Position
 
-Phase: 69 of 69 (Kitchen Component Reporting) -- COMPLETE
-Plan: 2 of 2
-Status: Phase 69 complete, merged to main
-Last activity: 2026-04-07 - Completed quick task 260407-p1w: Add pieces sold metric to sales analytics
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-07 -- Milestone v2.0 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**Velocity (v1.0-v1.8):** 232 plans across 63 phases in 9 milestones
-**Velocity (v1.9):** 9 plans across 4 phases
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 64 | 3 | 3 | 1.0 |
-| 66 | 2 | 2 | 1.0 |
-| 67 | 2 | 2 | 1.0 |
+**Velocity (v1.0-v1.9):** 246 plans across 69 phases in 10 milestones
 
 ## Accumulated Context
 
 ### Decisions
 
-All v1.0-v1.8 decisions archived in PROJECT.md Key Decisions table.
-No new decisions yet for v1.9.
-
-### Parallelism Notes
-
-- Phases 64+65 can run in parallel (different file sets)
-- Phases 66+67+68 can run in parallel (different subsystems)
-- Phase 69 is independent (any order)
+All v1.0-v1.9 decisions archived in PROJECT.md Key Decisions table.
+No new decisions yet for v2.0.
 
 ### Open Blockers (carried forward)
 
@@ -105,6 +61,6 @@ No new decisions yet for v1.9.
 
 ## Session Continuity
 
-Last session: 2026-03-28T15:30:00.000Z
-Stopped at: Phase 67 complete
-Resume file: N/A (phase complete, ready for merge)
+Last session: 2026-04-07T00:00:00.000Z
+Stopped at: Milestone v2.0 started
+Resume file: N/A (defining requirements)
