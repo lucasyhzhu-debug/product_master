@@ -131,6 +131,27 @@ export function HeroCards({
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pieces Sold</CardTitle>
+          <CircleDot className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-baseline gap-2">
+            <div className="text-2xl font-bold">
+              {(currentPeriod.totalPiecesSold ?? 0).toLocaleString()}
+            </div>
+            <GrowthIndicator
+              current={currentPeriod.totalPiecesSold ?? 0}
+              previous={previousPeriod.totalPiecesSold ?? 0}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {currentPeriod.periodLabel} {currentPeriod.comparisonLabel}
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Lifetime metrics — always show all-time data regardless of period filter */}
       {lifetime && (
         <>

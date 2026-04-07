@@ -16,6 +16,17 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feature: Pieces Sold Hero Card -- 2026-04-07
+
+**For the team:** The Sales Analytics overview now shows a "Pieces Sold" card that counts individual production pieces (balls) sold in the selected date range. A triple counts as 3 pieces, a single as 1 -- matching how "Balls Sold" works for all-time, but filtered to the period you pick. Includes growth comparison vs the previous period.
+
+#### Added
+- `computePiecesSold` helper with BOM-resolved ball counting per period
+- `buildBallCountMap` shared helper extracted from lifetime + period calculations
+- `totalPiecesSold` field in period dashboard summary query
+- "Pieces Sold" hero card with `GrowthIndicator` in Sales Analytics overview
+- 4 unit tests for pieces sold calculation (linked, unlinked, mixed, empty)
+
 ### Feature: Staff Performance Report -- 2026-04-07
 
 **For the team:** New "Staff Perf." page under Financials lets managers see each kitchen staff member's monthly production at a glance -- how many balls they made, how much component (marshmallow/pistachio) they prepared, waste, shifts worked, and days active. Pick any month, expand a row to see the full breakdown, then export to CSV for payment calculations in Excel. Two export formats: a quick summary (one row per person) and a detailed version you can pivot in a spreadsheet.
