@@ -57,7 +57,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 Phase: 69 of 69 (Kitchen Component Reporting) -- COMPLETE
 Plan: 2 of 2
 Status: Phase 69 complete, merged to main
-Last activity: 2026-03-28 -- Phase 69 Kitchen Component Reporting executed (2/2 plans complete)
+Last activity: 2026-04-07 - Completed quick task 260407-p1w: Add pieces sold metric to sales analytics
 
 Progress: [██████████] 100%
 
@@ -101,6 +101,7 @@ No new decisions yet for v1.9.
 | 35 | Deprecate feedback overlay -- remove all frontend UI touchpoints | 2026-03-27 | e48e2542 | Verified | [35-deprecate-feedback](./quick/35-deprecate-feedback-overlay-remove-from-u/) |
 | 260327-p5x | Asset creation with acquisition JE and intangible asset amortization support | 2026-03-27 | fd97243 | Verified | [260327-p5x](./quick/260327-p5x-asset-creation-with-acquisition-je-and-i/) |
 | 260327-sin | Bulk import: capex & intangible asset support + aligned template fields | 2026-03-27 | ac572ebf | Verified | [260327-sin](./quick/260327-sin-review-manual-upload-to-support-capex-an/) |
+| 260407-p1w | Add pieces sold metric to sales analytics with BOM-resolved component counts | 2026-04-07 | 7bf8840f | Needs Review | [260407-p1w](./quick/260407-p1w-add-pieces-sold-metric-to-sales-analytic/) |
 
 ## Session Continuity
 
