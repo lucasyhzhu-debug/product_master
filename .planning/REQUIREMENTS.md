@@ -83,37 +83,37 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DA-01 | TBD | Pending |
-| DA-02 | TBD | Pending |
-| DA-03 | TBD | Pending |
-| DA-04 | TBD | Pending |
-| FIN-01 | TBD | Pending |
-| FIN-02 | TBD | Pending |
-| FIN-03 | TBD | Pending |
-| FIN-04 | TBD | Pending |
-| EXP-01 | TBD | Pending |
-| EXP-02 | TBD | Pending |
-| EXP-03 | TBD | Pending |
-| EXP-04 | TBD | Pending |
-| BANK-01 | TBD | Pending |
-| BANK-02 | TBD | Pending |
-| BANK-03 | TBD | Pending |
-| BANK-04 | TBD | Pending |
-| ATT-01 | TBD | Pending |
-| ATT-02 | TBD | Pending |
-| ATT-03 | TBD | Pending |
-| ATT-04 | TBD | Pending |
-| DH-01 | TBD | Pending |
-| DH-02 | TBD | Pending |
-| DH-03 | TBD | Pending |
-| DH-04 | TBD | Pending |
-| DH-05 | TBD | Pending |
+| DA-01 | Phase 70 | Pending |
+| DA-02 | Phase 70 | Pending |
+| DA-03 | Phase 70 | Pending |
+| DA-04 | Phase 70 | Pending |
+| FIN-01 | Phase 75 | Pending |
+| FIN-02 | Phase 75 | Pending |
+| FIN-03 | Phase 76 | Pending |
+| FIN-04 | Phase 76 | Pending |
+| EXP-01 | Phase 71 | Pending |
+| EXP-02 | Phase 71 | Pending |
+| EXP-03 | Phase 71 | Pending |
+| EXP-04 | Phase 71 | Pending |
+| BANK-01 | Phase 72 | Pending |
+| BANK-02 | Phase 72 | Pending |
+| BANK-03 | Phase 73 | Pending |
+| BANK-04 | Phase 73 | Pending |
+| ATT-01 | Phase 74 | Pending |
+| ATT-02 | Phase 74 | Pending |
+| ATT-03 | Phase 74 | Pending |
+| ATT-04 | Phase 74 | Pending |
+| DH-01 | Phase 77 | Pending |
+| DH-02 | Phase 77 | Pending |
+| DH-03 | Phase 77 | Pending |
+| DH-04 | Phase 77 | Pending |
+| DH-05 | Phase 77 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 25 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 25
+- Mapped to phases: 25/25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08*
+*Last updated: 2026-04-08 -- Traceability updated with phase mappings*
