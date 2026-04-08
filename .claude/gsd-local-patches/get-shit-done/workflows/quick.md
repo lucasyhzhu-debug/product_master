@@ -1,7 +1,11 @@
 <purpose>
 Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
 
-With `--full` flag: enables plan-checking (max 2 iterations) and post-execution verification for quality guarantees without full milestone ceremony.
+With `--discuss` flag: lightweight discussion phase before planning. Surfaces assumptions, clarifies gray areas, captures decisions in CONTEXT.md so the planner treats them as locked.
+
+With `--quick` flag: disables plan-checking, verification, triple-review, and simplify for fast execution without quality gates.
+
+By default (no flags), plan-checking + verification + triple-review + simplify are enabled. Flags are composable: `--discuss --quick` gives discussion but skips quality gates.
 </purpose>
 
 <required_reading>
@@ -12,8 +16,11 @@ Read all files referenced by the invoking prompt's execution_context before star
 **Step 1: Parse arguments and get task description**
 
 Parse `$ARGUMENTS` for:
-- `--full` flag → store as `$FULL_MODE` (true/false)
+- `--quick` flag → store as `$QUICK_MODE` (true/false)
+- `--discuss` flag → store as `$DISCUSS_MODE` (true/false)
 - Remaining text → use as `$DESCRIPTION` if non-empty
+
+Derive: `$FULL_MODE = NOT $QUICK_MODE` (full mode is the default)
 
 If `$DESCRIPTION` is empty after parsing, prompt user interactively:
 
@@ -29,13 +36,42 @@ Store response as `$DESCRIPTION`.
 
 If still empty, re-prompt: "Please provide a task description."
 
-If `$FULL_MODE`:
+Display banner based on active flags:
+
+If `$DISCUSS_MODE` and `$QUICK_MODE`:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK (FULL MODE)
+ GSD ► QUICK TASK (DISCUSS + QUICK)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-◆ Plan checking + verification enabled
+◆ Discussion enabled, quality gates skipped
+```
+
+If `$DISCUSS_MODE` only (full mode default):
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► QUICK TASK (DISCUSS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Discussion + plan checking + verification enabled
+```
+
+If `$QUICK_MODE` only:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► QUICK TASK (QUICK MODE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Quality gates skipped — fast execution
+```
+
+If neither flag (default — full mode):
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► QUICK TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Plan checking + verification enabled (default)
 ```
 
 ---
@@ -43,7 +79,8 @@ If `$FULL_MODE`:
 **Step 2: Initialize**
 
 ```bash
-INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init quick "$DESCRIPTION")
+INIT=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" init quick "$DESCRIPTION")
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Parse JSON for: `planner_model`, `executor_model`, `checker_model`, `verifier_model`, `commit_docs`, `next_num`, `slug`, `date`, `timestamp`, `quick_dir`, `task_dir`, `roadmap_exists`, `planning_exists`.
@@ -81,6 +118,124 @@ Store `$QUICK_DIR` for use in orchestration.
 
 ---
 
+**Step 4.5: Discussion phase (only when `$DISCUSS_MODE`)**
+
+Skip this step entirely if NOT `$DISCUSS_MODE`.
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► DISCUSSING QUICK TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+◆ Surfacing gray areas for: ${DESCRIPTION}
+```
+
+**4.5a. Identify gray areas**
+
+Analyze `$DESCRIPTION` to identify 2-4 gray areas — implementation decisions that would change the outcome and that the user should weigh in on.
+
+Use the domain-aware heuristic to generate phase-specific (not generic) gray areas:
+- Something users **SEE** → layout, density, interactions, states
+- Something users **CALL** → responses, errors, auth, versioning
+- Something users **RUN** → output format, flags, modes, error handling
+- Something users **READ** → structure, tone, depth, flow
+- Something being **ORGANIZED** → criteria, grouping, naming, exceptions
+
+Each gray area should be a concrete decision point, not a vague category. Example: "Loading behavior" not "UX".
+
+**4.5b. Present gray areas**
+
+```
+AskUserQuestion(
+  header: "Gray Areas",
+  question: "Which areas need clarification before planning?",
+  options: [
+    { label: "${area_1}", description: "${why_it_matters_1}" },
+    { label: "${area_2}", description: "${why_it_matters_2}" },
+    { label: "${area_3}", description: "${why_it_matters_3}" },
+    { label: "All clear", description: "Skip discussion — I know what I want" }
+  ],
+  multiSelect: true
+)
+```
+
+If user selects "All clear" → skip to Step 5 (no CONTEXT.md written).
+
+**4.5c. Discuss selected areas**
+
+For each selected area, ask 1-2 focused questions via AskUserQuestion:
+
+```
+AskUserQuestion(
+  header: "${area_name}",
+  question: "${specific_question_about_this_area}",
+  options: [
+    { label: "${concrete_choice_1}", description: "${what_this_means}" },
+    { label: "${concrete_choice_2}", description: "${what_this_means}" },
+    { label: "${concrete_choice_3}", description: "${what_this_means}" },
+    { label: "You decide", description: "Claude's discretion" }
+  ],
+  multiSelect: false
+)
+```
+
+Rules:
+- Options must be concrete choices, not abstract categories
+- Highlight recommended choice where you have a clear opinion
+- If user selects "Other" with freeform text, switch to plain text follow-up (per questioning.md freeform rule)
+- If user selects "You decide", capture as Claude's Discretion in CONTEXT.md
+- Max 2 questions per area — this is lightweight, not a deep dive
+
+Collect all decisions into `$DECISIONS`.
+
+**4.5d. Write CONTEXT.md**
+
+Write `${QUICK_DIR}/${next_num}-CONTEXT.md` using the standard context template structure:
+
+```markdown
+# Quick Task ${next_num}: ${DESCRIPTION} - Context
+
+**Gathered:** ${date}
+**Status:** Ready for planning
+
+<domain>
+## Task Boundary
+
+${DESCRIPTION}
+
+</domain>
+
+<decisions>
+## Implementation Decisions
+
+### ${area_1_name}
+- ${decision_from_discussion}
+
+### ${area_2_name}
+- ${decision_from_discussion}
+
+### Claude's Discretion
+${areas_where_user_said_you_decide_or_areas_not_discussed}
+
+</decisions>
+
+<specifics>
+## Specific Ideas
+
+${any_specific_references_or_examples_from_discussion}
+
+[If none: "No specific requirements — open to standard approaches"]
+
+</specifics>
+```
+
+Note: Quick task CONTEXT.md omits `<code_context>` and `<deferred>` sections (no codebase scouting, no phase scope to defer to). Keep it lean.
+
+Report: `Context captured: ${QUICK_DIR}/${next_num}-CONTEXT.md`
+
+---
+
 **Step 5: Spawn planner (quick mode)**
 
 **If `$FULL_MODE`:** Use `quick-full` mode with stricter constraints.
@@ -99,6 +254,7 @@ Task(
 <files_to_read>
 - .planning/STATE.md (Project State)
 - ./CLAUDE.md (if exists — follow project-specific guidelines)
+${DISCUSS_MODE ? '- ' + QUICK_DIR + '/' + next_num + '-CONTEXT.md (User decisions — locked, do not revisit)' : ''}
 </files_to_read>
 
 **Project skills:** Check .claude/skills/ or .agents/skills/ directory (if either exists) — read SKILL.md files, plans should account for project skill rules
@@ -168,7 +324,8 @@ Checker prompt:
 - Scope sanity: Is this appropriately sized for a quick task (1-3 tasks)?
 - must_haves derivation: Are must_haves traceable to the task description?
 
-Skip: context compliance (no CONTEXT.md), cross-plan deps (single plan), ROADMAP alignment
+Skip: cross-plan deps (single plan), ROADMAP alignment
+${DISCUSS_MODE ? '- Context compliance: Does the plan honor locked decisions from CONTEXT.md?' : '- Skip: context compliance (no CONTEXT.md)'}
 </check_dimensions>
 
 <expected_output>
@@ -222,8 +379,8 @@ Return what changed.
 
 ```
 Task(
-  prompt="First, read ./.claude/agents/gsd-planner.md for your role and instructions.\n\n" + revision_prompt,
-  subagent_type="general-purpose",
+  prompt=revision_prompt,
+  subagent_type="gsd-planner",
   model="{planner_model}",
   description="Revise quick plan: ${DESCRIPTION}"
 )
@@ -278,6 +435,106 @@ After executor returns:
 If summary not found, error: "Executor failed to create ${next_num}-SUMMARY.md"
 
 Note: For quick tasks producing multiple plans (rare), spawn executors in parallel waves per execute-phase patterns.
+
+---
+
+**Step 6.1: Triple review (only when `$FULL_MODE`)**
+
+Skip this step entirely if NOT `$FULL_MODE`.
+
+```bash
+TRIPLE_REVIEW=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+```
+
+**If `TRIPLE_REVIEW` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► TRIPLE REVIEW — QUICK TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Spawn triple-review sub-agent (same pattern as execute-phase):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Triple review quick task ${next_num}",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code review for quick task ${next_num}.
+    Follow the triple-review skill instructions exactly.
+    </objective>
+
+    <execution_context>
+    @./.claude/commands/triple-review.md
+    </execution_context>
+
+    <context>
+    Base branch: origin/main
+    Task directory: ${QUICK_DIR}
+    </context>
+
+    <instructions>
+    1. Read .claude/commands/triple-review.md and follow its full process
+    2. Use origin/main as the base branch for the diff
+    3. Spawn all 3 review agents in parallel
+    4. Synthesize findings into severity tiers
+    5. Write staffreview report to docs/reviews/
+    6. Return the unified severity-tiered report
+    </instructions>
+  "
+)
+```
+
+Handle results: **ALL findings (Critical + Important + Minor + Nitpick)** → fix before proceeding. Include the complete tiered list so all items are addressed.
+
+---
+
+**Step 6.2: Simplify (only when `$FULL_MODE`)**
+
+Skip this step entirely if NOT `$FULL_MODE`.
+
+```bash
+SIMPLIFY=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "true")
+```
+
+**If `SIMPLIFY` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► SIMPLIFY — QUICK TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Spawn simplify sub-agent (same pattern as execute-phase):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Simplify quick task ${next_num} code",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code simplification review for quick task ${next_num}.
+    Review all changes on this branch vs origin/main for reuse, quality, and efficiency.
+    Fix any issues found directly.
+    </objective>
+
+    <execution_context>
+    Follow the /simplify skill process exactly.
+    </execution_context>
+
+    <context>
+    Task directory: ${QUICK_DIR}
+    Use `git diff origin/main...HEAD` to identify all branch changes.
+    </context>
+  "
+)
+```
+
+If fixes applied: commit with `refactor(quick-${next_num}): apply simplify cleanup`
 
 ---
 
@@ -354,7 +611,7 @@ Insert after `### Blockers/Concerns` section:
 |---|-------------|------|--------|-----------|
 ```
 
-**Note:** If the table already exists, match its existing column format. If adding `--full` to a project that already has quick tasks without a Status column, add the Status column to the header and separator rows, and leave Status empty for the new row's predecessors.
+**Note:** If the table already exists, match its existing column format. If the table lacks a Status column (legacy from pre-default-full era), add the Status column to the header and separator rows, and leave Status empty for the existing rows.
 
 **7c. Append new row to table:**
 
@@ -389,10 +646,11 @@ Build file list:
 - `${QUICK_DIR}/${next_num}-PLAN.md`
 - `${QUICK_DIR}/${next_num}-SUMMARY.md`
 - `.planning/STATE.md`
+- If `$DISCUSS_MODE` and context file exists: `${QUICK_DIR}/${next_num}-CONTEXT.md`
 - If `$FULL_MODE` and verification file exists: `${QUICK_DIR}/${next_num}-VERIFICATION.md`
 
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(quick-${next_num}): ${DESCRIPTION}" --files ${file_list}
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(quick-${next_num}): ${DESCRIPTION}" --files ${file_list}
 ```
 
 Get final commit hash:
@@ -435,19 +693,80 @@ Commit: ${commit_hash}
 Ready for next task: /gsd:quick
 ```
 
+---
+
+**Step 9: Document and merge (only when on a feature branch)**
+
+**Skip if:** current branch is `main` (quick tasks may run directly on main without a branch).
+
+Check current branch:
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+```
+
+**If `$CURRENT_BRANCH` != `main`:**
+
+**9a. Update CHANGELOG.md:**
+
+Read `docs/CHANGELOG.md` and add entry under `[Unreleased]`:
+
+```markdown
+### Quick Task ${next_num}: ${DESCRIPTION} — ${date}
+
+**For the team:** {1-2 sentence non-technical summary}
+
+#### {Added/Fixed/Changed}
+- {key changes from SUMMARY.md}
+```
+
+Commit:
+```bash
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(quick-${next_num}): add changelog entry" --files docs/CHANGELOG.md
+```
+
+**9b. Push and create PR:**
+
+```bash
+git push origin "${CURRENT_BRANCH}" -u
+gh pr create --title "quick(${next_num}): ${DESCRIPTION}" --body "$(cat <<'EOF'
+## Summary
+- {bullet points from summary}
+
+## Test plan
+- [x] npm run build passes
+${FULL_MODE ? '- [x] Verification: ' + VERIFICATION_STATUS : ''}
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
+```
+
+**9c. Squash-merge and sync:**
+
+```bash
+gh pr merge {PR_NUMBER} --squash --delete-branch
+git checkout main && git pull origin main
+```
+
+Report: `PR #{N} merged. Local main synced.`
+
 </process>
 
 <success_criteria>
 - [ ] ROADMAP.md validation passes
 - [ ] User provides task description
-- [ ] `--full` flag parsed from arguments when present
+- [ ] `--quick` and `--discuss` flags parsed from arguments when present; `$FULL_MODE` derived as `NOT $QUICK_MODE`
 - [ ] Slug generated (lowercase, hyphens, max 40 chars)
 - [ ] Next number calculated (001, 002, 003...)
 - [ ] Directory created at `.planning/quick/NNN-slug/`
-- [ ] `${next_num}-PLAN.md` created by planner
-- [ ] (--full) Plan checker validates plan, revision loop capped at 2
+- [ ] (--discuss) Gray areas identified and presented, decisions captured in `${next_num}-CONTEXT.md`
+- [ ] `${next_num}-PLAN.md` created by planner (honors CONTEXT.md decisions when --discuss)
+- [ ] (default, skip with --quick) Plan checker validates plan, revision loop capped at 2
 - [ ] `${next_num}-SUMMARY.md` created by executor
-- [ ] (--full) `${next_num}-VERIFICATION.md` created by verifier
-- [ ] STATE.md updated with quick task row (Status column when --full)
+- [ ] (default, skip with --quick) `${next_num}-VERIFICATION.md` created by verifier
+- [ ] (default, skip with --quick) Triple review run if config enabled
+- [ ] (default, skip with --quick) Simplify pass run if config enabled
+- [ ] STATE.md updated with quick task row (Status column by default, omitted with --quick)
 - [ ] Artifacts committed
+- [ ] (feature branch) CHANGELOG.md updated, PR created and merged
 </success_criteria>
