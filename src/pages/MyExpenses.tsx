@@ -87,10 +87,9 @@ export function MyExpenses() {
     selectedExpenseId ?? undefined
   );
 
-  const selectedExpense = useMemo(
-    () => selectedExpenseId ? expenses?.find((e) => e._id === selectedExpenseId) ?? null : null,
-    [expenses, selectedExpenseId]
-  );
+  const selectedExpense = selectedExpenseId
+    ? expenses?.find((e) => e._id === selectedExpenseId) ?? null
+    : null;
 
   const handleCardClick = useCallback(
     (id: string) => {
@@ -162,7 +161,6 @@ export function MyExpenses() {
           ))}
         </TabsList>
 
-        {/* Single TabsContent that renders based on activeTab */}
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <ExpenseList
@@ -312,20 +310,16 @@ function ExpenseList({
 
   return (
     <div className="space-y-2 mt-4">
-      {expenses.map((expense) => {
-        const isMine = isAdmin && userId ? expense.submittedBy === userId : false;
-        return (
+      {expenses.map((expense) => (
           <ExpenseCard
             key={expense._id}
             expense={expense}
             onClick={onCardClick}
             className={selectedExpenseId === expense._id ? "ring-2 ring-primary" : undefined}
             submitterName={isAdmin ? (expense as AllExpense).submitterName : undefined}
-            isMine={isMine}
-            highlightMine={highlightMine}
+            highlighted={highlightMine && isAdmin && !!userId && expense.submittedBy === userId}
           />
-        );
-      })}
+        ))}
     </div>
   );
 }

@@ -9,11 +9,10 @@ interface ExpenseCardProps {
   onClick: (id: string) => void;
   className?: string;
   submitterName?: string;
-  isMine?: boolean;
-  highlightMine?: boolean;
+  highlighted?: boolean;
 }
 
-export function ExpenseCard({ expense, onClick, className, submitterName, isMine, highlightMine }: ExpenseCardProps) {
+export function ExpenseCard({ expense, onClick, className, submitterName, highlighted }: ExpenseCardProps) {
   const date = new Date(expense.expenseDate);
   const formattedDate = date.toLocaleDateString("id-ID", {
     day: "numeric",
@@ -23,7 +22,7 @@ export function ExpenseCard({ expense, onClick, className, submitterName, isMine
 
   return (
     <div
-      className={cn("border rounded-lg p-4 cursor-pointer hover:bg-accent/50 transition-colors", highlightMine && isMine && "ring-2 ring-blue-400", className)}
+      className={cn("border rounded-lg p-4 cursor-pointer hover:bg-accent/50 transition-colors", highlighted && "ring-2 ring-blue-400", className)}
       onClick={() => onClick(expense._id)}
     >
       <div className="flex items-start justify-between gap-2">
