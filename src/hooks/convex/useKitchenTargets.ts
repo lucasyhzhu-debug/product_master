@@ -27,10 +27,18 @@ export function useKitchenTargets() {
     { date: today }
   );
 
-  // Phase 69: Kitchen component data
-  const kitchenComponents = useQuery(api.kitchenComponents.queries.list, {
-    activeOnly: true,
-  });
+  // Phase 69 -> paq: Unified production components with tier computation
+  const productionComponentsWithTiers = useQuery(
+    api.productionRecipes.queries.getComponentsWithTiers
+  );
+
+  // Tier-0 = leaf components (kitchen ingredients tracked in grams)
+  const kitchenComponents = useMemo(
+    () =>
+      (productionComponentsWithTiers ?? []).filter((c) => c.tier === 0),
+    [productionComponentsWithTiers]
+  );
+
   const dailyComponentSummary = useQuery(
     api.kitchenShiftRecords.queries.getDailyComponentSummary,
     { date: today }
@@ -40,6 +48,7 @@ export function useKitchenTargets() {
     today,
     targets,
     todayShiftRecords,
+    productionComponentsWithTiers,
     kitchenComponents,
     dailyComponentSummary,
   };

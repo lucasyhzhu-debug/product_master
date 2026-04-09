@@ -24,9 +24,9 @@ export interface KitchenComponent {
   _id: string;
   name: string;
   code: string;
-  ballTypeGroup?: string;
   unit: string;
   sortOrder: number;
+  tier?: number;
 }
 
 export interface ComponentWasteEntry {

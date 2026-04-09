@@ -86,10 +86,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     api.kitchenShiftRecords.mutations.updateShiftRecord
   );
 
-  // Query available kitchen components so managers can add to old records
-  const kitchenComponents = useQuery(api.kitchenComponents.queries.list, {
-    activeOnly: true,
-  });
+  // Query available kitchen components (tier-0 from componentTypes)
+  const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
+  const kitchenComponents = (componentsWithTiers ?? []).filter((c) => c.tier === 0);
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
 
   // -------------------------------------------------------

@@ -63,15 +63,10 @@ interface ManagerTargetSettingsProps {
 
 export function ManagerTargetSettings({ config, targets, today }: ManagerTargetSettingsProps) {
   // -- Queries & mutations --
-  const productionComponents = useQuery(api.componentTypes.queries.getByCategory, {
-    category: "production",
-    activeOnly: true,
-  });
-
-  // Phase 69: Kitchen components for toggle management
-  const kitchenComponentsList = useQuery(api.kitchenComponents.queries.list, {
-    activeOnly: true,
-  });
+  // paq: Unified source for both toggle sections (tier-1+ = Production, tier-0 = Kitchen)
+  const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
+  const productionComponents = (componentsWithTiers ?? []).filter((c) => c.tier > 0);
+  const kitchenComponentsList = (componentsWithTiers ?? []).filter((c) => c.tier === 0);
 
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
@@ -126,7 +121,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // -------------------------------------------------------
 
   function toggleKitchenComponent(code: string, enabled: boolean) {
-    const allCodes = kitchenComponentsList?.map((c) => c.code) ?? [];
+    const allCodes = kitchenComponentsList.map((c) => c.code);
     const currentEnabled = enabledKitchenComponents === null ? allCodes : enabledKitchenComponents;
 
     const newEnabled = enabled
@@ -304,14 +299,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                 </label>
               );
             })}
-            {productionComponents === undefined && (
+            {componentsWithTiers === undefined && (
               <p className="text-xs text-muted-foreground">Loading components...</p>
             )}
           </div>
         </div>
 
-        {/* Phase 69: Kitchen Component Toggles */}
-        {kitchenComponentsList && kitchenComponentsList.length > 0 && (() => {
+        {/* Kitchen Component Toggles (tier-0 leaves) */}
+        {kitchenComponentsList.length > 0 && (() => {
           const allCodes = kitchenComponentsList.map((c) => c.code);
           return (
           <div>
