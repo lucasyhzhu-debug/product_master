@@ -65,9 +65,15 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // -- Queries & mutations --
   // paq: Unified source for both toggle sections (tier-1+ = Production, tier-0 = Kitchen)
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
-  const productionComponents = (componentsWithTiers ?? []).filter((c) => c.tier > 0);
+  const productionComponents = useMemo(
+    () => (componentsWithTiers ?? []).filter((c) => c.tier > 0),
+    [componentsWithTiers]
+  );
   // tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types)
-  const kitchenComponentsList = (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g");
+  const kitchenComponentsList = useMemo(
+    () => (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
+    [componentsWithTiers]
+  );
   const allKitchenCodes = useMemo(() => kitchenComponentsList.map((c) => c.code), [kitchenComponentsList]);
 
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
@@ -329,13 +335,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                       type="button"
                       role="switch"
                       aria-checked={isOn}
-                      onClick={() => {
-                        if (enabledKitchenComponents === null) {
-                          setEnabledKitchenComponents(allKitchenCodes.filter((c) => c !== comp.code));
-                        } else {
-                          toggleKitchenComponent(comp.code, !isOn);
-                        }
-                      }}
+                      onClick={() => toggleKitchenComponent(comp.code, !isOn)}
                       className={[
                         "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
                         isOn ? "bg-primary" : "bg-input",

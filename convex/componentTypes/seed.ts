@@ -268,6 +268,22 @@ export const seedLeafKitchenComponents = mutation({
     let linksCreated = 0;
     let linksSkipped = 0;
 
+    // Pre-fetch existing links for each parent (avoids N+1 inside loop)
+    const bigBallChildren = new Set(
+      (await ctx.db.query("productionComponentLinks")
+        .withIndex("by_parent", (q) => q.eq("parentComponentId", bigBall._id))
+        .collect()).map((l) => l.childComponentId as string)
+    );
+    const midBallChildren = new Set(
+      (await ctx.db.query("productionComponentLinks")
+        .withIndex("by_parent", (q) => q.eq("parentComponentId", midBall._id))
+        .collect()).map((l) => l.childComponentId as string)
+    );
+    const parentChildSets = new Map([
+      [bigBall._id as string, bigBallChildren],
+      [midBall._id as string, midBallChildren],
+    ]);
+
     // Link each leaf to both BIG_BALL and MID_BALL
     for (const code of leafCodes) {
       const childId = codeToId.get(code);
@@ -277,16 +293,7 @@ export const seedLeafKitchenComponents = mutation({
       }
 
       for (const parent of [bigBall, midBall]) {
-        // Check if link already exists (by_parent scan + child match)
-        const existingLinks = await ctx.db
-          .query("productionComponentLinks")
-          .withIndex("by_parent", (q) => q.eq("parentComponentId", parent._id))
-          .collect();
-        const alreadyLinked = existingLinks.some(
-          (l) => l.childComponentId === childId
-        );
-
-        if (alreadyLinked) {
+        if (parentChildSets.get(parent._id as string)?.has(childId as string)) {
           linksSkipped++;
           continue;
         }
@@ -307,13 +314,12 @@ export const seedLeafKitchenComponents = mutation({
     if (hazelnutRegular) {
       const nutellaFillingId = codeToId.get("NUTELLA_FILLING");
       if (nutellaFillingId) {
-        const existingLinks = await ctx.db
-          .query("productionComponentLinks")
-          .withIndex("by_parent", (q) => q.eq("parentComponentId", hazelnutRegular))
-          .collect();
-        const alreadyLinked = existingLinks.some(
-          (l) => l.childComponentId === nutellaFillingId
+        const hazelnutChildren = new Set(
+          (await ctx.db.query("productionComponentLinks")
+            .withIndex("by_parent", (q) => q.eq("parentComponentId", hazelnutRegular))
+            .collect()).map((l) => l.childComponentId as string)
         );
+        const alreadyLinked = hazelnutChildren.has(nutellaFillingId as string);
 
         if (alreadyLinked) {
           linksSkipped++;
