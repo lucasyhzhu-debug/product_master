@@ -66,7 +66,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // paq: Unified source for both toggle sections (tier-1+ = Production, tier-0 = Kitchen)
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
   const productionComponents = (componentsWithTiers ?? []).filter((c) => c.tier > 0);
-  const kitchenComponentsList = (componentsWithTiers ?? []).filter((c) => c.tier === 0);
+  const kitchenComponentsList = (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g");
 
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);

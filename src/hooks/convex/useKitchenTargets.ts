@@ -35,7 +35,7 @@ export function useKitchenTargets() {
   // Tier-0 = leaf components (kitchen ingredients tracked in grams)
   const kitchenComponents = useMemo(
     () =>
-      (productionComponentsWithTiers ?? []).filter((c) => c.tier === 0),
+      (productionComponentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
     [productionComponentsWithTiers]
   );
 

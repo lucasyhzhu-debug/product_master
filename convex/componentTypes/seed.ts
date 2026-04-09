@@ -9,6 +9,7 @@
  */
 
 import { mutation } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * Seed production components (Big Ball, Mid Ball)
@@ -197,7 +198,7 @@ export const seedLeafKitchenComponents = mutation({
 
     let componentsCreated = 0;
     let componentsSkipped = 0;
-    const codeToId = new Map<string, string>();
+    const codeToId = new Map<string, Id<"componentTypes">>();
 
     for (const comp of leafComponents) {
       const existing = await ctx.db
@@ -288,7 +289,7 @@ export const seedLeafKitchenComponents = mutation({
 
         await ctx.db.insert("productionComponentLinks", {
           parentComponentId: parent._id,
-          childComponentId: childId as any,
+          childComponentId: childId,
           quantityPerUnit: 1,
           unit: "g",
           sortOrder: leafCodes.indexOf(code),
@@ -304,7 +305,7 @@ export const seedLeafKitchenComponents = mutation({
       if (nutellaFillingId) {
         const existingLinks = await ctx.db
           .query("productionComponentLinks")
-          .withIndex("by_parent", (q) => q.eq("parentComponentId", hazelnutRegular as any))
+          .withIndex("by_parent", (q) => q.eq("parentComponentId", hazelnutRegular))
           .collect();
         const alreadyLinked = existingLinks.some(
           (l) => l.childComponentId === nutellaFillingId
@@ -314,8 +315,8 @@ export const seedLeafKitchenComponents = mutation({
           linksSkipped++;
         } else {
           await ctx.db.insert("productionComponentLinks", {
-            parentComponentId: hazelnutRegular as any,
-            childComponentId: nutellaFillingId as any,
+            parentComponentId: hazelnutRegular,
+            childComponentId: nutellaFillingId,
             quantityPerUnit: 1,
             unit: "g",
             sortOrder: 0,
