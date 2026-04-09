@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: planning
-stopped_at: Phase 70 context gathered
-last_updated: "2026-04-09T04:10:16.182Z"
-last_activity: 2026-04-09 - Completed quick task 260409-paq
+stopped_at: Phase 70.1 context gathered
+last_updated: "2026-04-09T15:33:29.295Z"
+last_activity: "2026-04-09 - Completed quick task 260409-paq: Align production targets toggles with production components"
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 0
-  total_plans: 0
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---
@@ -55,6 +55,10 @@ No new decisions yet for v2.0.
 |---|-------------|------|--------|--------|-----------|
 | 260409-paq | Align production targets toggles with production components - tier-1 as pieces, leaf as grams, unify kitchen components source | 2026-04-09 | db926233 | Verified | [260409-paq-align-production-targets-toggles-with-pr](./quick/260409-paq-align-production-targets-toggles-with-pr/) |
 
+### Roadmap Evolution
+
+- Phase 70.1 inserted after Phase 70: Admin All-Expenses Visibility (URGENT)
+
 ### Research Flags
 
 - Phase 70 (Revenue Fix): Need to trace exact failure mode in syncInternalOrders action
@@ -62,6 +66,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-04-09T04:10:16.167Z
-Stopped at: Phase 70 context gathered
-Resume file: .planning/phases/70-data-accuracy-foundation/70-CONTEXT.md
+Last session: 2026-04-09T15:33:29.291Z
+Stopped at: Phase 70.1 context gathered
+Resume file: .planning/phases/70.1-admin-all-expenses-visibility/70.1-CONTEXT.md
