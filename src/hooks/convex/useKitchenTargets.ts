@@ -27,10 +27,19 @@ export function useKitchenTargets() {
     { date: today }
   );
 
-  // Phase 69: Kitchen component data
-  const kitchenComponents = useQuery(api.kitchenComponents.queries.list, {
-    activeOnly: true,
-  });
+  // Phase 69 -> paq: Unified production components with tier computation
+  const productionComponentsWithTiers = useQuery(
+    api.productionRecipes.queries.getComponentsWithTiers
+  );
+
+  // Tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types).
+  // The unit guard prevents tier-1 pcs components from leaking in when links are missing.
+  const kitchenComponents = useMemo(
+    () =>
+      (productionComponentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
+    [productionComponentsWithTiers]
+  );
+
   const dailyComponentSummary = useQuery(
     api.kitchenShiftRecords.queries.getDailyComponentSummary,
     { date: today }
@@ -40,6 +49,7 @@ export function useKitchenTargets() {
     today,
     targets,
     todayShiftRecords,
+    productionComponentsWithTiers,
     kitchenComponents,
     dailyComponentSummary,
   };

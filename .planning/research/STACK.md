@@ -1,338 +1,285 @@
-# Stack Research
+# Technology Stack
 
-**Domain:** Expense management, double-entry accounting, receipt upload with fraud controls, and financial reporting extension
-**Researched:** 2026-03-12
-**Confidence:** HIGH -- verified against existing codebase patterns, official Web API documentation, and Convex file storage docs
+**Project:** Frollie Recipe Master v2.0 — Financial Management & Data Quality
+**Researched:** 2026-04-07
+**Confidence:** HIGH (verified against existing codebase + npm registry)
 
----
+## Existing Stack (DO NOT CHANGE)
 
-## What This Document Covers
+These are already installed and proven across 10 milestones. No version changes needed.
 
-v1.7 (Expense & Accounting) adds five capability areas to the existing Convex + React 19 stack:
-
-1. **Chart of Accounts backbone** -- PSAK-aligned 36-account CoA with seeded defaults
-2. **Expense submission with receipt upload** -- file upload to Convex `_storage`, client-side SHA-256 hashing via Web Crypto API
-3. **Approval workflow with Delegation of Authority** -- broadcast routing, concurrency guards, fraud controls
-4. **Reimbursement batching** -- batch creation, bank transfer tracking, journal entry generation
-5. **P&L extension + Expense Analytics** -- OpEx breakdown, EBIT, Net Income, category charts
-
----
-
-## Existing Stack -- What's Already There (DO NOT Re-Add)
-
-| Already Have | Version | Relevant Capability for v1.7 |
-|---|---|---|
-| Convex | ^1.31.7 | `_storage` file storage, `generateUploadUrl`, `storage.getUrl()`, mutation serialization (concurrency guard), `protectedMutation` pattern |
-| React | ^19.2.0 | File input, hooks, `React.lazy` code splitting |
-| TypeScript | ~5.9.3 | Type safety, ES2022 target, `DOM` lib types include Web Crypto API |
-| Vite | ^7.2.4 | Build tool, dev server (HTTPS available for Web Crypto) |
-| Recharts | ^3.7.0 | `BarChart`, `AreaChart`, `PieChart`, `LineChart`, `ResponsiveContainer` -- all chart types needed for Expense Analytics |
-| date-fns | ^4.1.0 | Date arithmetic for period filtering, late submission checks |
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| Convex | ^1.31.7 | Serverless backend + real-time DB |
+| React | ^19.2.0 | UI framework |
+| TypeScript | ~5.9.3 | Type safety |
+| Vite | ^7.2.4 | Build tooling |
 | Tailwind CSS | ^4.1.18 | Styling |
-| shadcn/ui (Radix UI) | various | `<Table>`, `<Dialog>`, `<Tabs>`, `<Progress>`, `<Badge>`, `<Card>`, `<Select>`, `<RadioGroup>`, `<Accordion>` |
-| Sonner | ^2.0.7 | Toast notifications for approval/rejection/upload feedback |
-| Lucide React | ^0.564.0 | Icons including `Upload`, `Receipt`, `CheckCircle`, `XCircle`, `AlertTriangle`, `Banknote` |
-| Framer Motion | ^11.15.0 | Animations for status transitions |
-| convex-helpers | ^0.1.112 | Utility patterns for Convex |
+| shadcn/ui + Radix | various | Component library |
+| Recharts | ^3.7.0 | Charts (P&L visualizations) |
+| PapaParse | ^5.5.3 | CSV parsing (already used for expense import) |
+| date-fns | ^4.1.0 | Date manipulation + Indonesian locale |
+| Lucide React | ^0.564.0 | Icons |
+| Sonner | ^2.0.7 | Toast notifications |
+| Framer Motion | ^11.15.0 | Animations |
+| Vitest | ^4.0.18 | Testing |
 
-**Existing file upload infrastructure:**
-- `convex/feedback/mutations.ts` -- `generateUploadUrl` mutation (unauthenticated, for feedback screenshots)
-- `convex/grabfoodMenu/mutations.ts` -- `generateUploadUrl` mutation (authenticated, for menu photos)
-- `src/components/grabfoodMenu/PhotoUpload.tsx` -- Complete client-side upload component: file validation, `fetch(uploadUrl, { method: "POST" })`, storageId extraction
-- `convex/feedback/queries.ts` -- `ctx.storage.getUrl(storageId)` pattern for serving stored files
+## New Libraries Needed
 
-**Existing ID generation pattern:**
-- `convex/orders/helpers.ts` -- `generateOrderNumber(date, existingOrdersToday)` using `MMDD-NNN` format
-- Orders query existing records to determine sequence number (count-based)
-- v1.7 introduces a `counters` table for atomic increment instead (design spec Section 3)
+**Answer: ZERO new npm dependencies required.**
 
-**Existing auth pattern:**
-- `convex/lib/auth.ts` -- `requireRole(ctx, args.token, ["admin"])` for all protected mutations
-- All roles defined: `kitchen`, `order_staff`, `manager`, `admin`
+Every v2.0 feature can be built with the existing stack. Here is the rationale per feature:
 
----
+### 1. Full P&L with Per-Channel Breakdown & FCF
 
-## Recommended Stack Additions
+**Stack needed:** Nothing new.
 
-### New Dependencies Required
+The existing `convex/reports/incomeStatement.ts` already computes Revenue -> Net Revenue -> COGS -> Gross Profit -> OpEx -> EBIT -> EBITDA -> Net Income with per-channel breakdown. The v2.0 extensions are:
 
-**None.** Zero new npm packages needed for v1.7.
+- **FCF calculation:** `FCF = Net Income + Depreciation/Amortization - CapEx`. Depreciation already exists in the P&L query (`depreciationAmount`, `amortizationAmount`). CapEx can be derived from `fixedAssets` table (acquisitions in period). This is pure arithmetic on existing data — no library needed.
+- **Per-channel breakdown:** Already done. The `channels: ChannelData[]` structure already provides per-source gross/net/COGS/commission.
 
-Every v1.7 requirement is satisfied by existing stack + browser-native Web APIs.
+### 2. Bank Statement Reconciliation (CSV Upload, Auto-Matching)
 
-### Decision Matrix -- Why No New Libraries
+**Stack needed:** PapaParse (already installed), custom matching logic.
 
-| Requirement | How to Solve | New Library? |
-|---|---|---|
-| Receipt image upload | Convex `_storage` + `generateUploadUrl` -- already implemented in GrabFood menu | No |
-| SHA-256 receipt hashing | Web Crypto API `crypto.subtle.digest("SHA-256", arrayBuffer)` -- browser-native, ES2022 lib types | No |
-| Hex string conversion from hash | `Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("")` -- no library needed | No |
-| Expense form with receipt preview | shadcn/ui `<Dialog>` + `<Card>` + native `<input type="file" accept="image/*">` | No |
-| Approval queue UI | shadcn/ui `<Tabs>` + `<Card>` + `<Badge>` + `<Table>` | No |
-| Status timeline visualization | Tailwind CSS + Lucide icons -- simple vertical timeline component | No |
-| Chart of Accounts management | shadcn/ui `<Table>` + `<Dialog>` for CRUD | No |
-| Expense Analytics: Spend by Category | Recharts `<PieChart>` + `<Pie>` + `<Cell>` -- available in ^3.7.0 | No |
-| Expense Analytics: Monthly Trend | Recharts `<LineChart>` + `<Line>` -- available in ^3.7.0 | No |
-| Expense Analytics: Spend by Employee | Recharts `<BarChart>` + `<Bar>` -- already used in SalesAnalytics | No |
-| P&L extension (OpEx section) | Extend existing `IncomeStatement` component with `journalEntryLines` aggregation | No |
-| Counter table for ID generation | New `counters` table with atomic mutation increment -- Convex mutation serialization handles race conditions | No |
-| Date period filtering | date-fns `startOfWeek`, `endOfWeek`, `subDays`, `differenceInDays` -- already in project | No |
-| Duplicate detection (amount + date window) | Convex index query on `expenses` table -- pure backend logic | No |
-| Receipt hash dedup | Convex index `by_receipt_hash` on `expenses` table -- query before insert | No |
-| Immutable journal entries | No update mutation -- architectural decision, not a library | No |
-| Debit/credit balance validation | Simple arithmetic check `totalDebits === totalCredits` in mutation | No |
-| Reimbursement batch grouping | Convex query with `.filter()` grouping by employee -- pure backend | No |
-| File size validation | `file.size > MAX_FILE_SIZE` -- browser-native File API | No |
-| Image type validation | `file.type` check + `accept="image/jpeg,image/png,image/webp"` attribute | No |
+| Concern | Solution | Why Not a Library |
+|---------|----------|-------------------|
+| CSV parsing | PapaParse ^5.5.3 (installed) | Already used in `csvImportValidation.ts` for expense import |
+| BCA/Mandiri format detection | Custom header-sniffing logic | Indonesian bank CSV formats vary (Tanggal/Keterangan/Debit/Kredit/Saldo vs Date/Description/Debit/Credit/Balance). ~30 lines of header mapping per bank, not worth a dependency |
+| Auto-matching algorithm | Custom scored matcher | See algorithm design below |
+| Fuzzy string matching | Built-in `String.prototype.includes` + normalization | Bank descriptions are short; Levenshtein/Dice coefficients are overkill. Normalize (lowercase, strip whitespace, remove special chars) then substring match is sufficient for Indonesian bank descriptions |
 
----
+**Reconciliation matching algorithm (build in-house, ~150 LOC):**
 
-## Key Technology Decisions
+```
+Score = amount_score(0.5) + date_score(0.3) + description_score(0.2)
 
-### 1. Web Crypto API for SHA-256 Receipt Hashing
+amount_score:
+  - Exact match (to IDR integer): 1.0
+  - Within 1% (bank fees): 0.7
+  - Otherwise: 0.0
 
-**Decision:** Use browser-native `crypto.subtle.digest("SHA-256", arrayBuffer)` for receipt deduplication.
+date_score:
+  - Same day: 1.0
+  - +/- 1 day: 0.8
+  - +/- 2-3 days: 0.5
+  - Otherwise: 0.0
 
-**Why:** Web Crypto API is available in all modern browsers (baseline since January 2020). It runs in a secure context (HTTPS), which Vite dev server and Vercel production both provide. The TypeScript `DOM` lib (already in `tsconfig.app.json`) includes full type definitions. No polyfill needed for ES2022 target.
+description_score:
+  - Contains order number (e.g., "0129-001"): 1.0
+  - Contains customer name or vendor: 0.6
+  - Otherwise: 0.0
+```
 
-**Implementation pattern:**
+Match candidates from: `journalEntryLines` (all journal entries), `externalRevenue` (platform payouts), `expenses` (expense records), `reimbursementBatches` (reimbursement transfers), `orders` (direct sale payments). Threshold >= 0.7 for auto-match suggestion.
+
+**Why NOT use `string-similarity` or `fuse.js`:**
+- Bank reconciliation in IDR operates on structured data (amounts, dates, short descriptions), not free-text search
+- The matching is amount-primary, description-secondary — a weighted scorer is trivial to build
+- Adding dependencies for 20 lines of string comparison is unnecessary
+- Avoids another package to audit for security
+
+### 3. Staff Attendance (Clock-In/Out) with Per-Staff Production Tracking
+
+**Stack needed:** Nothing new.
+
+Attendance is a simple Convex table pattern:
+
 ```typescript
-async function computeReceiptHash(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
-  // Use Array.from for ES2022 compatibility (NOT Uint8Array.toHex which requires ES2025+)
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
+// New table: staffAttendance
+{
+  userId: v.id("users"),
+  clockIn: v.number(),      // UTC epoch ms
+  clockOut: v.optional(v.number()),  // null = still clocked in
+  shiftDate: v.number(),    // WIB midnight epoch for indexing
 }
 ```
 
-**Why client-side, not server-side:** The design spec explicitly requires client-side hashing to avoid reading large files in Convex mutation context. Convex mutations have execution time limits -- reading a multi-MB receipt image into memory for hashing would be wasteful. The hash is computed in the browser and passed as a string argument alongside the storageId.
+- **Time display:** `dateUtils.ts` already has `utcToWibTimeStr()` and `formatDateTimeId()` for WIB conversion
+- **Per-staff production tracking:** Already exists via `productionLog` table which records `chefId`. The existing `StaffPerformance.tsx` page already aggregates per-staff production (balls, grams, waste). Attendance just adds hours-worked context
+- **Monthly summary:** `date-fns` (installed) provides `startOfMonth`/`endOfMonth` for period queries. Convex index on `[userId, shiftDate]` gives O(log n) lookups
 
-**Compatibility note:** Do NOT use `Uint8Array.prototype.toHex()` for hex conversion. This method only achieved baseline browser support in September 2025 and the project targets ES2022. Use the `Array.from().map().join()` pattern instead, which works in all browsers.
+### 4. Data Health / Integrity Checks Dashboard
 
-### 2. Convex `_storage` for Receipt Files
+**Stack needed:** Nothing new.
 
-**Decision:** Use existing Convex file storage with the same 3-step upload pattern as GrabFood menu photos.
+The codebase already has `convex/integrityChecks/` (weekly production count verification). The v2.0 Data Health page expands this pattern:
 
-**Why:** The pattern is already proven in the codebase:
-1. Call `generateUploadUrl` mutation to get a short-lived upload URL (expires in 1 hour)
-2. `POST` the file to the URL, get back `{ storageId }`
-3. Pass `storageId` to the expense submission mutation
+| Check | Data Source | Implementation |
+|-------|-------------|----------------|
+| Revenue completeness | `externalRevenue` vs `orders` | Convex query: count orders with `status=Complete` not in externalRevenue |
+| COGS coverage | `menuProducts.unitCost` | Convex query: count where `unitCost === 0` |
+| Journal balance | `journalEntryLines` | Sum all debits vs credits per entry — must equal |
+| Bank reconciliation status | New `bankStatementRows` table | Count unmatched rows |
+| Expense receipts | `expenses` table | Count where `receiptUrl` is missing and `status !== "draft"` |
 
-**What's different from GrabFood photos:**
-- Receipt upload adds SHA-256 hash computation between steps 1 and 3
-- Receipt upload requires auth (use `requireRole` pattern from `grabfoodMenu/mutations.ts`, not the unauthenticated `feedback/mutations.ts` pattern)
-- File types: `image/jpeg, image/png, image/webp` (same as GrabFood)
-- File size limit: 5MB (same as GrabFood `PhotoUpload.tsx`)
+All checks are Convex queries aggregating existing tables. No external libraries needed — this is database reads + arithmetic.
 
-**Serving receipt URLs:** Use `ctx.storage.getUrl(receiptFileId)` in queries, following `feedback/queries.ts`. URLs are temporary and regenerated on each query -- this is correct for receipts (no permanent public URL needed).
+### 5. Financial Data Export (Raw Transactions + P&L Summary)
 
-### 3. Counters Table for Atomic ID Generation
+**Stack needed:** Nothing new.
 
-**Decision:** Introduce a `counters` table with compound index for atomic sequential ID generation.
+The codebase already has two robust CSV export patterns:
+- `src/lib/csvExport.ts`: Full P&L CSV export with formula injection protection, cell escaping, `downloadCSV()` browser trigger
+- `src/lib/staffPerformanceExport.ts`: Per-staff production CSV
 
-**Why:** The existing order number system counts existing records to determine the next sequence number. This works for orders because order creation is relatively infrequent. For expenses, approvals, and journal entries happening in parallel, the count-based approach risks race conditions. The `counters` table with `prefix + date` compound index and Convex mutation serialization guarantees unique sequential numbers.
+The v2.0 export extends these patterns:
+- **Raw transaction export:** Query `journalEntryLines` with date range, format with existing `escapeCell()` + `downloadCSV()` helpers
+- **P&L summary export:** Already exists in `csvExport.ts` — extend to include FCF row
 
-**Pattern:**
-```typescript
-// counters table: { prefix: string, date: string, lastSequence: number }
-// Index: by_prefix_date on [prefix, date]
-// Mutation reads counter, increments, writes back -- serialized by Convex
-```
+**Why NOT use `xlsx` or `exceljs`:**
+- CSV is the stated requirement in PROJECT.md
+- The existing CSV export infrastructure is proven and handles edge cases (formula injection, unicode, cell quoting)
+- Adding Excel libraries would increase bundle size ~500KB for no stated requirement
 
-This is a standard counter/sequence pattern in event-sourced systems. Convex mutation serialization means two simultaneous mutations on the same counter document will be serialized automatically -- no distributed locks needed.
+### 6. COGS Override Per Product
 
-### 4. Recharts for Expense Analytics Charts
+**Stack needed:** Nothing new.
 
-**Decision:** Reuse Recharts ^3.7.0 (already installed) for all Expense Analytics visualizations.
-
-**Verified chart types available in Recharts 3.x:**
-| Chart Type Needed | Recharts Component | Used in Codebase? |
-|---|---|---|
-| Spend by Category (pie) | `<PieChart>` + `<Pie>` + `<Cell>` | **New** -- not yet used, but verified available |
-| Monthly Trend (line) | `<LineChart>` + `<Line>` | **New** -- not yet used, but verified available |
-| Spend by Employee (bar) | `<BarChart>` + `<Bar>` | YES -- `SalesChart.tsx` uses stacked bars |
-| Period comparison (area) | `<AreaChart>` + `<Area>` | YES -- `SalesChart.tsx` uses area for monthly |
-
-All imports follow the same pattern as `SalesChart.tsx`:
-```typescript
-import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-```
-
-**No Recharts upgrade needed.** The ^3.7.0 version already installed supports all required chart types. PieChart has been available since Recharts 1.x.
-
-### 5. No Additional Form Library
-
-**Decision:** Use existing shadcn/ui form components (inputs, selects, radio groups) with controlled React state. Do NOT add react-hook-form, formik, or zod for expense forms.
-
-**Why:** The codebase consistently uses controlled components with `useState` for forms (OrderCreate, RecipeEditor, ProductEditor). Adding a form library for one feature would create inconsistency. The expense form has ~8 fields -- not complex enough to justify a form library.
-
----
-
-## Patterns to Follow
-
-### Receipt Upload Component Pattern
-
-Follow `src/components/grabfoodMenu/PhotoUpload.tsx` structure, extended with SHA-256 hashing:
+This is a single optional field on `menuProducts` table:
 
 ```typescript
-// Pseudocode -- actual implementation follows PhotoUpload.tsx pattern
-const handleReceiptUpload = async (file: File) => {
-  // 1. Validate file size and type
-  if (file.size > MAX_FILE_SIZE) { toast.error("..."); return; }
-
-  // 2. Compute SHA-256 hash (client-side, before upload)
-  const hash = await computeReceiptHash(file);
-
-  // 3. Check for duplicate hash (optional pre-check via query)
-  // ... or let the mutation reject on duplicate
-
-  // 4. Get upload URL from Convex
-  const uploadUrl = await generateUploadUrl({ token });
-
-  // 5. Upload file
-  const response = await fetch(uploadUrl, { method: "POST", body: file, headers: { "Content-Type": file.type } });
-  const { storageId } = await response.json();
-
-  // 6. Return storageId + hash to parent form
-  onUploadComplete(storageId, hash);
-};
+// Add to menuProducts schema:
+cogsOverride: v.optional(v.number()),  // IDR per unit, bypasses BOM calc when set
 ```
 
-### Journal Entry Creation Pattern
+The cost resolution logic in `convex/lib/costCalculator.ts` (`buildProductCOGSMap()`) adds one early-return check: if `cogsOverride` is set, use it instead of computing from BOM. ~5 lines of logic change.
 
-All journal entries follow the same mutation structure. Create a shared helper:
+## Financial Precision Strategy
 
-```typescript
-// convex/journalEntries/helpers.ts
-export function validateJournalBalance(lines: { debitAmount: number; creditAmount: number }[]): void {
-  const totalDebits = lines.reduce((sum, l) => sum + l.debitAmount, 0);
-  const totalCredits = lines.reduce((sum, l) => sum + l.creditAmount, 0);
-  if (Math.abs(totalDebits - totalCredits) > 0.01) {
-    throw new Error(`Journal entry does not balance: debits=${totalDebits}, credits=${totalCredits}`);
-  }
-}
-```
+**IDR is a zero-decimal currency.** All amounts in the codebase are already stored and computed as JavaScript integers (whole IDR values). This is confirmed by:
 
-### Counter Table Pattern
+- `formatCurrency()` in `utils.ts`: `minimumFractionDigits: 0, maximumFractionDigits: 0`
+- All `v.number()` fields in schema store IDR as integers
+- `Math.round()` used at calculation boundaries (e.g., `consignment/helpers.ts`, `lifetimeHelpers.ts`)
 
-```typescript
-// convex/lib/counters.ts
-export async function getNextSequence(ctx: MutationCtx, prefix: string): Promise<string> {
-  const now = new Date();
-  const dateKey = `${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+**No precision library needed.** Unlike USD/EUR (which need cent-level precision and libraries like `currency.js` or `Decimal.js`), IDR's smallest unit is Rp 1. JavaScript's safe integer range (2^53) supports values up to ~9 quadrillion IDR — well beyond any realistic business amount. The existing `Math.round()` at computation boundaries pattern is correct and sufficient.
 
-  const existing = await ctx.db
-    .query("counters")
-    .withIndex("by_prefix_date", q => q.eq("prefix", prefix).eq("date", dateKey))
-    .unique();
-
-  const nextSeq = existing ? existing.lastSequence + 1 : 1;
-
-  if (existing) {
-    await ctx.db.patch(existing._id, { lastSequence: nextSeq });
-  } else {
-    await ctx.db.insert("counters", { prefix, date: dateKey, lastSequence: nextSeq });
-  }
-
-  return `${prefix}-${dateKey}-${String(nextSeq).padStart(3, "0")}`;
-}
-```
-
----
+**Recommendation:** Continue using `Math.round()` for any derived calculations (margins, averages). Store all monetary values as integers. This is what the codebase already does consistently.
 
 ## What NOT to Add
 
-| Avoid | Why | Use Instead |
-|---|---|---|
-| `crypto-js` or `js-sha256` | Unnecessary dependency -- Web Crypto API provides native SHA-256 in all modern browsers with better performance (hardware-accelerated) | `crypto.subtle.digest("SHA-256", buffer)` |
-| `uuid` or `nanoid` for expense IDs | Design spec requires sequential `MMDD-NNN` format IDs for human readability (bank transfer references) | `counters` table with atomic increment |
-| `react-hook-form` or `formik` | Not used anywhere in codebase; expense form has ~8 fields -- controlled `useState` is sufficient and consistent | Controlled components with `useState` |
-| `zod` for form validation | Backend already validates via Convex argument validators (`v.string()`, `v.number()`, etc.); frontend validation is simple range/presence checks | Inline validation before mutation call |
-| `react-dropzone` | ~30KB for a styled dropzone; receipt upload is a single file select, not drag-and-drop batch upload | Native `<input type="file" accept="image/*">` |
-| `sharp` or `jimp` for image processing | No image processing needed -- receipts stored as-is, no resizing/compression | Direct upload to `_storage` |
-| `nivo`, `Victory`, `Chart.js` | Recharts ^3.7.0 is already installed and covers all needed chart types (pie, line, bar, area) | Recharts (existing) |
-| `@tanstack/react-table` | Expense tables are simple read-only lists with status filters -- no complex sorting/grouping needed | shadcn `<Table>` (existing) |
-| `xlsx` / SheetJS | No spreadsheet export needed for v1.7; the existing CSV export pattern on `/financials` covers P&L export | No export library |
-| Additional CSS animation library | Status transition animations are simple fade/slide -- Framer Motion (already installed) or Tailwind transitions handle this | Framer Motion or Tailwind `transition-*` |
-| Any state management library (Redux, Zustand, Jotai) | Convex provides real-time reactive queries -- approval queue auto-updates when another user approves/rejects; no client-side state sync needed | Convex `useQuery` reactivity |
-| External file storage (S3, R2, Cloudflare Images) | Convex `_storage` handles receipt images natively with temporary URLs; no CDN or public URL needed for internal receipts | Convex `_storage` |
-| `bcrypt` or password hashing library | No new auth flows; existing PIN-based auth unchanged | Existing `convex/lib/auth.ts` |
-
----
-
-## Alternatives Considered
-
-| Recommended | Alternative | When Alternative Makes Sense |
-|---|---|---|
-| Web Crypto API (browser-native SHA-256) | `crypto-js` npm package | Only if you need SHA-256 in a non-secure context (HTTP, no HTTPS). Not applicable -- Vite dev and Vercel production both use HTTPS. |
-| `Array.from().map().join()` hex conversion | `Uint8Array.prototype.toHex()` | When targeting ES2025+ and dropping support for browsers before Sept 2025. Project targets ES2022 -- not safe yet. |
-| Convex `_storage` for receipts | Cloudflare R2 via `@convex-dev/r2` component | Only if receipts need public CDN URLs, custom domains, or > 1GB files. Internal receipts < 5MB with temporary URLs -- `_storage` is simpler. |
-| `counters` table (atomic increment) | Count-based sequence (like orders) | For low-frequency ID generation where race conditions are unlikely. Expenses/JEs may be created in parallel during batch operations -- counter table is safer. |
-| Inline form validation | Zod schema validation | When forms have 20+ fields with complex cross-field validation rules. Expense form has ~8 fields with simple rules -- inline is clearer. |
-| Controlled `useState` forms | react-hook-form | When forms have many fields, frequent re-renders are a problem, or you need field-level validation feedback. Not the case here -- consistency with existing codebase patterns is more valuable. |
-
----
-
-## Version Compatibility
-
-| Technology | Version | Compatibility Notes |
-|---|---|---|
-| Web Crypto API | Browser-native | Baseline since Jan 2020. TypeScript `DOM` lib (in `tsconfig.app.json`: `"lib": ["ES2022", "DOM", "DOM.Iterable"]`) includes `crypto.subtle` types. No polyfill needed. |
-| Recharts | ^3.7.0 | `PieChart`, `LineChart` available since Recharts 1.x. No version bump needed. Tree-shakeable -- importing `PieChart` does not pull in unused chart types. |
-| Convex `_storage` | ^1.31.7 | `generateUploadUrl`, `storage.getUrl()` available since early Convex versions. 5MB receipt files well within limits (no file size limit on storage, 2-min upload timeout). |
-| date-fns | ^4.1.0 | `differenceInDays`, `subDays`, `startOfWeek` all available. Used for late submission check (14-day window) and duplicate detection (7-day window). |
-| shadcn/ui Radix primitives | various | `<Tabs>` (for My Expenses / Approvals / All Expenses views), `<RadioGroup>` (for payment method), `<Select>` (for GL account picker) all already installed. |
-
----
+| Library | Why NOT |
+|---------|---------|
+| `string-similarity` / `fuse.js` | Bank reconciliation matching is amount-primary with structured data; substring matching on normalized descriptions is sufficient |
+| `currency.js` / `Decimal.js` / `dinero.js` | IDR is zero-decimal; JavaScript integers are precise for all IDR calculations |
+| `xlsx` / `exceljs` | CSV is the stated export format; existing CSV infrastructure handles it; Excel adds ~500KB bundle |
+| `moment` / `luxon` | `date-fns` (installed) covers all date needs including Indonesian locale |
+| `zod` / `yup` | Convex validators (`v.string()`, `v.number()`) handle schema validation; PapaParse + custom validation handles CSV rows (already proven in `csvImportValidation.ts`) |
+| `react-table` / `@tanstack/table` | Existing table patterns with shadcn/ui `<Table>` components work fine; no complex table features needed |
+| `chart.js` | Recharts (installed) covers all chart needs |
+| `node-cron` | Convex has built-in `crons.ts` for scheduled functions |
 
 ## Installation
 
 ```bash
-# No new packages to install for v1.7.
-# The entire feature set uses existing dependencies + browser-native APIs.
-
-# Verify existing stack is healthy
-npm run type-check
-npm run build
-npm run test
+# No new packages to install.
+# All v2.0 features build on the existing stack.
 ```
 
----
+## Integration Points with Existing Convex Stack
 
-## Schema Additions Summary (for Stack Context)
+### Bank Reconciliation Schema Design
 
-10 new tables, 1 modified table. All use existing Convex patterns:
+New tables (all in Convex):
 
-| Table | Key Stack Integration |
-|---|---|
-| `accounts` | Seeded via `accounts:seedDefaults` (follows `tags:seedDefaults` pattern) |
-| `expenses` | `receiptFileId: v.optional(v.id("_storage"))` -- Convex file storage |
-| `expenseStatusHistory` | Immutable audit trail (follows order audit trail pattern) |
-| `reimbursementBatches` | Links to `bankAccounts` table and `users` table |
-| `reimbursementBatchItems` | Junction table (follows `menuProductComponents` pattern) |
-| `journalEntries` | Source-linked entries with reversal chain |
-| `journalEntryLines` | Denormalized `entryDate` for Convex index queries (cannot span tables) |
-| `bankAccounts` | Simple CRUD entity |
-| `payrollEntries` | Admin-only, auto-generates journal entry on creation |
-| `counters` | Atomic sequence generation for EXP/RMB/JE numbers |
-| `users` (modified) | +`bankAccountNumber`, +`bankName` optional fields |
+```typescript
+bankStatements: defineTable({
+  bankName: v.string(),           // "BCA" | "Mandiri"
+  accountNumber: v.string(),
+  uploadedBy: v.id("users"),
+  uploadedAt: v.number(),
+  fileName: v.string(),
+  rowCount: v.number(),
+  matchedCount: v.number(),
+  periodStart: v.number(),        // earliest transaction date
+  periodEnd: v.number(),          // latest transaction date
+}).index("by_date", ["uploadedAt"]),
 
----
+bankStatementRows: defineTable({
+  statementId: v.id("bankStatements"),
+  transactionDate: v.number(),    // WIB epoch
+  description: v.string(),
+  debitAmount: v.number(),        // IDR, 0 if credit
+  creditAmount: v.number(),       // IDR, 0 if debit
+  balance: v.number(),            // running balance
+  rowIndex: v.number(),           // original CSV row order
+  matchStatus: v.union(
+    v.literal("unmatched"),
+    v.literal("auto_matched"),
+    v.literal("manual_matched"),
+    v.literal("ignored")
+  ),
+  matchedJournalEntryId: v.optional(v.id("journalEntries")),
+  matchedEntityType: v.optional(v.string()),  // "order" | "expense" | "reimbursement" | "revenue"
+  matchedEntityId: v.optional(v.string()),
+  matchConfidence: v.optional(v.number()),     // 0.0-1.0 score
+  matchedBy: v.optional(v.id("users")),        // who confirmed manual match
+  matchedAt: v.optional(v.number()),
+}).index("by_statement", ["statementId"])
+  .index("by_status", ["matchStatus"])
+  .index("by_date", ["transactionDate"]),
+```
+
+### Attendance Schema Design
+
+```typescript
+staffAttendance: defineTable({
+  userId: v.id("users"),
+  shiftDate: v.number(),          // WIB midnight epoch
+  clockIn: v.number(),            // UTC epoch ms
+  clockOut: v.optional(v.number()),
+  totalMinutes: v.optional(v.number()),  // computed on clock-out
+  notes: v.optional(v.string()),
+}).index("by_user_date", ["userId", "shiftDate"])
+  .index("by_date", ["shiftDate"]),
+```
+
+### Employee Profile Extension
+
+```typescript
+// Add to existing users table:
+hireDate: v.optional(v.number()),     // WIB epoch
+baseRateIdr: v.optional(v.number()),  // IDR per month or per day
+```
+
+### BCA/Mandiri CSV Header Mapping
+
+Based on research, Indonesian bank CSV exports use these common patterns:
+
+**BCA KlikBCA Bisnis:**
+```
+Tanggal, Keterangan, Cabang, Jumlah, Mutasi, Saldo
+```
+Where Mutasi is "DB" (debit) or "CR" (credit), Jumlah is the amount.
+
+**Mandiri (Kopra Cash Management):**
+```
+Tanggal, Keterangan, Debit, Kredit, Saldo
+```
+
+The parser should auto-detect format by inspecting headers, then normalize to a common internal format (date, description, debit, credit, balance). This is a ~50-line header-mapping function per bank, not a library concern.
+
+**LOW confidence note:** Exact BCA/Mandiri CSV column names could not be verified from official documentation. The formats above are from community sources and may need adjustment when the user provides actual exported CSV files. Build the parser with a pluggable header-mapping pattern so new bank formats can be added trivially.
+
+## Alternatives Considered
+
+| Category | Recommended | Alternative | Why Not |
+|----------|-------------|-------------|---------|
+| CSV parsing | PapaParse (existing) | SheetJS/xlsx | PapaParse already installed, proven for this exact use case; xlsx adds bundle weight for features we don't need |
+| String matching | Custom normalizer + substring | string-similarity, fuse.js | Bank data is structured (amount/date/ref), not free text; over-engineering |
+| Financial precision | Native JS integers + Math.round | currency.js, Decimal.js | IDR is zero-decimal; JS integers are exact for all IDR values |
+| Date handling | date-fns (existing) | dayjs, luxon | date-fns already installed with Indonesian locale configured |
+| Export format | CSV (existing infra) | Excel (exceljs) | CSV is stated requirement; existing download/escape helpers proven |
+| Scheduling | Convex crons (existing) | node-cron | Convex has native cron support, already used for integrity checks |
 
 ## Sources
 
-- Web Crypto API `SubtleCrypto.digest()`: [MDN documentation](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto/digest) -- baseline since Jan 2020, SHA-256 support confirmed -- HIGH confidence
-- `Uint8Array.toHex()` browser support: [Can I Use](https://caniuse.com/mdn-javascript_builtins_uint8array_tohex) -- baseline Sept 2025, too new for ES2022 target -- HIGH confidence
-- Convex file storage upload pattern: [Convex docs](https://docs.convex.dev/file-storage/upload-files) -- 3-step upload (generateUploadUrl, POST, save storageId) confirmed -- HIGH confidence
-- Convex file storage overview: [Convex docs](https://docs.convex.dev/file-storage) -- `_storage` table, `storage.getUrl()`, temporary URLs confirmed -- HIGH confidence
-- Recharts PieChart examples: [Recharts docs](https://recharts.github.io/en-US/examples/TwoLevelPieChart/) -- PieChart, Pie, Cell components confirmed available -- HIGH confidence
-- Recharts npm: [npm registry](https://www.npmjs.com/package/recharts) -- ^3.7.0 current -- HIGH confidence
-- Existing codebase patterns: `src/components/grabfoodMenu/PhotoUpload.tsx` (upload), `convex/feedback/mutations.ts` (generateUploadUrl), `convex/feedback/queries.ts` (storage.getUrl), `convex/orders/helpers.ts` (ID generation), `src/components/salesAnalytics/SalesChart.tsx` (Recharts usage) -- verified directly -- HIGH confidence
-- Design spec: `docs/superpowers/specs/2026-03-12-expense-accounting-system-design.md` -- all requirements cross-referenced -- HIGH confidence
-
----
-
-*Stack research for: Frollie Recipe Master v1.7 -- Expense & Accounting*
-*Researched: 2026-03-12*
+- Existing codebase: `package.json`, `csvImportValidation.ts`, `csvExport.ts`, `incomeStatement.ts`, `costCalculator.ts`, `dateUtils.ts`, `confidence.ts`, `integrityChecks/`
+- [PapaParse 5.5.3 on npm](https://www.npmjs.com/package/papaparse) — current installed version is latest
+- [Bank reconciliation auto-matching best practices](https://www.cashbook.com/auto-matching-algorithms-in-accounts-reconciliation/) — scoring algorithm design
+- [Midday automatic reconciliation engine](https://midday.ai/updates/automatic-reconciliation-engine/) — real-world matching implementation reference
+- [JavaScript financial precision](https://dev.to/benjamin_renoux/financial-precision-in-javascript-handle-money-without-losing-a-cent-1chc) — confirms integer strategy for zero-decimal currencies
+- [BCA KlikBCA Bisnis tutorial](https://www.klikbca.com/kbbdemo/tutorial/02-03.html) — CSV export capability confirmed
+- [Convex scheduled functions](https://docs.convex.dev/scheduling/scheduled-functions) — cron pattern for integrity checks

@@ -86,10 +86,13 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     api.kitchenShiftRecords.mutations.updateShiftRecord
   );
 
-  // Query available kitchen components so managers can add to old records
-  const kitchenComponents = useQuery(api.kitchenComponents.queries.list, {
-    activeOnly: true,
-  });
+  // Query available kitchen components (tier-0 from componentTypes)
+  const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
+  // tier-0 + unit="g" = leaf ingredients in grams (unit guard prevents pcs components leaking in)
+  const kitchenComponents = useMemo(
+    () => (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
+    [componentsWithTiers]
+  );
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
 
   // -------------------------------------------------------

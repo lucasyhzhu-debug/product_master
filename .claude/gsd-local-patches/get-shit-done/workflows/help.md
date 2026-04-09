@@ -115,17 +115,21 @@ Usage: `/gsd:execute-phase 5`
 
 ### Quick Mode
 
-**`/gsd:quick`**
-Execute small, ad-hoc tasks with GSD guarantees but skip optional agents.
+**`/gsd:quick [--quick] [--discuss]`**
+Execute small, ad-hoc tasks with full GSD quality gates by default.
 
 Quick mode uses the same system with a shorter path:
-- Spawns planner + executor (skips researcher, checker, verifier)
+- Spawns planner + executor with plan-checking, verification, triple-review, and simplify enabled by default
 - Quick tasks live in `.planning/quick/` separate from planned phases
 - Updates STATE.md tracking (not ROADMAP.md)
+- `--quick` flag: skip quality gates for fast execution when you know exactly what to do
+- `--discuss` flag: lightweight discussion phase before planning to surface gray areas
 
-Use when you know exactly what to do and the task is small enough to not need research or verification.
+Flags are composable: `--discuss --quick` gives discussion but skips quality gates.
 
 Usage: `/gsd:quick`
+Usage: `/gsd:quick --quick` (skip quality gates)
+Usage: `/gsd:quick --discuss` (discuss first, then full quality)
 Result: Creates `.planning/quick/NNN-slug/PLAN.md`, `.planning/quick/NNN-slug/SUMMARY.md`
 
 ### Roadmap Management
@@ -189,10 +193,11 @@ Usage: `/gsd:complete-milestone 1.0.0`
 **`/gsd:progress`**
 Check project status and intelligently route to next action.
 
-- Shows visual progress bar and completion percentage
-- Summarizes recent work from SUMMARY files
-- Displays current position and what's next
-- Lists key decisions and open issues
+- Uses 3 parallel sub-agents for fast data gathering
+- Shows Phase Overview table with status per phase (Pending/Discussed/Planned/In Progress/Complete)
+- Shows which phases can be discussed or planned in parallel (no blocking dependencies)
+- Visual progress bar and completion percentage
+- Summarizes recent work, decisions, blockers, todos, debug sessions
 - Offers to execute next plan or create it if missing
 - Detects 100% milestone completion
 

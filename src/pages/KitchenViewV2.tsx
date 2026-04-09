@@ -54,7 +54,8 @@ export function KitchenViewV2() {
   // Kitchen targets + shift records (Phase 21)
   // ============================================
 
-  const { today, targets, todayShiftRecords, kitchenComponents, dailyComponentSummary } = useKitchenTargets();
+  const { today, targets, todayShiftRecords, kitchenComponents, dailyComponentSummary } =
+    useKitchenTargets();
 
   // ============================================
   // Kitchen config (for ManagerTargetSettings + enabledComponents)

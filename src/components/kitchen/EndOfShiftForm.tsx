@@ -80,14 +80,14 @@ interface EndOfShiftFormProps {
   productBallTypes?: Record<string, string[]>;
   /** Active users for chef selector */
   users?: Array<{ _id: string; name: string }>;
-  /** Phase 69: Available kitchen components from backend */
+  /** Available kitchen components (tier-0 leaves from componentTypes) */
   kitchenComponents?: Array<{
     _id: string;
     name: string;
     code: string;
-    ballTypeGroup?: string;
     unit: string;
     sortOrder: number;
+    tier?: number;
   }>;
   /** Phase 69: Enabled kitchen component codes from config (D-04) */
   enabledKitchenComponentCodes?: string[];

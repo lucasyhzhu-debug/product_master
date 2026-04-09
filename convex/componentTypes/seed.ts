@@ -9,6 +9,9 @@
  */
 
 import { mutation } from "../_generated/server";
+import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import { requireRole } from "../lib/auth";
 
 /**
  * Seed production components (Big Ball, Mid Ball)
@@ -156,6 +159,194 @@ export const seedStorageLocations = mutation({
       createdCount,
       skippedCount,
       message: `Seeded ${createdCount} storage locations (${skippedCount} already existed)`,
+    };
+  },
+});
+
+/**
+ * Seed leaf kitchen components into componentTypes + productionComponentLinks
+ *
+ * Creates 12 new componentTypes rows (category="production") matching existing
+ * kitchenComponents codes so historical shift records stay valid.
+ * Then creates productionComponentLinks establishing parent-child hierarchy:
+ *   - 10 leaf ingredients linked as children of BOTH BIG_BALL and MID_BALL
+ *   - NUTELLA_FILLING linked as child of HAZELNUT_REGULAR
+ *   - HAZELNUT_REGULAR is a tier-1 ball product (unit="pcs") with no parent links created here
+ *
+ * Idempotent: checks by_code index before inserting componentTypes,
+ * checks by_parent + by_child before inserting links.
+ *
+ * Run from Convex dashboard: componentTypes/seed:seedLeafKitchenComponents
+ */
+export const seedLeafKitchenComponents = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    console.log("Seeding leaf kitchen components...");
+
+    // 12 components: 11 leaves (unit="g") + 1 tier-1 ball (unit="pcs")
+    const leafComponents = [
+      { code: "OUTER_MARSHMALLOW", name: "Outer-Marshmallow", unit: "g", sortOrder: 10 },
+      { code: "FILLING_PISTACHIO", name: "Filling-Pistachio", unit: "g", sortOrder: 11 },
+      { code: "PISTACHIO_SPREAD", name: "Pistachio Spread", unit: "g", sortOrder: 12 },
+      { code: "SALT", name: "Salt", unit: "g", sortOrder: 13 },
+      { code: "MARSHMALLOW", name: "Marshmallow", unit: "g", sortOrder: 14 },
+      { code: "CACAO_POWDER", name: "Cacao Powder", unit: "g", sortOrder: 15 },
+      { code: "MILK_POWDER", name: "Milk Powder", unit: "g", sortOrder: 16 },
+      { code: "KUNAFA", name: "Kunafa", unit: "g", sortOrder: 17 },
+      { code: "PISTACHIO_PASTE", name: "Pistachio Paste", unit: "g", sortOrder: 18 },
+      { code: "BUTTER", name: "Butter", unit: "g", sortOrder: 19 },
+      { code: "NUTELLA_FILLING", name: "Nutella Filling", unit: "g", sortOrder: 20 },
+      { code: "HAZELNUT_REGULAR", name: "Hazelnut-Regular", unit: "pcs", sortOrder: 3 },
+    ];
+
+    let componentsCreated = 0;
+    let componentsSkipped = 0;
+    const codeToId = new Map<string, Id<"componentTypes">>();
+
+    for (const comp of leafComponents) {
+      const existing = await ctx.db
+        .query("componentTypes")
+        .withIndex("by_code", (q) => q.eq("code", comp.code))
+        .first();
+
+      if (existing) {
+        console.log(`Skipping ${comp.code} - already exists`);
+        codeToId.set(comp.code, existing._id);
+        componentsSkipped++;
+        continue;
+      }
+
+      const id = await ctx.db.insert("componentTypes", {
+        code: comp.code,
+        name: comp.name,
+        category: "production",
+        unitCostIdr: 0,
+        unit: comp.unit,
+        trackInventory: false,
+        sortOrder: comp.sortOrder,
+        isActive: true,
+        createdBy: "system-seed",
+        createdAt: Date.now(),
+      });
+
+      codeToId.set(comp.code, id);
+      componentsCreated++;
+      console.log(`Created ${comp.code} (${comp.name})`);
+    }
+
+    // Resolve parent IDs (BIG_BALL, MID_BALL, HAZELNUT_REGULAR)
+    const bigBall = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_code", (q) => q.eq("code", "BIG_BALL"))
+      .first();
+    const midBall = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_code", (q) => q.eq("code", "MID_BALL"))
+      .first();
+    const hazelnutRegular = codeToId.get("HAZELNUT_REGULAR");
+
+    if (!bigBall || !midBall) {
+      console.log("WARNING: BIG_BALL or MID_BALL not found. Run seedProductionComponents first.");
+      return {
+        success: false,
+        componentsCreated,
+        componentsSkipped,
+        linksCreated: 0,
+        linksSkipped: 0,
+        message: "BIG_BALL or MID_BALL missing - run seedProductionComponents first",
+      };
+    }
+
+    // 10 original leaf codes to link to BOTH BIG_BALL and MID_BALL
+    const leafCodes = [
+      "OUTER_MARSHMALLOW", "FILLING_PISTACHIO", "PISTACHIO_SPREAD",
+      "SALT", "MARSHMALLOW", "CACAO_POWDER", "MILK_POWDER",
+      "KUNAFA", "PISTACHIO_PASTE", "BUTTER",
+    ];
+
+    let linksCreated = 0;
+    let linksSkipped = 0;
+
+    // Pre-fetch existing links for each parent (avoids N+1 inside loop)
+    const bigBallChildren = new Set(
+      (await ctx.db.query("productionComponentLinks")
+        .withIndex("by_parent", (q) => q.eq("parentComponentId", bigBall._id))
+        .collect()).map((l) => l.childComponentId as string)
+    );
+    const midBallChildren = new Set(
+      (await ctx.db.query("productionComponentLinks")
+        .withIndex("by_parent", (q) => q.eq("parentComponentId", midBall._id))
+        .collect()).map((l) => l.childComponentId as string)
+    );
+    const parentChildSets = new Map([
+      [bigBall._id as string, bigBallChildren],
+      [midBall._id as string, midBallChildren],
+    ]);
+
+    // Link each leaf to both BIG_BALL and MID_BALL
+    for (const code of leafCodes) {
+      const childId = codeToId.get(code);
+      if (!childId) {
+        console.log(`WARNING: ${code} ID not resolved, skipping links`);
+        continue;
+      }
+
+      for (const parent of [bigBall, midBall]) {
+        if (parentChildSets.get(parent._id as string)?.has(childId as string)) {
+          linksSkipped++;
+          continue;
+        }
+
+        await ctx.db.insert("productionComponentLinks", {
+          parentComponentId: parent._id,
+          childComponentId: childId,
+          quantityPerUnit: 1,
+          unit: "g",
+          sortOrder: leafCodes.indexOf(code),
+        });
+        linksCreated++;
+        console.log(`Linked ${code} -> ${parent.code}`);
+      }
+    }
+
+    // Link NUTELLA_FILLING as child of HAZELNUT_REGULAR
+    if (hazelnutRegular) {
+      const nutellaFillingId = codeToId.get("NUTELLA_FILLING");
+      if (nutellaFillingId) {
+        const hazelnutChildren = new Set(
+          (await ctx.db.query("productionComponentLinks")
+            .withIndex("by_parent", (q) => q.eq("parentComponentId", hazelnutRegular))
+            .collect()).map((l) => l.childComponentId as string)
+        );
+        const alreadyLinked = hazelnutChildren.has(nutellaFillingId as string);
+
+        if (alreadyLinked) {
+          linksSkipped++;
+        } else {
+          await ctx.db.insert("productionComponentLinks", {
+            parentComponentId: hazelnutRegular,
+            childComponentId: nutellaFillingId,
+            quantityPerUnit: 1,
+            unit: "g",
+            sortOrder: 0,
+          });
+          linksCreated++;
+          console.log("Linked NUTELLA_FILLING -> HAZELNUT_REGULAR");
+        }
+      }
+    }
+
+    const msg = `Seeded ${componentsCreated} components (${componentsSkipped} skipped), ${linksCreated} links (${linksSkipped} skipped)`;
+    console.log(msg);
+
+    return {
+      success: true,
+      componentsCreated,
+      componentsSkipped,
+      linksCreated,
+      linksSkipped,
+      message: msg,
     };
   },
 });

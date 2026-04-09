@@ -12,164 +12,140 @@ Read all files referenced by the invoking prompt's execution_context before star
 **Load progress context (paths only):**
 
 ```bash
-INIT=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" init progress)
+INIT=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" init progress)
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Extract from init JSON: `project_exists`, `roadmap_exists`, `state_exists`, `phases`, `current_phase`, `next_phase`, `milestone_version`, `completed_count`, `phase_count`, `paused_at`, `state_path`, `roadmap_path`, `project_path`, `config_path`.
+
+```bash
+DISCUSS_MODE=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.discuss_mode 2>/dev/null || echo "discuss")
+```
 
 If `project_exists` is false (no `.planning/` directory):
 
 ```
 No planning structure found.
 
-Run /gsd:new-project to start a new project.
+Run /gsd-new-project to start a new project.
 ```
 
 Exit.
 
-If missing STATE.md: suggest `/gsd:new-project`.
+If missing STATE.md: suggest `/gsd-new-project`.
 
 **If ROADMAP.md missing but PROJECT.md exists:**
 
 This means a milestone was completed and archived. Go to **Route F** (between milestones).
 
-If missing both ROADMAP.md and PROJECT.md: suggest `/gsd:new-project`.
+If missing both ROADMAP.md and PROJECT.md: suggest `/gsd-new-project`.
 </step>
 
 <step name="parallel_gather">
-**Dispatch 3 parallel sub-agents to gather all data concurrently.**
+**Dispatch 3 parallel Explore sub-agents in a SINGLE message to gather all progress data concurrently.**
 
-Launch ALL 3 agents in a SINGLE message using the Agent tool (this makes them run in parallel). Use `subagent_type: "Explore"` for each. Each agent returns structured text that the orchestrator synthesizes in the report step.
+### Agent 1: Roadmap & Phase Status Table
 
-**Agent 1 — Roadmap & Phase Status Table:**
-
-Prompt the agent with:
+Prompt:
 ```
-You are gathering phase status data for a progress report. Do NOT output commentary — return ONLY the structured format below.
-
-1. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze
-   Parse the JSON output to get all phases with their goals and dependencies.
-2. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" progress bar --raw
-3. For each phase from the roadmap output, check its directory in .planning/phases/:
-   - Count *-PLAN.md files (glob for *-PLAN.md)
-   - Count *-SUMMARY.md files (glob for *-SUMMARY.md)
-   - Check if *-CONTEXT.md exists (glob for *-CONTEXT.md)
-   - Determine status:
-     • "Complete" — summaries >= plans AND plans > 0
-     • "In Progress" — plans > 0 AND summaries > 0 AND summaries < plans
-     • "Planned" — plans > 0 AND summaries = 0
-     • "Discussed" — CONTEXT.md exists but no plans
-     • "Pending" — none of the above
-
-Return EXACTLY this format:
-PROGRESS_BAR: {bar string}
-PHASE_TABLE:
-| # | Phase | Status | Key Objective |
-|---|-------|--------|---------------|
-| {num} | {short name} | {status} | {goal from roadmap, max 60 chars} |
+1. Run: node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze
+2. Run: node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" progress bar --raw
+3. For each phase in the roadmap JSON, check the phase directory:
+   - Does {phase_dir}/{padded_phase}-CONTEXT.md exist? (context gathered)
+   - How many *-PLAN.md files? (plans created)
+   - How many *-SUMMARY.md files? (plans executed)
+4. Build a Phase Overview status table:
+   | Phase | Name | Status | Plans | Context |
+   |-------|------|--------|-------|---------|
+   | 1 | Foundation | Complete (3/3) | 3 PLANs, 3 SUMMARYs | Yes |
+   | 2 | Core Features | In Progress (1/2) | 2 PLANs, 1 SUMMARY | Yes |
+   | 3 | Polish | Planned | 0 PLANs | No |
+5. Return: roadmap JSON, progress bar string, phase status table
 ```
 
-**Agent 2 — Recent Work & State Snapshot:**
+### Agent 2: Recent Work & State Snapshot
 
-Prompt the agent with:
+Prompt:
 ```
-You are gathering recent work and project state for a progress report. Do NOT output commentary — return ONLY the structured format below.
-
-1. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" state-snapshot
-   Parse decisions[] and blockers[] from the JSON output.
-2. Find the 3 most recent *-SUMMARY.md files across all directories in .planning/phases/ (sort by file modification time).
-   For each, run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" summary-extract {path} --fields one_liner
-3. Read .planning/config.json and extract the model profile name.
-4. Count files in .planning/todos/pending/ (if directory exists).
-5. Count active debug sessions: glob .planning/debug/*.md (exclude resolved/ subdirectory).
-
-Return EXACTLY this format:
-PROFILE: {quality|balanced|budget}
-RECENT_WORK:
-- [{phase}-{plan}]: {one_liner}
-DECISIONS:
-- {decision text}
-BLOCKERS:
-- {blocker text}
-TODO_COUNT: {N}
-DEBUG_COUNT: {N}
+1. Run: node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" state-snapshot
+2. Find the 3 most recent SUMMARY.md files (by modification time)
+3. For each, run: node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" summary-extract <path> --fields one_liner
+4. Count pending todos: node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" init todos 2>/dev/null || echo "0"
+5. Count active debug sessions: (ls .planning/debug/*.md 2>/dev/null || true) | grep -v resolved | wc -l
+6. Read user profile if exists: .planning/PROFILE.md
+7. Return: state snapshot JSON, recent summaries array, todo count, debug session count, profile summary
 ```
 
-**Agent 3 — Dependency Analysis & Parallelizable Phases:**
+### Agent 3: Dependency Analysis
 
-Prompt the agent with:
+Prompt:
 ```
-You are analyzing phase dependencies for a progress report. Do NOT output commentary — return ONLY the structured format below.
-
-1. Run: node "./.claude/get-shit-done/bin/gsd-tools.cjs" roadmap analyze
-   Parse the JSON to get each phase's dependencies list and disk status.
-2. A phase is "complete" if its disk_status is "complete" (summaries >= plans > 0).
-3. For each NON-complete phase:
-   - If it has NO dependencies, or ALL its dependencies are complete → it is "parallelizable"
-   - Otherwise → it is "blocked" (list which dependency phases are incomplete)
-4. For each parallelizable phase, check its directory to determine available action:
-   - No *-CONTEXT.md → action is "discuss" (suggest /gsd:discuss-phase {num})
-   - *-CONTEXT.md exists but no *-PLAN.md → action is "plan" (suggest /gsd:plan-phase {num})
-   - *-PLAN.md exists but not all have matching *-SUMMARY.md → action is "execute" (suggest /gsd:execute-phase {num})
-
-Return EXACTLY this format:
-PARALLELIZABLE:
-- Phase {num}: {name} → /gsd:{action} {num}
-BLOCKED:
-- Phase {num}: {name} — waiting on Phase(s) {dep_nums}
+1. Read ROADMAP.md and parse "Depends on:" entries for each phase
+2. Build a dependency graph: which phases block which
+3. Identify parallelizable phases: phases whose dependencies are all complete
+4. Suggest appropriate /gsd: commands for each actionable phase:
+   - No CONTEXT.md -> /gsd-discuss-phase N
+   - Has CONTEXT but no PLANs -> /gsd-plan-phase N
+   - Has unexecuted PLANs -> /gsd-execute-phase N
+   - All PLANs have SUMMARYs -> phase complete
+5. Return: dependency map, parallelizable phases list, suggested commands
 ```
 
-**IMPORTANT:** Wait for all 3 agents to complete before proceeding to the report step. Store each agent's returned text for synthesis.
+**Dispatch all 3 agents as parallel Explore calls in one message.** Wait for all to return before proceeding to report step.
 </step>
 
 <step name="report">
-**Synthesize all 3 agent results into a single enhanced progress report.**
+**Synthesize outputs from all 3 parallel agents into a rich status report.**
 
-Combine the structured output from Agent 1, Agent 2, and Agent 3 into this format:
+Present:
 
 ```
-# [Project Name] — v{milestone_version}
+# [Project Name]
 
 **Progress:** {PROGRESS_BAR from Agent 1}
-**Profile:** {PROFILE from Agent 2}
+**Profile:** [quality/balanced/budget/inherit]
+**Discuss mode:** {DISCUSS_MODE}
 
 ## Phase Overview
+{Phase status table from Agent 1}
 
-{PHASE_TABLE from Agent 1 — full markdown table}
+| Phase | Name | Status | Plans | Context |
+|-------|------|--------|-------|---------|
+| ... | ... | ... | ... | ... |
 
 ## Recent Work
-{RECENT_WORK lines from Agent 2}
+- [Phase X, Plan Y]: [what was accomplished - 1 line from Agent 2 summary-extract]
+- [Phase X, Plan Z]: [what was accomplished - 1 line from Agent 2 summary-extract]
+- [Phase X, Plan W]: [what was accomplished - 1 line from Agent 2 summary-extract]
 
 ## Current Position
-Phase [N] of [total]: [current phase name]
+Phase [N] of [total]: [phase-name]
+Plan [M] of [phase-total]: [status]
+CONTEXT: [checkmark if has_context | - if not]
 
 ## Key Decisions Made
-{DECISIONS from Agent 2}
-(Omit section if empty)
+- [extract from Agent 2 state snapshot decisions[]]
 
 ## Blockers/Concerns
-{BLOCKERS from Agent 2}
-(Omit section if empty)
+- [extract from Agent 2 state snapshot blockers[]]
 
 ## Pending Todos
-- {TODO_COUNT from Agent 2} pending — /gsd:check-todos to review
-(Omit section if count = 0)
+- [count from Agent 2] pending -- /gsd-check-todos to review
 
 ## Active Debug Sessions
-- {DEBUG_COUNT from Agent 2} active — /gsd:debug to continue
-(Omit section if count = 0)
+- [count from Agent 2] active -- /gsd-debug to continue
+(Only show this section if count > 0)
 
 ## Ready to Work In Parallel
-These phases have no blocking dependencies — you can discuss or plan them simultaneously:
-{PARALLELIZABLE list from Agent 3, each with its /gsd: command suggestion}
+{From Agent 3: phases whose dependencies are satisfied and can be worked on now}
 
-Blocked phases:
-{BLOCKED list from Agent 3}
-(Omit blocked sub-section if empty)
+| Phase | Name | Suggested Command |
+|-------|------|-------------------|
+| {N} | {name} | `/gsd-{command} {N}` |
 
 ## What's Next
-[Next action suggestion — determined by the route step below]
+[Next phase/plan objective from Agent 1 roadmap analyze]
+[Dependency context from Agent 3 if relevant]
 ```
 
 </step>
@@ -182,9 +158,9 @@ Blocked phases:
 List files in the current phase directory:
 
 ```bash
-ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null | wc -l
-ls -1 .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-PLAN.md 2>/dev/null || true) | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-SUMMARY.md 2>/dev/null || true) | wc -l
+(ls -1 .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null || true) | wc -l
 ```
 
 State: "This phase has {X} plans, {Y} summaries."
@@ -194,17 +170,47 @@ State: "This phase has {X} plans, {Y} summaries."
 Check for UAT.md files with status "diagnosed" (has gaps needing fixes).
 
 ```bash
-# Check for diagnosed UAT with gaps
-grep -l "status: diagnosed" .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null
+# Check for diagnosed UAT with gaps or partial (incomplete) testing
+grep -l "status: diagnosed\|status: partial" .planning/phases/[current-phase-dir]/*-UAT.md 2>/dev/null || true
 ```
 
 Track:
 - `uat_with_gaps`: UAT.md files with status "diagnosed" (gaps need fixing)
+- `uat_partial`: UAT.md files with status "partial" (incomplete testing)
+
+**Step 1.6: Cross-phase health check**
+
+Scan ALL phases in the current milestone for outstanding verification debt using the CLI (which respects milestone boundaries via `getMilestonePhaseFilter`):
+
+```bash
+DEBT=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" audit-uat --raw 2>/dev/null)
+```
+
+Parse JSON for `summary.total_items` and `summary.total_files`.
+
+Track: `outstanding_debt` — `summary.total_items` from the audit.
+
+**If outstanding_debt > 0:** Add a warning section to the progress report output (in the `report` step), placed between "## What's Next" and the route suggestion:
+
+```markdown
+## Verification Debt ({N} files across prior phases)
+
+| Phase | File | Issue |
+|-------|------|-------|
+| {phase} | {filename} | {pending_count} pending, {skipped_count} skipped, {blocked_count} blocked |
+| {phase} | {filename} | human_needed — {count} items |
+
+Review: `/gsd-audit-uat ${GSD_WS}` — full cross-phase audit
+Resume testing: `/gsd-verify-work {phase} ${GSD_WS}` — retest specific phase
+```
+
+This is a WARNING, not a blocker — routing proceeds normally. The debt is visible so the user can make an informed choice.
 
 **Step 2: Route based on counts**
 
 | Condition | Meaning | Action |
 |-----------|---------|--------|
+| uat_partial > 0 | UAT testing incomplete | Go to **Route E.2** |
 | uat_with_gaps > 0 | UAT gaps need fix plans | Go to **Route E** |
 | summaries < plans | Unexecuted plans exist | Go to **Route A** |
 | summaries = plans AND plans > 0 | Phase complete | Go to Step 3 |
@@ -224,9 +230,9 @@ Read its `<objective>` section.
 
 **{phase}-{plan}: [Plan Name]** — [objective summary from PLAN.md]
 
-`/gsd:execute-phase {phase}`
+`/clear` then:
 
-<sub>`/clear` first → fresh context window</sub>
+`/gsd-execute-phase {phase} ${GSD_WS}`
 
 ---
 ```
@@ -236,6 +242,13 @@ Read its `<objective>` section.
 **Route B: Phase needs planning**
 
 Check if `{phase_num}-CONTEXT.md` exists in phase directory.
+
+Check if current phase has UI indicators:
+
+```bash
+PHASE_SECTION=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap get-phase "${CURRENT_PHASE}" 2>/dev/null)
+PHASE_HAS_UI=$(echo "$PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+```
 
 **If CONTEXT.md exists:**
 
@@ -247,14 +260,14 @@ Check if `{phase_num}-CONTEXT.md` exists in phase directory.
 **Phase {N}: {Name}** — {Goal from ROADMAP.md}
 <sub>✓ Context gathered, ready to plan</sub>
 
-`/gsd:plan-phase {phase-number}`
+`/clear` then:
 
-<sub>`/clear` first → fresh context window</sub>
+`/gsd-plan-phase {phase-number} ${GSD_WS}`
 
 ---
 ```
 
-**If CONTEXT.md does NOT exist:**
+**If CONTEXT.md does NOT exist AND phase has UI (`PHASE_HAS_UI` is `true`):**
 
 ```
 ---
@@ -263,15 +276,38 @@ Check if `{phase_num}-CONTEXT.md` exists in phase directory.
 
 **Phase {N}: {Name}** — {Goal from ROADMAP.md}
 
-`/gsd:discuss-phase {phase}` — gather context and clarify approach
+`/clear` then:
 
-<sub>`/clear` first → fresh context window</sub>
+`/gsd-discuss-phase {phase}` — gather context and clarify approach
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase {phase}` — skip discussion, plan directly
-- `/gsd:list-phase-assumptions {phase}` — see Claude's assumptions
+- `/gsd-ui-phase {phase}` — generate UI design contract (recommended for frontend phases)
+- `/gsd-plan-phase {phase}` — skip discussion, plan directly
+- `/gsd-list-phase-assumptions {phase}` — see Claude's assumptions
+
+---
+```
+
+**If CONTEXT.md does NOT exist AND phase has no UI:**
+
+```
+---
+
+## ▶ Next Up
+
+**Phase {N}: {Name}** — {Goal from ROADMAP.md}
+
+`/clear` then:
+
+`/gsd-discuss-phase {phase} ${GSD_WS}` — gather context and clarify approach
+
+---
+
+**Also available:**
+- `/gsd-plan-phase {phase} ${GSD_WS}` — skip discussion, plan directly
+- `/gsd-list-phase-assumptions {phase} ${GSD_WS}` — see Claude's assumptions
 
 ---
 ```
@@ -289,15 +325,41 @@ UAT.md exists with gaps (diagnosed issues). User needs to plan fixes.
 
 **{phase_num}-UAT.md** has {N} gaps requiring fixes.
 
-`/gsd:plan-phase {phase} --gaps`
+`/clear` then:
 
-<sub>`/clear` first → fresh context window</sub>
+`/gsd-plan-phase {phase} --gaps ${GSD_WS}`
 
 ---
 
 **Also available:**
-- `/gsd:execute-phase {phase}` — execute phase plans
-- `/gsd:verify-work {phase}` — run more UAT testing
+- `/gsd-execute-phase {phase} ${GSD_WS}` — execute phase plans
+- `/gsd-verify-work {phase} ${GSD_WS}` — run more UAT testing
+
+---
+```
+
+---
+
+**Route E.2: UAT testing incomplete (partial)**
+
+UAT.md exists with `status: partial` — testing session ended before all items resolved.
+
+```
+---
+
+## Incomplete UAT Testing
+
+**{phase_num}-UAT.md** has {N} unresolved tests (pending, blocked, or skipped).
+
+`/clear` then:
+
+`/gsd-verify-work {phase} ${GSD_WS}` — resume testing from where you left off
+
+---
+
+**Also available:**
+- `/gsd-audit-uat ${GSD_WS}` — full cross-phase UAT audit
+- `/gsd-execute-phase {phase} ${GSD_WS}` — execute phase plans
 
 ---
 ```
@@ -327,6 +389,15 @@ State: "Current phase is {X}. Milestone has {N} phases (highest: {Y})."
 
 Read ROADMAP.md to get the next phase's name and goal.
 
+Check if next phase has UI indicators:
+
+```bash
+NEXT_PHASE_SECTION=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" roadmap get-phase "$((Z+1))" 2>/dev/null)
+NEXT_HAS_UI=$(echo "$NEXT_PHASE_SECTION" | grep -qi "UI hint.*yes" && echo "true" || echo "false")
+```
+
+**If next phase has UI (`NEXT_HAS_UI` is `true`):**
+
 ```
 ---
 
@@ -336,15 +407,40 @@ Read ROADMAP.md to get the next phase's name and goal.
 
 **Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
 
-`/gsd:discuss-phase {Z+1}` — gather context and clarify approach
+`/clear` then:
 
-<sub>`/clear` first → fresh context window</sub>
+`/gsd-discuss-phase {Z+1}` — gather context and clarify approach
 
 ---
 
 **Also available:**
-- `/gsd:plan-phase {Z+1}` — skip discussion, plan directly
-- `/gsd:verify-work {Z}` — user acceptance test before continuing
+- `/gsd-ui-phase {Z+1}` — generate UI design contract (recommended for frontend phases)
+- `/gsd-plan-phase {Z+1}` — skip discussion, plan directly
+- `/gsd-verify-work {Z}` — user acceptance test before continuing
+
+---
+```
+
+**If next phase has no UI:**
+
+```
+---
+
+## ✓ Phase {Z} Complete
+
+## ▶ Next Up
+
+**Phase {Z+1}: {Name}** — {Goal from ROADMAP.md}
+
+`/clear` then:
+
+`/gsd-discuss-phase {Z+1} ${GSD_WS}` — gather context and clarify approach
+
+---
+
+**Also available:**
+- `/gsd-plan-phase {Z+1} ${GSD_WS}` — skip discussion, plan directly
+- `/gsd-verify-work {Z} ${GSD_WS}` — user acceptance test before continuing
 
 ---
 ```
@@ -364,14 +460,14 @@ All {N} phases finished!
 
 **Complete Milestone** — archive and prepare for next
 
-`/gsd:complete-milestone`
+`/clear` then:
 
-<sub>`/clear` first → fresh context window</sub>
+`/gsd-complete-milestone ${GSD_WS}`
 
 ---
 
 **Also available:**
-- `/gsd:verify-work` — user acceptance test before completing milestone
+- `/gsd-verify-work ${GSD_WS}` — user acceptance test before completing milestone
 
 ---
 ```
@@ -395,9 +491,9 @@ Ready to plan the next milestone.
 
 **Start Next Milestone** — questioning → research → requirements → roadmap
 
-`/gsd:new-milestone`
+`/clear` then:
 
-<sub>`/clear` first → fresh context window</sub>
+`/gsd-new-milestone ${GSD_WS}`
 
 ---
 ```
@@ -407,23 +503,23 @@ Ready to plan the next milestone.
 <step name="edge_cases">
 **Handle edge cases:**
 
-- Phase complete but next phase not planned → offer `/gsd:plan-phase [next]`
+- Phase complete but next phase not planned → offer `/gsd-plan-phase [next] ${GSD_WS}`
 - All work complete → offer milestone completion
 - Blockers present → highlight before offering to continue
-- Handoff file exists → mention it, offer `/gsd:resume-work`
+- Handoff file exists → mention it, offer `/gsd-resume-work ${GSD_WS}`
   </step>
 
 </process>
 
 <success_criteria>
 
-- [ ] 3 parallel agents dispatched in a SINGLE message (not sequential)
-- [ ] Phase Overview table shown with status per phase (Pending/Discussed/Planned/In Progress/Complete)
-- [ ] Parallelizable phases listed with suggested /gsd: commands
+- [ ] 3 parallel Explore agents dispatched and results synthesized
+- [ ] Phase Overview table with per-phase status displayed
 - [ ] Rich context provided (recent work, decisions, issues)
-- [ ] Current position clear with visual progress
+- [ ] Current position clear with visual progress bar
+- [ ] Parallelizable phases identified with suggested commands
 - [ ] What's next clearly explained
-- [ ] Smart routing: /gsd:execute-phase if plans exist, /gsd:plan-phase if not
+- [ ] Smart routing: /gsd-execute-phase if plans exist, /gsd-plan-phase if not
 - [ ] User confirms before any action
 - [ ] Seamless handoff to appropriate gsd command
       </success_criteria>
