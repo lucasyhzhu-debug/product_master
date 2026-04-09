@@ -16,7 +16,8 @@ Read STATE.md before any operation to load project context.
 Load all context in one call:
 
 ```bash
-INIT=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" init execute-phase "${PHASE_ARG}")
+INIT=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" init execute-phase "${PHASE_ARG}")
+if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelization`, `branching_strategy`, `branch_name`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `phase_slug`, `plans`, `incomplete_plans`, `plan_count`, `incomplete_count`, `state_exists`, `roadmap_exists`, `phase_req_ids`.
@@ -26,6 +27,13 @@ Parse JSON for: `executor_model`, `verifier_model`, `commit_docs`, `parallelizat
 **If `state_exists` is false but `.planning/` exists:** Offer reconstruct or continue.
 
 When `parallelization` is false, plans within a wave execute sequentially.
+
+**Sync chain flag with intent** — if user invoked manually (no `--auto`), clear the ephemeral chain flag from any previous interrupted `--auto` chain. This does NOT touch `workflow.auto_advance` (the user's persistent settings preference). Must happen before any config reads (checkpoint handling also reads auto-advance flags):
+```bash
+if [[ ! "$ARGUMENTS" =~ --auto ]]; then
+  node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-set workflow._auto_chain_active false 2>/dev/null
+fi
+```
 </step>
 
 <step name="handle_branching">
@@ -51,7 +59,7 @@ Report: "Found {plan_count} plans in {phase_dir} ({incomplete_count} incomplete)
 Load plan inventory with wave grouping in one call:
 
 ```bash
-PLAN_INDEX=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" phase-plan-index "${PHASE_NUMBER}")
+PLAN_INDEX=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" phase-plan-index "${PHASE_NUMBER}")
 ```
 
 Parse JSON for: `phase`, `plans[]` (each with `id`, `wave`, `autonomous`, `objective`, `files_modified`, `task_count`, `has_summary`), `waves` (map of wave number → plan IDs), `incomplete`, `has_checkpoints`.
@@ -179,12 +187,13 @@ Plans with `autonomous: false` require user interaction.
 
 **Auto-mode checkpoint handling:**
 
-Read auto-advance config:
+Read auto-advance config (chain flag + user preference):
 ```bash
-AUTO_CFG=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.auto_advance 2>/dev/null || echo "false")
+AUTO_CHAIN=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow._auto_chain_active 2>/dev/null || echo "false")
+AUTO_CFG=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.auto_advance 2>/dev/null || echo "false")
 ```
 
-When executor returns a checkpoint AND `AUTO_CFG` is `"true"`:
+When executor returns a checkpoint AND (`AUTO_CHAIN` is `"true"` OR `AUTO_CFG` is `"true"`):
 - **human-verify** → Auto-spawn continuation agent with `{user_response}` = `"approved"`. Log `⚡ Auto-approved checkpoint`.
 - **decision** → Auto-spawn continuation agent with `{user_response}` = first option from checkpoint details. Log `⚡ Auto-selected: [option]`.
 - **human-action** → Present to user (existing behavior below). Auth gates cannot be automated.
@@ -241,6 +250,177 @@ After all waves:
 ```
 </step>
 
+<step name="triple_review">
+After all waves complete, run a 3-agent parallel code review before verification. This catches bugs, plan violations, and architectural issues while the code is fresh — fixes land before the verifier checks goal achievement.
+
+**Skip if:** config `workflow.triple_review` is `false`.
+
+```bash
+TRIPLE_REVIEW=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+```
+
+**If `TRIPLE_REVIEW` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► TRIPLE REVIEW — PRE-VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Running 3-agent parallel review before verification...
+```
+
+Spawn the triple-review as a **sub-agent** (keeps orchestrator context lean — review gets fresh 200k context):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Triple review Phase {phase_number}",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code review for Phase {phase_number} on branch `{branch}`.
+    Follow the triple-review skill instructions exactly.
+    </objective>
+
+    <execution_context>
+    @./.claude/commands/triple-review.md
+    </execution_context>
+
+    <context>
+    Base branch: origin/main
+    Phase directory: {phase_dir}
+    Phase number: {phase_number}
+    </context>
+
+    <instructions>
+    1. Read .claude/commands/triple-review.md and follow its full process
+    2. Use origin/main as the base branch for the diff
+    3. Spawn all 3 review agents in parallel as described in the skill
+    4. Synthesize findings into severity tiers
+    5. Write staffreview report to docs/reviews/
+    6. Return the unified severity-tiered report (Critical, Important, Minor, Nitpick)
+    </instructions>
+
+    <output_format>
+    Return:
+    ## TRIPLE REVIEW COMPLETE
+
+    ### Critical ({n})
+    - [C1] {finding}
+    ...
+    ### Important ({n})
+    ...
+    ### Minor ({n})
+    ...
+    ### Nitpick ({n})
+    ...
+
+    If no findings: ## TRIPLE REVIEW COMPLETE — NO ISSUES
+    </output_format>
+  "
+)
+```
+
+**Handle results from sub-agent return:**
+- Parse severity tiers from the returned report
+- **ALL findings (Critical + Important + Minor + Nitpick)** → implement fixes before proceeding to verification. Include the complete tiered list so all items are addressed.
+- After fixes: commit with `fix({phase_number}): apply triple-review findings`
+- Staffreview report is saved to `docs/reviews/` by the sub-agent
+
+**In auto-advance mode (`--auto` or config enabled):**
+- Still run triple-review (quality gate is non-negotiable)
+- All review findings pause the auto-advance chain for fixes
+- After fixes are applied, resume auto-advance to verification
+
+**If `TRIPLE_REVIEW` is `"false"`:** Skip to next step.
+</step>
+
+<step name="simplify">
+After triple-review fixes land, run a code simplification pass to catch reuse opportunities, quality patterns, and efficiency issues. This polishes the implementation before the verifier checks goal achievement — ensuring the verified code IS the final code.
+
+**Skip if:** config `workflow.simplify` is `false`.
+
+```bash
+SIMPLIFY=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "true")
+```
+
+**If `SIMPLIFY` is `"true"`:**
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► SIMPLIFY — CODE QUALITY POLISH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Running 3-agent code simplification review...
+```
+
+Spawn simplify as a **sub-agent** (keeps orchestrator context lean — review gets fresh 200k context):
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="Simplify Phase {phase_number} code",
+  prompt="
+    <objective>
+    Run a 3-agent parallel code simplification review for Phase {phase_number}.
+    Review all changes on this branch vs origin/main for reuse, quality, and efficiency.
+    Fix any issues found directly.
+    </objective>
+
+    <execution_context>
+    Follow the /simplify skill process exactly.
+    </execution_context>
+
+    <context>
+    Branch: {branch_name}
+    Phase directory: {phase_dir}
+    Phase number: {phase_number}
+    Use `git diff origin/main...HEAD` to identify all branch changes (everything is committed at this point).
+    </context>
+
+    <instructions>
+    1. Invoke the /simplify skill (Skill tool with skill='simplify')
+    2. Use `git diff origin/main...HEAD` as the diff source (not working tree diff)
+    3. Launch all 3 review agents in parallel:
+       - Agent 1: Code Reuse Review (find existing utilities that replace new code)
+       - Agent 2: Code Quality Review (redundant state, copy-paste, leaky abstractions)
+       - Agent 3: Efficiency Review (N+1 patterns, missed concurrency, hot-path bloat)
+    4. Aggregate findings and fix each issue directly
+    5. Skip false positives — do not argue, just move on
+    6. Return summary of what was fixed
+    </instructions>
+
+    <output_format>
+    Return:
+    ## SIMPLIFY COMPLETE
+
+    ### Fixed ({n})
+    - {what was changed and why}
+    ...
+
+    ### Skipped ({n})
+    - {finding that was a false positive or not worth addressing}
+    ...
+
+    If no issues: ## SIMPLIFY COMPLETE — CODE ALREADY CLEAN
+    </output_format>
+  "
+)
+```
+
+**Handle results from sub-agent return:**
+- If fixes were applied: commit with `refactor({phase_number}): apply simplify cleanup`
+- Log summary of fixes in the aggregate results
+- Proceed to next step regardless — simplify findings are always non-blocking
+
+**In auto-advance mode (`--auto` or config enabled):**
+- Simplify runs automatically (no user interaction needed — it fixes directly)
+- No pause in the auto-advance chain
+
+**If `SIMPLIFY` is `"false"`:** Skip to next step.
+</step>
+
 <step name="close_parent_artifacts">
 **For decimal/polish phases only (X.Y pattern):** Close the feedback loop by resolving parent UAT and debug artifacts.
 
@@ -256,7 +436,7 @@ fi
 
 **2. Find parent UAT file:**
 ```bash
-PARENT_INFO=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" find-phase "${PARENT_PHASE}" --raw)
+PARENT_INFO=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" find-phase "${PARENT_PHASE}" --raw)
 # Extract directory from PARENT_INFO JSON, then find UAT file in that directory
 ```
 
@@ -287,7 +467,7 @@ mv .planning/debug/{slug}.md .planning/debug/resolved/
 
 **6. Commit updated artifacts:**
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" --files .planning/phases/*${PARENT_PHASE}*/*-UAT.md .planning/debug/resolved/*.md
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(phase-${PARENT_PHASE}): resolve UAT gaps and debug sessions after ${PHASE_NUMBER} gap closure" --files .planning/phases/*${PARENT_PHASE}*/*-UAT.md .planning/debug/resolved/*.md
 ```
 </step>
 
@@ -358,7 +538,7 @@ Gap closure cycle: `/gsd:plan-phase {X} --gaps` reads VERIFICATION.md → create
 **Mark phase complete and update all tracking files:**
 
 ```bash
-COMPLETION=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" phase complete "${PHASE_NUMBER}")
+COMPLETION=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" phase complete "${PHASE_NUMBER}")
 ```
 
 The CLI handles:
@@ -371,8 +551,92 @@ The CLI handles:
 Extract from result: `next_phase`, `next_phase_name`, `is_last_phase`.
 
 ```bash
-node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md {phase_dir}/*-VERIFICATION.md
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(phase-{X}): complete phase execution" --files .planning/ROADMAP.md .planning/STATE.md .planning/REQUIREMENTS.md {phase_dir}/*-VERIFICATION.md
 ```
+</step>
+
+<step name="document_and_merge">
+**Update documentation and merge the phase branch to main via PR.**
+
+**Skip if:** `branching_strategy` is `"none"` (no branch to merge).
+
+**1. Update CHANGELOG.md:**
+
+Read `docs/CHANGELOG.md` and add an entry under the current `[Unreleased]` section:
+
+```markdown
+### {Phase Name} (Phase {X}) — {date}
+
+**For the team:** {1-2 sentence non-technical summary of what changed and why it matters}
+
+#### {Added/Fixed/Changed}
+- {file}: {what changed}
+...
+
+#### Tests
+- {test summary if tests were added}
+```
+
+Source the details from SUMMARY.md files in the phase directory. Keep it concise — CHANGELOG is for humans.
+
+Commit:
+```bash
+node "./.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs({X}): add changelog entry" --files docs/CHANGELOG.md
+```
+
+**2. Push branch and create PR:**
+
+```bash
+git push origin "${BRANCH_NAME}" -u
+```
+
+Create PR with `gh pr create`:
+```bash
+gh pr create --title "{short title under 70 chars}" --body "$(cat <<'EOF'
+## Summary
+- {2-3 bullet points from phase summaries}
+
+## Test plan
+- [x] {test evidence from execution}
+- [x] npm run build passes
+- [x] Verification: {verification status}
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
+```
+
+**3. Squash-merge PR:**
+
+```bash
+gh pr merge {PR_NUMBER} --squash --delete-branch
+```
+
+**3.5. Seed production (after CI deploys):**
+
+Read `convex.seed_functions` from `.planning/config.json`. **Skip if** key is missing or empty.
+
+Wait 30s for CI/CD to deploy Convex functions to production, then run each seed:
+
+```bash
+sleep 30
+for fn in $(node -e "const c=JSON.parse(require('fs').readFileSync('.planning/config.json','utf8')); (c.convex?.seed_functions||[]).forEach(f=>console.log(f))"); do
+  npx convex run "$fn" --prod 2>&1 && echo "✓ Prod seeded: $fn" || echo "✗ Prod failed: $fn"
+done
+```
+
+Seeds are idempotent upserts — safe to run on every merge. If any fail (e.g., CI hasn't finished deploying), log warning but continue — non-blocking.
+
+**4. Sync local main:**
+
+```bash
+git checkout main
+git pull origin main
+```
+
+If stash was used earlier, pop it: `git stash pop`
+
+Report: `PR #{N} merged. Local main synced.`
 </step>
 
 <step name="offer_next">
@@ -405,12 +669,13 @@ STOP. Do not proceed to auto-advance or transition.
 **Auto-advance detection:**
 
 1. Parse `--auto` flag from $ARGUMENTS
-2. Read `workflow.auto_advance` from config:
+2. Read both the chain flag and user preference (chain flag already synced in init step):
    ```bash
-   AUTO_CFG=$(node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.auto_advance 2>/dev/null || echo "false")
+   AUTO_CHAIN=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow._auto_chain_active 2>/dev/null || echo "false")
+   AUTO_CFG=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.auto_advance 2>/dev/null || echo "false")
    ```
 
-**If `--auto` flag present OR `AUTO_CFG` is true (AND verification passed with no gaps):**
+**If `--auto` flag present OR `AUTO_CHAIN` is true OR `AUTO_CFG` is true (AND verification passed with no gaps):**
 
 ```
 ╔══════════════════════════════════════════╗

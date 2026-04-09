@@ -1,47 +1,54 @@
 # Requirements: Frollie Recipe Master
 
-**Defined:** 2026-03-27
+**Defined:** 2026-04-08
 **Core Value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
 
-## v1.9 Requirements
+## v2.0 Requirements
 
-Requirements for milestone v1.9 Bugs & Quality of Life. Each maps to roadmap phases.
+Requirements for milestone v2.0 Financial Management & Data Quality. Each maps to roadmap phases.
 
-### K3Mart Cockpit
+### Data Accuracy Foundation
 
-- [ ] **K3M-01**: Stock-in/stock-out API calls push product price (harga) so outlet inventory shows correct IDR value instead of 0
-- [ ] **K3M-02**: History tab loads and displays past stock movements correctly
-- [ ] **K3M-03**: Active outlet list refreshed to 4 outlets only (Bintaro, Lippo Puri Mall, SCBD, Old Shanghai)
+- [ ] **DA-01**: Direct sales orders flow into `externalRevenue` bridge so P&L includes all revenue sources (Revenue Recognition Fix)
+- [ ] **DA-02**: Historical direct sales orders are backfilled into revenue bridge for accurate past-period P&L
+- [ ] **DA-03**: Manager can set a flat COGS override per menu product that bypasses BOM calculation
+- [ ] **DA-04**: Employee profile includes hire date, base rate, and bank account holder name fields
 
-### Data Quality
+### Financial Reporting
 
-- [ ] **DQ-01**: Commission/fee sign convention normalized — all deductions stored as positive values across all platforms (Shopee, TikTok, Tokopedia)
+- [ ] **FIN-01**: Income Statement extends from Net Income through Depreciation/Amortization, CapEx, to Free Cash Flow
+- [ ] **FIN-02**: Per-channel breakdown continues through the full P&L flow (Revenue -> FCF)
+- [ ] **FIN-03**: User can export raw financial transactions (revenue + journal entries) as CSV for a date range
+- [ ] **FIN-04**: User can export P&L summary as CSV for weekly/monthly/custom range
 
-### UI Polish
+### Expense Management
 
-- [ ] **UI-01**: Navbar "Home" merged into Frollie logo (single clickable element)
-- [ ] **UI-02**: "Accounting" section added to navbar navigation
-- [ ] **UI-03**: Mobile order modal prevents accidental product additions from stray taps
-- [ ] **UI-04**: Mobile order modal delete button is clearly visible and accessible
+- [ ] **EXP-01**: User can bulk upload expenses via CSV that creates actual expense records (not raw journal entries)
+- [ ] **EXP-02**: Bulk upload supports auto-approve mode (expenses created as recorded with JEs) for trusted batches
+- [ ] **EXP-03**: Bulk upload supports submit-for-approval mode (expenses created as submitted, routed through approval queue)
+- [ ] **EXP-04**: Fixed asset disposal supports "Reclassify to Expense" type that reverses capitalization and books as operating expense
 
-### Kitchen & Reporting
+### Bank Reconciliation
 
-- [ ] **KIT-01**: Kitchen/production reports show component-level data (Big Ball, Mid Ball counts) alongside product-level data
+- [ ] **BANK-01**: User can upload BCA or Mandiri bank statement CSV with format auto-detection
+- [ ] **BANK-02**: System auto-matches bank lines to expenses/revenue/reimbursements by amount + date + description
+- [ ] **BANK-03**: User can manually match/unmatch bank lines to system records via split-view UI
+- [ ] **BANK-04**: Reconciliation status tracked per statement (matched/unmatched/suggested counts)
 
-### Inventory
+### Staff Attendance
 
-- [x] **INV-01**: Stock count drift identified and fixed (packaging and product inventory stay accurate)
-- [x] **INV-02**: Quick daily stock update UI allows staff to set current stock per product per location
+- [ ] **ATT-01**: Kitchen staff can clock in/out via one-tap PIN-authenticated interface
+- [ ] **ATT-02**: Per-staff production tracking shows balls by type and grams from shift records
+- [ ] **ATT-03**: Monthly attendance summary with hours worked and production output per staff member
+- [ ] **ATT-04**: Manager can correct missed clock-outs with audit trail
 
-### Employee & Payroll
+### Data Health
 
-- [ ] **EMP-01**: Employee roster with name, role, and bank account information
-- [ ] **EMP-02**: Payroll entries can select employees from roster instead of free-text
-
-### COGS
-
-- [ ] **COGS-01**: Bulk price update UI for ingredient costs (update multiple prices in one screen)
-- [ ] **COGS-02**: Bulk price update UI for packaging material costs
+- [ ] **DH-01**: Centralized data health page showing automated integrity checks across all data pipelines
+- [ ] **DH-02**: Revenue completeness check (all active channels have data for current period)
+- [ ] **DH-03**: COGS coverage check (percentage of products with non-zero COGS)
+- [ ] **DH-04**: Journal balance validation (sum debits = sum credits across all entries)
+- [ ] **DH-05**: Orphaned record detection (expenses without journals, orders without revenue)
 
 ## Future Requirements
 
@@ -63,37 +70,50 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 | Feature | Reason |
 |---------|--------|
-| BigSeller auth code fix | 401006 was expired token, not code bug — just needed refresh |
-| Automated ingredient cost from supplier invoices | Too complex for this milestone; bulk UI is sufficient |
-| Full inventory audit/reconciliation system | Fix drift root cause first; full audit is a separate initiative |
-| Employee attendance/scheduling | Simple roster sufficient; HR features deferred |
-| Mobile app | Responsive web covers kitchen mobile use |
+| Full payroll calculation engine | Indonesian labor law (BPJS, PPh 21, THR) too complex; manual payroll entry sufficient |
+| Automated bank statement import via API | Requires corporate banking agreements; CSV upload sufficient for weekly reconciliation |
+| AI-powered transaction categorization | Overkill for ~50-100 monthly transactions; rule-based matching sufficient |
+| Multi-currency support | All operations in IDR; no foreign suppliers/customers |
+| Budget vs. actual comparison | No budget input system exists; future milestone |
+| Real-time bank balance tracking | Bank apps provide this; reconciliation shows discrepancies |
+| Overtime/leave management | Clock-in/out sufficient for production tracking; HR features deferred |
+| Monthly/quarterly P&L auto-generation | Custom date range export covers immediate need |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| K3M-01 | Phase 65 | Pending |
-| K3M-02 | Phase 65 | Pending |
-| K3M-03 | Phase 65 | Pending |
-| DQ-01 | Phase 64 | Pending |
-| UI-01 | Phase 64 | Pending |
-| UI-02 | Phase 64 | Pending |
-| UI-03 | Phase 64 | Pending |
-| UI-04 | Phase 64 | Pending |
-| KIT-01 | Phase 69 | Pending |
-| INV-01 | Phase 67 | Verified |
-| INV-02 | Phase 67 | Verified |
-| EMP-01 | Phase 66 | Pending |
-| EMP-02 | Phase 66 | Pending |
-| COGS-01 | Phase 68 | Pending |
-| COGS-02 | Phase 68 | Pending |
+| DA-01 | Phase 70 | Pending |
+| DA-02 | Phase 70 | Pending |
+| DA-03 | Phase 70 | Pending |
+| DA-04 | Phase 70 | Pending |
+| FIN-01 | Phase 75 | Pending |
+| FIN-02 | Phase 75 | Pending |
+| FIN-03 | Phase 76 | Pending |
+| FIN-04 | Phase 76 | Pending |
+| EXP-01 | Phase 71 | Pending |
+| EXP-02 | Phase 71 | Pending |
+| EXP-03 | Phase 71 | Pending |
+| EXP-04 | Phase 71 | Pending |
+| BANK-01 | Phase 72 | Pending |
+| BANK-02 | Phase 72 | Pending |
+| BANK-03 | Phase 73 | Pending |
+| BANK-04 | Phase 73 | Pending |
+| ATT-01 | Phase 74 | Pending |
+| ATT-02 | Phase 74 | Pending |
+| ATT-03 | Phase 74 | Pending |
+| ATT-04 | Phase 74 | Pending |
+| DH-01 | Phase 77 | Pending |
+| DH-02 | Phase 77 | Pending |
+| DH-03 | Phase 77 | Pending |
+| DH-04 | Phase 77 | Pending |
+| DH-05 | Phase 77 | Pending |
 
 **Coverage:**
-- v1.9 requirements: 15 total
-- Mapped to phases: 15
+- v2.0 requirements: 25 total
+- Mapped to phases: 25/25
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-03-27*
-*Last updated: 2026-03-28 after Phase 67 verification*
+*Requirements defined: 2026-04-08*
+*Last updated: 2026-04-08 -- Traceability updated with phase mappings*

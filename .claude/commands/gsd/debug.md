@@ -1,7 +1,7 @@
 ---
 name: gsd:debug
 description: Systematic debugging with persistent state across context resets
-argument-hint: [issue description]
+argument-hint: [--diagnose] [issue description]
 allowed-tools:
   - Read
   - Bash
@@ -15,10 +15,22 @@ Debug issues using scientific method with subagent isolation.
 **Orchestrator role:** Gather symptoms, spawn gsd-debugger agent, handle checkpoints, spawn continuations.
 
 **Why subagent:** Investigation burns context fast (reading files, forming hypotheses, testing). Fresh 200k context per investigation. Main context stays lean for user interaction.
+
+**Flags:**
+- `--diagnose` — Diagnose only. Find root cause without applying a fix. Returns a structured Root Cause Report. Use when you want to validate the diagnosis before committing to a fix.
 </objective>
+
+<available_agent_types>
+Valid GSD subagent types (use exact names — do not fall back to 'general-purpose'):
+- gsd-debugger — Diagnoses and fixes issues
+</available_agent_types>
 
 <context>
 User's issue: $ARGUMENTS
+
+Parse flags from $ARGUMENTS:
+- If `--diagnose` is present, set `diagnose_only=true` and remove the flag from the issue description.
+- Otherwise, `diagnose_only=false`.
 
 Check for active sessions:
 ```bash
@@ -31,13 +43,13 @@ ls .planning/debug/*.md 2>/dev/null | grep -v resolved | head -5
 ## 0. Initialize Context
 
 ```bash
-INIT=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" state load)
+INIT=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" state load)
 if [[ "$INIT" == @file:* ]]; then INIT=$(cat "${INIT#@file:}"); fi
 ```
 
 Extract `commit_docs` from init JSON. Resolve debugger model:
 ```bash
-debugger_model=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" resolve-model gsd-debugger --raw)
+debugger_model=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" resolve-model gsd-debugger --raw)
 ```
 
 ## 1. Check Active Sessions
@@ -82,7 +94,7 @@ timeline: {timeline}
 
 <mode>
 symptoms_prefilled: true
-goal: find_and_fix
+goal: {if diagnose_only: "find_root_cause_only", else: "find_and_fix"}
 </mode>
 
 <debug_file>
@@ -101,12 +113,18 @@ Task(
 
 ## 4. Handle Agent Return
 
-**If `## ROOT CAUSE FOUND`:**
-- Display root cause and evidence summary
+**If `## ROOT CAUSE FOUND` (diagnose-only mode):**
+- Display root cause, confidence level, files involved, and suggested fix strategies
 - Offer options:
-  - "Fix now" - spawn fix subagent → after fix, run quality gates (step 6) then document & merge (step 7)
-  - "Plan fix" - suggest /gsd:plan-phase --gaps
-  - "Manual fix" - done
+  - "Fix now" — spawn a continuation agent with `goal: find_and_fix` to apply the fix (see step 5)
+  - "Plan fix" — suggest `/gsd-plan-phase --gaps`
+  - "Manual fix" — done
+
+**If `## DEBUG COMPLETE` (find_and_fix mode):**
+- Display root cause and fix summary
+- Offer options:
+  - "Plan fix" — suggest `/gsd-plan-phase --gaps` if further work needed
+  - "Done" — mark resolved
 
 **If `## CHECKPOINT REACHED`:**
 - Present checkpoint details to user
@@ -123,9 +141,9 @@ Task(
   - "Manual investigation" - done
   - "Add more context" - gather more symptoms, spawn again
 
-## 5. Spawn Continuation Agent (After Checkpoint)
+## 5. Spawn Continuation Agent (After Checkpoint or "Fix now")
 
-When user responds to checkpoint, spawn fresh agent:
+When user responds to checkpoint OR selects "Fix now" from diagnose-only results, spawn fresh agent:
 
 ```markdown
 <objective>
@@ -157,94 +175,60 @@ Task(
 )
 ```
 
-## 6. Quality Gates (After Fix Applied)
-
-**Skip if:** fix was "Plan fix" or "Manual fix" (no code changes in this session).
-
-After the fix subagent completes and commits:
-
-**6a. Triple review:**
-
-```bash
-TRIPLE_REVIEW=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
-```
-
-If `TRIPLE_REVIEW` is `"true"`:
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► TRIPLE REVIEW — DEBUG FIX
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-Spawn triple-review sub-agent (same pattern as execute-phase). Fix Critical + Important findings before proceeding.
-
-**6b. Simplify:**
-
-```bash
-SIMPLIFY=$(node "./.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "true")
-```
-
-If `SIMPLIFY` is `"true"`:
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► SIMPLIFY — DEBUG FIX
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-Spawn simplify sub-agent. If fixes applied, commit with `refactor: apply simplify cleanup for {slug} fix`.
-
-## 7. Document and Merge (After Quality Gates)
-
-**Skip if:** current branch is `main` (debug ran directly on main).
-
-**7a. Update CHANGELOG.md:**
-
-Add entry under `[Unreleased]`:
-
-```markdown
-### Bug Fix: {issue title} — {date}
-
-**For the team:** {1-2 sentence non-technical summary of what was broken and how it's fixed}
-
-#### Fixed
-- {root cause and fix summary from debug session}
-
-#### Tests
-- {test evidence}
-```
-
-Commit: `docs: add changelog entry for {slug} fix`
-
-**7b. Push and create PR:**
-
-```bash
-git push origin "$(git branch --show-current)" -u
-gh pr create --title "fix: {short description}" --body "$(cat <<'EOF'
-## Summary
-- **Root cause:** {from debug session}
-- **Fix:** {what was changed}
-
-## Test plan
-- [x] {test evidence}
-- [x] npm run build passes
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-)"
-```
-
-**7c. Squash-merge and sync:**
-
-```bash
-gh pr merge {PR_NUMBER} --squash --delete-branch
-git checkout main && git pull origin main
-```
-
-Report: `PR #{N} merged. Local main synced.`
-
 </process>
+
+## 6. Quality Gates
+
+**Skip if:** The fix was resolved via "Plan fix" or "Manual fix" options (no code changes made by this workflow).
+
+### 6a. Triple Review
+
+```bash
+TRIPLE_REVIEW=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review --raw 2>/dev/null || echo "false")
+```
+
+**If `TRIPLE_REVIEW` is `true`:**
+- Spawn staffreview sub-agent with `.agent/skills/staffreview/SKILL.md` to review the fix
+- Route all findings (Critical + Important + Refinements) back for revision if needed
+
+**If `TRIPLE_REVIEW` is `false`:** Skip.
+
+### 6b. Simplify
+
+```bash
+SIMPLIFY=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify --raw 2>/dev/null || echo "true")
+```
+
+**If `SIMPLIFY` is `true` (default):**
+- Review changed code for reuse, quality, and efficiency
+- Fix any issues found
+
+**If `SIMPLIFY` is `false`:** Skip.
+
+## 7. Document and Merge
+
+**Skip if:** Currently on `main` branch (no branch to merge).
+
+### 7a. Update CHANGELOG.md
+
+Add an entry for the debug fix:
+```bash
+# Prepend entry to docs/CHANGELOG.md under the current version heading
+```
+
+### 7b. Push and Create PR
+
+```bash
+git push origin HEAD
+gh pr create --title "fix: {slug}" --body "Debug fix for: {issue_description}"
+```
+
+### 7c. Squash-merge and Sync
+
+```bash
+gh pr merge --squash --delete-branch
+git switch main && git pull
+```
 
 <success_criteria>
 - [ ] Active sessions checked
@@ -252,7 +236,8 @@ Report: `PR #{N} merged. Local main synced.`
 - [ ] gsd-debugger spawned with context
 - [ ] Checkpoints handled correctly
 - [ ] Root cause confirmed before fixing
-- [ ] (fix applied) Triple review run if config enabled
-- [ ] (fix applied) Simplify pass run if config enabled
-- [ ] (feature branch) CHANGELOG.md updated, PR created and merged
+- [ ] Triple review passed (if workflow.triple_review enabled and fix applied)
+- [ ] Simplify review passed (if workflow.simplify enabled and fix applied)
+- [ ] CHANGELOG.md updated (if on feature branch and fix applied)
+- [ ] PR created and merged (if on feature branch and fix applied)
 </success_criteria>

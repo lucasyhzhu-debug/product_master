@@ -1,431 +1,363 @@
-# Pitfalls Research: v1.7 Expense & Accounting System
+# Pitfalls Research: v2.0 Financial Management & Data Quality
 
-**Domain:** Employee expense management, double-entry accounting, and P&L extension -- added to an existing Convex + React 19 production system (65 tables, 150 indexes, ~131K LOC TypeScript)
-**Researched:** 2026-03-12
-**Confidence:** HIGH (Convex-specific pitfalls from 40 phases of direct production experience documented in CLAUDE.md; accounting pitfalls from design spec and staff review analysis; integration pitfalls from existing incomeStatement.ts code inspection)
+**Domain:** Bank statement reconciliation, staff attendance, full P&L, COGS override, data health validation, revenue recognition fix -- added to existing Convex + React 19 production system (70 tables, ~148K LOC TypeScript)
+**Researched:** 2026-04-07
+**Confidence:** HIGH (Convex-specific pitfalls from 69 phases of direct production experience; financial patterns from existing journal engine, income statement, and expense system code inspection; Indonesian banking format research from web sources)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause incorrect financial reporting, unbalanced books, data corruption, or a rewrite of the journal entry system.
+### CP-1: Bank Statement CSV Parsing Assumes Consistent Format (It Won't Be)
+
+**What goes wrong:** BCA and Mandiri do NOT export standardized CSV from consumer banking. BCA's KlikBCA Bisnis exports CSV for business accounts, but personal e-Statements are PDF-only. Mandiri exports are typically PDF or XLS from Livin/MCM. Developers build a parser for one format, then discover the actual files users upload are hand-converted PDFs with inconsistent column ordering, merged date/description cells, and Indonesian locale number formatting (1.000.000,50 instead of 1000000.50).
+
+**Why it happens:** Assumption that "CSV upload" means a standardized bank export. In reality, Indonesian bank CSV formats vary by: (1) business vs personal account, (2) KlikBCA Bisnis vs myBCA app vs e-Statement PDF conversion, (3) date range selected, (4) whether user copy-pasted from Excel.
+
+**Consequences:** Parser fails silently on unexpected formats, amounts parsed incorrectly (dot-as-thousands-separator treated as decimal), dates parsed as MM/DD when they're DD/MM, transactions imported with wrong amounts causing phantom reconciliation mismatches.
+
+**Prevention:**
+- Support exactly 2 formats initially: KlikBCA Bisnis CSV export (business account) and a "generic" format with configurable column mapping
+- Parse IDR amounts with explicit Indonesian locale handling: strip dots as thousands separators, treat comma as decimal separator
+- Date parsing must try DD/MM/YYYY before MM/DD/YYYY (Indonesian standard is DD/MM)
+- Validate parsed totals against a user-entered "statement ending balance" as a checksum
+- Show a preview table of first 10 parsed rows BEFORE importing, with amount/date columns highlighted for user confirmation
+- Store raw CSV text alongside parsed records for debugging
+
+**Detection:** Users report reconciliation totals that don't match their bank statement. Amounts off by factor of 1000 (dot/comma confusion). Dates shifted by months.
+
+**Phase mapping:** Bank Statement Reconciliation phase -- build parser with preview step as the FIRST deliverable before any matching logic.
 
 ---
 
-### Pitfall 1: Reversal Journal Entries Using `Date.now()` Instead of Original Business Date
+### CP-2: Reconciliation Auto-Match Creates False Positives
 
-**What goes wrong:**
-When voiding an expense or reimbursement batch, the reversing journal entry is dated with `Date.now()` (the current timestamp) instead of the original entry's business date. A reversal created on March 15 for an expense dated March 5 shows the reversal in the March 15 period. The P&L for March 5-11 still shows the expense as if it were valid, while March 12-18 shows a phantom credit. Period-correct P&L is broken.
+**What goes wrong:** Auto-matching by amount + date finds multiple candidates. A Rp 150.000 transfer on the same day could match a direct sales order, an expense reimbursement, or a consignment settlement payment. The system matches to the wrong record, and the user doesn't notice because the amounts are identical.
 
-**Why it happens:**
-`Date.now()` is the Convex pattern for timestamping events (used in `logOrderEvent`, `logStatusTransition`, session creation). Developers apply the same pattern to journal entries without recognizing that accounting reversals have different date semantics than audit log timestamps. The staff review (C1) flagged this exact bug in the implementation plan.
+**Why it happens:** Small FMCG operations have many transactions at similar amounts (product prices cluster around Rp 35K-150K). Daily bank statements contain dozens of small transfers that look identical by amount and date. Description fields from bank statements are often truncated or use abbreviations that don't match system records.
 
-**How to avoid:**
-Accept a `reversalDate` parameter in `createReversingEntry()`. Set the default policy: "Reversals post to the same period as the original entry." For expense voids, use `originalExpense.expenseDate`. For batch voids, use `originalBatch.transferDate` (or the original confirmation journal entry's date). Document this as an explicit accounting policy comment in the code. Write a unit test: create a JE on March 5, void on March 15, assert `reversalEntry.date === originalEntry.date`, NOT `Date.now()`.
+**Consequences:** Revenue double-counted (matched to wrong order), expenses marked as reconciled against wrong bank transaction, audit trail becomes unreliable, P&L accuracy degrades silently.
 
-**Warning signs:**
-- P&L for a closed period changes after a void in a later period
-- `journalEntryLines` with `entryDate` in a period that has no corresponding expense submissions
-- OpEx totals going negative in a period (reversal without matching original)
+**Prevention:**
+- Auto-match must require amount + date + at least one secondary signal (partial description match, order number in bank memo, customer name overlap)
+- Confidence scoring: exact match (amount + date + reference number) = auto-reconcile; partial match = suggest with yellow highlight; no match = manual queue
+- NEVER auto-reconcile one-to-many matches. If 3 bank transactions of Rp 150K exist on the same day, ALL go to manual queue
+- Track reconciliation source: `matchType: "auto_exact" | "auto_suggested" | "manual"` on every reconciled record
+- Build an "undo reconciliation" action -- mistakes will happen and must be reversible
 
-**Phase to address:** Backend foundation (journal entry helper implementation) -- the `createReversingEntry` function design.
+**Detection:** Monthly P&L shows revenue spikes/dips that don't correlate with order volume. Bank reconciliation report shows 100% matched but journal balances disagree.
 
----
-
-### Pitfall 2: `_creationTime` Used for Period Filtering Instead of `entryDate`
-
-**What goes wrong:**
-The P&L extension queries `journalEntryLines` to aggregate OpEx for a selected period. If the query filters by `_creationTime` instead of the denormalized `entryDate` field, entries appear in the wrong period. An expense from March 1 approved and journaled on March 8 shows in the March 8 period instead of the March 1 period. This is the most common accounting data error in Convex apps.
-
-**Why it happens:**
-Convex's `_creationTime` is the default timestamp developers reach for. The project has an explicit documented lesson: "`_creationTime` is insertion time, NOT business event time -- use `completedAt` for filtering" (CLAUDE.md Common Pitfalls). But this lesson refers to orders, not journal entries. The accounting system introduces a new table where the same trap applies with higher stakes.
-
-**How to avoid:**
-The spec already mandates `entryDate` denormalization on `journalEntryLines`. Enforce this in three places:
-1. The `createJournalEntry` helper MUST copy `journalEntries.date` into every `journalEntryLines.entryDate` field. Write a unit test asserting they match.
-2. The `getOpExByPeriod` query MUST use `.withIndex("by_account_entryDate", ...)` or the recommended `by_entryDate` index -- never `_creationTime`.
-3. Add a comment at the top of `convex/journal/queries.ts`: "ALL period filters use entryDate (business date), never _creationTime (insertion time)."
-
-**Warning signs:**
-- Any `.filter(q => q.gte(q.field("_creationTime"), ...))` pattern in journal query files
-- Period totals that change depending on when the approval mutation ran rather than when the expense occurred
-- Tests using `Date.now()` as the period boundary instead of explicit business dates
-
-**Phase to address:** Backend foundation (journal entry queries) and P&L integration wave.
+**Phase mapping:** Bank Statement Reconciliation phase -- implement matching logic AFTER parser is validated. Start with manual-only, then add auto-suggest.
 
 ---
 
-### Pitfall 3: N+1 Query Pattern in OpEx Period Aggregation
+### CP-3: Revenue Recognition Gap Persists After "Fix"
 
-**What goes wrong:**
-The `getOpExByPeriod` query fetches all 11 OpEx accounts, then loops through each one issuing a separate indexed query per account against `journalEntryLines`. With 11 OpEx accounts plus 3 Other Income/Expense accounts, this is 14 sequential database round-trips per P&L render. Combined with the existing income statement's ~10 parallel reads for revenue/COGS, the total query count approaches 25. The P&L page becomes noticeably slow, especially on mobile (the primary access device for this SME).
+**What goes wrong:** The direct sales revenue recognition fix patches the `syncInternalOrders` action to capture orders it previously missed, but doesn't backfill historical orders. The P&L shows correct revenue going forward, but historical weeks/months have gaps. Users see different totals in Sales Analytics vs Income Statement for the same period, losing trust in both.
 
-**Why it happens:**
-The `by_account_entryDate` compound index requires the `accountId` as the first key. Without a `by_entryDate` index, there's no way to fetch all journal lines in a period in a single query. The N+1 pattern feels natural: "for each account, get its entries." The staff review (C2) flagged this.
+**Why it happens:** The existing `getRevenueOrders` query in `convex/integrations/internal/queries.ts` filters by `REVENUE_COUNTABLE_STATUSES` (PaymentReceived, BeingPrepared, AwaitingDelivery, Complete) and uses `_creationTime` for incremental sync. Orders that were created before the last sync but transitioned to a revenue-countable status after the last sync window (beyond the 24h buffer) are permanently missed. The bug is in the incremental sync logic, not the status filter.
 
-**How to avoid:**
-Add a `by_entryDate` index to `journalEntryLines`. Fetch ALL journal lines in the period in one indexed query, then group by `accountId` in memory. This reduces 14 DB round-trips to 1. The in-memory grouping is trivial for the expected volume (dozens of entries per week at current scale).
+**Consequences:** Permanent revenue gap for historical orders. The income statement underreports direct sales revenue. COGS calculations based on this revenue produce incorrect gross margins. Users manually compare bank deposits against system revenue and find discrepancies, eroding trust.
 
-```typescript
-// GOOD: Single query, in-memory grouping
-const allLines = await ctx.db.query("journalEntryLines")
-  .withIndex("by_entryDate", q => q.gte("entryDate", periodStart).lt("entryDate", periodEnd))
-  .collect();
-const byAccount = new Map<string, typeof allLines>();
-for (const line of allLines) {
-  const existing = byAccount.get(line.accountId) ?? [];
-  existing.push(line);
-  byAccount.set(line.accountId, existing);
-}
+**Prevention:**
+- The revenue fix MUST include a one-time backfill migration that re-syncs ALL historical orders (not just incremental)
+- Change incremental sync to use `confirmedAt` (revenue recognition date) instead of `_creationTime` for the buffer window -- orders confirmed late get captured
+- Add a Data Health check that compares `orders` table count (revenue-countable statuses) against `externalRevenue` table count (source="internal") and flags the delta
+- After fix, run the sync once with `sinceTimestamp: undefined` (full scan) to catch all gaps
 
-// BAD: N+1 per-account queries
-for (const account of opexAccounts) {
-  const lines = await ctx.db.query("journalEntryLines")
-    .withIndex("by_account_entryDate", q => q.eq("accountId", account._id).gte("entryDate", start))
-    .collect();
-}
-```
+**Detection:** Data Health page shows "X orders with PaymentReceived+ status but no matching externalRevenue record." Sales Analytics total for "Direct" channel diverges from order manager total for same period.
 
-**Warning signs:**
-- P&L page taking >2 seconds to render (visible in Convex dashboard function execution time)
-- `getOpExByPeriod` query showing 11+ database reads in Convex logs
-- Mobile users complaining about Financial Statement page being slow
-
-**Phase to address:** Schema phase (add `by_entryDate` index) and P&L integration wave (query implementation).
+**Phase mapping:** Revenue Recognition Fix phase -- must be completed BEFORE Full P&L phase, because P&L accuracy depends on complete revenue data.
 
 ---
 
-### Pitfall 4: Unbalanced Journal Entries Silently Committed
+### CP-4: COGS Override Silently Breaks BOM-Derived Cost Chain
 
-**What goes wrong:**
-A journal entry is created where total debits do not equal total credits. The unbalanced entry corrupts the general ledger. Every downstream report (P&L, future Balance Sheet, Cash Flow) produces incorrect figures. The error compounds with every subsequent entry because GL balances are running totals.
+**What goes wrong:** A flat COGS override per product (`menuProducts.cogsOverride`) is added, but the `buildProductCOGSMap` helper in `convex/lib/costCalculator.ts` doesn't check for overrides. The income statement, order cost calculations, and margin analysis each independently decide whether to use BOM or override, creating inconsistency. Some paths use the override, others still compute from BOM components.
 
-**Why it happens:**
-The `createJournalEntry` mutation inserts the header and line items as separate DB writes. If the balance check is performed on the input arguments but a rounding error or off-by-one produces mismatched amounts, the entry is committed before validation. Floating-point arithmetic in JavaScript is the root cause: `0.1 + 0.2 !== 0.3`. IDR amounts are whole numbers (no decimals) so this is less risky, but any future extension to non-IDR currencies reintroduces the problem.
+**Why it happens:** COGS is consumed in 5+ places: (1) `buildProductCOGSMap` for income statement, (2) order item `unitCost` snapshot at creation, (3) margin analysis in product editor, (4) gap analysis "zero cost components" check, (5) kitchen production cost tracking. Adding a field to `menuProducts` without updating ALL consumers creates divergence.
 
-**How to avoid:**
-Validate `Math.abs(totalDebits - totalCredits) < 1` (1 IDR tolerance for rounding) as the first step in `createJournalEntry`, before any `ctx.db.insert`. Throw a hard error if unbalanced. This is non-negotiable -- every accounting system enforces this invariant. Write a unit test that attempts to create a JE with debits=100000 and credits=99999 and expects it to succeed (within tolerance), and another with debits=100000 and credits=98000 that throws. Also write a periodic integrity check query: scan all `journalEntries`, join to their lines, and flag any where `sum(debits) !== sum(credits)`.
+**Consequences:** Product editor shows override COGS of Rp 8.000, but new orders snapshot BOM-derived COGS of Rp 6.500. Income statement uses override, sales analytics uses BOM. Gross margin percentages disagree across pages.
 
-**Warning signs:**
-- Trial balance (sum of all account balances) not equaling zero
-- OpEx total not matching the sum of individual GL account totals
-- Any `journalEntryLines` rows with both `debitAmount > 0` AND `creditAmount > 0` on the same line
+**Prevention:**
+- Add the override field to `menuProducts` schema: `cogsOverride: v.optional(v.number())`
+- Modify `buildProductCOGSMap` (the single source of truth for COGS) to check for override FIRST, falling back to BOM calculation. This is the ONLY place the override-vs-BOM decision should live
+- Order item `unitCost` snapshot must also go through the same resolution path
+- When override is set, gap analysis must NOT flag the product as "zero cost" (it has a cost, just not BOM-derived)
+- Add visual indicator on product editor: "COGS: Rp 8.000 (override)" vs "COGS: Rp 6.500 (BOM)" so users know the source
+- Track `cogsSource: "bom" | "override"` on snapshots for audit trail
 
-**Phase to address:** Backend foundation (journal mutation implementation) -- must be the first validation in `createJournalEntry`.
+**Detection:** Compare P&L gross margin % against order manager margin % for same products. If they diverge, a consumer is not honoring the override.
 
----
-
-### Pitfall 5: Receipt Upload Race Condition -- File Stored but Expense Mutation Fails
-
-**What goes wrong:**
-The receipt upload flow is a two-step process: (1) call `generateUploadUrl`, upload file to `_storage`, get `storageId`; (2) call `submitExpense` mutation with the `storageId`. If step 2 fails (validation error, network timeout, user navigates away), the file is orphaned in `_storage` with no referencing document. Over time, orphaned files accumulate, consuming storage quota. More critically, if the user retries the submission without re-uploading, the `storageId` from the previous attempt might have expired or been garbage-collected, and the expense is submitted without a receipt.
-
-**Why it happens:**
-Convex file upload is inherently a two-phase operation (get URL + upload to storage, then reference in a document). This is not transactional -- the file upload and the document write cannot be atomically linked. The staff review (I5) flagged the missing upload flow documentation. The existing codebase has two `generateUploadUrl` implementations (feedback, grabfoodMenu) but neither handles orphan cleanup.
-
-**How to avoid:**
-1. Compute SHA-256 hash client-side BEFORE uploading (using `crypto.subtle.digest`).
-2. Upload file to `_storage` and receive `storageId`.
-3. Pass both `storageId` and `receiptImageHash` to the `saveDraft` or `submitExpense` mutation.
-4. If the mutation fails, show a clear retry button that does NOT re-upload the file -- it reuses the existing `storageId`.
-5. For orphan cleanup: add a scheduled job (or manual admin action) that queries `_storage` for files not referenced by any `expenses.receiptFileId`. This is a "nice to have" -- at current scale (5-10 expenses/week), orphans are negligible.
-
-Do NOT delete receipt files after expense void -- the spec explicitly states "Receipt files linked to journal entries, not deletable after approval."
-
-**Warning signs:**
-- `_storage` growing faster than expected
-- Expenses submitted without `receiptFileId` despite the user uploading a file
-- Console errors during the upload-then-submit flow
-
-**Phase to address:** Frontend expense form implementation and backend expense mutation -- the upload flow must be designed as an atomic-feeling UX even though it is technically two steps.
+**Phase mapping:** COGS Override phase -- modify `buildProductCOGSMap` as the FIRST step, then update downstream consumers.
 
 ---
 
-### Pitfall 6: Expense Approval Mutation Not Checking Current Status (Concurrency)
+### CP-5: Convex 32K Document Scan Limit Breaks Bank Reconciliation Queries
 
-**What goes wrong:**
-Two managers both see the same expense in their approval queue. Both click "Approve" within seconds. The first approval creates a journal entry. The second approval creates a DUPLICATE journal entry for the same expense. The expense amount is double-counted in OpEx.
+**What goes wrong:** Bank reconciliation needs to scan both `bankStatementTransactions` (newly uploaded, potentially thousands of rows per month) and match against `externalRevenue` + `expenses` + `journalEntryLines` + `orders`. A single query that scans all these tables exceeds the 32,000 document scan limit, causing a Convex runtime error.
 
-**Why it happens:**
-Convex mutations have optimistic concurrency control (OCC) -- if two mutations read and write the same document, the second one is retried. BUT the retry only triggers if the mutations conflict on the same document fields. If the approval mutation reads the expense, checks status, writes the JE, and patches the expense status -- the second mutation's read happens AFTER the first's write because of OCC. This should work correctly IF the status check (`expense.status === "submitted"`) is a hard guard that throws before creating the JE.
+**Why it happens:** Convex enforces a hard limit of 32,000 documents scanned per query/mutation execution. The existing system already has large tables: `externalRevenue` (thousands of records across 8 channels), `expenses` (350+ historical imports plus ongoing), `orders` (growing daily). Reconciliation needs to cross-reference all of them.
 
-The pitfall is writing the approval mutation as: (1) create JE, (2) THEN check status. If the JE creation is done before the status check, the OCC retry still creates the JE before discovering the expense is already approved.
+**Consequences:** Reconciliation query throws `DocumentScanLimitExceeded` error in production. Works in dev (small dataset), fails in production (months of accumulated data).
 
-**How to avoid:**
-Structure the approval mutation as:
-1. Read expense document
-2. Check `expense.status === "submitted"` -- throw "Expense already processed" if not
-3. ONLY THEN create the journal entry
-4. Patch expense status to `approved` / `awaiting_payment`
+**Prevention:**
+- NEVER scan full tables for reconciliation. Use date-range indexed queries: `by_period` on `externalRevenue`, `by_status_expenseDate` on `expenses`, `by_date` on `journalEntryLines`
+- Pre-filter candidates by date range (statement period) before attempting matches
+- Bank statement import should be a Convex ACTION (not mutation) that processes rows in batches of 100, writing via `ctx.runMutation` per batch -- keeps each mutation's scan count under limits
+- Reconciliation matching should work per-statement-row, not per-table-scan: for each bank transaction, query candidate matches by amount+date using indexed scans
+- Consider denormalizing a `reconciliationStatus` field on source records (expenses, orders) to avoid re-scanning reconciled items
 
-The read-check-write pattern within a single Convex mutation is atomic because of OCC. The key is: check BEFORE write. Write a unit test that simulates concurrent approval: call the approve mutation twice for the same expense -- second call must throw, and only ONE journal entry exists.
+**Detection:** Error logs show `DocumentScanLimitExceeded` or query timeouts on reconciliation page. Works for new accounts but fails for accounts with 3+ months of data.
 
-**Warning signs:**
-- Two journal entries with the same `sourceId` and `sourceType: "expense_approval"`
-- Expense amount appearing doubled in OpEx totals
-- `expenseStatusHistory` showing two `submitted -> approved` transitions for the same expense
-
-**Phase to address:** Backend expense lifecycle (approval mutation implementation).
+**Phase mapping:** Bank Statement Reconciliation phase -- architect the query strategy BEFORE writing any reconciliation logic. Test with production-scale data counts.
 
 ---
 
-### Pitfall 7: Existing P&L Query Timeout After Adding OpEx Aggregation
+### CP-6: Attendance Clock-In Without Timezone Handling Drifts Across Shifts
 
-**What goes wrong:**
-The existing `fetchAndAggregate` function in `convex/reports/incomeStatement.ts` already performs ~10 parallel database reads for revenue and COGS data. Adding OpEx aggregation (14 more queries if the N+1 pattern is used, or at minimum 2 more queries with the recommended approach) pushes the total query complexity beyond Convex's query execution limits. The P&L page fails to load or times out intermittently.
+**What goes wrong:** Kitchen staff clock in at 6 AM WIB (UTC+7), but the system stores `Date.now()` which is UTC. Shift boundary calculations (morning shift vs afternoon shift) use server-side UTC timestamps, causing a 7-hour offset. A clock-in at 06:00 WIB registers as 23:00 UTC the previous day, appearing in yesterday's shift summary.
 
-**Why it happens:**
-The existing income statement query is already near its complexity budget. Each new data source added to the query compounds the I/O. The `fetchAndAggregate` function was designed for revenue + COGS only. Extending it with journal entry aggregation without restructuring creates a monolithic query that does too much.
+**Why it happens:** JavaScript `Date.now()` returns UTC milliseconds. The existing system already has WIB handling in `convex/lib/periodRange.ts` (backend) and `src/lib/dateUtils.ts` (frontend), but new attendance code written without awareness of these helpers will default to UTC.
 
-**How to avoid:**
-Two options (both acceptable):
-1. **Extend `fetchAndAggregate`** with the single-query approach (using `by_entryDate` index): fetch all journal lines for the period in one query, group in memory. This adds exactly 2 database reads (current period + previous period) instead of 28 (14 accounts x 2 periods).
-2. **Separate query**: Create a new `getOpExData` query that returns OpEx/Other data independently. The frontend calls both `getIncomeStatement` and `getOpExData` in parallel. This is cleaner but requires coordinating two reactive subscriptions.
+**Consequences:** Shift summaries show wrong dates. Monthly attendance reports show staff working on days they didn't. Production tracking per-staff-per-shift is assigned to wrong shifts. Payroll calculations based on attendance have wrong day counts.
 
-Option 1 is recommended for simplicity -- the existing `fetchAndAggregate` pattern handles the previous-period comparison logic that OpEx also needs.
+**Prevention:**
+- Reuse `convex/lib/periodRange.ts` for all date-to-WIB-day conversions in attendance logic
+- Store clock-in/out as UTC epoch (standard), but always derive "attendance date" using WIB conversion: `getWIBDate(clockInTimestamp)` 
+- Shift boundaries must be defined in WIB (e.g., morning shift: 06:00-14:00 WIB), then converted to UTC for comparison
+- Frontend display must use `src/lib/dateUtils.ts` helpers consistently
+- Add a test case: clock-in at 23:30 UTC (06:30 WIB next day) must appear in next day's attendance, not current UTC day
 
-**Warning signs:**
-- `getWeeklyIncomeStatement` or `getIncomeStatement` queries exceeding 5 seconds in Convex dashboard
-- Intermittent "Query timed out" errors on the Financial Statement page
-- P&L page showing a spinner for >3 seconds on desktop
+**Detection:** Staff reports showing work on holidays or rest days. Attendance count per month off by 1-2 days at month boundaries.
 
-**Phase to address:** P&L integration wave -- must be addressed in the same phase as the OpEx query implementation, not deferred.
+**Phase mapping:** Staff Attendance phase -- establish WIB-aware date derivation in the schema design, before building clock-in mutations.
 
 ---
 
-### Pitfall 8: `seedDefaults` Not Run After Deployment -- All Expense Mutations Fail
+### CP-7: Data Health Page Becomes Stale Monitoring Instead of Actionable Alerts
 
-**What goes wrong:**
-The expense approval mutation looks up system accounts by code ("2200" for Employee Reimbursements Payable, "1100" for Cash). If `accounts:seedDefaults` has not been run in the Convex dashboard, these accounts do not exist. The mutation throws a cryptic "Cannot read properties of null" error instead of a clear "Run seedDefaults" message. Every expense that reaches the approval stage fails silently.
+**What goes wrong:** The Data Health page is built as a passive dashboard that runs expensive queries on page load, showing counts of integrity issues. Users open it once, see "14 unmatched orders," and never return. The issues persist for months because there's no notification or enforcement mechanism.
 
-**Why it happens:**
-The deployment sequence requires a manual step (running `seedDefaults` from the Convex dashboard Functions tab) between schema deployment and feature activation. This is consistent with existing patterns (`tags:seedDefaults`, `menuProducts:seedDefaults`) but the existing seed functions are nice-to-haves -- missing tags don't break core functionality. Missing CoA accounts break ALL accounting operations.
+**Why it happens:** Integrity checks are framed as read-only queries rather than automated validators with actionable outputs. The existing `integrityChecks/mutations.ts` runs a weekly cron for production counts but only writes to `integrityCheckLogs` -- nobody reads those logs regularly.
 
-**How to avoid:**
-1. In the approval mutation, add an explicit guard: `if (!cashAccount) throw new ConvexError("System account 1100 not found. Run accounts:seedDefaults from the Convex dashboard.")`.
-2. Add `seedDefaults` to the deployment checklist in the plan (Task 20 or equivalent).
-3. Consider making `seedDefaults` idempotent AND adding an auto-seed pattern: the first expense-related mutation checks if accounts exist and creates them if missing. This follows the `DEPOT_CONFIG` auto-seed pattern from Phase 40 (Tamtem depot).
+**Consequences:** Data quality degrades silently. Revenue gaps persist. COGS coverage gaps mean P&L is always "approximate." Bank reconciliation shows permanent unmatched items. Users lose trust and fall back to spreadsheets.
 
-**Warning signs:**
-- First expense approval after deployment failing with null reference error
-- `accounts` table showing 0 documents after deployment
-- No accounts visible in the GL account dropdown on the expense form
+**Prevention:**
+- Data Health checks should run as a scheduled cron (weekly minimum), not just on page load
+- Each check category produces a score (0-100%) and a trend (improving/stable/degrading)
+- Critical issues (revenue completeness < 95%, journal imbalance > Rp 0) should surface as a dashboard banner, not require navigating to a separate page
+- Each flagged item must have a "Fix" action or clear instruction (e.g., "Run Internal Sync" button next to "12 orders missing from revenue bridge")
+- Track issue resolution over time: when an issue is resolved, record it -- this motivates continued attention
 
-**Phase to address:** Schema + CoA foundation phase AND deployment verification.
+**Detection:** Data Health score stays at the same value for 30+ days. Users report "the data health page always shows the same warnings."
 
----
-
-### Pitfall 9: WIB Timezone Boundary Mismatch Between Revenue and OpEx Period Filters
-
-**What goes wrong:**
-The existing income statement uses `periodStart` (WIB-aligned epoch ms) to filter `externalRevenue` and `consignmentSettlements`. The new OpEx section uses `entryDate` to filter `journalEntryLines`. If `entryDate` is stored as WIB midnight but the period filter uses raw UTC boundaries (or vice versa), revenue and OpEx end up in different periods. The P&L shows Revenue for one week and OpEx for a different (overlapping but shifted) week.
-
-**Why it happens:**
-The existing `calculateWeekRange` and `calculatePeriodRange` functions in `convex/lib/periodRange.ts` use WIB-adjusted boundaries (`wibMidnightToUtc`). The spec says `expenseDate` is a timestamp, but doesn't specify whether it should be WIB-normalized. If expense submission uses `Date.now()` for `expenseDate` (user's local time converted to UTC) while the period query uses WIB boundaries, a 7-hour offset mismatch occurs.
-
-**How to avoid:**
-Normalize `expenseDate` to WIB midnight on submission: when the user picks "March 5, 2026" as the expense date, store it as `wibMidnightToUtc(2026, 2, 5)` (March 5, 00:00 WIB = March 4, 17:00 UTC). This ensures expense dates align with the same WIB day boundaries used by revenue queries. Import and use `wibMidnightToUtc` from `convex/lib/periodRange.ts` in the expense submission mutation. Since `entryDate` is denormalized from `journalEntries.date`, and `journalEntries.date` comes from `expenses.expenseDate`, the entire chain is WIB-consistent.
-
-Write a test: create an expense with date "March 5 WIB", query the period "March 3-9 WIB" (a week), assert the expense appears. Query "Feb 24 - March 2 WIB", assert it does NOT appear.
-
-**Warning signs:**
-- Expenses appearing in the wrong week on the P&L
-- OpEx totals that don't match when switching between weekly and monthly views
-- Expense dated "Monday" showing up in the previous week's P&L
-
-**Phase to address:** Backend expense submission mutation AND P&L integration -- both must use the same WIB normalization.
+**Phase mapping:** Data Health phase -- should come AFTER revenue recognition fix and bank reconciliation, so it can validate those features work correctly.
 
 ---
 
-### Pitfall 10: Missing Auth Permission Gaps -- Kitchen/Order Staff Accessing Admin Expense Features
+### CP-8: Full P&L Extension Double-Counts Revenue from Overlapping Sources
 
-**What goes wrong:**
-The spec defines 4 new permissions: `canSubmitExpenses` (all roles), `canApproveExpenses` (manager, admin), `canManageReimbursements` (admin), `canAccessExpenseAnalytics` (manager, admin). If these permissions are added to `ROLE_PERMISSIONS` in `src/lib/types.ts` but the `ProtectedRoute` type definition is not extended, the TypeScript type for `requiredPermission` does not include the new values. The route renders but the permission check silently passes because the type mismatch causes a string comparison that always fails (or always succeeds, depending on the fallback logic).
+**What goes wrong:** The current income statement in `convex/reports/incomeStatement.ts` aggregates revenue from `externalRevenue` (platform sources) and `consignmentSettlements` separately. Adding bank reconciliation creates a third source of truth. If a direct sales payment appears in both `externalRevenue` (from internal sync) AND a reconciled bank statement transaction, it gets counted twice.
 
-**Why it happens:**
-The `ROLE_PERMISSIONS` object and the `ProtectedRoute` component use the same type system but are defined in different files. Adding a permission to the object without updating the type union creates a silent type-widening issue. The existing codebase has 12 permission flags that all work -- the 13th-16th can easily be missed because the developer assumes "just adding to the object is enough."
+**Why it happens:** The system has three independent data flows that can record the same business event: (1) order system -> `externalRevenue` bridge, (2) bank statement upload -> reconciled transactions, (3) journal entries from expense/payroll approvals. Without explicit linking, the P&L aggregation adds them all.
 
-**How to avoid:**
-1. Add all 4 new permissions to `ROLE_PERMISSIONS` for all 4 roles.
-2. Verify the `ProtectedRoute` component type accepts the new permission strings (it should if the type is derived from `keyof typeof ROLE_PERMISSIONS[UserRole]`).
-3. Backend mutations MUST independently enforce auth via `requireRole()` -- never rely on frontend-only guards. Every expense mutation must check: `requireRole(ctx, args.token, ["kitchen", "order_staff", "manager", "admin"])` for submission, `requireRole(ctx, args.token, ["manager", "admin"])` for approval, `requireRole(ctx, args.token, ["admin"])` for reimbursements.
-4. Write a test: call the approve mutation with a `kitchen` role token -- expect "Not authorized" error.
+**Consequences:** Revenue inflated, OpEx inflated, Net Income could go either direction. Auditor sees journal entries that don't match bank statements. Month-end close requires manual adjustment.
 
-**Warning signs:**
-- New expense routes accessible without login (missing `ProtectedRoute` wrapper)
-- Kitchen staff able to access the reimbursement manager page
-- No TypeScript error when using a non-existent permission name in a route
+**Prevention:**
+- Bank reconciliation LINKS to existing records (orders, expenses, journal entries) -- it does NOT create new revenue/expense records
+- Reconciliation status is a flag on the source record: `isReconciled: boolean, bankStatementTransactionId: v.optional(v.id("bankStatementTransactions"))`
+- P&L continues to source from existing tables ONLY. Bank reconciliation is a VALIDATION layer, not a data source
+- The Data Health page shows reconciliation coverage: "85% of revenue verified against bank statements" but this is informational, not a revenue input
+- Explicitly define the single source of truth for each P&L line: Revenue = `externalRevenue` + `consignmentSettlements`, COGS = BOM via `buildProductCOGSMap`, OpEx = `journalEntryLines` by account code. Bank = verification only
 
-**Phase to address:** Frontend foundation wave (permissions + routes) -- must be verified before frontend pages are built.
+**Detection:** P&L total revenue exceeds sum of bank deposits for the same period (after accounting for timing differences).
 
----
-
-### Pitfall 11: Self-Approval Check Only on Frontend -- Backend Mutation Allows It
-
-**What goes wrong:**
-The DoA rules specify that the submitter cannot approve their own expense. If this check exists only in the frontend (hiding the "Approve" button when `expense.submittedBy === currentUser._id`), a direct mutation call via the Convex dashboard or a crafted API request bypasses the check. The admin approves their own expense, creating a journal entry with no oversight.
-
-**Why it happens:**
-Frontend-only validation is the common pattern for UX controls. But financial controls MUST be backend-enforced because they are fraud prevention mechanisms, not UX conveniences. The spec explicitly states "Backend mutation rejects `approvedBy === submittedBy` regardless of frontend guards."
-
-**How to avoid:**
-In the approve mutation:
-```typescript
-const user = await requireRole(ctx, args.token, ["manager", "admin"]);
-const expense = await ctx.db.get(args.expenseId);
-if (expense.submittedBy === user._id) {
-  throw new ConvexError("Cannot approve your own expense");
-}
-```
-This must be a hard throw, not a soft return. Write a test: seed an admin user, create an expense as that admin, attempt to approve as the same admin -- expect error. Also test the edge case: single admin in the system submits an expense > 500K -- the mutation must throw "No eligible approver" because the only admin is the submitter.
-
-**Warning signs:**
-- `expenseStatusHistory` showing `approvedBy === submittedBy` on any record
-- The approve mutation not checking the user identity at all
-- Frontend hiding the button but no backend guard
-
-**Phase to address:** Backend expense lifecycle (approval mutation) -- the self-approval check must exist in the backend, not just the frontend.
+**Phase mapping:** Full P&L phase must clearly document data source boundaries. Bank Reconciliation phase must be designed as linking, not duplicating.
 
 ---
 
 ## Technical Debt Patterns
 
-Shortcuts that seem reasonable but create long-term problems.
+### TD-1: Employee Profile Fields Split Across Two Tables
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Skip `by_entryDate` index, accept N+1 pattern | Fewer schema changes, simpler queries | 14 sequential DB reads per P&L render; compounds with Balance Sheet queries | Never -- add the index from day one; it costs nothing |
-| Store `expenseDate` as raw `Date.now()` without WIB normalization | Simpler submission code | Period boundary mismatches between revenue (WIB-aligned) and OpEx (UTC-aligned) | Never -- WIB normalization is a 1-line change with high correctness impact |
-| Use `v.string()` for `sourceId` on `journalEntries` | Avoids discriminated union complexity | No type safety on source references; `sourceId` could be any string | Acceptable -- Convex doesn't support discriminated union IDs natively |
-| Use `v.string()` for `expenseStatusHistory.fromStatus/toStatus` | Simpler schema, avoids repeated union type | Any string can be stored; no validation on history entries | Fix -- use the `expenseStatus` validator for type safety |
-| Skip Should-Have fraud controls (split detection, approver concentration) | Reduces scope, faster shipping | No detection of expense splitting or rubber-stamp approval patterns | Acceptable for v1 -- defer to future phase with explicit backlog item |
-| Hardcode account codes ("2200", "1100") in mutations | Faster to write than lookup-by-code queries | Breaks if account codes change; magic strings scattered across codebase | Acceptable temporarily -- extract to constants file (e.g., `SYSTEM_ACCOUNTS.CASH = "1100"`) |
-| Counter table rows never cleaned up | No maintenance code needed | ~1,095 rows/year (3 prefixes x 365 days) | Acceptable -- negligible at this scale for years |
+The `users` table already has `bankAccountNumber` and `bankName` (added Phase 41 for reimbursements). Adding `hireDate`, `baseRate`, and additional fields to `users` is tempting but creates a bloated auth table. Every `requireRole()` call fetches the full user document including financial fields the auth check doesn't need.
+
+**Prevention:** Either accept the bloat (it's a small table, ~10 users) or create a separate `employeeProfiles` table with `userId: v.id("users")` as a 1:1 link. Given the small user count, bloating `users` is acceptable. Document the decision.
+
+### TD-2: Bank Statement Transactions Table Growth
+
+Each monthly bank statement import adds hundreds of rows. Unlike expenses or orders (which are operational and regularly queried), old bank statement data is archival. Without a retention strategy, the table grows indefinitely and slows reconciliation queries.
+
+**Prevention:** Index `bankStatementTransactions` by `statementMonth` (YYYY-MM string). Reconciliation queries filter by current month only. Archive old months by marking `isArchived: true` and excluding from default queries.
+
+### TD-3: Attendance Records Without Aggregation Cache
+
+Raw clock-in/out records are fine for daily view, but monthly summaries (total hours, late count, production per staff) require scanning all records for the month. At 4 staff * 30 days * 2 records/day = 240 records/month -- manageable now, but grows linearly.
+
+**Prevention:** Compute monthly summaries as a separate query with date-range index, not full table scan. The existing `kitchenShiftRecords` pattern (by_date index) works well for this scale.
 
 ---
 
-## Integration Gotchas
+## Integration Gotchas (Convex-Specific)
 
-Common mistakes when integrating the accounting system with existing Frollie features.
+### IG-1: CSV Upload Must Use Action, Not Mutation
 
-| Integration Point | Common Mistake | Correct Approach |
-|-------------------|----------------|------------------|
-| P&L extension | Adding OpEx data as a separate `useQuery` subscription instead of extending `fetchAndAggregate` | Extend the existing `fetchAndAggregate` function; single reactive subscription = single re-render |
-| P&L extension | Modifying `WeekData` type in a breaking way | Add new fields (`opex`, `totalOpEx`, `ebit`, `netIncome`) alongside existing fields; never remove or rename existing fields |
-| Revenue/COGS data | Attempting to move revenue data from real-time aggregation to stored journal entries | Revenue (4xxx) and COGS (5xxx) remain "virtual" -- sourced from `externalRevenue` + BOM. Only OpEx (6xxx) uses stored journal entries |
-| File storage | Not gating `generateUploadUrl` with auth | The existing `feedback/mutations.ts` has NO auth on `generateUploadUrl`. The expense version MUST have auth (`requireRole`) because receipts are financial documents |
-| User bank details | Adding required fields to existing `users` table | `bankAccountNumber` and `bankName` MUST be `v.optional()` -- existing user documents don't have these fields |
-| Permission system | Adding permissions to `ROLE_PERMISSIONS` but not to the TypeScript type union | Both the runtime object AND the type definition must be updated in sync |
-| Existing FIFO inventory | Expense system touching inventory tables | Expense system has ZERO interaction with inventory. If a future "petty cash from inventory" feature is added, it must go through the existing `inventory/` module, not the expense module |
+Convex mutations are limited to 16 MiB data written and 16,000 documents written per transaction. A bank statement with 500 transactions, each creating a `bankStatementTransactions` record, is fine. But if the import also attempts to run auto-matching (reading `externalRevenue`, `expenses`, `orders`), the 32,000 document scan limit hits.
+
+**Fix:** Use a Convex action for CSV import. Parse CSV in the action, then batch-write via `ctx.runMutation` in chunks of 100. Auto-matching runs as a separate action after import completes.
+
+### IG-2: Convex Cannot Join Tables -- Reconciliation Must Denormalize
+
+Reconciliation matching conceptually requires joining `bankStatementTransactions` with `orders`, `expenses`, `externalRevenue`, and `journalEntries`. Convex has no JOIN. Each cross-reference is a separate `ctx.db.get()` or indexed query.
+
+**Fix:** Denormalize match candidates into the bank statement transaction record after matching: `matchedEntityType: "order" | "expense" | "revenue"`, `matchedEntityId: string`, `matchedAmount: number`. This avoids re-joining on every page load.
+
+### IG-3: Real-Time Reactive Queries Make Reconciliation Page Expensive
+
+Convex queries are reactive -- every subscribed query re-runs when underlying data changes. A reconciliation page that subscribes to both `bankStatementTransactions` and `externalRevenue` will re-render whenever any new order triggers a revenue sync, even if unrelated to the current reconciliation view.
+
+**Fix:** Use `useQuery` with narrow filters (specific statement ID, specific date range). Consider making summary/status queries separate from detail queries to reduce reactive blast radius.
+
+### IG-4: Action Timeout for Large CSV Files
+
+Convex actions have a 10-minute timeout. A bank statement CSV with 2000+ rows and complex matching logic could approach this limit, especially if each row triggers indexed lookups across multiple tables.
+
+**Fix:** Process in batches with progress tracking. If batch count exceeds 500, use scheduler-chain pattern (existing pattern from BigSeller sync in v1.4): process first batch, then `ctx.scheduler.runAfter(0, ...)` for the next batch. Report progress via a status document.
+
+### IG-5: No Stored Procedures -- Attendance Aggregation Is Application-Level
+
+Traditional databases would use a stored procedure or materialized view for monthly attendance summaries. In Convex, all aggregation happens in query handlers. Complex aggregations (hours worked per staff per week, late arrivals, production output per shift) must be carefully bounded by date-range indexes.
+
+**Fix:** Always query attendance records by date range index. Never `.collect()` the full attendance table. Pre-compute monthly summaries as a separate scheduled task if real-time aggregation becomes too slow.
 
 ---
 
 ## Performance Traps
 
-Patterns that work at small scale but fail as expense volume grows.
+### PT-1: Data Health Page Running All Checks On Load
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| N+1 per-account journal queries | P&L page slow (>2s); 14 sequential DB reads visible in Convex logs | Add `by_entryDate` index; single query + in-memory grouping | Immediately at 11+ OpEx accounts -- this is a day-one issue, not a scale issue |
-| Reactive subscription on `journalEntryLines` without index bounds | P&L re-renders on every JE insert across ALL periods | Use `.withIndex("by_entryDate", ...)` with tight period bounds; Convex only re-fires for documents matching the index range | When journal entries exceed ~100 (2-3 months of operations) |
-| Duplicate detection scanning all expenses for 7-day window | Slow submission as expense count grows | Index `by_amount_date_submitter` enables efficient duplicate lookup without full table scan | When expenses exceed ~500 (6-12 months) |
-| Approval queue query scanning all expenses | Manager sees all expenses, not just pending | Index `by_status` with `status === "submitted"` filter at index level | When total expenses exceed ~200 |
-| Receipt image stored at original resolution | `_storage` quota consumed by 5+ MB phone photos | Client-side image compression before upload (canvas resize to 1024px max width) | When receipt count exceeds ~100 |
+The Data Health page with 6+ integrity check categories (revenue completeness, COGS coverage, journal balance, bank reconciliation, expense receipts, attendance gaps) will trigger 6+ heavy queries simultaneously on page mount.
 
----
+**Fix:** Lazy-load checks: show a card per category with "Run Check" button. Or better: run checks via cron and display cached results, with "Refresh" button for on-demand re-run. The existing `integrityCheckLogs` table pattern supports this.
 
-## Security Mistakes
+### PT-2: Income Statement Query Grows With Data Volume
 
-Domain-specific security issues for financial data.
+The current `aggregateWeek` in `incomeStatement.ts` scans `externalRevenue` by period and `journalEntryLines` by date. As data accumulates, these scans slow down. Adding per-channel breakdown with COGS resolution multiplies the work.
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Self-approval check only in frontend | Admin can approve own expense via direct mutation call; zero oversight on admin spending | Backend mutation MUST check `approvedBy !== submittedBy`; throw hard error |
-| No receipt hash dedup enforcement | Same receipt image used for multiple expense claims (fraud) | SHA-256 hash computed client-side, stored in `receiptImageHash`; backend blocks submission if hash exists on any expense |
-| `generateUploadUrl` without auth | Unauthenticated users can upload files to `_storage`; storage quota abuse | Add `requireRole(ctx, args.token, [...allRoles])` to the expense `generateUploadUrl` mutation |
-| Journal entries mutable after creation | Approved expense amounts can be silently changed; audit trail meaningless | No `update` mutation for `journalEntries` or `journalEntryLines`; only void + new entry pattern |
-| Expense amount editable after approval | GL entries show one amount, expense shows a different (edited) amount | No update mutation for approved expenses; immutability enforced by absence of mutation, not just UI hiding |
-| `seedDefaults` callable without auth | Any unauthenticated client can call `accounts:seedDefaults`; creates 36 accounts | Acceptable (consistent with existing seed patterns); seed is idempotent with existence checks; document as dashboard-only |
+**Fix:** The existing pattern (indexed scans with in-memory aggregation) is correct. Ensure all new P&L line items (FCF, depreciation, etc.) use the same indexed-scan approach. Never add a full-table `.collect()` to the income statement query.
+
+### PT-3: Reconciliation UI Re-rendering on Every Keystroke
+
+A reconciliation page with a search/filter for manual matching will subscribe to large query results. If the filter triggers a new query on every keystroke, Convex re-runs the full query each time.
+
+**Fix:** Debounce search input (300ms minimum). Use pagination (`take(50)`) for candidate lists. Show summary counts from a lightweight query, with detail drill-down on click.
 
 ---
 
-## UX Pitfalls
+## Security Mistakes (Financial Data Handling)
 
-Common user experience mistakes in expense management for an SME with 5-10 staff.
+### SM-1: Bank Statement Data Contains Account Numbers
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| No confirmation before expense submission | User accidentally submits a draft with missing fields | Show a confirmation dialog with expense summary before calling `submitExpense`; validate all fields including receipt requirement |
-| Receipt upload failure with no retry | User uploads a 5 MB photo, network drops, no way to retry without re-filling the entire form | Store form state in component state; only upload receipt on submit; show retry button on upload failure; preserve all other fields |
-| Rejection reason not visible on resubmission | Employee resubmits without knowing why the original was rejected; rejected again for the same reason | Show full rejection chain with reasons in the expense form when `previousExpenseId` is set; make rejection reason prominent, not hidden in a collapsible |
-| Approval queue showing all expenses at once | Manager with 20 pending expenses cannot prioritize; no sorting or filtering | Sort by submission date (oldest first); filter by amount range, late flag, duplicate warning; show count badge in navigation |
-| Reimbursement confirmation with no bank detail preview | Admin confirms batch transfer without seeing the employee's bank name/number; sends to wrong account | Show employee bank details prominently in the batch confirmation form; warn if bank details are missing |
-| Company card expenses appearing in reimbursement queue | Admin tries to batch company card expenses that don't need reimbursement | Filter reimbursement queue to only show `personal_cash` and `personal_transfer` expenses; company card expenses go to `approved` as terminal |
+Uploaded bank CSV files contain the business's full bank account number, transaction counterparty names, and amounts. These must not be stored in a way that's accessible to non-admin roles.
+
+**Fix:** Bank statement tables must enforce admin-only access via `requireRole(ctx, args.token, ["admin"])`. The reconciliation UI should only be accessible to admin/manager roles. Raw CSV content stored for debugging should be in a separate field that's stripped from non-admin query results.
+
+### SM-2: Employee Bank Details in Profile
+
+Adding bank account number and bank name to employee profiles creates PII that must be protected. Kitchen staff viewing their own profile should see their own bank details, but not other employees'.
+
+**Fix:** Employee profile query must filter: users can see their own financial details, managers/admins can see all. Use the existing auth pattern: `if (requestingUser._id !== targetUserId) requireRole(ctx, token, ["manager", "admin"])`.
+
+### SM-3: Attendance Data as Labor Compliance Evidence
+
+Clock-in/out records become legal evidence for labor compliance (Indonesian Manpower Law UU 13/2003). Attendance records must not be editable after submission without an audit trail.
+
+**Fix:** Attendance records are insert-only. Corrections create a new record with `correctedRecordId: v.id("staffAttendance")` link and mandatory `correctionReason`. Admin-only correction permission. This mirrors the journal engine's reversal-only correction pattern.
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Journal balance:** Every `createJournalEntry` call validates `sum(debits) === sum(credits)` before inserting -- verify no code path skips the check
-- [ ] **`entryDate` denormalization:** Every `journalEntryLines` insert copies `date` from the parent `journalEntries` -- verify no lines have `entryDate` differing from their parent's `date`
-- [ ] **WIB normalization:** `expenseDate` stored as WIB midnight, not raw `Date.now()` -- verify an expense dated "March 5" stores as `wibMidnightToUtc(2026, 2, 5)`
-- [ ] **Self-approval backend guard:** `approvedBy !== submittedBy` check exists in the BACKEND approve mutation, not just the frontend -- verify with a test calling the mutation directly
-- [ ] **Receipt requirement enforcement:** `receiptFileId` required for amount > Rp 50,000 enforced in the BACKEND submit mutation, not just the frontend -- verify with a test
-- [ ] **Reversal date:** `createReversingEntry` uses the original entry's date, not `Date.now()` -- verify with a test that creates and voids in different periods
-- [ ] **`seedDefaults` run:** After deployment, `accounts` table has 36 documents -- verify before testing any expense flow
-- [ ] **Permission gating:** Reimbursement manager page returns "Not authorized" for manager role, not just admin -- verify the `ProtectedRoute` uses `canManageReimbursements`
-- [ ] **Company card accounting:** Company card approval creates JE with `CR 1100 Cash` (not `CR 2200 Reimbursements Payable`) -- verify with a unit test
-- [ ] **Void cascade:** Voiding a reimbursement batch returns all linked expenses to `awaiting_payment` status -- verify the batch void mutation patches all linked expenses
-- [ ] **Counter atomicity:** Two concurrent expense submissions produce different `EXP-MMDD-NNN` numbers (no duplicates) -- verify with Convex mutation serialization test
-- [ ] **Existing P&L unbroken:** After adding OpEx section, the existing Revenue and Gross Profit figures remain identical to before -- verify by comparing output with and without the extension
-- [ ] **No `by_entryDate` index:** If the `by_entryDate` index on `journalEntryLines` is missing from the schema, the OpEx aggregation falls back to the N+1 pattern -- verify the index exists before deploying
+### Bank Statement Reconciliation
+- [ ] Parser handles IDR number format (dot = thousands, comma = decimal)
+- [ ] Parser handles DD/MM/YYYY date format (not MM/DD)
+- [ ] Preview step shows parsed data before import (user confirmation)
+- [ ] Duplicate file upload detection (file hash check, like receipt dedup pattern from v1.7)
+- [ ] Auto-match handles one-to-many candidates correctly (goes to manual queue)
+- [ ] Reconciliation can be undone (unlink transaction from matched record)
+- [ ] Old reconciliation data doesn't slow new month's queries (date-range indexed)
+- [ ] Works with production data volume (not just 10-row test file)
 
----
+### Staff Attendance
+- [ ] Clock-in time stored as UTC, displayed as WIB
+- [ ] "Attendance date" derived from WIB, not UTC (6 AM WIB = correct day)
+- [ ] Handles midnight-crossing shifts (clock in 22:00, clock out 06:00)
+- [ ] Mobile-friendly UI (kitchen staff use phones)
+- [ ] Cannot clock in twice without clocking out (state validation)
+- [ ] Monthly summary uses date-range indexed query, not full table scan
+- [ ] Correction flow with audit trail (not edit-in-place)
 
-## Recovery Strategies
+### Full P&L
+- [ ] Revenue sources match exactly what Sales Analytics shows (no divergence)
+- [ ] COGS uses `buildProductCOGSMap` with override support (single path)
+- [ ] OpEx sourced from journal entries, not directly from expenses table
+- [ ] Depreciation sourced from fixed assets (existing `fixedAssets` helpers)
+- [ ] Bank reconciliation is VALIDATION, not a revenue/expense source
+- [ ] Weekly/monthly period switching works correctly at WIB boundaries
+- [ ] Previous period comparison handles edge cases (first week, partial months)
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Unbalanced journal entries (P4) | HIGH | Identify all unbalanced entries via integrity query; create correcting entries to re-balance; add balance validation to prevent recurrence; this is an accounting audit event |
-| Reversal in wrong period (P1) | MEDIUM | Identify reversals where `date !== originalEntry.date`; create new reversing entries with correct dates; void the incorrect reversals; re-run P&L for affected periods |
-| Duplicate journal entries from concurrent approval (P6) | MEDIUM | Query for duplicate `sourceId` + `sourceType` combinations; void the duplicate entry; add concurrency guard to prevent recurrence |
-| `_creationTime` used for period filter (P2) | MEDIUM | Replace all `_creationTime` references with `entryDate` in journal queries; existing data is fine (the entries themselves are correct, only the query was wrong) |
-| `seedDefaults` not run (P8) | LOW | Run `accounts:seedDefaults` from Convex dashboard; existing expenses in `draft` or `submitted` status are unaffected; only approval mutations need accounts |
-| WIB timezone mismatch (P9) | MEDIUM | Identify expenses with non-WIB-normalized dates; write a migration to normalize `expenseDate` to WIB midnight; update `journalEntries.date` and `journalEntryLines.entryDate` to match |
-| Self-approval in production (P11) | LOW | Void the self-approved expense's journal entry; resubmit the expense for proper approval by a different approver; add backend guard to prevent recurrence |
-| Orphaned receipt files (P5) | LOW | At current scale (5-10 expenses/week), orphan files are negligible; run a cleanup query if storage quota becomes an issue; never delete files referenced by approved expenses |
+### COGS Override
+- [ ] `buildProductCOGSMap` checks override FIRST, falls back to BOM
+- [ ] Order item `unitCost` snapshot uses same resolution path
+- [ ] Gap analysis excludes products with override from "zero cost" warnings
+- [ ] Visual indicator shows COGS source (override vs BOM) on product editor
+- [ ] Existing orders keep their snapshotted COGS (no retroactive change)
+- [ ] `unitCostStaleAt` is set when override changes (triggers recalculation badge)
+
+### Data Health Page
+- [ ] Checks run as cron AND on-demand (not just on page load)
+- [ ] Each check has an actionable "Fix" path (not just a red number)
+- [ ] Critical issues surface on dashboard (banner/badge), not buried in separate page
+- [ ] Checks cover: revenue completeness, COGS coverage, journal balance, reconciliation status, attendance gaps
+- [ ] Results persisted in `integrityCheckLogs` with timestamp and trend tracking
+
+### Revenue Recognition Fix
+- [ ] Historical orders backfilled (one-time full sync, not just incremental going forward)
+- [ ] Incremental sync uses `confirmedAt` for buffer window (not `_creationTime`)
+- [ ] Cancelled-then-reinstated orders handled correctly
+- [ ] Data Health check validates order count vs externalRevenue count
 
 ---
 
 ## Pitfall-to-Phase Mapping
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Reversal date bug (P1) | Backend foundation: journal helper | Test: void in different period, assert reversal date matches original |
-| `_creationTime` vs `entryDate` (P2) | Backend foundation: journal queries | Grep: zero `_creationTime` references in `convex/journal/` files |
-| N+1 query pattern (P3) | Schema phase (add index) + P&L integration | Convex dashboard: `getOpExByPeriod` shows 1-2 DB reads, not 14 |
-| Unbalanced JE (P4) | Backend foundation: journal mutation | Test: unbalanced entry throws; integrity check finds zero violations |
-| Receipt upload race (P5) | Frontend expense form implementation | Manual test: upload receipt, close browser, resubmit -- receipt still attached |
-| Concurrent approval (P6) | Backend expense lifecycle | Test: two approve calls for same expense; second throws; 1 JE exists |
-| P&L query timeout (P7) | P&L integration wave | Convex dashboard: `getIncomeStatement` executes in <3 seconds |
-| `seedDefaults` not run (P8) | Deployment verification step | `accounts` table shows 36 documents after deployment |
-| WIB timezone mismatch (P9) | Backend expense submission + P&L integration | Test: expense dated "March 5 WIB" appears in "March 3-9 WIB" period query |
-| Auth permission gaps (P10) | Frontend foundation: permissions + routes | Test: kitchen role token → approve mutation → "Not authorized" |
-| Self-approval bypass (P11) | Backend expense lifecycle: approve mutation | Test: admin submits and approves own expense → error thrown |
+| Phase Topic | Likely Pitfall | Severity | Mitigation |
+|---|---|---|---|
+| Revenue Recognition Fix | CP-3: Historical gap persists | CRITICAL | One-time full backfill + sync logic fix |
+| COGS Override | CP-4: Inconsistent cost path | CRITICAL | Modify `buildProductCOGSMap` as single source |
+| Bank Statement Reconciliation | CP-1: CSV format assumptions | CRITICAL | Multi-format parser with preview step |
+| Bank Statement Reconciliation | CP-2: False positive auto-match | HIGH | Confidence scoring, manual queue for ambiguous |
+| Bank Statement Reconciliation | CP-5: 32K scan limit | HIGH | Batch action pattern, date-range indexes |
+| Bank Statement Reconciliation | IG-1: Mutation vs Action | HIGH | Action for import, mutations for writes |
+| Full P&L Extension | CP-8: Double-counting from recon | CRITICAL | Bank recon is validation, not data source |
+| Staff Attendance | CP-6: Timezone drift | HIGH | Reuse WIB helpers, UTC storage + WIB display |
+| Staff Attendance | SM-3: Labor compliance | MEDIUM | Insert-only records, correction audit trail |
+| Data Health Page | CP-7: Stale monitoring | MEDIUM | Cron + actionable fixes + dashboard banner |
+| Employee Profile | TD-1: Table bloat | LOW | Accept bloat for small user count |
+
+**Phase ordering implication:** Revenue Recognition Fix must come BEFORE Full P&L (CP-3 feeds CP-8). COGS Override should come BEFORE Full P&L (CP-4 affects margin accuracy). Bank Reconciliation should come AFTER revenue fix and COGS override (so reconciliation has correct data to match against). Data Health should come LAST (validates all other features).
 
 ---
 
 ## Sources
 
-- Staff review: `docs/reviews/staffreview-expense-accounting-plan-2026-03-12.md` (4 critical, 6 important findings -- C1, C2, C3, C4, I1-I6)
-- Design spec: `docs/superpowers/specs/2026-03-12-expense-accounting-system-design.md` (10 tables, 36 accounts, full lifecycle)
-- Existing income statement: `convex/reports/incomeStatement.ts` (687 lines -- `fetchAndAggregate` pattern, `WeekData` type)
-- Existing period range helpers: `convex/lib/periodRange.ts` (WIB timezone utilities)
-- Existing auth: `convex/lib/auth.ts` (`requireRole` pattern), `convex/lib/functions.ts` (`protectedMutation` wrapper)
-- Existing file upload patterns: `convex/feedback/mutations.ts` (no-auth `generateUploadUrl`), `convex/grabfoodMenu/mutations.ts` (auth-gated `generateUploadUrl`)
-- Project accumulated lessons: CLAUDE.md Common Pitfalls section (12 documented pitfalls including `_creationTime` lesson, React hooks order, Convex OCC)
-- Session memory: 40 phases of production experience, `_creationTime` vs business date lesson, auto-seed depot pattern
-
----
-*Pitfalls research for: v1.7 Expense & Accounting System (double-entry accounting, expense management, P&L extension)*
-*Researched: 2026-03-12*
+- [Convex Limits Documentation](https://docs.convex.dev/production/state/limits) -- action timeout (10min), document scan limit (32K), mutation write limit (16K docs/16 MiB)
+- [KlikBCA Bisnis Tutorial](https://www.klikbca.com/KbbDemo/tutorial/04-02-01a.html) -- CSV export format for business accounts
+- [Bank Reconciliation Pitfalls (GBQ)](https://gbq.com/avoiding-bank-reconciliation-pitfalls-common-mistakes-in-modern-accounting/) -- over-reliance on automation, duplicate imports
+- [Common Bank Reconciliation Errors (SD Mayer)](https://www.sdmayer.com/resources/common-bank-reconciliation-pitfalls-to-watch-for) -- timing differences, transposed numbers
+- [Bank Reconciliation Errors (Aurum)](https://aurum.solutions/resources/bank-reconciliation-errors-and-how-to-avoid-them) -- 15-25% manual error rate
+- [BOM Costing Accounting (CetecERP)](https://cetecerp.com/blog/bom-costing-accounting.html) -- BOM vs override cost tracking pitfalls
+- [Employee Attendance Mistakes (TaskFino)](https://taskfino.com/blog/employee-attendance-management-mistakes) -- buddy punching, integration gaps
+- Codebase inspection: `convex/integrations/internal/adapter.ts`, `convex/integrations/internal/queries.ts`, `convex/lib/costCalculator.ts`, `convex/reports/incomeStatement.ts`, `convex/lib/periodRange.ts`, `convex/integrityChecks/mutations.ts`
+- Production experience: 69 phases across 10 milestones, documented in CLAUDE.md session memory

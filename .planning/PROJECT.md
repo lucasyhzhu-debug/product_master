@@ -8,18 +8,19 @@ A real-time recipe and product concept management system for an Indonesian FMCG 
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v1.9 Bugs & Quality of Life
+## Current Milestone: v2.0 Financial Management & Data Quality
 
-**Goal:** Fix production bugs, polish UI friction points, and add missing operational features across K3Mart, inventory, payroll, and kitchen reporting.
+**Goal:** Build trustworthy financial reporting with full P&L, bank reconciliation, attendance tracking, and data integrity checks.
 
 **Target features:**
-- K3Mart Cockpit: push harga on stock-in/out, fix history, refresh active outlets
-- BigSeller API: fix 401006 auth error, improve token refresh reliability
-- UI Polish: merge Home + logo, add Accounting to navbar, fix mobile order modal
-- Kitchen Reporting: component-level (balls) reporting alongside products
-- Inventory: fix stock count drift, easy daily stock update by location
-- Employee Management: roster linked to payroll for regular payments
-- COGS: bulk price update UI for ingredient/material costs
+- Full P&L Income Statement: per-channel Revenue → Commissions → COGS → Gross Margin → OpEx → G&A → Operating Income → Depreciation → Net Income → FCF
+- Revenue Recognition Fix: debug and fix missing direct sales in sales analytics (e.g., Bali order 0330-002 not in revenue bridge)
+- Financial Data Export: export button with raw transactions or P&L summary, weekly/monthly/custom range, CSV format
+- COGS Override: flat per-product COGS field overriding BOM calculation when set
+- Data Health Page: automated checks for revenue completeness, COGS coverage, journal balance, bank reconciliation status, expense receipts
+- Bank Statement Reconciliation: CSV upload (BCA/Mandiri), auto-match by amount/date/description against journals, revenue, expenses, reimbursements, payroll
+- Staff Attendance: clock-in/out on kitchen app, per-staff production tracking (balls by type, grams), monthly production summary
+- Employee Profile: bank account, hire date, base rate fields on user records
 
 ## Context
 
@@ -128,16 +129,14 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ### Active
 
-- [ ] K3Mart stock-in/out pushes price (harga) to API — v1.9
-- [ ] K3Mart cockpit history tab fix — v1.9
-- [ ] K3Mart active outlet refresh (Bintaro, Lippo Puri Mall, SCBD, Old Shanghai) — v1.9
-- [ ] BigSeller API auth fix (401006 error) and token refresh — v1.9
-- [ ] Navbar: merge Home into Frollie logo, add Accounting section — v1.9
-- [ ] Mobile order modal: prevent accidental product adds, visible delete button — v1.9
-- [ ] Kitchen component-level reporting (balls alongside products) — v1.9
-- [ ] Inventory stock count drift fix with daily update UI by location — v1.9
-- [ ] Employee roster linked to payroll — v1.9
-- [ ] Bulk price update UI for ingredient/material costs — v1.9
+- [ ] Full P&L income statement with per-channel breakdown (Revenue → FCF) — v2.0
+- [ ] Revenue recognition fix: direct sales missing from sales analytics — v2.0
+- [ ] Financial data export (raw transactions + P&L summary, CSV) — v2.0
+- [ ] COGS override: flat per-product cost field bypassing BOM calculation — v2.0
+- [ ] Data Health page with automated integrity checks — v2.0
+- [ ] Bank statement reconciliation: CSV upload, auto-match, manual match UI — v2.0
+- [ ] Staff attendance: clock-in/out, per-staff production tracking, monthly summary — v2.0
+- [ ] Employee profile: bank account, hire date, base rate fields — v2.0
 
 ### Out of Scope
 
@@ -171,19 +170,17 @@ Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–
 
 ## Context
 
-Shipped v1.8 Support & Quality of Life (2026-03-27). 9 milestones complete (v1.0-v1.8), 63 phases, 232 plans.
-~143K lines TypeScript across 68 Convex tables.
+Shipped v1.9 Bugs & Quality of Life (2026-03-28). 10 milestones complete (v1.0-v1.9), 69 phases, 246 plans.
+~148K lines TypeScript across 70 Convex tables.
 Tech stack: Convex 1.31 + React 19 + TypeScript 5.9 + Vite 7 + Tailwind CSS 4 + shadcn/ui + Recharts.
 Deployed via Vercel with GitHub Actions CI.
 
-**Current state after v1.8:**
-- Help Center: searchable landing page, guide registry, 7 reusable components, interactive expense walkthrough tutorials
-- Invoice system: WYSIWYG form with auto-fill/auto-save, finalize with INV-YYMM-NNN numbering, print view, Business Settings
-- Asset Register: PSAK-aligned categories, batch depreciation JE generation, disposal with gain/loss, Income Statement reminder
-- Expense overhaul: company-paid direct debit with auto-JE, multi-action approval queue (acknowledge/flag/mark-as-paid)
-- Manual journal: 5 balance sheet templates, Hub restructured into Financials + Accounting sections
-- Developer tooling: docs-manifest.json for tutorial drift detection (/gsd:check-docs, /gsd:update-docs)
-- All prior capabilities intact: expense lifecycle, journal engine, P&L, sales analytics, multi-platform integrations
+**Current state after v1.9:**
+- Financial: journal engine, full P&L (Revenue → Net Income), expense lifecycle with DoA approval, reimbursement batching, payroll entry, asset register with depreciation
+- Sales: 8-channel unified analytics (GoFood, GrabFood, Shopee, Tokopedia, K3Mart, Direct, Consignment, BigSeller), income statement with confidence classification
+- Kitchen: production targets from dispatch, EoS recording, component-level reporting, staff performance report
+- Infrastructure: Help Center with tutorials, invoice generation, business settings, manual journal entry
+- All prior capabilities intact: recipes, packaging, orders, inventory, BOM, vouchers, K3Mart cockpit, dispatch planner
 
 **Known technical debt:**
 - Generic query factory not applied to all query files (only simple entities)
@@ -191,6 +188,7 @@ Deployed via Vercel with GitHub Actions CI.
 - Order form components large (OrderFormPOS 1,068 LOC, OrderCreate 1,017 LOC)
 - GrabFood orders:read OAuth2 scope not yet granted (infrastructure works, 401 handled gracefully)
 - BigSeller COGS = 0 for all Frollie orders (profit analytics meaningless until configured in BigSeller)
+- Direct sales orders not consistently flowing into externalRevenue bridge (revenue recognition gap)
 
 ## Constraints
 
@@ -265,4 +263,4 @@ Deployed via Vercel with GitHub Actions CI.
 | Playwright E2E with multi-role auth (v1.7) | 4 test users (admin, manager, kitchen, order_staff) in global-setup.ts | ✓ Good — 4 new test suites, lifecycle coverage |
 
 ---
-*Last updated: 2026-03-27 after v1.9 milestone started*
+*Last updated: 2026-04-07 after v2.0 milestone started*
