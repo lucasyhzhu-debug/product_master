@@ -16,6 +16,18 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Improvement: Unified Production & Kitchen Components -- 2026-04-09
+
+**For the team:** Production Targets now consistently reflect what's in the Production Components page. Tier-1 components (Dubai-Regular, Nutella-Regular, Jumbo) show as "Production Components" tracked in pieces. Leaf components (Outer-Marshmallow, Filling-Pistachio, Nutella Filling, etc.) show as "Kitchen Components" tracked in grams. Both sections now come from a single source — no more separate lists getting out of sync.
+
+#### Changed
+- Manager Settings toggles split by component tier: tier-1+ = Production Components (pieces), tier-0 = Kitchen Components (grams)
+- Kitchen components now derived from `componentTypes` (unified BOM) instead of separate `kitchenComponents` table
+- Added `seedLeafKitchenComponents` mutation to populate leaf components in componentTypes
+
+#### Post-deploy
+- Run `componentTypes/seed:seedLeafKitchenComponents` from Convex dashboard Functions tab (requires admin token)
+
 ### Feature: Pieces Sold Hero Card -- 2026-04-07
 
 **For the team:** The Sales Analytics overview now shows a "Pieces Sold" card that counts individual production pieces (balls) sold in the selected date range. A triple counts as 3 pieces, a single as 1 -- matching how "Balls Sold" works for all-time, but filtered to the period you pick. Includes growth comparison vs the previous period.
