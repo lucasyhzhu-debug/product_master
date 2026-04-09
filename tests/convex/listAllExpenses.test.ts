@@ -52,6 +52,7 @@ async function seedExpense(
       | "recorded"
       | "paid";
     vendorName?: string;
+    createdAt?: number;
   }
 ): Promise<Id<"expenses">> {
   return await t.run(async (ctx) => {
@@ -66,7 +67,7 @@ async function seedExpense(
       paymentMethod: "employee_paid",
       status: overrides.status,
       lateSubmission: false,
-      createdAt: Date.now(),
+      createdAt: overrides.createdAt ?? Date.now(),
     });
   });
 }
@@ -143,26 +144,30 @@ describe("listAllExpenses", () => {
       return sessions.find((s) => s.token === adminSession)!.userId;
     });
 
+    const now = Date.now();
     await seedExpense(t, {
       submittedBy: userId,
       accountId,
       amount: 10000,
-      expenseDate: Date.now(),
+      expenseDate: now,
       status: "submitted",
+      createdAt: now - 2000,
     });
     await seedExpense(t, {
       submittedBy: userId,
       accountId,
       amount: 20000,
-      expenseDate: Date.now(),
+      expenseDate: now,
       status: "approved",
+      createdAt: now - 1000,
     });
     await seedExpense(t, {
       submittedBy: userId,
       accountId,
       amount: 30000,
-      expenseDate: Date.now(),
+      expenseDate: now,
       status: "voided",
+      createdAt: now,
     });
 
     const result = await t.query(api.expenses.queries.listAllExpenses, {
@@ -183,26 +188,30 @@ describe("listAllExpenses", () => {
       return sessions.find((s) => s.token === adminSession)!.userId;
     });
 
+    const now = Date.now();
     await seedExpense(t, {
       submittedBy: userId,
       accountId,
       amount: 10000,
-      expenseDate: Date.now(),
+      expenseDate: now,
       status: "submitted",
+      createdAt: now - 2000,
     });
     await seedExpense(t, {
       submittedBy: userId,
       accountId,
       amount: 20000,
-      expenseDate: Date.now(),
+      expenseDate: now,
       status: "approved",
+      createdAt: now - 1000,
     });
     await seedExpense(t, {
       submittedBy: userId,
       accountId,
       amount: 30000,
-      expenseDate: Date.now(),
+      expenseDate: now,
       status: "voided",
+      createdAt: now,
     });
 
     const result = await t.query(api.expenses.queries.listAllExpenses, {

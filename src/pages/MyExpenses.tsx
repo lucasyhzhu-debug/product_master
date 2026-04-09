@@ -190,7 +190,7 @@ export function MyExpenses() {
                 <span>{formatCurrency(selectedExpense.amount)}</span>
                 <span>{selectedExpense.vendorName}</span>
               </div>
-              {isAdmin && selectedExpense.status !== "voided" && selectedExpense.status !== "reimbursed" && (
+              {isAdmin && (selectedExpense.status === "submitted" || selectedExpense.status === "recorded" || (selectedExpense.status === "approved" && selectedExpense.paymentMethod === "payment_request") || selectedExpense.status === "awaiting_payment") && (
                 <div className="mt-2">
                   <ApprovalActions
                     expenseId={selectedExpenseId}
