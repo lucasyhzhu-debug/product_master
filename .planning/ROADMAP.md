@@ -197,7 +197,10 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
   2. Historical direct sales orders from past periods appear correctly in their respective period P&L views
   3. Manager can set a flat COGS override on any menu product, and the Income Statement uses that override instead of BOM calculation
   4. Employee profile page shows hire date, base rate, and bank account holder name fields that can be edited by admin
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 70-01-PLAN.md -- Fix internal revenue pipeline (inline sync + batch sync with items + legacy status support)
+- [ ] 70-02-PLAN.md -- COGS override per menu product + employee profile fields
 
 ### Phase 71: Bulk Expense Upload & Asset Reclassification
 **Goal**: Users can efficiently import batches of expenses from CSV and reclassify disposed assets as operating expenses
@@ -287,7 +290,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 70. Data Accuracy Foundation | v2.0 | 0/TBD | Not started | - |
+| 70. Data Accuracy Foundation | v2.0 | 0/2 | Planning complete | - |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 0/TBD | Not started | - |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 0/TBD | Not started | - |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
