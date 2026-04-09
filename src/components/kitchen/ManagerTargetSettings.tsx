@@ -15,7 +15,7 @@
  * Requirements: KIT-09, KIT-18
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -66,7 +66,9 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // paq: Unified source for both toggle sections (tier-1+ = Production, tier-0 = Kitchen)
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
   const productionComponents = (componentsWithTiers ?? []).filter((c) => c.tier > 0);
+  // tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types)
   const kitchenComponentsList = (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g");
+  const allKitchenCodes = useMemo(() => kitchenComponentsList.map((c) => c.code), [kitchenComponentsList]);
 
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
@@ -121,8 +123,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // -------------------------------------------------------
 
   function toggleKitchenComponent(code: string, enabled: boolean) {
-    const allCodes = kitchenComponentsList.map((c) => c.code);
-    const currentEnabled = enabledKitchenComponents === null ? allCodes : enabledKitchenComponents;
+    const currentEnabled = enabledKitchenComponents === null ? allKitchenCodes : enabledKitchenComponents;
 
     const newEnabled = enabled
       ? [...currentEnabled, code]
@@ -306,9 +307,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         </div>
 
         {/* Kitchen Component Toggles (tier-0 leaves) */}
-        {kitchenComponentsList.length > 0 && (() => {
-          const allCodes = kitchenComponentsList.map((c) => c.code);
-          return (
+        {kitchenComponentsList.length > 0 && (
           <div>
             <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
               Kitchen Components
@@ -331,9 +330,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                       role="switch"
                       aria-checked={isOn}
                       onClick={() => {
-                        // If null (all enabled), clicking OFF means create explicit list with one removed
                         if (enabledKitchenComponents === null) {
-                          setEnabledKitchenComponents(allCodes.filter((c) => c !== comp.code));
+                          setEnabledKitchenComponents(allKitchenCodes.filter((c) => c !== comp.code));
                         } else {
                           toggleKitchenComponent(comp.code, !isOn);
                         }
@@ -356,8 +354,12 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
               })}
             </div>
           </div>
-          );
-        })()}
+        )}
+        {componentsWithTiers !== undefined && kitchenComponentsList.length === 0 && (
+          <p className="text-xs text-muted-foreground italic">
+            No leaf kitchen components found. Run seedLeafKitchenComponents from the dashboard.
+          </p>
+        )}
 
         {/* Packaging Mix */}
         <div>

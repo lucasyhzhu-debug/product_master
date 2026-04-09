@@ -9,7 +9,9 @@
  */
 
 import { mutation } from "../_generated/server";
+import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { requireRole } from "../lib/auth";
 
 /**
  * Seed production components (Big Ball, Mid Ball)
@@ -177,7 +179,9 @@ export const seedStorageLocations = mutation({
  * Run from Convex dashboard: componentTypes/seed:seedLeafKitchenComponents
  */
 export const seedLeafKitchenComponents = mutation({
-  handler: async (ctx) => {
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
     console.log("Seeding leaf kitchen components...");
 
     // 12 components: 11 leaves (unit="g") + 1 tier-1 ball (unit="pcs")

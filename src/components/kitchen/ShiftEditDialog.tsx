@@ -88,6 +88,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
 
   // Query available kitchen components (tier-0 from componentTypes)
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
+  // tier-0 + unit="g" = leaf ingredients in grams (unit guard prevents pcs components leaking in)
   const kitchenComponents = (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g");
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
 

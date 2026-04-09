@@ -32,7 +32,8 @@ export function useKitchenTargets() {
     api.productionRecipes.queries.getComponentsWithTiers
   );
 
-  // Tier-0 = leaf components (kitchen ingredients tracked in grams)
+  // Tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types).
+  // The unit guard prevents tier-1 pcs components from leaking in when links are missing.
   const kitchenComponents = useMemo(
     () =>
       (productionComponentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
