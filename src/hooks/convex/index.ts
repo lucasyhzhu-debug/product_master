@@ -366,6 +366,7 @@ export {
 export {
   // Query hooks
   useMyExpenses,
+  useAllExpenses,
   useExpense,
   useExpenseStatusHistory,
   usePendingForApproval,
@@ -380,6 +381,7 @@ export {
   useVoidExpense,
   // Types
   type Expense,
+  type AllExpense,
   type ExpenseStatus,
   type ExpenseStatusHistoryEntry,
   type PendingExpense,

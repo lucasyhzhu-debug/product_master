@@ -64,6 +64,50 @@ export const listMyExpenses = protectedQuery({
 });
 
 // ---------------------------------------------------------------------------
+// listAllExpenses — admin-only view of all expenses across all users
+// ---------------------------------------------------------------------------
+
+/**
+ * List ALL expenses across all users (admin only).
+ * Optional status filter uses by_status index.
+ * Joins submitter names for display.
+ * Sorted by createdAt descending (newest first).
+ */
+export const listAllExpenses = protectedQuery({
+  roles: ["admin"],
+  args: {
+    status: v.optional(expenseStatusValidator),
+  },
+  handler: async (ctx, args) => {
+    let expenses;
+
+    if (args.status !== undefined) {
+      expenses = await ctx.db
+        .query("expenses")
+        .withIndex("by_status", (q) => q.eq("status", args.status!))
+        .collect();
+    } else {
+      // TODO: paginate if >500 rows
+      expenses = await ctx.db.query("expenses").collect();
+    }
+
+    expenses.sort((a, b) => b.createdAt - a.createdAt);
+
+    const userIds = [...new Set(expenses.map((e) => e.submittedBy))];
+    const users = await Promise.all(userIds.map((id) => ctx.db.get(id)));
+    const nameMap = new Map<string, string>();
+    for (const user of users) {
+      if (user) nameMap.set(user._id, user.name);
+    }
+
+    return expenses.map((e) => ({
+      ...e,
+      submitterName: nameMap.get(e.submittedBy) ?? "Unknown",
+    }));
+  },
+});
+
+// ---------------------------------------------------------------------------
 // getById — single expense by ID (owner-only in Phase 44)
 // ---------------------------------------------------------------------------
 

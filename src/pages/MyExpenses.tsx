@@ -3,7 +3,7 @@
  * All authenticated roles can access (PERM-01).
  * EXP-05: status filters AND timeline tracker.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,11 +25,15 @@ import {
 import { Plus, Receipt, X, Loader2, ClipboardCheck } from "lucide-react";
 import {
   useMyExpenses,
+  useAllExpenses,
   useExpenseStatusHistory,
   type ExpenseStatus,
+  type AllExpense,
 } from "@/hooks/convex/useExpenses";
 import { ExpenseCard } from "@/components/expenses/ExpenseCard";
+import { ApprovalActions } from "@/components/expenses/ApprovalActions";
 import { ExpenseStatusBadge } from "@/components/expenses/StatusBadge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/lib/utils";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -48,36 +52,53 @@ const TABS = [
 ] as const;
 
 export function MyExpenses() {
-  useDocumentTitle("My Expenses");
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const isApprover = user?.role === "manager" || user?.role === "admin";
+
+  useDocumentTitle(isAdmin ? "All Expenses" : "My Expenses");
 
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>("all");
   const [selectedExpenseId, setSelectedExpenseId] = useState<Id<"expenses"> | null>(null);
+  const [highlightMine, setHighlightMine] = useState(true);
 
-  const isApprover = user?.role === "manager" || user?.role === "admin";
-
-  // Map tab value to status filter
   const statusFilter: ExpenseStatus | undefined =
     activeTab === "all" ? undefined : (activeTab as ExpenseStatus);
 
-  const expenses = useMyExpenses(statusFilter);
+  // Mutually exclusive subscriptions: admin sees all, others see own
+  const myExpenses = useMyExpenses(statusFilter, !isAdmin);
+  const allExpenses = useAllExpenses(statusFilter, !!isAdmin);
+  const rawExpenses = isAdmin ? allExpenses : myExpenses;
+
+  // Sort admin view: own expenses pinned to top, then others, both groups by createdAt desc
+  // userId from AuthSession is the serialized Id<"users"> — safe to compare with submittedBy
+  const expenses = useMemo(() => {
+    if (!rawExpenses || !isAdmin || !user) return rawExpenses;
+    return [...rawExpenses].sort((a, b) => {
+      const aMine = a.submittedBy === user.userId ? 0 : 1;
+      const bMine = b.submittedBy === user.userId ? 0 : 1;
+      if (aMine !== bMine) return aMine - bMine;
+      return b.createdAt - a.createdAt;
+    });
+  }, [rawExpenses, isAdmin, user]);
+
   const statusHistory = useExpenseStatusHistory(
     selectedExpenseId ?? undefined
   );
 
-  // Find the selected expense for the timeline header
-  const selectedExpense = selectedExpenseId
-    ? expenses?.find((e) => e._id === selectedExpenseId)
-    : null;
+  const selectedExpense = useMemo(
+    () => selectedExpenseId ? expenses?.find((e) => e._id === selectedExpenseId) ?? null : null,
+    [expenses, selectedExpenseId]
+  );
 
   const handleCardClick = useCallback(
     (id: string) => {
       const expense = expenses?.find((e) => e._id === id);
       if (!expense) return;
 
-      if (expense.status === "draft") {
-        // Navigate to edit form for drafts
+      if (expense.status === "draft" && (!isAdmin || expense.submittedBy === user?.userId)) {
+        // Navigate to edit form for own drafts only
         navigate(`/expenses/new?edit=${id}`);
       } else {
         // Toggle timeline panel for non-draft expenses
@@ -86,7 +107,7 @@ export function MyExpenses() {
         );
       }
     },
-    [expenses, navigate]
+    [expenses, navigate, isAdmin, user]
   );
 
   const handleCloseTimeline = useCallback(() => {
@@ -101,9 +122,19 @@ export function MyExpenses() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="My Expenses"
+        title={isAdmin ? "All Expenses" : "My Expenses"}
         action={
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <Checkbox
+                  checked={highlightMine}
+                  onCheckedChange={(checked) => setHighlightMine(!!checked)}
+                />
+                <span className="inline-block w-3 h-3 rounded-sm ring-2 ring-blue-400" />
+                My expenses
+              </label>
+            )}
             {isApprover && (
               <Button variant="outline" asChild>
                 <Link to="/expenses/approve">
@@ -138,6 +169,9 @@ export function MyExpenses() {
               expenses={expenses}
               onCardClick={handleCardClick}
               selectedExpenseId={selectedExpenseId}
+              isAdmin={!!isAdmin}
+              userId={user?.userId}
+              highlightMine={highlightMine}
             />
           </TabsContent>
         ))}
@@ -156,6 +190,17 @@ export function MyExpenses() {
                 <span>{formatCurrency(selectedExpense.amount)}</span>
                 <span>{selectedExpense.vendorName}</span>
               </div>
+              {isAdmin && selectedExpense.status !== "voided" && selectedExpense.status !== "reimbursed" && (
+                <div className="mt-2">
+                  <ApprovalActions
+                    expenseId={selectedExpenseId}
+                    amount={selectedExpense.amount}
+                    paymentMethod={selectedExpense.paymentMethod}
+                    status={selectedExpense.status}
+                    onActionComplete={handleCloseTimeline}
+                  />
+                </div>
+              )}
             </div>
             <Button
               variant="ghost"
@@ -222,10 +267,16 @@ function ExpenseList({
   expenses,
   onCardClick,
   selectedExpenseId,
+  isAdmin,
+  userId,
+  highlightMine,
 }: {
-  expenses: ReturnType<typeof useMyExpenses>;
+  expenses: ReturnType<typeof useMyExpenses> | ReturnType<typeof useAllExpenses>;
   onCardClick: (id: string) => void;
   selectedExpenseId: Id<"expenses"> | null;
+  isAdmin: boolean;
+  userId?: string;
+  highlightMine: boolean;
 }) {
   // Loading
   if (expenses === undefined) {
@@ -245,28 +296,36 @@ function ExpenseList({
         <Receipt className="h-12 w-12 text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium mb-2">No expenses found</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Start by creating your first expense.
+          {isAdmin ? "No expenses match this filter." : "Start by creating your first expense."}
         </p>
-        <Button asChild>
-          <Link to="/expenses/new">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Expense
-          </Link>
-        </Button>
+        {!isAdmin && (
+          <Button asChild>
+            <Link to="/expenses/new">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Expense
+            </Link>
+          </Button>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-2 mt-4">
-      {expenses.map((expense) => (
-        <ExpenseCard
-          key={expense._id}
-          expense={expense}
-          onClick={onCardClick}
-          className={selectedExpenseId === expense._id ? "ring-2 ring-primary" : undefined}
-        />
-      ))}
+      {expenses.map((expense) => {
+        const isMine = isAdmin && userId ? expense.submittedBy === userId : false;
+        return (
+          <ExpenseCard
+            key={expense._id}
+            expense={expense}
+            onClick={onCardClick}
+            className={selectedExpenseId === expense._id ? "ring-2 ring-primary" : undefined}
+            submitterName={isAdmin ? (expense as AllExpense).submitterName : undefined}
+            isMine={isMine}
+            highlightMine={highlightMine}
+          />
+        );
+      })}
     </div>
   );
 }

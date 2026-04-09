@@ -24,8 +24,19 @@ export type ExpenseStatus =
 // ============================================================================
 
 /** List current user's expenses with optional status filter */
-export function useMyExpenses(status?: ExpenseStatus) {
-  return useSessionQuery(api.expenses.queries.listMyExpenses, status ? { status } : {});
+export function useMyExpenses(status?: ExpenseStatus, enabled: boolean = true) {
+  return useSessionQuery(
+    api.expenses.queries.listMyExpenses,
+    enabled ? (status ? { status } : {}) : "skip"
+  );
+}
+
+/** List ALL expenses across all users (admin only) */
+export function useAllExpenses(status?: ExpenseStatus, enabled: boolean = true) {
+  return useSessionQuery(
+    api.expenses.queries.listAllExpenses,
+    enabled ? (status ? { status } : {}) : "skip"
+  );
 }
 
 /** Get a single expense by ID */
@@ -148,6 +159,7 @@ export const useConvertToCapex = createMutationHook(
 // ============================================================================
 
 export type Expense = NonNullable<ReturnType<typeof useMyExpenses>>[number];
+export type AllExpense = NonNullable<ReturnType<typeof useAllExpenses>>[number];
 export type ExpenseStatusHistoryEntry = NonNullable<
   ReturnType<typeof useExpenseStatusHistory>
 >[number];

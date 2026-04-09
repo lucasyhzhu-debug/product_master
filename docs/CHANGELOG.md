@@ -16,6 +16,17 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feature: Admin All-Expenses Visibility + Void from Queue -- 2026-04-09
+
+**For the team:** Admins now see ALL company expenses (across all users) on the My Expenses page, with their own expenses highlighted at the top. Click any expense to open the timeline panel, where you can void stuck expenses directly -- no more needing the approval queue to fix accidental approvals.
+
+#### Changed
+- My Expenses page upgrades to "All Expenses" for admin users
+- Admin's own expenses pinned to top with blue ring highlight (toggle on/off)
+- Submitter name shown on each expense card in admin view
+- Void/approve/reject actions available in the timeline panel for admin
+- Non-admin users see no changes
+
 ### Improvement: Unified Production & Kitchen Components -- 2026-04-09
 
 **For the team:** Production Targets now consistently reflect what's in the Production Components page. Tier-1 components (Dubai-Regular, Nutella-Regular, Jumbo) show as "Production Components" tracked in pieces. Leaf components (Outer-Marshmallow, Filling-Pistachio, Nutella Filling, etc.) show as "Kitchen Components" tracked in grams. Both sections now come from a single source — no more separate lists getting out of sync.

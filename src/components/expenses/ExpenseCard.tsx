@@ -8,9 +8,12 @@ interface ExpenseCardProps {
   expense: Expense;
   onClick: (id: string) => void;
   className?: string;
+  submitterName?: string;
+  isMine?: boolean;
+  highlightMine?: boolean;
 }
 
-export function ExpenseCard({ expense, onClick, className }: ExpenseCardProps) {
+export function ExpenseCard({ expense, onClick, className, submitterName, isMine, highlightMine }: ExpenseCardProps) {
   const date = new Date(expense.expenseDate);
   const formattedDate = date.toLocaleDateString("id-ID", {
     day: "numeric",
@@ -20,7 +23,7 @@ export function ExpenseCard({ expense, onClick, className }: ExpenseCardProps) {
 
   return (
     <div
-      className={cn("border rounded-lg p-4 cursor-pointer hover:bg-accent/50 transition-colors", className)}
+      className={cn("border rounded-lg p-4 cursor-pointer hover:bg-accent/50 transition-colors", highlightMine && isMine && "ring-2 ring-blue-400", className)}
       onClick={() => onClick(expense._id)}
     >
       <div className="flex items-start justify-between gap-2">
@@ -55,6 +58,9 @@ export function ExpenseCard({ expense, onClick, className }: ExpenseCardProps) {
           </div>
           <p className="text-sm font-medium truncate">{expense.description}</p>
           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+            {submitterName && (
+              <span className="font-medium text-foreground">{submitterName}</span>
+            )}
             <span className="flex items-center gap-1">
               <Store className="h-3 w-3" />
               {expense.vendorName}
