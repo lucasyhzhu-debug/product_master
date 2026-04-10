@@ -202,6 +202,16 @@ Plans:
 - [x] 70-01-PLAN.md -- Fix internal revenue pipeline (cron + forceFullSync + externalRevenueItems generation + backfill button)
 - [x] 70-02-PLAN.md -- COGS override per menu product + employee profile fields
 
+### Phase 70.1: Admin All-Expenses Visibility (INSERTED)
+
+**Goal:** Admin users see ALL company expenses in MyExpenses page with own-expense highlighting, mine-first sorting, and void/approval actions via timeline panel
+**Requirements**: D-01 through D-12 (from CONTEXT.md)
+**Depends on:** Phase 70
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 70.1-01-PLAN.md -- Backend tests for listAllExpenses + verify implementation and build
+
 ### Phase 71: Bulk Expense Upload & Asset Reclassification
 **Goal**: Users can efficiently import batches of expenses from CSV and reclassify disposed assets as operating expenses
 **Depends on**: Phase 70

@@ -87,10 +87,9 @@ export function MyExpenses() {
     selectedExpenseId ?? undefined
   );
 
-  const selectedExpense = useMemo(
-    () => selectedExpenseId ? (expenses?.find((e) => e._id === selectedExpenseId) ?? null) as (AllExpense & { submitterName?: string }) | null : null,
-    [expenses, selectedExpenseId]
-  );
+  const selectedExpense = selectedExpenseId
+    ? expenses?.find((e) => e._id === selectedExpenseId) ?? null
+    : null;
 
   const handleCardClick = useCallback(
     (id: string) => {
@@ -162,7 +161,6 @@ export function MyExpenses() {
           ))}
         </TabsList>
 
-        {/* Single TabsContent that renders based on activeTab */}
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value}>
             <ExpenseList
@@ -172,13 +170,89 @@ export function MyExpenses() {
               isAdmin={!!isAdmin}
               userId={user?.userId}
               highlightMine={highlightMine}
-              statusHistory={statusHistory}
-              selectedExpense={selectedExpense}
-              onCloseTimeline={handleCloseTimeline}
             />
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Timeline Tracker Panel */}
+      {selectedExpenseId && selectedExpense && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <div>
+              <CardTitle className="text-base">
+                {selectedExpense.expenseNumber} - Status History
+              </CardTitle>
+              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                <span>{selectedExpense.description}</span>
+                <span>{formatCurrency(selectedExpense.amount)}</span>
+                <span>{selectedExpense.vendorName}</span>
+              </div>
+              {isAdmin && (selectedExpense.status === "submitted" || selectedExpense.status === "recorded" || (selectedExpense.status === "approved" && selectedExpense.paymentMethod === "payment_request") || selectedExpense.status === "awaiting_payment") && (
+                <div className="mt-2">
+                  <ApprovalActions
+                    expenseId={selectedExpenseId}
+                    amount={selectedExpense.amount}
+                    paymentMethod={selectedExpense.paymentMethod}
+                    status={selectedExpense.status}
+                    onActionComplete={handleCloseTimeline}
+                  />
+                </div>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCloseTimeline}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {statusHistory === undefined ? (
+              <div className="flex items-center gap-2 py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">
+                  Loading history...
+                </span>
+              </div>
+            ) : statusHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">
+                No status history found.
+              </p>
+            ) : (
+              <div className="space-y-0">
+                {statusHistory.map((entry, i) => (
+                  <div key={entry._id} className="flex gap-3 pb-4">
+                    <div className="flex flex-col items-center">
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary mt-1.5" />
+                      {i < statusHistory.length - 1 && (
+                        <div className="w-0.5 flex-1 bg-border mt-1" />
+                      )}
+                    </div>
+                    <div className="pb-2">
+                      <div className="flex items-center gap-2">
+                        <ExpenseStatusBadge status={entry.toStatus} />
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(entry.changedAt).toLocaleString("id-ID")}
+                        </span>
+                      </div>
+                      {entry.fromStatus && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          from {entry.fromStatus}
+                        </p>
+                      )}
+                      {entry.comment && (
+                        <p className="text-sm mt-1">{entry.comment}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -194,9 +268,6 @@ function ExpenseList({
   isAdmin,
   userId,
   highlightMine,
-  statusHistory,
-  selectedExpense,
-  onCloseTimeline,
 }: {
   expenses: ReturnType<typeof useMyExpenses> | ReturnType<typeof useAllExpenses>;
   onCardClick: (id: string) => void;
@@ -204,9 +275,6 @@ function ExpenseList({
   isAdmin: boolean;
   userId?: string;
   highlightMine: boolean;
-  statusHistory: ReturnType<typeof useExpenseStatusHistory>;
-  selectedExpense: (AllExpense & { submitterName?: string }) | null;
-  onCloseTimeline: () => void;
 }) {
   // Loading
   if (expenses === undefined) {
@@ -242,100 +310,16 @@ function ExpenseList({
 
   return (
     <div className="space-y-2 mt-4">
-      {expenses.map((expense) => {
-        const isMine = isAdmin && userId ? expense.submittedBy === userId : false;
-        const isSelected = selectedExpenseId === expense._id;
-        return (
-          <div key={expense._id}>
-            <ExpenseCard
-              expense={expense}
-              onClick={onCardClick}
-              className={isSelected ? "ring-2 ring-primary" : undefined}
-              submitterName={isAdmin ? (expense as AllExpense).submitterName : undefined}
-              isMine={isMine}
-              highlightMine={highlightMine}
-            />
-            {/* Inline timeline panel directly below selected card */}
-            {isSelected && selectedExpense && (
-              <Card className="mt-1 border-primary/30">
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                  <div>
-                    <CardTitle className="text-base">
-                      {selectedExpense.expenseNumber} - Status History
-                    </CardTitle>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                      <span>{selectedExpense.description}</span>
-                      <span>{formatCurrency(selectedExpense.amount)}</span>
-                      <span>{selectedExpense.vendorName}</span>
-                    </div>
-                    {isAdmin && selectedExpense.status !== "voided" && selectedExpense.status !== "reimbursed" && (
-                      <div className="mt-2">
-                        <ApprovalActions
-                          expenseId={selectedExpenseId!}
-                          amount={selectedExpense.amount}
-                          paymentMethod={selectedExpense.paymentMethod}
-                          status={selectedExpense.status}
-                          onActionComplete={onCloseTimeline}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onCloseTimeline}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {statusHistory === undefined ? (
-                    <div className="flex items-center gap-2 py-4">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm text-muted-foreground">
-                        Loading history...
-                      </span>
-                    </div>
-                  ) : statusHistory.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4">
-                      No status history found.
-                    </p>
-                  ) : (
-                    <div className="space-y-0">
-                      {statusHistory.map((entry, i) => (
-                        <div key={entry._id} className="flex gap-3 pb-4">
-                          <div className="flex flex-col items-center">
-                            <div className="w-2.5 h-2.5 rounded-full bg-primary mt-1.5" />
-                            {i < statusHistory.length - 1 && (
-                              <div className="w-0.5 flex-1 bg-border mt-1" />
-                            )}
-                          </div>
-                          <div className="pb-2">
-                            <div className="flex items-center gap-2">
-                              <ExpenseStatusBadge status={entry.toStatus} />
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(entry.changedAt).toLocaleString("id-ID")}
-                              </span>
-                            </div>
-                            {entry.fromStatus && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                from {entry.fromStatus}
-                              </p>
-                            )}
-                            {entry.comment && (
-                              <p className="text-sm mt-1">{entry.comment}</p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        );
-      })}
+      {expenses.map((expense) => (
+          <ExpenseCard
+            key={expense._id}
+            expense={expense}
+            onClick={onCardClick}
+            className={selectedExpenseId === expense._id ? "ring-2 ring-primary" : undefined}
+            submitterName={isAdmin ? (expense as AllExpense).submitterName : undefined}
+            highlighted={highlightMine && isAdmin && !!userId && expense.submittedBy === userId}
+          />
+        ))}
     </div>
   );
 }
