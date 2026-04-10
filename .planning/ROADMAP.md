@@ -199,7 +199,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
   4. Employee profile page shows hire date, base rate, and bank account holder name fields that can be edited by admin
 **Plans:** 2 plans
 Plans:
-- [ ] 70-01-PLAN.md -- Fix internal revenue pipeline (inline sync + batch sync with items + legacy status support)
+- [ ] 70-01-PLAN.md -- Fix internal revenue pipeline (cron + forceFullSync + externalRevenueItems generation + backfill button)
 - [ ] 70-02-PLAN.md -- COGS override per menu product + employee profile fields
 
 ### Phase 71: Bulk Expense Upload & Asset Reclassification
