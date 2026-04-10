@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import {
   hashPin,
   verifyPin,
+  requireRole,
   SESSION_DURATION_MS,
   MAX_FAILED_ATTEMPTS,
   LOCKOUT_DURATION_MS,
@@ -187,6 +188,7 @@ export const createUser = mutation({
  */
 export const updateUser = mutation({
   args: {
+    token: v.string(),
     userId: v.id("users"),
     name: v.optional(v.string()),
     role: v.optional(
@@ -198,9 +200,14 @@ export const updateUser = mutation({
       )
     ),
     avatarUrl: v.optional(v.string()),
+    // Phase 70 DA-04: Employee profile fields
+    hireDate: v.optional(v.number()),
+    baseSalaryIdr: v.optional(v.number()),
+    bankAccountHolderName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { userId, ...updates } = args;
+    await requireRole(ctx, args.token, ["admin"]);
+    const { userId, token: _, ...updates } = args;
     const filteredUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, v]) => v !== undefined)
     );

@@ -51,6 +51,10 @@ export const listUsers = query({
       lockedUntil: user.lockedUntil,
       lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
+      // Phase 70 DA-04: Employee profile fields (admin-only page)
+      hireDate: user.hireDate,
+      baseSalaryIdr: user.baseSalaryIdr,
+      bankAccountHolderName: user.bankAccountHolderName,
     }));
   },
 });

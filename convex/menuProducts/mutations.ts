@@ -225,6 +225,9 @@ export const update = mutation({
     defaultPrice: v.optional(v.number()),
     productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
     isActive: v.optional(v.boolean()),
+    // Phase 70 DA-03: Flat COGS override (set value or clear)
+    cogsOverrideIdr: v.optional(v.number()),
+    clearCogsOverride: v.optional(v.boolean()),
     // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
       v.array(
@@ -245,7 +248,7 @@ export const update = mutation({
     await requireRole(ctx, args.token, ["admin"]);
 
     // Extract token and id from args to avoid passing them to db.patch
-    const { id, token: _, components, productType: _pt, ...updates } = args;
+    const { id, token: _, components, productType: _pt, cogsOverrideIdr, clearCogsOverride, ...updates } = args;
     void _; // Suppress unused variable warning
 
     const current = await ctx.db.get(id);
@@ -275,6 +278,10 @@ export const update = mutation({
     // DEPRECATED: productionType/productionUnits no longer propagated to patch.
     // Ball composition derived from BOM (menuProductComponents + componentTypes).
     if (updates.isActive !== undefined) patchData.isActive = updates.isActive;
+
+    // Phase 70 DA-03: COGS override handling
+    if (clearCogsOverride) patchData.cogsOverrideIdr = undefined;
+    else if (cogsOverrideIdr !== undefined) patchData.cogsOverrideIdr = cogsOverrideIdr;
 
     // PRD-4a: Auto-calculate unitCost and grams from components if provided
     if (components !== undefined) {

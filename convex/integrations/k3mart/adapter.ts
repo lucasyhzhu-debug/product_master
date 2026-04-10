@@ -575,13 +575,13 @@ export const syncK3MartSales = action({
           };
         });
 
-        const insertedIds = await ctx.runMutation(
+        const batchResults = await ctx.runMutation(
           internal.externalData.mutations.saveRevenue,
           { records }
         );
 
-        newTransactions += insertedIds.length;
-        skippedDuplicates += batch.length - insertedIds.length;
+        newTransactions += batchResults.filter((r: { isNew: boolean }) => r.isNew).length;
+        skippedDuplicates += batchResults.filter((r: { isNew: boolean }) => !r.isNew).length;
       }
 
       // Update sync log with success

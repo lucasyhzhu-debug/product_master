@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Clock, RefreshCw, XCircle } from "lucide-react";
 import { formatRelativeTime } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import {
@@ -197,6 +197,25 @@ export function SettingsTab() {
     }
   };
 
+  const handleBackfillInternal = async () => {
+    setSyncingInternal(true);
+    try {
+      const result = await syncInternal({ triggeredBy: "settings", forceFullSync: true });
+      if (result.success) {
+        toast.success(`Backfilled ${result.newTransactions} orders (${result.skippedDuplicates} duplicates skipped)`);
+      } else {
+        toast.error(`Backfill failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Internal backfill failed:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Backfill failed"
+      );
+    } finally {
+      setSyncingInternal(false);
+    }
+  };
+
   // Handle toggle outlet active
   const handleToggleOutlet = async (outletId: Id<"externalOutlets">, currentlyActive: boolean) => {
     if (!user?.token) {
@@ -354,6 +373,27 @@ export function SettingsTab() {
                         onSync={() => handleSyncInternal()}
                         isSyncing={syncingInternal}
                       />
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleBackfillInternal}
+                          disabled={syncingInternal}
+                          aria-busy={syncingInternal}
+                        >
+                          {syncingInternal ? (
+                            <>
+                              <RefreshCw className="mr-2 h-3 w-3 animate-spin" />
+                              Backfilling...
+                            </>
+                          ) : (
+                            "Backfill All Orders"
+                          )}
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          Re-sync all historical orders. Safe to run multiple times.
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>

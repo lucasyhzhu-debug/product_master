@@ -696,7 +696,7 @@ export const fetchOrders = internalAction({
 
         // Bridge to externalRevenue -- pass platform variable (BUG-02 fix)
         const revenueRecords = rows.map((row) => mapOrderToRevenue(row, args.syncLogId, platform));
-        const revenueIds: string[] = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
+        const revenueResults: Array<{ id: string; isNew: boolean }> = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
           records: revenueRecords.map((r) => ({
             source: r.source as "shopee" | "tiktok",
             externalTransactionId: r.externalTransactionId,
@@ -716,6 +716,7 @@ export const fetchOrders = internalAction({
         });
 
         // Link revenue IDs back to bigsellerOrders for retroactive mapping
+        const revenueIds = revenueResults.map((r) => r.id);
         if (revenueIds.length > 0) {
           const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
           for (const revId of revenueIds) {

@@ -177,7 +177,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 
 **Milestone Goal:** Build trustworthy financial reporting with full P&L, bank reconciliation, attendance tracking, and data integrity checks.
 
-- [ ] **Phase 70: Data Accuracy Foundation** - Fix revenue recognition, add COGS override, extend employee profiles
+- [x] **Phase 70: Data Accuracy Foundation** - Fix revenue recognition, add COGS override, extend employee profiles (completed 2026-04-10)
 - [ ] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification
 - [ ] **Phase 72: Bank Statement Parser & Auto-Match** - BCA/Mandiri CSV upload with format detection and auto-matching engine
 - [ ] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking
@@ -197,10 +197,10 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
   2. Historical direct sales orders from past periods appear correctly in their respective period P&L views
   3. Manager can set a flat COGS override on any menu product, and the Income Statement uses that override instead of BOM calculation
   4. Employee profile page shows hire date, base rate, and bank account holder name fields that can be edited by admin
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 70-01-PLAN.md -- Fix internal revenue pipeline (inline sync + batch sync with items + legacy status support)
-- [ ] 70-02-PLAN.md -- COGS override per menu product + employee profile fields
+- [x] 70-01-PLAN.md -- Fix internal revenue pipeline (cron + forceFullSync + externalRevenueItems generation + backfill button)
+- [x] 70-02-PLAN.md -- COGS override per menu product + employee profile fields
 
 ### Phase 70.1: Admin All-Expenses Visibility (INSERTED)
 
@@ -300,7 +300,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 70. Data Accuracy Foundation | v2.0 | 0/2 | Planning complete | - |
+| 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 0/TBD | Not started | - |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 0/TBD | Not started | - |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
