@@ -9,8 +9,8 @@ Requirements for milestone v2.0 Financial Management & Data Quality. Each maps t
 
 ### Data Accuracy Foundation
 
-- [ ] **DA-01**: Direct sales orders flow into `externalRevenue` bridge so P&L includes all revenue sources (Revenue Recognition Fix)
-- [ ] **DA-02**: Historical direct sales orders are backfilled into revenue bridge for accurate past-period P&L
+- [x] **DA-01**: Direct sales orders flow into `externalRevenue` bridge so P&L includes all revenue sources (Revenue Recognition Fix)
+- [x] **DA-02**: Historical direct sales orders are backfilled into revenue bridge for accurate past-period P&L
 - [ ] **DA-03**: Manager can set a flat COGS override per menu product that bypasses BOM calculation
 - [ ] **DA-04**: Employee profile includes hire date, base rate, and bank account holder name fields
 
@@ -83,8 +83,8 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DA-01 | Phase 70 | Pending |
-| DA-02 | Phase 70 | Pending |
+| DA-01 | Phase 70 | Complete |
+| DA-02 | Phase 70 | Complete |
 | DA-03 | Phase 70 | Pending |
 | DA-04 | Phase 70 | Pending |
 | FIN-01 | Phase 75 | Pending |

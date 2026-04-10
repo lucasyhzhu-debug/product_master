@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
-status: planning
-stopped_at: Phase 70 context gathered
-last_updated: "2026-04-09T04:10:16.182Z"
-last_activity: 2026-04-09 - Completed quick task 260409-paq
+status: executing
+stopped_at: Completed 70-01-PLAN.md
+last_updated: "2026-04-10T06:51:37Z"
+last_activity: 2026-04-10 -- Completed 70-01 internal revenue pipeline fix
 progress:
   total_phases: 8
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 6
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 70 of 77 (Data Accuracy Foundation)
-Plan: --
-Status: Ready to plan
-Last activity: 2026-04-09 - Completed quick task 260409-paq: Align production targets toggles with production components
+Plan: 2 of 2
+Status: Executing Phase 70
+Last activity: 2026-04-10 -- Completed 70-01 internal revenue pipeline fix
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [*░░░░░░░░░] 6%
 
 ## Performance Metrics
 
@@ -40,7 +40,10 @@ Progress: [░░░░░░░░░░] 0%
 ### Decisions
 
 All v1.0-v1.9 decisions archived in PROJECT.md Key Decisions table.
-No new decisions yet for v2.0.
+
+- Phase 70-01: Used api (public) ref for cron -- syncInternalOrders is action, not internalAction
+- Phase 70-01: Filter cancelled items via isCancelled boolean, not status field on orderItems
+- Phase 70-01: Corrected by_order_number index name (plan had by_orderNumber)
 
 ### Open Blockers (carried forward)
 
@@ -62,6 +65,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-04-09T04:10:16.167Z
-Stopped at: Phase 70 context gathered
-Resume file: .planning/phases/70-data-accuracy-foundation/70-CONTEXT.md
+Last session: 2026-04-10T06:51:37Z
+Stopped at: Completed 70-01-PLAN.md
+Resume file: .planning/phases/70-data-accuracy-foundation/70-01-SUMMARY.md
