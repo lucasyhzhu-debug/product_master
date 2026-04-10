@@ -88,7 +88,7 @@ export function MyExpenses() {
   );
 
   const selectedExpense = useMemo(
-    () => selectedExpenseId ? expenses?.find((e) => e._id === selectedExpenseId) ?? null : null,
+    () => selectedExpenseId ? (expenses?.find((e) => e._id === selectedExpenseId) ?? null) as (AllExpense & { submitterName?: string }) | null : null,
     [expenses, selectedExpenseId]
   );
 
