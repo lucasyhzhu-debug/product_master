@@ -83,7 +83,7 @@ export const saveRevenue = internalMutation({
     })),
   },
   handler: async (ctx, args) => {
-    const ids = [];
+    const results: Array<{ id: string; isNew: boolean }> = [];
     for (const record of args.records) {
       // Upsert: update if transaction already exists, insert if new
       if (record.externalTransactionId) {
@@ -110,14 +110,14 @@ export const saveRevenue = internalMutation({
             transactionDate: record.transactionDate,
             syncLogId: record.syncLogId,
           });
-          ids.push(existing._id);
+          results.push({ id: existing._id, isNew: false });
           continue;
         }
       }
       const id = await ctx.db.insert("externalRevenue", record);
-      ids.push(id);
+      results.push({ id, isNew: true });
     }
-    return ids;
+    return results;
   },
 });
 

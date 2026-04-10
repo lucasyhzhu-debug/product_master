@@ -373,7 +373,7 @@ async function saveJournalTransactions(
       );
     }
 
-    const ids: Id<"externalRevenue">[] = await ctx.runMutation(
+    const results: Array<{ id: string; isNew: boolean }> = await ctx.runMutation(
       internal.externalData.mutations.saveRevenue,
       {
         records: [
@@ -398,9 +398,9 @@ async function saveJournalTransactions(
       }
     );
 
-    // If saveRevenue returned an id, it was newly created (not deduped)
-    if (ids && ids.length > 0) {
-      newRecords.push({ revenueId: ids[0], orderNumber: txn.orderNumber });
+    // Only track newly created records for order detail enrichment
+    if (results.length > 0 && results[0].isNew) {
+      newRecords.push({ revenueId: results[0].id as Id<"externalRevenue">, orderNumber: txn.orderNumber });
     }
   }
 

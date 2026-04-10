@@ -105,15 +105,15 @@ export const syncInternalOrders = action({
           };
         });
 
-        const insertedIds = await ctx.runMutation(
+        const batchResults = await ctx.runMutation(
           internal.externalData.mutations.saveRevenue,
           { records }
         );
 
-        newTransactions += insertedIds.length;
-        skippedDuplicates += batch.length - insertedIds.length;
+        newTransactions += batchResults.filter((r: { isNew: boolean }) => r.isNew).length;
+        skippedDuplicates += batchResults.filter((r: { isNew: boolean }) => !r.isNew).length;
 
-        // Generate externalRevenueItems for COGS resolution
+        // Generate externalRevenueItems for COGS resolution (only for new records)
         const batchOrderNumbers = batch.map((o) => o.orderNumber);
         const orderItemsMap = await ctx.runQuery(
           internal.integrations.internal.queries.getOrderItemsByOrderNumbers,
@@ -122,7 +122,8 @@ export const syncInternalOrders = action({
 
         for (let j = 0; j < batch.length; j++) {
           const order = batch[j];
-          const revenueId = insertedIds[j];
+          const { id: revenueId, isNew } = batchResults[j];
+          if (!isNew) continue; // Skip re-synced duplicates
           const items = orderItemsMap[order.orderNumber] ?? [];
 
           if (items.length > 0) {
@@ -130,7 +131,7 @@ export const syncInternalOrders = action({
             await ctx.runMutation(
               internal.externalData.mutations.saveRevenueItems,
               {
-                revenueId,
+                revenueId: revenueId as Id<"externalRevenue">,
                 items: items.map((item) => ({
                   externalItemId: `${order.orderNumber}-${item._id}`,
                   productName: item.productName,
