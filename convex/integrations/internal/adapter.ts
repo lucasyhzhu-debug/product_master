@@ -12,6 +12,7 @@ type SyncResult = {
   skippedDuplicates: number;
   totalGross: number;
   totalNet: number;
+  totalItems: number;
   durationMs: number;
 } | {
   success: false;
@@ -33,6 +34,7 @@ type SyncResult = {
 export const syncInternalOrders = action({
   args: {
     triggeredBy: v.optional(v.string()),
+    forceFullSync: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<SyncResult> => {
     const startTime = Date.now();
@@ -50,11 +52,13 @@ export const syncInternalOrders = action({
     );
 
     try {
-      // 2. Get last successful sync timestamp for incremental sync
-      const lastSyncTimestamp = await ctx.runQuery(
-        internal.externalData.queries.getLatestSyncTimestamp,
-        { source: "internal" }
-      );
+      // 2. Get last successful sync timestamp (skip if forceFullSync)
+      const lastSyncTimestamp = args.forceFullSync
+        ? undefined
+        : await ctx.runQuery(
+            internal.externalData.queries.getLatestSyncTimestamp,
+            { source: "internal" }
+          );
 
       // 3. Fetch revenue-countable orders (incremental: since last sync)
       const orders = await ctx.runQuery(
@@ -66,6 +70,7 @@ export const syncInternalOrders = action({
       let skippedDuplicates = 0;
       let totalGross = 0;
       let totalNet = 0;
+      let totalItems = 0;
 
       // 4. Process in batches
       for (let i = 0; i < orders.length; i += BATCH_SIZE) {
@@ -107,6 +112,43 @@ export const syncInternalOrders = action({
 
         newTransactions += insertedIds.length;
         skippedDuplicates += batch.length - insertedIds.length;
+
+        // Generate externalRevenueItems for COGS resolution
+        const batchOrderNumbers = batch.map((o) => o.orderNumber);
+        const orderItemsMap = await ctx.runQuery(
+          internal.integrations.internal.queries.getOrderItemsByOrderNumbers,
+          { orderNumbers: batchOrderNumbers }
+        );
+
+        for (let j = 0; j < batch.length; j++) {
+          const order = batch[j];
+          const revenueId = insertedIds[j];
+          const items = orderItemsMap[order.orderNumber] ?? [];
+
+          if (items.length > 0) {
+            totalItems += items.length;
+            await ctx.runMutation(
+              internal.externalData.mutations.saveRevenueItems,
+              {
+                revenueId,
+                items: items.map((item) => ({
+                  externalItemId: `${order.orderNumber}-${item._id}`,
+                  productName: item.productName,
+                  unitPrice: item.unitPrice,
+                  quantity: item.quantity,
+                  totalPrice: item.lineTotal,
+                  linkedMenuProductId: item.menuProductId
+                    ? (item.menuProductId as Id<"menuProducts">)
+                    : undefined,
+                  isAutoMatched: !!item.menuProductId,
+                  matchConfidence: (item.menuProductId ? "exact" : "none") as
+                    | "exact"
+                    | "none",
+                })),
+              }
+            );
+          }
+        }
       }
 
       // 5. Update sync log with success
@@ -128,6 +170,7 @@ export const syncInternalOrders = action({
         skippedDuplicates,
         totalGross,
         totalNet,
+        totalItems,
         durationMs: Date.now() - startTime,
       };
     } catch (error) {

@@ -38,3 +38,48 @@ export const getRevenueOrders = internalQuery({
     );
   },
 });
+
+/**
+ * Fetch order items grouped by order number.
+ * Used by the internal adapter to generate externalRevenueItems for COGS resolution.
+ * Excludes cancelled items.
+ */
+export const getOrderItemsByOrderNumbers = internalQuery({
+  args: { orderNumbers: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const result: Record<string, Array<{
+      _id: string;
+      productName: string;
+      unitPrice: number;
+      quantity: number;
+      lineTotal: number;
+      menuProductId: string | undefined;
+    }>> = {};
+
+    for (const orderNumber of args.orderNumbers) {
+      const order = await ctx.db
+        .query("orders")
+        .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+        .first();
+      if (!order) continue;
+
+      const items = await ctx.db
+        .query("orderItems")
+        .withIndex("by_order", (q) => q.eq("orderId", order._id))
+        .collect();
+
+      result[orderNumber] = items
+        .filter((item) => !item.isCancelled)
+        .map((item) => ({
+          _id: item._id as string,
+          productName: item.productName ?? "Unknown",
+          unitPrice: item.unitPrice ?? 0,
+          quantity: item.quantity ?? 1,
+          lineTotal: item.lineTotal ?? (item.unitPrice ?? 0) * (item.quantity ?? 1),
+          menuProductId: item.menuProductId as string | undefined,
+        }));
+    }
+
+    return result;
+  },
+});
