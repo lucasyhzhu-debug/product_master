@@ -360,7 +360,10 @@ export function MenuProductsManager() {
 
   // Phase 70 DA-03: Inline COGS override handlers
   const handleCogsOverrideSave = async (productId: string) => {
+    if (editingCogsId !== productId) return; // Guard: already saved or cancelled (prevents onBlur double-fire)
     const trimmed = cogsInputValue.trim();
+    setEditingCogsId(null); // Close input immediately before async work
+    setCogsInputValue('');
     try {
       if (trimmed === '') {
         // Clear override -- revert to BOM
@@ -383,9 +386,6 @@ export function MenuProductsManager() {
       }
     } catch {
       // useUpdateMenuProduct already shows toast on error
-    } finally {
-      setEditingCogsId(null);
-      setCogsInputValue('');
     }
   };
 
