@@ -16,6 +16,15 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Inventory Transaction Type Filters -- 2026-04-10
+
+**For the team:** Production entries in inventory were hard to find because GoFood sync entries dominated the list. The Recent Transactions panel now has filter pills (Production, GoFood, Orders, etc.) so you can quickly isolate the transactions you care about.
+
+#### Changed
+- Added type filter pills to inventory transaction log (Production / GoFood / Orders / Transfers / Adjustments / Counts)
+- Added missing display config for Transfer and Stock Count transaction types
+- Renamed "Added" label to "Production" for clarity
+
 ### Feature: Admin All-Expenses Visibility + Void from Queue -- 2026-04-09
 
 **For the team:** Admins now see ALL company expenses (across all users) on the My Expenses page, with their own expenses highlighted at the top. Click any expense to open the timeline panel, where you can void stuck expenses directly -- no more needing the approval queue to fix accidental approvals.
