@@ -533,6 +533,7 @@ async function fetchAndAggregate(
     previousConsignments,
     bomComponents,
     allComponentTypes,
+    menuProductsList,
     opexAccounts,
     otherAccounts,
     currentJournalLines,
@@ -577,6 +578,8 @@ async function fetchAndAggregate(
     // BOM preload (follows getLifetimeTotalsInternal pattern)
     ctx.db.query("menuProductComponents").collect(),
     ctx.db.query("componentTypes").collect(),
+    // Phase 70 DA-03: Menu products for COGS override
+    ctx.db.query("menuProducts").collect(),
     // Accounts for OpEx/Other aggregation
     ctx.db.query("accounts").withIndex("by_type", (q) => q.eq("type", "opex")).collect(),
     ctx.db.query("accounts").withIndex("by_type", (q) => q.eq("type", "other")).collect(),
@@ -668,6 +671,10 @@ async function fetchAndAggregate(
       _id: ct._id as string,
       unitCostIdr: ct.unitCostIdr,
       category: ct.category,
+    })),
+    menuProductsList.map((mp) => ({
+      _id: mp._id as string,
+      cogsOverrideIdr: mp.cogsOverrideIdr,
     }))
   );
 

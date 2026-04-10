@@ -198,6 +198,10 @@ export const updateUser = mutation({
       )
     ),
     avatarUrl: v.optional(v.string()),
+    // Phase 70 DA-04: Employee profile fields
+    hireDate: v.optional(v.number()),
+    baseSalaryIdr: v.optional(v.number()),
+    bankAccountHolderName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { userId, ...updates } = args;

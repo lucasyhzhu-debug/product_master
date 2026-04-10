@@ -116,6 +116,9 @@ export default defineSchema({
     productionType: v.optional(v.string()),
     productionUnits: v.optional(v.number()),
     isFixed: v.optional(v.boolean()),
+    // Phase 70 DA-03: Flat COGS override in IDR (production + packaging combined).
+    // When set (non-null), bypasses BOM calculation entirely for this product in Income Statement.
+    cogsOverrideIdr: v.optional(v.number()),
     /** Storage ID for product photo (written back from GrabFood Menu Simulator uploads) */
     photoStorageId: v.optional(v.id("_storage")),
   })
@@ -457,6 +460,10 @@ export default defineSchema({
     // Phase 41: Bank details for reimbursement payments
     bankAccountNumber: v.optional(v.string()),
     bankName: v.optional(v.string()),
+    // Phase 70 DA-04: Employee financial metadata for payroll and bank reconciliation
+    hireDate: v.optional(v.number()),              // Epoch ms
+    baseSalaryIdr: v.optional(v.number()),         // Monthly salary in IDR
+    bankAccountHolderName: v.optional(v.string()), // Legal name for bank transfers (may differ from display name)
   })
     .index("by_role", ["role"])
     .index("by_active", ["isActive"]),

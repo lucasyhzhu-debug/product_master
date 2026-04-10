@@ -155,8 +155,22 @@ export function buildProductCOGSMap(
     _id: string;
     unitCostIdr: number;
     category: string;
+  }>,
+  menuProducts?: Array<{
+    _id: string;
+    cogsOverrideIdr?: number;
   }>
 ): Map<string, { production: number; packaging: number; total: number }> {
+  // Step 0: Build override set (DA-03: override always wins)
+  const overrides = new Map<string, number>();
+  if (menuProducts) {
+    for (const mp of menuProducts) {
+      if (mp.cogsOverrideIdr != null) {
+        overrides.set(mp._id, mp.cogsOverrideIdr);
+      }
+    }
+  }
+
   // Step 1: Build component type lookup map
   const componentTypeMap = new Map<
     string,
@@ -176,6 +190,9 @@ export function buildProductCOGSMap(
   >();
 
   for (const comp of bomComponents) {
+    // Skip BOM aggregation if this product has an override
+    if (overrides.has(comp.menuProductId)) continue;
+
     const ct = componentTypeMap.get(comp.componentTypeId);
     if (!ct) continue; // Defensive: skip unknown component types
 
@@ -194,6 +211,11 @@ export function buildProductCOGSMap(
       entry.packaging += lineCost;
     }
     entry.total = entry.production + entry.packaging;
+  }
+
+  // Step 3: Apply overrides (replaces any partial BOM entry)
+  for (const [productId, override] of overrides) {
+    result.set(productId, { production: override, packaging: 0, total: override });
   }
 
   return result;
