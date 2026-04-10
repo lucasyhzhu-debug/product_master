@@ -500,7 +500,7 @@ export const updateUser = mutation({
 | A3 | `menuProducts` table has fewer than 100 products | DA-03 Performance | Full table scan is acceptable at any realistic scale for this business. Convex handles efficiently. [ASSUMED] |
 | A4 | `updateUser` handler's generic filter pattern will include new fields without handler changes | DA-04 | Handler uses `Object.fromEntries(Object.entries(updates).filter(...))` which passes through any arg. [VERIFIED: auth/mutations.ts lines 201-213] |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **How many orders have legacy "Confirmed" status?**
    - What we know: Schema allows it, the Bali order 0330-002 is reportedly stuck there
