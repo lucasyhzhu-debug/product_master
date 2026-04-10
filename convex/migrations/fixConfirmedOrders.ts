@@ -49,10 +49,12 @@ export const fixConfirmedOrders = internalMutation({
       // to PaymentReceived. For direct sales (internal orders), payment
       // is typically received at confirmation time. Advance to PaymentReceived.
       //
-      // Guard: Only advance if the order has a positive finalTotal (real order with payment).
+      // Guard: Only advance if the order has a positive finalTotal AND payment
+      // has actually been received (paymentStatus is "Paid").
       const hasTotal = order.finalTotal != null && order.finalTotal > 0;
+      const isPaid = order.paymentStatus === "Paid";
 
-      if (hasTotal) {
+      if (hasTotal && isPaid) {
         // Advance to PaymentReceived
         await ctx.db.patch(order._id, { status: "PaymentReceived" });
 
@@ -76,12 +78,23 @@ export const fixConfirmedOrders = internalMutation({
             ? `${lastEvent.eventType} at ${new Date(lastEvent.timestamp).toISOString()}`
             : "none",
         });
-      } else {
+      } else if (!hasTotal) {
         // Order has no total -- may be incomplete. Leave as-is and log for review.
         results.push({
           orderNumber: order.orderNumber,
           orderId: order._id as string,
           action: "skipped_no_total",
+          eventCount: events.length,
+          lastEvent: lastEvent
+            ? `${lastEvent.eventType} at ${new Date(lastEvent.timestamp).toISOString()}`
+            : "none",
+        });
+      } else {
+        // Has total but payment not confirmed -- do not advance.
+        results.push({
+          orderNumber: order.orderNumber,
+          orderId: order._id as string,
+          action: "skipped_not_paid",
           eventCount: events.length,
           lastEvent: lastEvent
             ? `${lastEvent.eventType} at ${new Date(lastEvent.timestamp).toISOString()}`
@@ -93,7 +106,8 @@ export const fixConfirmedOrders = internalMutation({
     return {
       totalConfirmed: confirmedOrders.length,
       advanced: results.filter((r) => r.action === "advanced_to_PaymentReceived").length,
-      skipped: results.filter((r) => r.action === "skipped_no_total").length,
+      skippedNoTotal: results.filter((r) => r.action === "skipped_no_total").length,
+      skippedNotPaid: results.filter((r) => r.action === "skipped_not_paid").length,
       details: results,
     };
   },
