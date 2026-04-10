@@ -82,6 +82,10 @@ export default function UsersManager() {
   const [formPin, setFormPin] = useState("");
   const [formRole, setFormRole] = useState<UserRole>("order_staff");
   const [formAvatarUrl, setFormAvatarUrl] = useState("");
+  // Phase 70 DA-04: Employee profile fields
+  const [formHireDate, setFormHireDate] = useState("");
+  const [formBaseSalary, setFormBaseSalary] = useState("");
+  const [formBankHolderName, setFormBankHolderName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCreateUser = async () => {
@@ -117,6 +121,16 @@ export default function UsersManager() {
   const handleUpdateUser = async () => {
     if (!selectedUser || !formName) return;
 
+    // Phase 70 DA-04: Client-side validation for employee fields
+    if (formBaseSalary && (isNaN(Number(formBaseSalary)) || Number(formBaseSalary) < 0)) {
+      toast.error("Salary must be zero or a positive number");
+      return;
+    }
+    if (formBankHolderName.trim().length > 100) {
+      toast.error("Name must be 100 characters or fewer");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await updateUser({
@@ -124,6 +138,10 @@ export default function UsersManager() {
         name: formName,
         role: formRole,
         avatarUrl: formAvatarUrl || undefined,
+        // Phase 70 DA-04: Employee profile fields
+        hireDate: formHireDate ? new Date(formHireDate).getTime() : undefined,
+        baseSalaryIdr: formBaseSalary ? Number(formBaseSalary) : undefined,
+        bankAccountHolderName: formBankHolderName.trim() || undefined,
       });
       toast.success("User updated successfully");
       setShowEditDialog(false);
@@ -184,6 +202,9 @@ export default function UsersManager() {
     setFormPin("");
     setFormRole("order_staff");
     setFormAvatarUrl("");
+    setFormHireDate("");
+    setFormBaseSalary("");
+    setFormBankHolderName("");
     setSelectedUser(null);
   };
 
@@ -192,6 +213,9 @@ export default function UsersManager() {
     setFormName(user.name);
     setFormRole(user.role as UserRole);
     setFormAvatarUrl(user.avatarUrl || "");
+    setFormHireDate(user.hireDate ? new Date(user.hireDate).toISOString().split('T')[0] : '');
+    setFormBaseSalary(user.baseSalaryIdr != null ? String(user.baseSalaryIdr) : '');
+    setFormBankHolderName(user.bankAccountHolderName ?? '');
     setShowEditDialog(true);
   };
 
@@ -439,8 +463,7 @@ export default function UsersManager() {
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>
-              Update user name, role, and avatar. Use Reset PIN to change their
-              PIN.
+              Update user details and employment information.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -480,6 +503,53 @@ export default function UsersManager() {
                 placeholder="https://..."
                 disabled={isSubmitting}
               />
+            </div>
+
+            {/* Phase 70 DA-04: Employment Details section */}
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm font-medium text-muted-foreground mb-4">Employment Details</p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-hireDate">Hire Date</Label>
+                  <Input
+                    id="edit-hireDate"
+                    type="date"
+                    value={formHireDate}
+                    onChange={(e) => setFormHireDate(e.target.value)}
+                    placeholder="Select date"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-salary">Monthly Salary (IDR)</Label>
+                  <Input
+                    id="edit-salary"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={formBaseSalary}
+                    onChange={(e) => setFormBaseSalary(e.target.value)}
+                    placeholder="e.g. 3500000"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-bankHolder">Bank Account Holder Name</Label>
+                  <Input
+                    id="edit-bankHolder"
+                    type="text"
+                    maxLength={100}
+                    value={formBankHolderName}
+                    onChange={(e) => setFormBankHolderName(e.target.value)}
+                    placeholder="Legal name for bank transfers"
+                    disabled={isSubmitting}
+                    aria-describedby="bankHolder-help"
+                  />
+                  <p id="bankHolder-help" className="text-xs text-muted-foreground">
+                    May differ from display name above
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

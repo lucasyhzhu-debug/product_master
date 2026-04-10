@@ -34,6 +34,9 @@ export interface MenuProductUpdateInput {
   grams?: number;
   defaultPrice?: number;
   isActive?: boolean;
+  // Phase 70 DA-03: COGS override
+  cogsOverrideIdr?: number;
+  clearCogsOverride?: boolean;
   // Unified BOM: Components array using componentTypeId
   components?: Array<{
     componentTypeId: Id<"componentTypes">;
@@ -121,6 +124,7 @@ export interface PosProduct {
   posSlot: number;
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
+  cogsOverrideIdr?: number;
 }
 
 export interface PackagingPosProduct {
@@ -151,6 +155,7 @@ export function usePosProducts() {
     posSlot: p.posSlot as number,
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
+    cogsOverrideIdr: p.cogsOverrideIdr,
   }));
 
   return {
@@ -173,6 +178,7 @@ export interface AvailableProduct {
   unitCostStaleAt?: number;
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
+  cogsOverrideIdr?: number;
 }
 
 export function useAvailableProducts() {
@@ -189,6 +195,7 @@ export function useAvailableProducts() {
     unitCostStaleAt: p.unitCostStaleAt,
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
+    cogsOverrideIdr: p.cogsOverrideIdr,
   }));
 
   return {

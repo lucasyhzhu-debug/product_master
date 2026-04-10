@@ -35,6 +35,7 @@ import {
   useReorderSlots,
   useReorderPackagingSlots,
   useRecalculateAllCosts,
+  useUpdateMenuProduct,
   type PosProduct,
   type AvailableProduct,
   type PackagingPosProduct,
@@ -87,6 +88,11 @@ export function MenuProductsManager() {
   // Recalculate All Costs state
   const [recalcResults, setRecalcResults] = useState<RecalcResult[] | null>(null);
   const [isRecalculating, setIsRecalculating] = useState(false);
+
+  // Phase 70 DA-03: Inline COGS override editing
+  const updateMenuProduct = useUpdateMenuProduct();
+  const [editingCogsId, setEditingCogsId] = useState<string | null>(null);
+  const [cogsInputValue, setCogsInputValue] = useState('');
 
   const isLoading = loadingPos || loadingAvailable || loadingPackagingPos;
 
@@ -352,13 +358,66 @@ export function MenuProductsManager() {
     return ((price - cogs) / price) * 100;
   };
 
+  // Phase 70 DA-03: Inline COGS override handlers
+  const handleCogsOverrideSave = async (productId: string) => {
+    const trimmed = cogsInputValue.trim();
+    try {
+      if (trimmed === '') {
+        // Clear override -- revert to BOM
+        await updateMenuProduct.mutateAsync({
+          id: productId as Id<"menuProducts">,
+          updates: { clearCogsOverride: true },
+        });
+        toast.success("COGS override cleared \u2014 using BOM");
+      } else {
+        const value = Number(trimmed);
+        if (isNaN(value) || value < 0) {
+          toast.error("COGS must be zero or a positive number");
+          return;
+        }
+        await updateMenuProduct.mutateAsync({
+          id: productId as Id<"menuProducts">,
+          updates: { cogsOverrideIdr: value },
+        });
+        toast.success("COGS override saved");
+      }
+    } catch {
+      // useUpdateMenuProduct already shows toast on error
+    } finally {
+      setEditingCogsId(null);
+      setCogsInputValue('');
+    }
+  };
+
+  const handleCogsKeyDown = (e: React.KeyboardEvent, productId: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCogsOverrideSave(productId);
+    } else if (e.key === 'Escape') {
+      setEditingCogsId(null);
+      setCogsInputValue('');
+    }
+  };
+
+  const startCogsEdit = (product: PosProduct | AvailableProduct) => {
+    setEditingCogsId(product._id as string);
+    setCogsInputValue(
+      product.cogsOverrideIdr != null
+        ? String(product.cogsOverrideIdr)
+        : ''
+    );
+  };
+
   const renderProductCard = (
     product: PosProduct | AvailableProduct | PackagingPosProduct,
     showPosActions: boolean,
     showAddToPos: boolean = false,
     showDelete: boolean = true
   ) => {
-    const margin = calculateMargin(product.defaultPrice, product.unitCost);
+    const effectiveCogs = (product as PosProduct | AvailableProduct).cogsOverrideIdr != null
+      ? (product as PosProduct | AvailableProduct).cogsOverrideIdr
+      : product.unitCost;
+    const margin = calculateMargin(product.defaultPrice, effectiveCogs);
     const isPosProduct = 'posSlot' in product;
     const isPackagingPosProduct = 'packagingPosSlot' in product;
     const isFood = !product.productType || product.productType === 'food';
@@ -413,14 +472,44 @@ export function MenuProductsManager() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">COGS</p>
-                  <p className="font-medium flex items-center gap-1">
-                    {formatCurrency(product.unitCost ?? 0)}
-                    {product.unitCostStaleAt && (
-                      <span title="Cost recalculation in progress">
-                        <RefreshCw className="h-3 w-3 text-amber-500 animate-spin" />
-                      </span>
-                    )}
-                  </p>
+                  {editingCogsId === (product._id as string) ? (
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="w-full rounded border border-input bg-background px-2 py-0.5 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={cogsInputValue}
+                      onChange={(e) => setCogsInputValue(e.target.value)}
+                      onBlur={() => handleCogsOverrideSave(product._id as string)}
+                      onKeyDown={(e) => handleCogsKeyDown(e, product._id as string)}
+                      placeholder="Auto (BOM)"
+                      autoFocus
+                    />
+                  ) : (
+                    <p
+                      className="font-medium flex items-center gap-1 cursor-pointer hover:text-primary"
+                      onClick={() => startCogsEdit(product as PosProduct | AvailableProduct)}
+                      title="Click to set COGS override"
+                    >
+                      {(product as PosProduct | AvailableProduct).cogsOverrideIdr != null
+                        ? formatCurrency((product as PosProduct | AvailableProduct).cogsOverrideIdr!)
+                        : formatCurrency(product.unitCost ?? 0)
+                      }
+                      {(product as PosProduct | AvailableProduct).cogsOverrideIdr != null && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        >
+                          Override
+                        </Badge>
+                      )}
+                      {(product as PosProduct | AvailableProduct).cogsOverrideIdr == null && product.unitCostStaleAt && (
+                        <span title="Cost recalculation in progress">
+                          <RefreshCw className="h-3 w-3 text-amber-500 animate-spin" />
+                        </span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-muted-foreground">Margin</p>
