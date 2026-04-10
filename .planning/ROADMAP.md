@@ -221,7 +221,12 @@ Plans:
   2. Trusted CSV batches can be auto-approved, creating expenses in Recorded status with journal entries generated immediately
   3. Untrusted CSV batches can be submitted for approval, routing each expense through the existing DoA approval queue
   4. User can dispose a fixed asset with "Reclassify to Expense" type, which reverses capitalization and books the net book value as an operating expense
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+- [ ] 71-01-PLAN.md -- Schema update + bulkCreateExpenses mutation + asset reclassification disposal extension
+- [ ] 71-02-PLAN.md -- CSV validation refactor for name-based matching + SearchableSelect + EditableCell components
+- [ ] 71-03-PLAN.md -- Refactor HistoricalImportPage into BulkImportPage with editable preview table
+- [ ] 71-04-PLAN.md -- Extend DisposeAssetDialog with reclassify-to-expense option
 **UI hint**: yes
 
 ### Phase 72: Bank Statement Parser & Auto-Match
