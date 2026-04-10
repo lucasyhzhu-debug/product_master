@@ -106,6 +106,58 @@ describe("buildProductCOGSMap", () => {
 });
 
 // ============================================
+// buildProductCOGSMap with COGS override Tests
+// ============================================
+
+describe("buildProductCOGSMap with COGS override", () => {
+  const bomComponents = [
+    { menuProductId: "prod1", componentTypeId: "ct1", quantity: 1 },
+    { menuProductId: "prod1", componentTypeId: "ct2", quantity: 1 },
+    { menuProductId: "prod2", componentTypeId: "ct1", quantity: 2 },
+  ];
+  const componentTypes = [
+    { _id: "ct1", unitCostIdr: 10000, category: "production" },
+    { _id: "ct2", unitCostIdr: 2000, category: "packaging" },
+  ];
+
+  test("override replaces BOM calculation for overridden product", () => {
+    const menuProducts = [{ _id: "prod1", cogsOverrideIdr: 15000 }];
+    const result = buildProductCOGSMap(bomComponents, componentTypes, menuProducts);
+    expect(result.get("prod1")).toEqual({ production: 15000, packaging: 0, total: 15000 });
+    // prod2 still uses BOM
+    expect(result.get("prod2")).toEqual({ production: 20000, packaging: 0, total: 20000 });
+  });
+
+  test("undefined cogsOverrideIdr falls back to BOM", () => {
+    const menuProducts = [{ _id: "prod1", cogsOverrideIdr: undefined }];
+    const result = buildProductCOGSMap(bomComponents, componentTypes, menuProducts);
+    expect(result.get("prod1")).toEqual({ production: 10000, packaging: 2000, total: 12000 });
+  });
+
+  test("no menuProducts parameter preserves backward compatibility", () => {
+    const result = buildProductCOGSMap(bomComponents, componentTypes);
+    expect(result.get("prod1")).toEqual({ production: 10000, packaging: 2000, total: 12000 });
+    expect(result.get("prod2")).toEqual({ production: 20000, packaging: 0, total: 20000 });
+  });
+
+  test("zero override is valid (free product)", () => {
+    const menuProducts = [{ _id: "prod1", cogsOverrideIdr: 0 }];
+    const result = buildProductCOGSMap(bomComponents, componentTypes, menuProducts);
+    expect(result.get("prod1")).toEqual({ production: 0, packaging: 0, total: 0 });
+  });
+
+  test("mix of overridden and non-overridden products", () => {
+    const menuProducts = [
+      { _id: "prod1", cogsOverrideIdr: 15000 },
+      { _id: "prod2", cogsOverrideIdr: undefined },
+    ];
+    const result = buildProductCOGSMap(bomComponents, componentTypes, menuProducts);
+    expect(result.get("prod1")).toEqual({ production: 15000, packaging: 0, total: 15000 });
+    expect(result.get("prod2")).toEqual({ production: 20000, packaging: 0, total: 20000 });
+  });
+});
+
+// ============================================
 // calculateWeekRange Tests
 // ============================================
 
