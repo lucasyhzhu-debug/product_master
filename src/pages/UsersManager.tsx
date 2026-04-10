@@ -7,6 +7,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ function formatRelativeTime(timestamp: number): string {
 
 export default function UsersManager() {
   useDocumentTitle('Users');
+  const { user: authUser } = useAuth();
   const users = useQuery(api.auth.queries.listUsers);
   const createUser = useMutation(api.auth.mutations.createUser);
   const updateUser = useMutation(api.auth.mutations.updateUser);
@@ -134,6 +136,7 @@ export default function UsersManager() {
     setIsSubmitting(true);
     try {
       await updateUser({
+        token: authUser!.token,
         userId: selectedUser._id as Id<"users">,
         name: formName,
         role: formRole,
@@ -147,7 +150,7 @@ export default function UsersManager() {
       setShowEditDialog(false);
       resetForm();
     } catch (error) {
-      toast.error("Failed to update user");
+      toast.error(error instanceof Error ? error.message : "Failed to update user");
     } finally {
       setIsSubmitting(false);
     }
