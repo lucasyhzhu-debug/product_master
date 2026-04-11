@@ -163,7 +163,6 @@ export function SettlementTimeline({
           confirmLabel="Mark as Paid"
           disabled={!paidDate}
           onConfirm={() => {
-            if (!paidDate) return;
             onMarkPaid(targetPaid, toLocalEpoch(paidDate));
             setConfirmPaidId(null);
           }}
