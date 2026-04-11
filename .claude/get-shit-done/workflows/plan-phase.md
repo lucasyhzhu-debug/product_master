@@ -800,7 +800,7 @@ Track `stall_reentry_count` (starts at 0; incremented each time "Adjust approach
 
 **If iteration_count < 3:**
 
-Parse issue count from checker return: count BLOCKER + WARNING entries in the YAML issues block (structured output from gsd-plan-checker). If the checker's return contains no YAML issues block (i.e., the plan was approved with no issues), treat `issue_count` as 0 and skip the stall check — the plan passed. Proceed to step 13.
+Parse issue count from checker return: count BLOCKER + WARNING entries in the YAML issues block (structured output from gsd-plan-checker). If the checker's return contains no YAML issues block (i.e., the plan was approved with no issues), treat `issue_count` as 0 and skip the stall check — the plan passed. Proceed to step 12.5 (staff review).
 
 Display: `Revision iteration {N}/3 -- {blocker_count} blockers, {warning_count} warnings`
 
@@ -811,7 +811,7 @@ Display: `Revision iteration {N}/3 -- {blocker_count} blockers, {warning_count} 
     Ask user:
       Question: "Issues remain after {N} revision attempts with no progress. Proceed with current output?"
       Options: "Proceed anyway" | "Adjust approach"
-    If "Proceed anyway": accept current plans and continue to step 13.
+    If "Proceed anyway": accept current plans and continue to step 12.5 (staff review).
     If "Adjust approach": increment `stall_reentry_count`, open freeform discussion, then re-enter step 8 (full replanning). Note: re-entry resets `iteration_count` and `prev_issue_count` but `stall_reentry_count` persists across re-entries and is capped at 2.
 
   **If `stall_reentry_count >= 2`:**
@@ -819,7 +819,7 @@ Display: `Revision iteration {N}/3 -- {blocker_count} blockers, {warning_count} 
     List the remaining issues from the checker.
     Suggest: "Consider resolving these issues manually or running `/gsd-debug` to investigate root causes."
     Options: "Proceed anyway" | "Abandon"
-    If "Proceed anyway": accept current plans and continue to step 13.
+    If "Proceed anyway": accept current plans and continue to step 12.5 (staff review).
     If "Abandon": stop workflow.
 
 Set `prev_issue_count = issue_count`.

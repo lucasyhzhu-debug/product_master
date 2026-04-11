@@ -562,6 +562,22 @@ Offer: 1) Force proceed, 2) Abort
 
 ---
 
+**Task tree:** Before spawning the executor, create explicit tasks for ALL execution phases using `TaskCreate`. This ensures every quality gate is visible in the task tree:
+
+```
+TaskCreate("Execute quick task")
+TaskCreate("Code review", blockedBy: [executor_task])           # Step 6.25 (if $FULL_MODE)
+TaskCreate("Verification", blockedBy: [code_review_task])       # Step 6.5 (if $VALIDATE_MODE)
+TaskCreate("Triple review (/triple-review)", blockedBy: [verification_task])  # Step 6.1 (if $FULL_MODE)
+TaskCreate("Simplify (/simplify)", blockedBy: [triple_review_task])           # Step 6.2 (if $FULL_MODE)
+TaskCreate("Update state and commit", blockedBy: [simplify_task])             # Steps 7-8
+TaskCreate("Document and merge", blockedBy: [state_task])                     # Step 9 (if on feature branch)
+```
+
+Only create tasks for steps that will actually run (based on `$FULL_MODE`, `$VALIDATE_MODE`, and branch). Update each task's status to `in_progress` when starting and `completed` when done. If a step is skipped (config disabled), mark its task `completed` with a skip note.
+
+---
+
 **Step 6: Spawn executor**
 
 Capture current HEAD before spawning (used for worktree branch check):
@@ -763,7 +779,7 @@ Store as `$VERIFICATION_STATUS`.
 
 | Status | Action |
 |--------|--------|
-| `passed` | Store `$VERIFICATION_STATUS = "Verified"`, continue to step 7 |
+| `passed` | Store `$VERIFICATION_STATUS = "Verified"`, continue to step 6.1 (triple review) |
 | `human_needed` | Display items needing manual check, store `$VERIFICATION_STATUS = "Needs Review"`, continue |
 | `gaps_found` | Display gap summary, offer: 1) Re-run executor to fix gaps, 2) Accept as-is. Store `$VERIFICATION_STATUS = "Gaps"` |
 

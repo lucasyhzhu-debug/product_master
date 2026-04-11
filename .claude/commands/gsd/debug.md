@@ -73,6 +73,19 @@ Use AskUserQuestion for each:
 
 After all gathered, confirm ready to investigate.
 
+## 2.5. Task Tree
+
+After gathering symptoms (or loading existing session), create explicit tasks for ALL phases using `TaskCreate`:
+
+```
+TaskCreate("Debug investigation")
+TaskCreate("Triple review (/triple-review)", blockedBy: [debug_task])    # Step 6a
+TaskCreate("Simplify (/simplify)", blockedBy: [triple_review_task])      # Step 6b
+TaskCreate("Document and merge", blockedBy: [simplify_task])             # Step 7
+```
+
+Only create quality gate tasks if code changes are expected (i.e., `find_and_fix` mode, not `diagnose` mode). Update each task to `in_progress`/`completed` as work progresses. If a step is skipped (config disabled or no code changes), mark its task `completed` with a skip note.
+
 ## 3. Spawn gsd-debugger Agent
 
 Fill prompt and spawn:
@@ -124,7 +137,7 @@ Task(
 - Display root cause and fix summary
 - Offer options:
   - "Plan fix" — suggest `/gsd-plan-phase --gaps` if further work needed
-  - "Done" — mark resolved
+  - "Done" — proceed to Step 6 (quality gates) and Step 7 (document and merge)
 
 **If `## CHECKPOINT REACHED`:**
 - Present checkpoint details to user

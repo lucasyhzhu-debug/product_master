@@ -241,6 +241,20 @@ Report:
 | 1 | 01-01, 01-02 | {from plan objectives, 3-8 words} |
 | 2 | 01-03 | ... |
 ```
+
+**Task tree:** After displaying the execution plan, create explicit tasks for ALL phases of execution using `TaskCreate`. Each wave gets its own task, PLUS separate tasks for each quality gate. Later waves and gates use `blockedBy` to chain dependencies. Example for a 2-wave phase:
+
+```
+TaskCreate("Wave 1: Execute Plan {id} ({name})")
+TaskCreate("Wave 2: Execute Plan {id} ({name})", blockedBy: [wave1_task])
+TaskCreate("Code review", blockedBy: [last_wave_task])
+TaskCreate("Triple review (/triple-review)", blockedBy: [code_review_task])
+TaskCreate("Simplify (/simplify)", blockedBy: [triple_review_task])
+TaskCreate("Phase verification", blockedBy: [simplify_task])
+TaskCreate("Document and merge", blockedBy: [verification_task])
+```
+
+This ensures every quality gate is visible in the task tree. Update each task's status to `in_progress` when starting and `completed` when done.
 </step>
 
 <step name="execute_waves">
