@@ -308,6 +308,11 @@ export const markAsPaid = mutation({
     const now = Date.now();
     const paidAt = args.paidAt ?? now;
 
+    // Guard: reject invalid or future timestamps
+    if (!Number.isFinite(paidAt) || paidAt > now) {
+      throw new Error("Paid date must be a valid date not in the future");
+    }
+
     const settlement = await ctx.db.get(args.settlementId);
     if (!settlement) {
       throw new Error("Settlement not found");

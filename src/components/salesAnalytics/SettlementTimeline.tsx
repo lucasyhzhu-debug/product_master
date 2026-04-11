@@ -152,11 +152,18 @@ export function SettlementTimeline({
       {targetPaid && (
         <ConfirmDialog
           open={!!confirmPaidId}
-          onOpenChange={(v) => !v && setConfirmPaidId(null)}
+          onOpenChange={(v) => {
+            if (!v) {
+              setConfirmPaidId(null);
+              setPaidDate("");
+            }
+          }}
           title="Mark as Paid"
           description={`Mark this ${formatCurrency(targetPaid.frolliePayment)} settlement as paid? This action cannot be undone.`}
           confirmLabel="Mark as Paid"
+          disabled={!paidDate}
           onConfirm={() => {
+            if (!paidDate) return;
             onMarkPaid(targetPaid, toLocalEpoch(paidDate));
             setConfirmPaidId(null);
           }}
