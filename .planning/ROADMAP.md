@@ -178,7 +178,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 **Milestone Goal:** Build trustworthy financial reporting with full P&L, bank reconciliation, attendance tracking, and data integrity checks.
 
 - [x] **Phase 70: Data Accuracy Foundation** - Fix revenue recognition, add COGS override, extend employee profiles (completed 2026-04-10)
-- [ ] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification
+- [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
 - [ ] **Phase 72: Bank Statement Parser & Auto-Match** - BCA/Mandiri CSV upload with format detection and auto-matching engine
 - [ ] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking
 - [ ] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries
@@ -221,12 +221,12 @@ Plans:
   2. Trusted CSV batches can be auto-approved, creating expenses in Recorded status with journal entries generated immediately
   3. Untrusted CSV batches can be submitted for approval, routing each expense through the existing DoA approval queue
   4. User can dispose a fixed asset with "Reclassify to Expense" type, which reverses capitalization and books the net book value as an operating expense
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
-- [ ] 71-01-PLAN.md -- Schema update + bulkCreateExpenses mutation + asset reclassification disposal extension
-- [ ] 71-02-PLAN.md -- CSV validation refactor for name-based matching + SearchableSelect + EditableCell components
-- [ ] 71-03-PLAN.md -- Refactor HistoricalImportPage into BulkImportPage with editable preview table
-- [ ] 71-04-PLAN.md -- Extend DisposeAssetDialog with reclassify-to-expense option
+- [x] 71-01-PLAN.md -- Schema update + bulkCreateExpenses mutation + asset reclassification disposal extension
+- [x] 71-02-PLAN.md -- CSV validation refactor for name-based matching + SearchableSelect + EditableCell components
+- [x] 71-03-PLAN.md -- Refactor HistoricalImportPage into BulkImportPage with editable preview table
+- [x] 71-04-PLAN.md -- Extend DisposeAssetDialog with reclassify-to-expense option
 **UI hint**: yes
 
 ### Phase 72: Bank Statement Parser & Auto-Match
@@ -306,7 +306,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
-| 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 0/TBD | Not started | - |
+| 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 0/TBD | Not started | - |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
 | 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
