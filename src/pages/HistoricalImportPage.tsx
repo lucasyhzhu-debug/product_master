@@ -49,7 +49,6 @@ import {
 import { formatCurrency, cn } from "@/lib/utils";
 import { EditableCell } from "@/components/import/EditableCell";
 import {
-  useBulkCreateJournalEntries,
   useBulkCreateExpenses,
 } from "@/hooks/convex/useJournalImport";
 import {
@@ -142,8 +141,6 @@ export function HistoricalImportPage() {
   const usersList = useQuery(api.auth.queries.getActiveUsers);
   const { user } = useAuth();
 
-  // Keep legacy hook available for old import format
-  const _bulkCreateLegacy = useBulkCreateJournalEntries();
   const bulkCreateExpenses = useBulkCreateExpenses();
 
   const isApprover = user?.role === "admin" || user?.role === "manager";
