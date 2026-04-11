@@ -228,6 +228,10 @@ export const update = mutation({
     // Phase 70 DA-03: Flat COGS override (set value or clear)
     cogsOverrideIdr: v.optional(v.number()),
     clearCogsOverride: v.optional(v.boolean()),
+    // Phase 78: Inventory substitution config
+    fulfillFromProductId: v.optional(v.id("menuProducts")),
+    fulfillMultiplier: v.optional(v.number()),
+    clearFulfillFrom: v.optional(v.boolean()),
     // PRD-4a: Components array for auto-calculation (unified BOM)
     components: v.optional(
       v.array(
@@ -248,7 +252,7 @@ export const update = mutation({
     await requireRole(ctx, args.token, ["admin"]);
 
     // Extract token and id from args to avoid passing them to db.patch
-    const { id, token: _, components, productType: _pt, cogsOverrideIdr, clearCogsOverride, ...updates } = args;
+    const { id, token: _, components, productType: _pt, cogsOverrideIdr, clearCogsOverride, fulfillFromProductId: _ffpId, fulfillMultiplier: _fm, clearFulfillFrom: _cff, ...updates } = args;
     void _; // Suppress unused variable warning
 
     const current = await ctx.db.get(id);
@@ -269,6 +273,42 @@ export const update = mutation({
       }
     }
 
+    // Phase 78: Substitution validation
+    if (args.fulfillFromProductId && !args.clearFulfillFrom) {
+      // Multiplier must be provided with source
+      if (!args.fulfillMultiplier) {
+        throw new Error("fulfillMultiplier is required when fulfillFromProductId is set");
+      }
+      // Multiplier must be integer >= 2
+      if (!Number.isInteger(args.fulfillMultiplier) || args.fulfillMultiplier < 2) {
+        throw new Error("fulfillMultiplier must be an integer >= 2");
+      }
+      // No self-reference
+      if (args.fulfillFromProductId === id) {
+        throw new Error("Product cannot fulfill from itself");
+      }
+      // Target must exist and be active
+      const target = await ctx.db.get(args.fulfillFromProductId);
+      if (!target) {
+        throw new Error("Source product not found");
+      }
+      if (!target.isActive) {
+        throw new Error("Source product must be active");
+      }
+      // No forward chains: target must not have its own fulfillFromProductId
+      if (target.fulfillFromProductId) {
+        throw new Error("Source product already has its own substitution configured (chaining not allowed)");
+      }
+      // No reverse chains: current product must not be used as fulfillFromProductId by another
+      const usedAsSource = await ctx.db
+        .query("menuProducts")
+        .filter((q) => q.eq(q.field("fulfillFromProductId"), id))
+        .first();
+      if (usedAsSource) {
+        throw new Error(`This product is already used as a substitution source by "${usedAsSource.name}" (chaining not allowed)`);
+      }
+    }
+
     // Only include defined updates
     const patchData: Record<string, unknown> = {};
     if (updates.code !== undefined) patchData.code = updates.code;
@@ -282,6 +322,15 @@ export const update = mutation({
     // Phase 70 DA-03: COGS override handling
     if (clearCogsOverride) patchData.cogsOverrideIdr = undefined;
     else if (cogsOverrideIdr !== undefined) patchData.cogsOverrideIdr = cogsOverrideIdr;
+
+    // Phase 78: Substitution fields
+    if (args.clearFulfillFrom) {
+      patchData.fulfillFromProductId = undefined;
+      patchData.fulfillMultiplier = undefined;
+    } else {
+      if (args.fulfillFromProductId !== undefined) patchData.fulfillFromProductId = args.fulfillFromProductId;
+      if (args.fulfillMultiplier !== undefined) patchData.fulfillMultiplier = args.fulfillMultiplier;
+    }
 
     // PRD-4a: Auto-calculate unitCost and grams from components if provided
     if (components !== undefined) {
