@@ -25,14 +25,13 @@ created: 2026-04-11
 
 | Token | Value | Used For |
 |-------|-------|----------|
-| `gap-1` | 4px | Icon-to-text gap in inline labels |
-| `gap-1.5` | 6px | Tight row spacing in sub-row table |
+| `gap-1` | 4px | Icon-to-text gap in inline labels, tight row spacing in sub-row table |
 | `gap-2` | 8px | Icon-to-label gap in section headers, grid column gap |
 | `py-2` / `px-3` | 8px / 12px | Table cell padding (matches existing InventoryAvailabilityPanel) |
 | `space-y-2` | 8px | Form field vertical spacing within Inventory Fulfillment section |
 | `space-y-3` | 12px | Section vertical spacing inside Card |
 | `p-3` | 12px | Preview box inner padding |
-| `space-y-5` | 20px | Between major form sections (matches ProductForm existing `space-y-5`) |
+| `space-y-4` | 16px | Between major form sections |
 
 No exceptions to the 4px base grid.
 
@@ -41,13 +40,13 @@ No exceptions to the 4px base grid.
 | Role | Size | Weight | Line Height | Usage |
 |------|------|--------|-------------|-------|
 | Section header | 14px (`text-sm`) | 600 (`font-semibold`) | 1.5 | "Inventory Fulfillment" section title |
-| Body / form labels | 14px (`text-sm`) | 500 (`font-medium`) | 1.5 | "Fulfill from", "Units per product" labels |
+| Body / form labels | 14px (`text-sm`) | 600 (`font-semibold`) | 1.5 | "Fulfill from", "Units per product" labels |
+| Table header | 14px (`text-sm`) | 600 (`font-semibold`) | 1.5 | Availability table column headers |
 | Helper text | 12px (`text-xs`) | 400 (normal) | 1.5 | Preview text, description text, sub-row labels |
-| Table header | 14px (`text-sm`) | 500 (`font-medium`) | 1.5 | Availability table column headers (matches existing) |
 | Table cell | 14px (`text-sm`) | 400 (normal) | 1.5 | Availability table body text |
-| Status badge | 12px (`text-xs`) | 500 (`font-medium`) | 1.5 | OK / Short status indicators (matches existing) |
+| Status badge | 12px (`text-xs`) | 600 (`font-semibold`) | 1.5 | OK / Short status indicators |
 
-Weights used: 400 (normal) + 500 (medium) + 600 (semibold). Note: existing codebase uses all three; this phase follows that established pattern.
+Weights used: 400 (normal) + 600 (semibold). All label and header roles use 600; all body and helper roles use 400.
 
 ## Color
 
@@ -63,11 +62,14 @@ Weights used: 400 (normal) + 500 (medium) + 600 (semibold). Note: existing codeb
 
 | Color | Token | Elements |
 |-------|-------|----------|
+| Teal (primary action) | `--color-primary` | Primary CTA buttons ("Save", "Confirm Fulfillment"), interactive controls |
+| Blue (informational) | `text-blue-600`, `bg-blue-50`, `border-blue-200` | Preview text box, FulfillFromInventory card accent — communicates state/context, not action |
 | Green (success) | `text-green-700 dark:text-green-400` | "OK" status badge, "All items available" summary, sufficient sub-row |
 | Red (error) | `text-red-700 dark:text-red-400`, `bg-red-50 dark:bg-red-950/30` | "Short N" status badge, insufficient row background |
-| Blue (info) | `text-blue-600`, `bg-blue-50`, `border-blue-200` | Preview text box, FulfillFromInventory card accent |
 | Amber (warning) | `text-amber-600`, `border-amber-300` | Substitute sub-row label ("via 3x Dubai Single") |
 | Muted | `text-muted-foreground` | Description text, disabled states |
+
+Teal = primary action (buttons the user clicks to commit changes). Blue = informational state display (read-only context and preview panels).
 
 ### Accent Reserved For
 
@@ -75,6 +77,10 @@ Weights used: 400 (normal) + 500 (medium) + 600 (semibold). Note: existing codeb
 - Active state of location toggle buttons — `bg-blue-600`
 - Collapsible section icon — `text-muted-foreground`
 - Preview box border — `border-blue-200 dark:border-blue-800`
+
+## Focal Point
+
+The preview box (blue-bordered panel showing "1 Dubai Triple will draw 3x Dubai Single from inventory...") is the primary visual anchor of the Inventory Fulfillment section. It provides immediate confirmation that the substitution rule is correctly configured and draws the user's eye to validate the mapping before saving.
 
 ## Component Inventory
 
@@ -149,10 +155,10 @@ Weights used: 400 (normal) + 500 (medium) + 600 (semibold). Note: existing codeb
 
 | Row Type | Background | Text Size | Font Weight |
 |----------|-----------|-----------|-------------|
-| Product header | `bg-muted/30` | `text-sm` | `font-medium` |
+| Product header | `bg-muted/30` | `text-sm` | `font-semibold` |
 | Direct stock sub-row | transparent (or `bg-red-50` if short) | `text-xs` | normal |
 | Substitute sub-row | transparent | `text-xs` | normal |
-| Overall verdict | transparent, `border-t border-dashed` | `text-xs` | `font-medium` |
+| Overall verdict | transparent, `border-t border-dashed` | `text-xs` | `font-semibold` |
 
 **Substitute label:** `"via {multiplier}x {sourceProductName}"` in `text-amber-600 dark:text-amber-400`
 
