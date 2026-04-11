@@ -73,10 +73,10 @@ export const useRunDepreciation = createMutationHook(
   { successMessage: "", errorMessage: "Failed to run depreciation" }
 );
 
-/** Dispose an asset (sold/scrapped/written_off) */
+/** Dispose an asset (sold/scrapped/written_off/reclassify_to_expense). Empty successMessage — dialog handles all success toasts contextually. */
 export const useDisposeAsset = createMutationHook(
   api.fixedAssets.mutations.disposeAsset,
-  { successMessage: "Asset disposed", errorMessage: "Failed to dispose asset" }
+  { successMessage: "", errorMessage: "Failed to dispose asset" }
 );
 
 /** Void an entire month's depreciation run */

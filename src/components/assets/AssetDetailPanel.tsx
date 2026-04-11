@@ -292,6 +292,7 @@ export function AssetDetailPanel({ assetId, open, onClose }: AssetDetailPanelPro
             cost: asset.cost,
             accumulatedDepreciation: asset.accumulatedDepreciation,
             netBookValue: asset.netBookValue,
+            category: asset.category,
           }}
         />
       )}
