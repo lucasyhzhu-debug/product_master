@@ -17,8 +17,9 @@ import {
 } from "../lib/journalEngine";
 import { recordStatusChange } from "./auditTrail";
 import { validateExpenseAmount } from "./helpers";
+import { checkDuplicateExpense } from "./helpers";
 import { ALL_ROLES, APPROVER_ROLES } from "./constants";
-import { resolveAccount } from "../fixedAssets/mutations";
+import { resolveAccount } from "../lib/accountUtils";
 
 // ---------------------------------------------------------------------------
 // Payment method validator (matches schema exactly)
@@ -72,6 +73,14 @@ export const bulkCreateExpenses = protectedMutation({
     // Resolve Cash account once for all auto-approved JEs
     const cashAccount = await resolveAccount(ctx, "1100");
 
+    // Fetch existing expenses for duplicate detection (I-01: mirrors single-expense pattern)
+    const existingExpenses = await ctx.db.query("expenses").collect();
+    const expenseContext = existingExpenses.map((e) => ({
+      amount: e.amount,
+      expenseDate: e.expenseDate,
+      expenseNumber: e.expenseNumber,
+    }));
+
     let trustedCount = 0;
     let untrustedCount = 0;
 
@@ -81,6 +90,13 @@ export const bulkCreateExpenses = protectedMutation({
 
       // Generate sequential expense number
       const expenseNumber = await getNextNumber(ctx, "EXP");
+
+      // Check for duplicates against existing + previously inserted batch rows
+      const duplicateWarning = checkDuplicateExpense(
+        expenseContext,
+        row.amount,
+        row.date
+      );
 
       // Trust-mode branching
       const status = row.trusted ? ("recorded" as const) : ("submitted" as const);
@@ -100,6 +116,14 @@ export const bulkCreateExpenses = protectedMutation({
         submittedAt: Date.now(),
         importBatchId: args.importBatchId,
         createdAt: Date.now(),
+        ...(duplicateWarning !== null && { duplicateWarning }),
+      });
+
+      // Add to context for intra-batch duplicate detection
+      expenseContext.push({
+        amount: row.amount,
+        expenseDate: row.date,
+        expenseNumber,
       });
 
       // Record audit trail

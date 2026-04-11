@@ -31,28 +31,9 @@ import {
 import { getNextNumber } from "../lib/counter";
 import { recordStatusChange } from "../expenses/auditTrail";
 import { getWibComponents, wibMidnightToUtc, calculateMonthRange } from "../lib/periodRange";
-import type { Id, Doc } from "../_generated/dataModel";
+import { resolveAccount } from "../lib/accountUtils";
+import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-
-// ---------------------------------------------------------------------------
-// Helper: resolve GL account by code
-// ---------------------------------------------------------------------------
-
-export async function resolveAccount(
-  ctx: MutationCtx,
-  code: string
-): Promise<Doc<"accounts">> {
-  const account = await ctx.db
-    .query("accounts")
-    .withIndex("by_code", (q) => q.eq("code", code))
-    .first();
-  if (!account) {
-    throw new ConvexError(
-      `System account ${code} not found. Please ask an admin to run accounts:seedDefaults from the Convex dashboard.`
-    );
-  }
-  return account;
-}
 
 // ---------------------------------------------------------------------------
 // Helper: get next asset number (custom YYMM counter)
@@ -426,22 +407,27 @@ export const disposeAsset = protectedMutation({
         );
       }
 
-      // Resolve target expense account (user override or category default)
-      let targetExpenseAccountId;
-      if (args.targetExpenseAccountId) {
-        targetExpenseAccountId = args.targetExpenseAccountId;
-      } else {
-        const defaultCode = getReclassificationExpenseCode(asset.category);
-        const targetAccount = await resolveAccount(ctx, defaultCode);
-        targetExpenseAccountId = targetAccount._id;
-      }
-
-      // Resolve GL accounts for compound JE
+      // Resolve all GL accounts in parallel (mirrors existing disposal pattern)
       const cat = ASSET_CATEGORIES.find((c) => c.key === asset.category);
       const assetAccountCode = cat ? getAssetAccountCode(cat) : "1500";
-      const fixedAssetAccount = await resolveAccount(ctx, assetAccountCode);
-      const accumAccount =
-        cat?.glAccumCode ? await resolveAccount(ctx, cat.glAccumCode) : null;
+      const codesToResolve: string[] = [assetAccountCode];
+      if (!args.targetExpenseAccountId) {
+        codesToResolve.push(getReclassificationExpenseCode(asset.category));
+      }
+      if (cat?.glAccumCode) {
+        codesToResolve.push(cat.glAccumCode);
+      }
+
+      const resolvedAccounts = await Promise.all(
+        codesToResolve.map((code) => resolveAccount(ctx, code))
+      );
+
+      let idx = 0;
+      const fixedAssetAccount = resolvedAccounts[idx++];
+      const targetExpenseAccountId = args.targetExpenseAccountId
+        ? args.targetExpenseAccountId
+        : resolvedAccounts[idx++]._id;
+      const accumAccount = cat?.glAccumCode ? resolvedAccounts[idx++] : null;
 
       // Build reclassification JE lines
       const jeLines = [];

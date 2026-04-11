@@ -194,6 +194,7 @@ export function HistoricalImportPage() {
       reader.onload = (event) => {
         const csvText = event.target?.result as string;
         const accountRefs: AccountRef[] = allAccounts.map((a) => ({
+          _id: a._id,
           code: a.code,
           name: a.name,
           type: a.type,
@@ -373,7 +374,7 @@ export function HistoricalImportPage() {
       {state.step === "review" && (
         <ReviewStep
           result={state.result}
-          accounts={allAccounts.map((a) => ({ code: a.code, name: a.name, type: a.type, isActive: a.isActive }))}
+          accounts={allAccounts.map((a) => ({ _id: a._id, code: a.code, name: a.name, type: a.type, isActive: a.isActive }))}
           onConfirm={() => handleConfirmImport(state.result.validRows)}
           onReupload={() => setState({ step: "upload" })}
         />

@@ -11,6 +11,7 @@
 
 import Papa from "papaparse";
 import { strictWibDateStrToUtcMs } from "./dateUtils";
+import type { Id } from "../../convex/_generated/dataModel";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -48,6 +49,7 @@ export type AssetCategoryKey = (typeof VALID_ASSET_CATEGORIES)[number];
 
 /** Account reference from Chart of Accounts (frontend-friendly) */
 export interface AccountRef {
+  _id: Id<"accounts">;
   code: string;
   name: string;
   type: string;
@@ -337,7 +339,7 @@ export function parseAndValidateCsv(
 
 /** Reference for user name matching (owner column) */
 export interface UserRef {
-  _id: string;
+  _id: Id<"users">;
   name: string;
 }
 
@@ -360,12 +362,12 @@ export interface BulkExpenseRow {
   amountStr: string;
   description: string;
   category: string;
-  accountId: string | null;
+  accountId: Id<"accounts"> | null;
   accountName: string | null;
   vendor: string;
   paymentMethod: string;
   owner: string;
-  submitterId: string | null;
+  submitterId: Id<"users"> | null;
   ownerName: string | null;
   receiptUrl: string;
   assetCategory: string;
@@ -502,7 +504,7 @@ export function parseAndValidateBulkExpenseCsv(
 
     // --- Category (account name matching) ---
     const categoryRaw = (raw.category ?? "").trim();
-    let accountId: string | null = null;
+    let accountId: Id<"accounts"> | null = null;
     let accountName: string | null = null;
     if (!categoryRaw) {
       errors.push({ column: "category", message: "Category is required" });
@@ -511,7 +513,7 @@ export function parseAndValidateBulkExpenseCsv(
       if (!matched) {
         errors.push({ column: "category", message: `Category '${categoryRaw}' not found in Chart of Accounts` });
       } else {
-        accountId = matched.code; // Use code as the ID for backend resolution
+        accountId = matched._id;
         accountName = matched.name;
       }
     }
@@ -537,7 +539,7 @@ export function parseAndValidateBulkExpenseCsv(
 
     // --- Owner (user name matching) ---
     const ownerRaw = (raw.owner ?? "").trim();
-    let submitterId: string | null = null;
+    let submitterId: Id<"users"> | null = null;
     let ownerName: string | null = null;
     if (!ownerRaw) {
       errors.push({ column: "owner", message: "Owner is required" });

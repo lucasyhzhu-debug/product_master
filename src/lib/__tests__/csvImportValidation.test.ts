@@ -7,9 +7,9 @@ import type { AccountRef, CsvParseResult } from "../csvImportValidation";
 
 // Mock accounts for testing
 const mockAccounts: AccountRef[] = [
-  { code: "6100", name: "Salaries & Wages", isActive: true },
-  { code: "6200", name: "Rent", isActive: true },
-  { code: "6300", name: "Marketing", isActive: false },
+  { _id: "accounts:test1" as any, code: "6100", name: "Salaries & Wages", type: "opex", isActive: true },
+  { _id: "accounts:test2" as any, code: "6200", name: "Rent", type: "opex", isActive: true },
+  { _id: "accounts:test3" as any, code: "6300", name: "Marketing", type: "opex", isActive: false },
 ];
 
 // ---------------------------------------------------------------------------
