@@ -16,6 +16,14 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Quick Task 260411-ovn: Editable Paid Date for Consignment Settlements -- 2026-04-11
+
+**For the team:** When marking a consignment settlement as "Paid", you can now pick the actual payment date instead of it always recording today. This means if you record a payment a few days late, the paid date will still be accurate for your records.
+
+#### Changed
+- Mark as Paid dialog now shows a date picker (defaults to today, allows past dates)
+- Backend validates paid date is not in the future and rejects invalid dates
+
 ### Feature: Bulk Expense Upload & Asset Reclassification -- 2026-04-11
 
 **For the team:** You can now import dozens of expenses at once from a CSV file instead of entering them one by one. The import page shows a live preview table where you can fix mistakes inline before submitting. Managers/admins can mark batches as "already paid" to skip the approval queue. Also, assets that were accidentally capitalized can now be reclassified as expenses directly from the Asset Register's dispose dialog.
