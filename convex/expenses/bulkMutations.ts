@@ -73,8 +73,18 @@ export const bulkCreateExpenses = protectedMutation({
     // Resolve Cash account once for all auto-approved JEs
     const cashAccount = await resolveAccount(ctx, "1100");
 
-    // Fetch existing expenses for duplicate detection (I-01: mirrors single-expense pattern)
-    const existingExpenses = await ctx.db.query("expenses").collect();
+    // Fetch submitter's recent expenses for duplicate detection (scoped, not full scan)
+    const submitterIds = [...new Set(args.rows.map((r) => r.submitterId))];
+    const existingExpenses = (
+      await Promise.all(
+        submitterIds.map((id) =>
+          ctx.db
+            .query("expenses")
+            .withIndex("by_submitter_status", (q) => q.eq("submittedBy", id))
+            .collect()
+        )
+      )
+    ).flat();
     const expenseContext = existingExpenses.map((e) => ({
       amount: e.amount,
       expenseDate: e.expenseDate,
@@ -117,6 +127,7 @@ export const bulkCreateExpenses = protectedMutation({
         importBatchId: args.importBatchId,
         createdAt: Date.now(),
         ...(duplicateWarning !== null && { duplicateWarning }),
+        ...(row.receiptUrl && { receiptUrl: row.receiptUrl }),
       });
 
       // Add to context for intra-batch duplicate detection

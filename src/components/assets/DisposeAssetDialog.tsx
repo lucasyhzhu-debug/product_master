@@ -73,6 +73,15 @@ export function DisposeAssetDialog({ open, onClose, asset }: DisposeAssetDialogP
   const [targetAccountId, setTargetAccountId] = useState<string | null>(null);
   const [submitterId, setSubmitterId] = useState<string | null>(null);
 
+  // Reset state when asset changes (WR-04: prevent stale form data across assets)
+  useEffect(() => {
+    setDisposalType("scrapped");
+    setDisposalDate("");
+    setSaleProceeds("0");
+    setTargetAccountId(null);
+    setSubmitterId(null);
+  }, [asset._id]);
+
   // Data queries for reclassify fields (must be before any conditional returns)
   const accounts = useQuery(api.accounts.queries.list, { activeOnly: true });
   const users = useQuery(api.auth.queries.getActiveUsers);
