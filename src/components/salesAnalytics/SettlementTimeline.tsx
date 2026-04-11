@@ -9,16 +9,18 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { formatCurrency } from "@/lib/utils";
-import { formatSettlementDate } from "./settlementUtils";
+import { formatSettlementDate, fromEpochToDateString, toLocalEpoch } from "./settlementUtils";
 import { Pencil, CheckCircle2, Trash2 } from "lucide-react";
 import type { SettlementData } from "./SettlementFormDialog";
 
 interface SettlementTimelineProps {
   settlements: SettlementData[];
   onEdit: (settlement: SettlementData) => void;
-  onMarkPaid: (settlement: SettlementData) => void;
+  onMarkPaid: (settlement: SettlementData, paidAt: number) => void;
   onDelete: (settlement: SettlementData) => void;
 }
 
@@ -30,6 +32,7 @@ export function SettlementTimeline({
 }: SettlementTimelineProps) {
   const [confirmPaidId, setConfirmPaidId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [paidDate, setPaidDate] = useState<string>("");
 
   if (settlements.length === 0) {
     return (
@@ -120,7 +123,10 @@ export function SettlementTimeline({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setConfirmPaidId(s._id)}
+                      onClick={() => {
+                        setPaidDate(fromEpochToDateString(Date.now()));
+                        setConfirmPaidId(s._id);
+                      }}
                     >
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       Mark as Paid
@@ -146,15 +152,32 @@ export function SettlementTimeline({
       {targetPaid && (
         <ConfirmDialog
           open={!!confirmPaidId}
-          onOpenChange={(v) => !v && setConfirmPaidId(null)}
+          onOpenChange={(v) => {
+            if (!v) {
+              setConfirmPaidId(null);
+              setPaidDate("");
+            }
+          }}
           title="Mark as Paid"
           description={`Mark this ${formatCurrency(targetPaid.frolliePayment)} settlement as paid? This action cannot be undone.`}
           confirmLabel="Mark as Paid"
+          disabled={!paidDate}
           onConfirm={() => {
-            onMarkPaid(targetPaid);
+            onMarkPaid(targetPaid, toLocalEpoch(paidDate));
             setConfirmPaidId(null);
           }}
-        />
+        >
+          <div className="space-y-2 py-2">
+            <Label htmlFor="paid-date">Paid Date</Label>
+            <Input
+              id="paid-date"
+              type="date"
+              value={paidDate}
+              max={fromEpochToDateString(Date.now())}
+              onChange={(e) => setPaidDate(e.target.value)}
+            />
+          </div>
+        </ConfirmDialog>
       )}
 
       {/* Delete confirmation — single instance outside map */}

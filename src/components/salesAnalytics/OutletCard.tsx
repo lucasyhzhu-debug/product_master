@@ -64,9 +64,9 @@ export function OutletCard({ outlet, onEdit }: OutletCardProps) {
   const markAsPaid = useMarkConsignmentPaid();
   const deleteSettlement = useDeleteConsignmentSettlement();
 
-  const handleMarkPaid = async (s: SettlementData) => {
+  const handleMarkPaid = async (s: SettlementData, paidAt: number) => {
     try {
-      await markAsPaid({ settlementId: s._id });
+      await markAsPaid({ settlementId: s._id, paidAt });
       actionToast("Settlement marked as paid");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to mark as paid");
