@@ -121,10 +121,22 @@ function FulfillFromInventoryPanel({
       const result = await fulfillFromInventory({ orderId, locationId: selectedLocationId, token });
 
       if (result?.deductions && result.deductions.length > 0) {
-        const lines = result.deductions.map(
-          (d: { productName: string; used: number; remaining: number }) =>
-            `${d.productName}: ${d.used} used, ${d.remaining} remaining`
-        );
+        const lines: string[] = [];
+        for (const d of result.deductions as Array<{
+          productName: string;
+          used: number;
+          remaining: number;
+          substituteProductName?: string;
+          substituteUsed?: number;
+          substituteRemaining?: number;
+        }>) {
+          if (d.used > 0) {
+            lines.push(`${d.productName} x${d.used} (direct) -> ${d.remaining} remaining`);
+          }
+          if (d.substituteProductName && d.substituteUsed && d.substituteUsed > 0) {
+            lines.push(`${d.productName} x${d.substituteUsed} (via ${d.substituteProductName}) -> ${d.substituteRemaining} remaining`);
+          }
+        }
         toast.success('Order fulfilled from inventory!', {
           description: lines.join('\n'),
           duration: 6000,

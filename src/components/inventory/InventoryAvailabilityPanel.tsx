@@ -6,6 +6,7 @@
  *
  * Phase 17.1 Plan 04
  */
+import React from 'react';
 import { useQuery } from 'convex/react';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { api } from '../../../convex/_generated/api';
@@ -79,29 +80,112 @@ export function InventoryAvailabilityPanel({
             </tr>
           </thead>
           <tbody>
-            {availability.map((item) => (
-              <tr
-                key={item.orderItemId}
-                className={item.isSufficient ? '' : 'bg-red-50 dark:bg-red-950/30'}
-              >
-                <td className="px-3 py-2">{item.productName}</td>
-                <td className="px-3 py-2 text-center">{item.quantityNeeded}</td>
-                <td className="px-3 py-2 text-center">{item.quantityAvailable}</td>
-                <td className="px-3 py-2 text-center">
-                  {item.isSufficient ? (
-                    <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      OK
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400 text-xs font-medium">
-                      <XCircle className="h-3.5 w-3.5" />
-                      Short {item.quantityNeeded - item.quantityAvailable}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {availability.map((item) => {
+              // Phase 78: Render split sub-rows for substitution products with shortfall
+              if (item.hasSubstitution && item.substituteNeeded !== undefined && item.substituteNeeded > 0) {
+                const directSufficient = item.quantityAvailable >= item.quantityNeeded;
+                const directShortfall = Math.max(0, item.quantityNeeded - Math.max(0, item.quantityAvailable));
+                const substituteSufficient = (item.substituteAvailable ?? 0) >= item.substituteNeeded;
+                const overallOk = item.isSufficient;
+
+                return (
+                  <React.Fragment key={item.orderItemId}>
+                    {/* Product header row */}
+                    <tr className="bg-muted/30">
+                      <td colSpan={4} className="px-3 py-2 text-sm font-semibold">
+                        {item.productName}
+                      </td>
+                    </tr>
+                    {/* Direct stock sub-row */}
+                    <tr className={!directSufficient ? 'bg-red-50 dark:bg-red-950/30' : ''}>
+                      <td className="px-3 py-2 text-xs pl-6">Direct stock</td>
+                      <td className="px-3 py-2 text-center text-xs">{item.quantityNeeded}</td>
+                      <td className="px-3 py-2 text-center text-xs">{item.quantityAvailable}</td>
+                      <td className="px-3 py-2 text-center">
+                        {directSufficient ? (
+                          <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-semibold">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            OK
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400 text-xs font-semibold">
+                            <XCircle className="h-3.5 w-3.5" />
+                            Short {directShortfall}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    {/* Substitute sub-row (only if direct stock is short) */}
+                    {!directSufficient && (
+                      <tr>
+                        <td className="px-3 py-2 text-xs pl-6 text-amber-600 dark:text-amber-400">
+                          via {item.substituteMultiplier}x {item.substituteProductName}
+                        </td>
+                        <td className="px-3 py-2 text-center text-xs">{item.substituteNeeded}</td>
+                        <td className="px-3 py-2 text-center text-xs">{item.substituteAvailable ?? 0}</td>
+                        <td className="px-3 py-2 text-center">
+                          {substituteSufficient ? (
+                            <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-semibold">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              OK
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400 text-xs font-semibold">
+                              <XCircle className="h-3.5 w-3.5" />
+                              Short {(item.substituteNeeded ?? 0) - (item.substituteAvailable ?? 0)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    {/* Overall verdict row */}
+                    <tr className="border-t border-dashed">
+                      <td className="px-3 py-2 text-xs font-semibold pl-6">Overall</td>
+                      <td className="px-3 py-2" />
+                      <td className="px-3 py-2" />
+                      <td className="px-3 py-2 text-center">
+                        {overallOk ? (
+                          <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-semibold">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            OK
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400 text-xs font-semibold">
+                            <XCircle className="h-3.5 w-3.5" />
+                            Short
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              }
+
+              // Standard single row (non-substitution or sufficient direct stock)
+              return (
+                <tr
+                  key={item.orderItemId}
+                  className={item.isSufficient ? '' : 'bg-red-50 dark:bg-red-950/30'}
+                >
+                  <td className="px-3 py-2">{item.productName}</td>
+                  <td className="px-3 py-2 text-center">{item.quantityNeeded}</td>
+                  <td className="px-3 py-2 text-center">{item.quantityAvailable}</td>
+                  <td className="px-3 py-2 text-center">
+                    {item.isSufficient ? (
+                      <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400 text-xs font-medium">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        OK
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-red-700 dark:text-red-400 text-xs font-medium">
+                        <XCircle className="h-3.5 w-3.5" />
+                        Short {item.quantityNeeded - item.quantityAvailable}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

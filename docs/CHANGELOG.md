@@ -16,6 +16,29 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feature: Product Inventory Substitution -- 2026-04-12
+
+**For the team:** Triple products (like Dubai Triple) can now automatically draw from single product inventory when direct triple stock runs out. Admins configure this from the product edit form. The fulfillment screen shows exactly where stock will come from (direct vs substitute) before you confirm, and the success toast breaks down each deduction clearly.
+
+#### Added
+- `fulfillFromProductId` and `fulfillMultiplier` fields on menuProducts schema
+- `resolveSubstitutionPlan()` pure helper for direct/substitute stock splitting
+- Validation: no self-reference, no chaining, multiplier >= 2, active target only
+- Substitution-aware `fulfillFromInventory` mutation (direct first, then substitute)
+- Substitution-aware `processGofoodSales` mutation (same logic, negative stock allowed)
+- `getStockForOrder` query returns substitution availability details for UI
+- ProductForm "Inventory Fulfillment" section (food products, edit mode only)
+- AvailabilityPanel split sub-rows: direct stock / substitute source / overall verdict
+- Enhanced fulfillment toast with per-source deduction breakdown
+- Comprehensive test suite for substitution logic
+
+#### Files Modified
+- `convex/schema.ts`, `convex/productInventory/substitution.ts` (new)
+- `convex/menuProducts/mutations.ts`, `convex/productInventory/mutations.ts`, `convex/productInventory/queries.ts`
+- `src/hooks/convex/useMenuProducts.ts`, `src/components/menuProducts/ProductForm.tsx`
+- `src/components/inventory/InventoryAvailabilityPanel.tsx`, `src/components/inventory/FulfillFromInventoryButton.tsx`
+- `tests/convex/productSubstitution.test.ts` (new)
+
 ### Feature: Bulk Expense Upload & Asset Reclassification -- 2026-04-11
 
 **For the team:** You can now import dozens of expenses at once from a CSV file instead of entering them one by one. The import page shows a live preview table where you can fix mistakes inline before submitting. Managers/admins can mark batches as "already paid" to skip the approval queue. Also, assets that were accidentally capitalized can now be reclassified as expenses directly from the Asset Register's dispose dialog.

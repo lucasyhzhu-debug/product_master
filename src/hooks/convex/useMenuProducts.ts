@@ -37,6 +37,10 @@ export interface MenuProductUpdateInput {
   // Phase 70 DA-03: COGS override
   cogsOverrideIdr?: number;
   clearCogsOverride?: boolean;
+  // Phase 78: Inventory substitution
+  fulfillFromProductId?: Id<"menuProducts">;
+  clearFulfillFrom?: boolean;
+  fulfillMultiplier?: number;
   // Unified BOM: Components array using componentTypeId
   components?: Array<{
     componentTypeId: Id<"componentTypes">;
@@ -125,6 +129,8 @@ export interface PosProduct {
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
   cogsOverrideIdr?: number;
+  fulfillFromProductId?: string;
+  fulfillMultiplier?: number;
 }
 
 export interface PackagingPosProduct {
@@ -156,6 +162,8 @@ export function usePosProducts() {
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
     cogsOverrideIdr: p.cogsOverrideIdr,
+    fulfillFromProductId: p.fulfillFromProductId as string | undefined,
+    fulfillMultiplier: p.fulfillMultiplier,
   }));
 
   return {
@@ -179,6 +187,8 @@ export interface AvailableProduct {
   productType?: "food" | "packaging";
   cachedProductionSummary?: string;
   cogsOverrideIdr?: number;
+  fulfillFromProductId?: string;
+  fulfillMultiplier?: number;
 }
 
 export function useAvailableProducts() {
@@ -196,6 +206,8 @@ export function useAvailableProducts() {
     productType: p.productType as "food" | "packaging" | undefined,
     cachedProductionSummary: p.cachedProductionSummary,
     cogsOverrideIdr: p.cogsOverrideIdr,
+    fulfillFromProductId: p.fulfillFromProductId as string | undefined,
+    fulfillMultiplier: p.fulfillMultiplier,
   }));
 
   return {
