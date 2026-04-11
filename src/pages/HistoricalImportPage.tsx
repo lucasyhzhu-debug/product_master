@@ -1,35 +1,68 @@
 /**
- * HistoricalImportPage - Admin-only CSV import wizard for bulk expenses & assets.
+ * BulkImportPage (export name: HistoricalImportPage for route compat).
  *
- * Linear wizard with 5 states: upload -> validating -> review -> importing -> complete
- * Plus error state for batch failure with retry-from-failure support.
+ * Airtable-style CSV import wizard: upload -> validating -> review (editable) -> importing -> complete.
+ * Plus error state with retry-from-failure support.
  *
- * Supports two row types:
- * - Expense rows: creates DR expense account, CR Cash journal entries
- * - Asset rows: creates fixedAssets record + DR asset account, CR Cash acquisition JE
+ * Review step is the star: editable preview table with click-to-edit cells,
+ * SearchableSelect for category/owner, validation coloring, batch trust mode.
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Upload, Download, FileText, CheckCircle2, AlertTriangle, XCircle, ArrowLeft } from "lucide-react";
+import {
+  Upload,
+  Download,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  ArrowLeft,
+  ArrowRight,
+  Info,
+} from "lucide-react";
 
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { formatCurrency, cn } from "@/lib/utils";
-import { useBulkCreateJournalEntries } from "@/hooks/convex/useJournalImport";
+import { Switch } from "@/components/ui/switch";
 import {
-  parseAndValidateCsv,
-  type CsvParseResult,
-  type ImportRow,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import { formatCurrency, cn } from "@/lib/utils";
+import { EditableCell } from "@/components/import/EditableCell";
+import {
+  useBulkCreateExpenses,
+} from "@/hooks/convex/useJournalImport";
+import {
+  parseAndValidateBulkExpenseCsv,
+  type BulkExpenseRow,
+  type BulkExpenseParseResult,
   type AccountRef,
+  type UserRef,
+  type PaymentMethod,
+  VALID_PAYMENT_METHODS,
+  BULK_EXPENSE_TEMPLATE_HEADERS,
+  BULK_EXPENSE_TEMPLATE_EXAMPLE,
 } from "@/lib/csvImportValidation";
+import { strictWibDateStrToUtcMs } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -37,12 +70,11 @@ import {
 
 const MAX_BATCH_SIZE = 50;
 
-const TEMPLATE_HEADERS = "date,amount,description,vendorName,accountCode,paymentMethod,submitterName,receiptUrl,assetCategory,assetName";
-const TEMPLATE_EXAMPLE =
-  "2025-01-15,250000,Office supplies for January,Toko ABC,6200,company_paid,Irfan,,,,\n" +
-  "2025-02-01,150000,Internet bill February,Telkom,6300,company_paid,Irfan,,,,\n" +
-  "2025-03-01,5000000,Oven for kitchen,Toko Mesin,1500,company_paid,Irfan,,mesin_produksi,Kitchen Oven\n" +
-  "2025-03-15,2000000,Frollie brand registration,DJKI,1700,company_paid,Irfan,,merek_dagang,Frollie Trademark";
+const PAYMENT_METHOD_OPTIONS = [
+  { value: "employee_paid", label: "Employee Paid" },
+  { value: "company_paid", label: "Company Paid" },
+  { value: "payment_request", label: "Payment Request" },
+];
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,10 +83,10 @@ const TEMPLATE_EXAMPLE =
 type WizardState =
   | { step: "upload" }
   | { step: "validating" }
-  | { step: "review"; result: CsvParseResult }
-  | { step: "importing"; total: number; completed: number; batchIndex: number; batches: ImportRow[][] }
-  | { step: "complete"; totalCreated: number; totalAmount: number }
-  | { step: "error"; message: string; completedSoFar: number; failedBatchIndex: number; batches: ImportRow[][] };
+  | { step: "review"; result: BulkExpenseParseResult }
+  | { step: "importing"; total: number; completed: number; batchIndex: number; batches: BulkExpenseRow[][] }
+  | { step: "complete"; totalCreated: number; totalAmount: number; autoApproved: number; submitted: number }
+  | { step: "error"; message: string; completedSoFar: number; failedBatchIndex: number; batches: BulkExpenseRow[][] };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -89,48 +121,11 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return result;
 }
 
-/** Group rows by account code and compute count + subtotal */
-function groupByAccount(rows: ImportRow[], accounts: AccountRef[]) {
-  const accountMap = new Map(accounts.map((a) => [a.code, a.name]));
-  const groups = new Map<string, { code: string; name: string; count: number; subtotal: number }>();
-
-  for (const row of rows) {
-    const existing = groups.get(row.accountCode);
-    if (existing) {
-      existing.count++;
-      existing.subtotal += row.amount;
-    } else {
-      groups.set(row.accountCode, {
-        code: row.accountCode,
-        name: accountMap.get(row.accountCode) || "Unknown",
-        count: 1,
-        subtotal: row.amount,
-      });
-    }
-  }
-
-  return Array.from(groups.values()).sort((a, b) => a.code.localeCompare(b.code));
-}
-
-/** Group rows by period (YYYY-MM) and compute count + subtotal */
-function groupByPeriod(rows: ImportRow[]) {
-  const groups = new Map<string, { period: string; count: number; subtotal: number }>();
-
-  for (const row of rows) {
-    // row.date is WIB midnight as UTC epoch ms; add 7h to get WIB date
-    const wibDate = new Date(row.date + 7 * 60 * 60 * 1000);
-    const period = `${wibDate.getUTCFullYear()}-${String(wibDate.getUTCMonth() + 1).padStart(2, "0")}`;
-
-    const existing = groups.get(period);
-    if (existing) {
-      existing.count++;
-      existing.subtotal += row.amount;
-    } else {
-      groups.set(period, { period, count: 1, subtotal: row.amount });
-    }
-  }
-
-  return Array.from(groups.values()).sort((a, b) => a.period.localeCompare(b.period));
+/** Get validation state for a row */
+function getRowValidation(row: BulkExpenseRow): "valid" | "warning" | "error" {
+  if (row.errors.length > 0) return "error";
+  if (row.warnings.length > 0) return "warning";
+  return "valid";
 }
 
 // ---------------------------------------------------------------------------
@@ -138,24 +133,73 @@ function groupByPeriod(rows: ImportRow[]) {
 // ---------------------------------------------------------------------------
 
 export function HistoricalImportPage() {
-  useDocumentTitle("Bulk Expense & Asset Import");
+  useDocumentTitle("Bulk Import");
 
-  const accounts = useQuery(api.accounts.queries.list, { activeOnly: true });
+  // Data loading -- must come before any conditional returns (React hooks rule)
+  const accountsList = useQuery(api.accounts.queries.list, { activeOnly: true });
   const allAccounts = useQuery(api.accounts.queries.list, {});
-  const bulkCreate = useBulkCreateJournalEntries();
+  const usersList = useQuery(api.auth.queries.getActiveUsers);
+  const { user } = useAuth();
 
+  const bulkCreateExpenses = useBulkCreateExpenses();
+
+  const isApprover = user?.role === "admin" || user?.role === "manager";
+
+  // State
   const [state, setState] = useState<WizardState>({ step: "upload" });
+  const [editingCell, setEditingCell] = useState<{ rowIndex: number; column: string } | null>(null);
+  const [batchTrusted, setBatchTrusted] = useState(false);
+  const [rows, setRows] = useState<BulkExpenseRow[]>([]);
   const [importBatchId, setImportBatchId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Build lookup maps from loaded data
+  const accountRefs: AccountRef[] = useMemo(() => {
+    if (!accountsList) return [];
+    return accountsList.map((a) => ({
+      _id: a._id as Id<"accounts">,
+      code: a.code,
+      name: a.name,
+      type: a.type,
+      isActive: a.isActive,
+    }));
+  }, [accountsList]);
+
+  const userRefs: UserRef[] = useMemo(() => {
+    if (!usersList) return [];
+    return usersList.map((u) => ({
+      _id: u._id as Id<"users">,
+      name: u.name,
+    }));
+  }, [usersList]);
+
+  const accountSearchItems = useMemo(
+    () => accountRefs.filter((a) => a.isActive).map((a) => ({ value: a._id, label: a.name, sublabel: a.code })),
+    [accountRefs]
+  );
+
+  const userSearchItems = useMemo(
+    () => userRefs.map((u) => ({ value: u._id, label: u.name })),
+    [userRefs]
+  );
+
+  // Reactive summary counts from rows state
+  const summaryCounts = useMemo(() => {
+    const errorCount = rows.filter((r) => r.errors.length > 0).length;
+    const warningCount = rows.filter((r) => r.errors.length === 0 && r.warnings.length > 0).length;
+    const validCount = rows.filter((r) => r.errors.length === 0).length;
+    const totalAmount = rows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+    return { errorCount, warningCount, validCount, totalAmount };
+  }, [rows]);
 
   // -------------------------------------------------------------------------
   // Template download
   // -------------------------------------------------------------------------
 
   const handleDownloadTemplate = useCallback(() => {
-    const content = TEMPLATE_HEADERS + "\n" + TEMPLATE_EXAMPLE;
+    const content = BULK_EXPENSE_TEMPLATE_HEADERS + "\n" + BULK_EXPENSE_TEMPLATE_EXAMPLE;
     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
-    downloadBlob(blob, "import-template.csv");
+    downloadBlob(blob, "bulk-expense-template.csv");
   }, []);
 
   // -------------------------------------------------------------------------
@@ -166,10 +210,10 @@ export function HistoricalImportPage() {
     if (!allAccounts) return;
 
     const header = "code,name,type,category,isActive";
-    const rows = allAccounts.map((a) =>
+    const csvRows = allAccounts.map((a) =>
       [escapeCsv(a.code), escapeCsv(a.name), escapeCsv(a.type), escapeCsv(a.category), a.isActive ? "true" : "false"].join(",")
     );
-    const content = [header, ...rows].join("\n");
+    const content = [header, ...csvRows].join("\n");
     const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
     downloadBlob(blob, "chart-of-accounts-reference.csv");
   }, [allAccounts]);
@@ -178,13 +222,10 @@ export function HistoricalImportPage() {
   // File upload + validation
   // -------------------------------------------------------------------------
 
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      if (!allAccounts) {
-        toast.error("Accounts list not loaded yet. Please wait and try again.");
+  const handleFileUpload = useCallback(
+    (file: File) => {
+      if (!accountsList || !usersList) {
+        toast.error("Accounts or users list not loaded yet. Please wait and try again.");
         return;
       }
 
@@ -193,41 +234,198 @@ export function HistoricalImportPage() {
       const reader = new FileReader();
       reader.onload = (event) => {
         const csvText = event.target?.result as string;
-        const accountRefs: AccountRef[] = allAccounts.map((a) => ({
-          code: a.code,
-          name: a.name,
-          type: a.type,
-          isActive: a.isActive,
-        }));
-
-        const result = parseAndValidateCsv(csvText, accountRefs);
+        const result = parseAndValidateBulkExpenseCsv(csvText, accountRefs, userRefs, batchTrusted);
+        setRows(result.rows);
         setState({ step: "review", result });
       };
       reader.onerror = () => {
-        toast.error("Failed to read file");
+        toast.error("Failed to read CSV file");
         setState({ step: "upload" });
       };
       reader.readAsText(file);
+    },
+    [accountsList, usersList, accountRefs, userRefs, batchTrusted]
+  );
 
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      handleFileUpload(file);
       // Reset input so same file can be re-selected
       e.target.value = "";
     },
-    [allAccounts]
+    [handleFileUpload]
   );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files?.[0];
+      if (file && file.name.endsWith(".csv")) {
+        handleFileUpload(file);
+      } else {
+        toast.error("Please drop a .csv file");
+      }
+    },
+    [handleFileUpload]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Cell editing
+  // -------------------------------------------------------------------------
+
+  const handleCellSave = useCallback(
+    (rowIndex: number, column: string, newValue: string) => {
+      setEditingCell(null);
+      setRows((prevRows) => {
+        const updated = [...prevRows];
+        const row = { ...updated[rowIndex] };
+
+        // Update the field
+        switch (column) {
+          case "date": {
+            row.dateStr = newValue;
+            const epoch = strictWibDateStrToUtcMs(newValue);
+            row.date = isNaN(epoch) ? null : epoch;
+            break;
+          }
+          case "amount": {
+            row.amountStr = newValue;
+            const n = Number(newValue);
+            row.amount = isNaN(n) || n <= 0 ? null : Math.floor(n);
+            break;
+          }
+          case "description":
+            row.description = newValue;
+            break;
+          case "category": {
+            // newValue is account _id from SearchableSelect
+            const matched = accountRefs.find((a) => a._id === newValue);
+            if (matched) {
+              row.category = matched.name;
+              row.accountId = matched._id;
+              row.accountName = matched.name;
+            }
+            break;
+          }
+          case "vendor":
+            row.vendor = newValue;
+            break;
+          case "payment_method":
+            row.paymentMethod = newValue;
+            break;
+          case "owner": {
+            // newValue is user _id from SearchableSelect
+            const matched = userRefs.find((u) => u._id === newValue);
+            if (matched) {
+              row.owner = matched.name;
+              row.submitterId = matched._id;
+              row.ownerName = matched.name;
+            }
+            break;
+          }
+          case "receipt_url":
+            row.receiptUrl = newValue;
+            break;
+        }
+
+        // Revalidate the row
+        row.errors = [];
+        row.warnings = [];
+
+        if (!row.dateStr) {
+          row.errors.push({ column: "date", message: "Date is required" });
+        } else if (row.date === null) {
+          row.errors.push({ column: "date", message: "Invalid date format. Use YYYY-MM-DD" });
+        }
+
+        if (!row.amountStr) {
+          row.errors.push({ column: "amount", message: "Amount is required" });
+        } else if (row.amount === null) {
+          row.errors.push({ column: "amount", message: "Amount must be a positive integer" });
+        } else if (row.amount > 10_000_000) {
+          row.warnings.push({ column: "amount", message: "Unusually high amount" });
+        }
+
+        if (!row.description) {
+          row.errors.push({ column: "description", message: "Description is required" });
+        } else if (row.description.length > 500) {
+          row.errors.push({ column: "description", message: "Description too long (max 500)" });
+        }
+
+        if (!row.category) {
+          row.errors.push({ column: "category", message: "Category is required" });
+        } else if (!row.accountId) {
+          row.errors.push({ column: "category", message: `Category '${row.category}' not found in Chart of Accounts` });
+        }
+
+        if (!row.paymentMethod) {
+          row.errors.push({ column: "payment_method", message: "Payment method is required" });
+        } else if (!(VALID_PAYMENT_METHODS as readonly string[]).includes(row.paymentMethod)) {
+          row.errors.push({ column: "payment_method", message: "Invalid payment method" });
+        }
+
+        if (!row.owner) {
+          row.errors.push({ column: "owner", message: "Owner is required" });
+        } else if (!row.submitterId) {
+          row.errors.push({ column: "owner", message: `User '${row.owner}' not found in system` });
+        }
+
+        if (row.receiptUrl && !row.receiptUrl.startsWith("http://") && !row.receiptUrl.startsWith("https://")) {
+          row.errors.push({ column: "receipt_url", message: "Receipt URL must be a valid URL" });
+        }
+
+        if (!row.vendor) {
+          row.warnings.push({ column: "vendor", message: "Vendor not specified" });
+        }
+
+        updated[rowIndex] = row;
+        return updated;
+      });
+    },
+    [accountRefs, userRefs]
+  );
+
+  // -------------------------------------------------------------------------
+  // Trust mode toggling
+  // -------------------------------------------------------------------------
+
+  const handleBatchTrustToggle = useCallback((checked: boolean) => {
+    setBatchTrusted(checked);
+    setRows((prevRows) => prevRows.map((r) => ({ ...r, trusted: checked })));
+  }, []);
+
+  const handleRowTrustToggle = useCallback((rowIndex: number) => {
+    setRows((prevRows) => {
+      const updated = [...prevRows];
+      updated[rowIndex] = { ...updated[rowIndex], trusted: !updated[rowIndex].trusted };
+      return updated;
+    });
+  }, []);
 
   // -------------------------------------------------------------------------
   // Import execution (sequential batching)
   // -------------------------------------------------------------------------
 
   const handleConfirmImport = useCallback(
-    async (validRows: ImportRow[], startFromBatch = 0) => {
+    async (startFromBatch = 0) => {
+      const validRows = rows.filter((r) => r.errors.length === 0);
+      if (validRows.length === 0) return;
+
       const batches = chunkArray(validRows, MAX_BATCH_SIZE);
-      // Generate batch ID once on first call; reuse on retry
       const batchId = importBatchId ?? crypto.randomUUID();
       if (!importBatchId) {
         setImportBatchId(batchId);
       }
+
       let completed = startFromBatch * MAX_BATCH_SIZE;
+      let totalAutoApproved = 0;
+      let totalSubmitted = 0;
 
       setState({
         step: "importing",
@@ -239,10 +437,29 @@ export function HistoricalImportPage() {
 
       for (let i = startFromBatch; i < batches.length; i++) {
         try {
-          await bulkCreate.mutateAsync({
+          const batchRows = batches[i].map((row) => ({
+            date: row.date!,
+            amount: row.amount!,
+            description: row.description,
+            vendorName: row.vendor || "",
+            accountId: row.accountId as Id<"accounts">,
+            submitterId: row.submitterId as Id<"users">,
+            paymentMethod: row.paymentMethod as PaymentMethod,
+            receiptUrl: row.receiptUrl || undefined,
+            trusted: row.trusted,
+          }));
+
+          const result = await bulkCreateExpenses.mutateAsync({
             importBatchId: batchId,
-            rows: batches[i],
+            rows: batchRows,
           });
+
+          if (result && typeof result === "object") {
+            const r = result as { created?: number; autoApproved?: number; submitted?: number };
+            totalAutoApproved += r.autoApproved ?? 0;
+            totalSubmitted += r.submitted ?? 0;
+          }
+
           completed += batches[i].length;
           setState({
             step: "importing",
@@ -252,8 +469,7 @@ export function HistoricalImportPage() {
             batches,
           });
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Unknown error during import";
+          const message = error instanceof Error ? error.message : "Unknown error during import";
           setState({
             step: "error",
             message,
@@ -265,25 +481,26 @@ export function HistoricalImportPage() {
         }
       }
 
-      // Calculate total amount
-      const totalAmount = validRows.reduce((sum, r) => sum + r.amount, 0);
+      const totalAmount = validRows.reduce((sum, r) => sum + (r.amount ?? 0), 0);
       setState({
         step: "complete",
         totalCreated: validRows.length,
         totalAmount,
+        autoApproved: totalAutoApproved,
+        submitted: totalSubmitted,
       });
     },
-    [bulkCreate, importBatchId]
+    [rows, bulkCreateExpenses, importBatchId]
   );
 
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
 
-  if (accounts === undefined || allAccounts === undefined) {
+  if (accountsList === undefined || allAccounts === undefined || usersList === undefined) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Loading accounts...</p>
+        <p className="text-muted-foreground">Loading accounts and users...</p>
       </div>
     );
   }
@@ -291,10 +508,9 @@ export function HistoricalImportPage() {
   return (
     <div>
       <PageHeader
-        title="Bulk Expense & Asset Import"
-        description="Bulk-import expenses and asset purchases from CSV — creates journal entries and fixed asset records"
-        backTo="/accounts"
-        backLabel="Chart of Accounts"
+        title="Bulk Import"
+        backTo="/expenses"
+        backLabel="My Expenses"
       />
 
       {/* Upload State */}
@@ -303,13 +519,16 @@ export function HistoricalImportPage() {
           {/* Downloads */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Step 1: Prepare your CSV</CardTitle>
+              <CardTitle className="text-lg">Prepare & Upload</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Download the template and fill in your expense/asset data. Expense rows create
-                journal entries (DR expense, CR Cash). Asset rows (account 1500/1700) also create
-                a fixed asset record with auto-calculated depreciation.
+                Download the CSV template, fill in your expenses, and upload.
+                Required columns: date, amount, description, category, vendor, payment_method, owner.
+                Optional: receipt_url, asset_category, asset_name.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                date: YYYY-MM-DD | amount: positive integer (IDR) | category: account name (case-insensitive) | owner: system user display name
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button variant="outline" onClick={handleDownloadTemplate}>
@@ -318,35 +537,27 @@ export function HistoricalImportPage() {
                 </Button>
                 <Button variant="outline" onClick={handleDownloadCoaReference}>
                   <FileText className="h-4 w-4 mr-2" />
-                  Download CoA Reference
+                  Download Chart of Accounts
                 </Button>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p><strong>Required columns:</strong> date (YYYY-MM-DD), amount (positive integer IDR), description, accountCode, paymentMethod (employee_paid / company_paid / payment_request), submitterName</p>
-                <p><strong>Optional columns:</strong> vendorName, receiptUrl</p>
-                <p><strong>Asset rows only:</strong> assetCategory (e.g., peralatan_kantor, merek_dagang), assetName — required when accountCode is an asset account (1500 or 1700)</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Upload */}
+          {/* Upload Zone */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Step 2: Upload CSV</CardTitle>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <div
                 className={cn(
-                  "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer",
+                  "border-2 border-dashed rounded-lg py-8 text-center cursor-pointer",
                   "hover:border-primary/50 hover:bg-muted/50 transition-colors"
                 )}
                 onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
               >
                 <Upload className="h-10 w-10 mx-auto mb-3 text-muted-foreground" />
                 <p className="text-sm font-medium">Click to select a CSV file</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Accepts .csv files
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">or drag and drop</p>
               </div>
               <input
                 ref={fileInputRef}
@@ -369,14 +580,353 @@ export function HistoricalImportPage() {
         </Card>
       )}
 
-      {/* Review State */}
+      {/* Review State -- STAR OF THE PAGE */}
       {state.step === "review" && (
-        <ReviewStep
-          result={state.result}
-          accounts={allAccounts.map((a) => ({ code: a.code, name: a.name, type: a.type, isActive: a.isActive }))}
-          onConfirm={() => handleConfirmImport(state.result.validRows)}
-          onReupload={() => setState({ step: "upload" })}
-        />
+        <div className="space-y-6">
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-600">{summaryCounts.validCount}</p>
+                  <p className="text-xs text-muted-foreground">Valid Rows</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className={cn("text-2xl font-bold", summaryCounts.warningCount > 0 ? "text-amber-600" : "text-muted-foreground")}>
+                    {summaryCounts.warningCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Warnings</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className={cn("text-2xl font-bold", summaryCounts.errorCount > 0 ? "text-red-600" : "text-muted-foreground")}>
+                    {summaryCounts.errorCount}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Errors</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{formatCurrency(summaryCounts.totalAmount)}</p>
+                  <p className="text-xs text-muted-foreground">Total Amount</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Trust Mode Bar */}
+          {isApprover ? (
+            <Card>
+              <CardContent className="flex items-center justify-between p-4">
+                <div>
+                  <p className="text-sm font-medium">These expenses are already paid</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {batchTrusted
+                      ? "Skip approval -- record directly with journal entries"
+                      : "Submit for approval through the normal expense workflow"}
+                  </p>
+                </div>
+                <Switch
+                  checked={batchTrusted}
+                  onCheckedChange={handleBatchTrustToggle}
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex items-center gap-3 p-4">
+                <Info className="h-4 w-4 text-blue-500 shrink-0" />
+                <p className="text-sm text-muted-foreground">
+                  All rows will be submitted for approval (admin/manager required for direct recording)
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Editable Preview Table */}
+          <Card>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead className="w-[48px]">#</TableHead>
+                    <TableHead className="w-[32px]"></TableHead>
+                    <TableHead className="min-w-[120px]">Date</TableHead>
+                    <TableHead className="min-w-[120px]">Amount</TableHead>
+                    <TableHead className="min-w-[200px]">Description</TableHead>
+                    <TableHead className="min-w-[180px]">Category</TableHead>
+                    <TableHead className="min-w-[140px]">Vendor</TableHead>
+                    <TableHead className="min-w-[130px]">Payment</TableHead>
+                    <TableHead className="min-w-[140px]">Owner</TableHead>
+                    {isApprover && <TableHead className="w-[64px]">Paid?</TableHead>}
+                    <TableHead className="min-w-[100px]">Receipt</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="max-h-[60vh] overflow-y-auto">
+                  {rows.map((row, idx) => {
+                    const validation = getRowValidation(row);
+                    const borderColor =
+                      validation === "error"
+                        ? "border-l-red-500"
+                        : validation === "warning"
+                          ? "border-l-amber-500"
+                          : "border-l-green-500";
+                    const bgTint =
+                      validation === "error"
+                        ? "bg-red-50/50 dark:bg-red-950/20"
+                        : validation === "warning"
+                          ? "bg-amber-50/50 dark:bg-amber-950/20"
+                          : "";
+
+                    return (
+                      <TableRow
+                        key={row.rowIndex}
+                        className={cn("border-l-[3px]", borderColor, bgTint)}
+                      >
+                        {/* Row number */}
+                        <TableCell className="text-xs text-muted-foreground font-mono">
+                          {row.rowIndex + 1}
+                        </TableCell>
+
+                        {/* Validation icon */}
+                        <TableCell className="p-1">
+                          {validation === "error" && (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <XCircle className="h-4 w-4 text-red-500" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <ul className="text-xs space-y-0.5">
+                                  {row.errors.map((e, i) => (
+                                    <li key={i}>{e.column}: {e.message}</li>
+                                  ))}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {validation === "warning" && (
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <ul className="text-xs space-y-0.5">
+                                  {row.warnings.map((w, i) => (
+                                    <li key={i}>{w.column}: {w.message}</li>
+                                  ))}
+                                </ul>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {validation === "valid" && (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          )}
+                        </TableCell>
+
+                        {/* Date */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.dateStr}
+                            displayValue={row.dateStr}
+                            type="date"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "date"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "date" })}
+                            onSave={(v) => handleCellSave(idx, "date", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasError={row.errors.some((e) => e.column === "date")}
+                            errorMessage={row.errors.find((e) => e.column === "date")?.message}
+                          />
+                        </TableCell>
+
+                        {/* Amount */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.amountStr}
+                            displayValue={row.amount !== null ? formatCurrency(row.amount) : row.amountStr}
+                            type="number"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "amount"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "amount" })}
+                            onSave={(v) => handleCellSave(idx, "amount", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasError={row.errors.some((e) => e.column === "amount")}
+                            errorMessage={row.errors.find((e) => e.column === "amount")?.message}
+                            hasWarning={row.warnings.some((w) => w.column === "amount")}
+                            warningMessage={row.warnings.find((w) => w.column === "amount")?.message}
+                          />
+                        </TableCell>
+
+                        {/* Description */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.description}
+                            type="text"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "description"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "description" })}
+                            onSave={(v) => handleCellSave(idx, "description", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasError={row.errors.some((e) => e.column === "description")}
+                            errorMessage={row.errors.find((e) => e.column === "description")?.message}
+                          />
+                        </TableCell>
+
+                        {/* Category (searchable) */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.accountId ?? ""}
+                            displayValue={row.accountName ?? row.category}
+                            type="searchable"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "category"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "category" })}
+                            onSave={(v) => handleCellSave(idx, "category", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasError={row.errors.some((e) => e.column === "category")}
+                            errorMessage={row.errors.find((e) => e.column === "category")?.message}
+                            searchItems={accountSearchItems}
+                            searchPlaceholder="Search accounts..."
+                          />
+                        </TableCell>
+
+                        {/* Vendor */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.vendor}
+                            type="text"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "vendor"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "vendor" })}
+                            onSave={(v) => handleCellSave(idx, "vendor", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasWarning={row.warnings.some((w) => w.column === "vendor")}
+                            warningMessage={row.warnings.find((w) => w.column === "vendor")?.message}
+                          />
+                        </TableCell>
+
+                        {/* Payment Method */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.paymentMethod}
+                            displayValue={PAYMENT_METHOD_OPTIONS.find((o) => o.value === row.paymentMethod)?.label ?? row.paymentMethod}
+                            type="select"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "payment_method"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "payment_method" })}
+                            onSave={(v) => handleCellSave(idx, "payment_method", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasError={row.errors.some((e) => e.column === "payment_method")}
+                            errorMessage={row.errors.find((e) => e.column === "payment_method")?.message}
+                            selectOptions={PAYMENT_METHOD_OPTIONS}
+                          />
+                        </TableCell>
+
+                        {/* Owner (searchable) */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.submitterId ?? ""}
+                            displayValue={row.ownerName ?? row.owner}
+                            type="searchable"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "owner"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "owner" })}
+                            onSave={(v) => handleCellSave(idx, "owner", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasError={row.errors.some((e) => e.column === "owner")}
+                            errorMessage={row.errors.find((e) => e.column === "owner")?.message}
+                            searchItems={userSearchItems}
+                            searchPlaceholder="Search users..."
+                          />
+                        </TableCell>
+
+                        {/* Trust toggle (per-row, only for approvers) */}
+                        {isApprover && (
+                          <TableCell className="text-center p-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRowTrustToggle(idx)}
+                                  className="inline-flex items-center justify-center"
+                                >
+                                  {row.trusted ? (
+                                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                  ) : (
+                                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">
+                                  {row.trusted
+                                    ? "Already paid -- will be recorded directly"
+                                    : "Needs approval -- will enter approval queue"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TableCell>
+                        )}
+
+                        {/* Receipt URL */}
+                        <TableCell className="p-0">
+                          <EditableCell
+                            value={row.receiptUrl}
+                            displayValue={row.receiptUrl ? "View" : ""}
+                            type="text"
+                            isEditing={editingCell?.rowIndex === idx && editingCell?.column === "receipt_url"}
+                            onStartEdit={() => setEditingCell({ rowIndex: idx, column: "receipt_url" })}
+                            onSave={(v) => handleCellSave(idx, "receipt_url", v)}
+                            onCancel={() => setEditingCell(null)}
+                            hasError={row.errors.some((e) => e.column === "receipt_url")}
+                            errorMessage={row.errors.find((e) => e.column === "receipt_url")?.message}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          {/* Actions Bar */}
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRows([]);
+                setEditingCell(null);
+                setImportBatchId(null);
+                setState({ step: "upload" });
+              }}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Re-upload
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    onClick={() => handleConfirmImport()}
+                    disabled={summaryCounts.errorCount > 0 || summaryCounts.validCount === 0}
+                  >
+                    {summaryCounts.errorCount > 0
+                      ? `Fix ${summaryCounts.errorCount} error${summaryCounts.errorCount === 1 ? "" : "s"} to continue`
+                      : `Confirm Import (${summaryCounts.validCount} rows)`}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {summaryCounts.errorCount > 0 && (
+                <TooltipContent>
+                  <p className="text-xs">Fix {summaryCounts.errorCount} error(s) to continue</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </div>
+        </div>
       )}
 
       {/* Importing State */}
@@ -384,7 +934,7 @@ export function HistoricalImportPage() {
         <Card>
           <CardContent className="py-12 space-y-6">
             <div className="text-center space-y-2">
-              <p className="text-lg font-medium">Creating journal entries...</p>
+              <p className="text-lg font-medium">Creating expense records...</p>
               <p className="text-sm text-muted-foreground">
                 {state.completed}/{state.total} (batch {state.batchIndex} of{" "}
                 {state.batches.length})
@@ -408,17 +958,32 @@ export function HistoricalImportPage() {
             <CheckCircle2 className="h-12 w-12 mx-auto text-green-500" />
             <div>
               <p className="text-lg font-medium">
-                {state.totalCreated} journal entries created successfully
+                {state.totalCreated} expense records created
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 Total amount imported: {formatCurrency(state.totalAmount)}
               </p>
+              {(state.autoApproved > 0 || state.submitted > 0) && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {state.autoApproved > 0 && `${state.autoApproved} auto-approved`}
+                  {state.autoApproved > 0 && state.submitted > 0 && " | "}
+                  {state.submitted > 0 && `${state.submitted} submitted for approval`}
+                </p>
+              )}
             </div>
             <div className="flex justify-center gap-3">
               <Button asChild>
-                <Link to="/financials">View in P&L</Link>
+                <Link to="/expenses">View My Expenses</Link>
               </Button>
-              <Button variant="outline" onClick={() => { setImportBatchId(null); setState({ step: "upload" }); }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setImportBatchId(null);
+                  setRows([]);
+                  setBatchTrusted(false);
+                  setState({ step: "upload" });
+                }}
+              >
                 Import More
               </Button>
             </div>
@@ -442,14 +1007,18 @@ export function HistoricalImportPage() {
             </div>
             <div className="flex justify-center gap-3">
               <Button
-                onClick={() => {
-                  const allRows = state.batches.flat();
-                  handleConfirmImport(allRows, state.failedBatchIndex);
-                }}
+                onClick={() => handleConfirmImport(state.failedBatchIndex)}
               >
                 Retry from failed batch
               </Button>
-              <Button variant="outline" onClick={() => { setImportBatchId(null); setState({ step: "upload" }); }}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setImportBatchId(null);
+                  setRows([]);
+                  setState({ step: "upload" });
+                }}
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Start Over
               </Button>
@@ -457,218 +1026,6 @@ export function HistoricalImportPage() {
           </CardContent>
         </Card>
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Review Sub-component
-// ---------------------------------------------------------------------------
-
-function ReviewStep({
-  result,
-  accounts,
-  onConfirm,
-  onReupload,
-}: {
-  result: CsvParseResult;
-  accounts: AccountRef[];
-  onConfirm: () => void;
-  onReupload: () => void;
-}) {
-  const hasErrors = result.errors.length > 0;
-  const totalAmount = result.validRows.reduce((sum, r) => sum + r.amount, 0);
-  const accountGroups = groupByAccount(result.validRows, accounts);
-  const periodGroups = groupByPeriod(result.validRows);
-
-  // Compute asset vs expense breakdown
-  const accountTypeMap = new Map(accounts.map((a) => [a.code, a.type]));
-  const assetRows = result.validRows.filter((r) => accountTypeMap.get(r.accountCode) === "asset");
-  const expenseRows = result.validRows.filter((r) => accountTypeMap.get(r.accountCode) !== "asset");
-  const assetTotal = assetRows.reduce((sum, r) => sum + r.amount, 0);
-  const expenseTotal = expenseRows.reduce((sum, r) => sum + r.amount, 0);
-
-  return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-600">{result.validRows.length}</p>
-              <p className="text-sm text-muted-foreground">Valid Rows</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className={cn("text-2xl font-bold", hasErrors ? "text-red-600" : "text-muted-foreground")}>
-                {result.errors.length}
-              </p>
-              <p className="text-sm text-muted-foreground">Errors</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold">{formatCurrency(totalAmount)}</p>
-              <p className="text-sm text-muted-foreground">Total Amount</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Asset vs Expense Breakdown */}
-      {(assetRows.length > 0 || expenseRows.length > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-xl font-bold">{expenseRows.length}</p>
-                <p className="text-sm text-muted-foreground">Expense Entries</p>
-                <p className="text-xs text-muted-foreground mt-1">{formatCurrency(expenseTotal)}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-xl font-bold text-blue-600">{assetRows.length}</p>
-                <p className="text-sm text-muted-foreground">Asset Entries (CapEx)</p>
-                <p className="text-xs text-muted-foreground mt-1">{formatCurrency(assetTotal)}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Errors */}
-      {hasErrors && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 text-red-600">
-              <XCircle className="h-5 w-5" />
-              Validation Errors ({result.errors.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="max-h-64 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 pr-4 font-medium w-20">Row</th>
-                    <th className="text-left py-2 font-medium">Error</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.errors.map((e, i) => (
-                    <tr key={i} className="border-b last:border-0">
-                      <td className="py-2 pr-4 text-muted-foreground">{e.row}</td>
-                      <td className="py-2 text-red-600">{e.error}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Warnings */}
-      {result.warnings.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2 text-amber-600">
-              <AlertTriangle className="h-5 w-5" />
-              Warnings ({result.warnings.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-1 text-sm text-amber-700">
-              {result.warnings.map((w, i) => (
-                <li key={i}>{w}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Summary by GL Account */}
-      {accountGroups.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">By GL Account</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 pr-4 font-medium">Code</th>
-                  <th className="text-left py-2 pr-4 font-medium">Name</th>
-                  <th className="text-right py-2 pr-4 font-medium">Entries</th>
-                  <th className="text-right py-2 font-medium">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accountGroups.map((g) => (
-                  <tr key={g.code} className="border-b last:border-0">
-                    <td className="py-2 pr-4">
-                      <Badge variant="outline">{g.code}</Badge>
-                    </td>
-                    <td className="py-2 pr-4">{g.name}</td>
-                    <td className="py-2 pr-4 text-right">{g.count}</td>
-                    <td className="py-2 text-right">{formatCurrency(g.subtotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Summary by Period */}
-      {periodGroups.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">By Period</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 pr-4 font-medium">Month</th>
-                  <th className="text-right py-2 pr-4 font-medium">Entries</th>
-                  <th className="text-right py-2 font-medium">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {periodGroups.map((g) => (
-                  <tr key={g.period} className="border-b last:border-0">
-                    <td className="py-2 pr-4">{g.period}</td>
-                    <td className="py-2 pr-4 text-right">{g.count}</td>
-                    <td className="py-2 text-right">{formatCurrency(g.subtotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Actions */}
-      <div className="flex justify-end gap-3">
-        <Button variant="outline" onClick={onReupload}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Re-upload
-        </Button>
-        <Button onClick={onConfirm} disabled={hasErrors || result.validRows.length === 0}>
-          {hasErrors
-            ? `Fix ${result.errors.length} error${result.errors.length === 1 ? "" : "s"} to continue`
-            : `Confirm Import (${result.validRows.length} entries)`}
-        </Button>
-      </div>
     </div>
   );
 }

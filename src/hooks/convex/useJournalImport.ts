@@ -15,3 +15,13 @@ export const useBulkCreateJournalEntries = createMutationHook(
     errorMessage: "",
   }
 );
+
+/** Bulk-create expense records from CSV import rows (batched, all roles) */
+export const useBulkCreateExpenses = createMutationHook(
+  api.expenses.bulkMutations.bulkCreateExpenses,
+  {
+    // Page handles its own progress UI -- suppress toasts
+    successMessage: "",
+    errorMessage: "",
+  }
+);

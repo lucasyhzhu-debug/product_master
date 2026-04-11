@@ -38,6 +38,7 @@ import type * as dispatchPlanner_mutations from "../dispatchPlanner/mutations.js
 import type * as dispatchPlanner_queries from "../dispatchPlanner/queries.js";
 import type * as dispatchPlanner_types from "../dispatchPlanner/types.js";
 import type * as expenses_analyticsQueries from "../expenses/analyticsQueries.js";
+import type * as expenses_bulkMutations from "../expenses/bulkMutations.js";
 import type * as expenses_auditTrail from "../expenses/auditTrail.js";
 import type * as expenses_constants from "../expenses/constants.js";
 import type * as expenses_fraudHelpers from "../expenses/fraudHelpers.js";
@@ -247,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   "dispatchPlanner/queries": typeof dispatchPlanner_queries;
   "dispatchPlanner/types": typeof dispatchPlanner_types;
   "expenses/analyticsQueries": typeof expenses_analyticsQueries;
+  "expenses/bulkMutations": typeof expenses_bulkMutations;
   "expenses/auditTrail": typeof expenses_auditTrail;
   "expenses/constants": typeof expenses_constants;
   "expenses/fraudHelpers": typeof expenses_fraudHelpers;

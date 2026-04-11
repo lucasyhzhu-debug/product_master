@@ -11,6 +11,7 @@
 
 import Papa from "papaparse";
 import { strictWibDateStrToUtcMs } from "./dateUtils";
+import type { Id } from "../../convex/_generated/dataModel";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -48,6 +49,7 @@ export type AssetCategoryKey = (typeof VALID_ASSET_CATEGORIES)[number];
 
 /** Account reference from Chart of Accounts (frontend-friendly) */
 export interface AccountRef {
+  _id: Id<"accounts">;
   code: string;
   name: string;
   type: string;
@@ -329,4 +331,277 @@ export function parseAndValidateCsv(
   }
 
   return { validRows, errors, warnings };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 71: Bulk Expense Import (name-based matching)
+// ---------------------------------------------------------------------------
+
+/** Reference for user name matching (owner column) */
+export interface UserRef {
+  _id: Id<"users">;
+  name: string;
+}
+
+/** Per-cell error for the editable preview table */
+export interface CellError {
+  column: string;
+  message: string;
+}
+
+/**
+ * A single parsed row for the bulk expense preview table.
+ * Contains both raw strings (for display/editing) and resolved IDs (for mutation).
+ * Unresolved fields have null IDs + CellErrors.
+ */
+export interface BulkExpenseRow {
+  rowIndex: number;
+  date: number | null;
+  dateStr: string;
+  amount: number | null;
+  amountStr: string;
+  description: string;
+  category: string;
+  accountId: Id<"accounts"> | null;
+  accountName: string | null;
+  vendor: string;
+  paymentMethod: string;
+  owner: string;
+  submitterId: Id<"users"> | null;
+  ownerName: string | null;
+  receiptUrl: string;
+  assetCategory: string;
+  assetName: string;
+  trusted: boolean;
+  errors: CellError[];
+  warnings: CellError[];
+}
+
+/** Result of parsing CSV for bulk expense import */
+export interface BulkExpenseParseResult {
+  rows: BulkExpenseRow[];
+  totalParsed: number;
+  validCount: number;
+  warningCount: number;
+  errorCount: number;
+}
+
+/** Template headers for the bulk expense CSV */
+export const BULK_EXPENSE_TEMPLATE_HEADERS =
+  "date,amount,description,category,vendor,payment_method,owner,receipt_url,asset_category,asset_name";
+
+/** Example rows for the bulk expense CSV template */
+export const BULK_EXPENSE_TEMPLATE_EXAMPLE =
+  "2025-01-15,250000,Office supplies for January,Office Supplies,Toko ABC,company_paid,Irfan,,,\n" +
+  "2025-02-01,150000,Internet bill February,Utilities,Telkom,company_paid,Irfan,,,\n" +
+  "2025-03-01,5000000,Oven for kitchen,General & Administrative,Toko Mesin,company_paid,Irfan,,mesin_produksi,Kitchen Oven";
+
+/** Raw CSV row shape for bulk expense import (all values are strings) */
+interface RawBulkExpenseRow {
+  date?: string;
+  amount?: string;
+  description?: string;
+  category?: string;
+  vendor?: string;
+  payment_method?: string;
+  owner?: string;
+  receipt_url?: string;
+  asset_category?: string;
+  asset_name?: string;
+}
+
+/**
+ * Parse a CSV string for the Phase 71 bulk expense import flow.
+ *
+ * Matches category against account names (not codes) and owner against
+ * user display names. Produces per-cell errors for the editable preview table.
+ */
+export function parseAndValidateBulkExpenseCsv(
+  csvText: string,
+  accounts: AccountRef[],
+  users: UserRef[],
+  defaultTrusted: boolean
+): BulkExpenseParseResult {
+  // Build name-based lookup maps (case-insensitive, last wins on duplicates)
+  const accountNameMap = new Map<string, AccountRef>();
+  for (const a of accounts) {
+    if (a.isActive) {
+      accountNameMap.set(a.name.toLowerCase(), a);
+    }
+  }
+
+  const userNameMap = new Map<string, UserRef>();
+  for (const u of users) {
+    userNameMap.set(u.name.toLowerCase(), u);
+  }
+
+  const paymentMethodSet = new Set<string>(VALID_PAYMENT_METHODS);
+  const assetCategorySet = new Set<string>(VALID_ASSET_CATEGORIES);
+
+  // Parse CSV
+  const parsed = Papa.parse<RawBulkExpenseRow>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h: string) => h.trim(),
+  });
+
+  const rows: BulkExpenseRow[] = [];
+
+  for (let i = 0; i < parsed.data.length; i++) {
+    const raw = parsed.data[i];
+    const errors: CellError[] = [];
+    const warnings: CellError[] = [];
+
+    // --- Date ---
+    const dateStr = (raw.date ?? "").trim();
+    let dateEpoch: number | null = null;
+    if (!dateStr) {
+      errors.push({ column: "date", message: "Date is required" });
+    } else {
+      const parsed = strictWibDateStrToUtcMs(dateStr);
+      if (isNaN(parsed)) {
+        errors.push({ column: "date", message: "Invalid date format. Use YYYY-MM-DD" });
+      } else {
+        dateEpoch = parsed;
+      }
+    }
+
+    // --- Amount ---
+    const amountStr = (raw.amount ?? "").trim();
+    let amount: number | null = null;
+    if (!amountStr) {
+      errors.push({ column: "amount", message: "Amount is required" });
+    } else {
+      const n = parseInt(amountStr, 10);
+      if (isNaN(n) || n <= 0) {
+        errors.push({ column: "amount", message: "Amount must be a positive number" });
+      } else if (String(n) !== amountStr) {
+        // Handles floats like "123.45" -> parseInt gives 123 but string doesn't match
+        const floatCheck = Number(amountStr);
+        if (!isNaN(floatCheck) && floatCheck > 0 && Number.isInteger(floatCheck)) {
+          amount = floatCheck;
+        } else if (!isNaN(floatCheck) && floatCheck > 0) {
+          errors.push({ column: "amount", message: "Amount must be an integer (IDR has no fractional component)" });
+        } else {
+          errors.push({ column: "amount", message: "Amount must be a positive number" });
+        }
+      } else {
+        amount = n;
+      }
+    }
+    // Warning: unusually high amount
+    if (amount !== null && amount > 10_000_000) {
+      warnings.push({ column: "amount", message: "Unusually high amount" });
+    }
+
+    // --- Description ---
+    const description = (raw.description ?? "").trim();
+    if (!description) {
+      errors.push({ column: "description", message: "Description is required" });
+    } else if (description.length > 500) {
+      errors.push({ column: "description", message: "Description too long (max 500)" });
+    }
+
+    // --- Category (account name matching) ---
+    const categoryRaw = (raw.category ?? "").trim();
+    let accountId: Id<"accounts"> | null = null;
+    let accountName: string | null = null;
+    if (!categoryRaw) {
+      errors.push({ column: "category", message: "Category is required" });
+    } else {
+      const matched = accountNameMap.get(categoryRaw.toLowerCase());
+      if (!matched) {
+        errors.push({ column: "category", message: `Category '${categoryRaw}' not found in Chart of Accounts` });
+      } else {
+        accountId = matched._id;
+        accountName = matched.name;
+      }
+    }
+
+    // --- Vendor ---
+    const vendor = (raw.vendor ?? "").trim();
+    if (vendor.length > 200) {
+      errors.push({ column: "vendor", message: "Vendor name too long (max 200)" });
+    } else if (!vendor) {
+      warnings.push({ column: "vendor", message: "Vendor not specified" });
+    }
+
+    // --- Payment method ---
+    const paymentMethod = (raw.payment_method ?? "").trim();
+    if (!paymentMethod) {
+      errors.push({ column: "payment_method", message: "Payment method is required" });
+    } else if (!paymentMethodSet.has(paymentMethod)) {
+      errors.push({
+        column: "payment_method",
+        message: "Invalid payment method. Use: employee_paid, company_paid, or payment_request",
+      });
+    }
+
+    // --- Owner (user name matching) ---
+    const ownerRaw = (raw.owner ?? "").trim();
+    let submitterId: Id<"users"> | null = null;
+    let ownerName: string | null = null;
+    if (!ownerRaw) {
+      errors.push({ column: "owner", message: "Owner is required" });
+    } else {
+      const matched = userNameMap.get(ownerRaw.toLowerCase());
+      if (!matched) {
+        errors.push({ column: "owner", message: `User '${ownerRaw}' not found in system` });
+      } else {
+        submitterId = matched._id;
+        ownerName = matched.name;
+      }
+    }
+
+    // --- Receipt URL ---
+    const receiptUrl = (raw.receipt_url ?? "").trim();
+    if (receiptUrl && !receiptUrl.startsWith("http://") && !receiptUrl.startsWith("https://")) {
+      errors.push({ column: "receipt_url", message: "Receipt URL must be a valid URL" });
+    }
+
+    // --- Asset category ---
+    const assetCategory = (raw.asset_category ?? "").trim();
+    if (assetCategory && !assetCategorySet.has(assetCategory)) {
+      errors.push({
+        column: "asset_category",
+        message: `Invalid asset category '${assetCategory}'. Valid: ${VALID_ASSET_CATEGORIES.join(", ")}`,
+      });
+    }
+
+    // --- Asset name ---
+    const assetName = (raw.asset_name ?? "").trim();
+    if (assetCategory && !assetName) {
+      errors.push({ column: "asset_name", message: "Asset name is required when asset category is specified" });
+    }
+
+    rows.push({
+      rowIndex: i,
+      date: dateEpoch,
+      dateStr,
+      amount,
+      amountStr,
+      description,
+      category: categoryRaw,
+      accountId,
+      accountName,
+      vendor,
+      paymentMethod,
+      owner: ownerRaw,
+      submitterId,
+      ownerName,
+      receiptUrl,
+      assetCategory,
+      assetName,
+      trusted: defaultTrusted,
+      errors,
+      warnings,
+    });
+  }
+
+  const totalParsed = rows.length;
+  const errorCount = rows.filter((r) => r.errors.length > 0).length;
+  const warningCount = rows.filter((r) => r.errors.length === 0 && r.warnings.length > 0).length;
+  const validCount = rows.filter((r) => r.errors.length === 0).length;
+
+  return { rows, totalParsed, validCount, warningCount, errorCount };
 }

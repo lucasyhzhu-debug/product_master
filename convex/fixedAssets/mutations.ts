@@ -26,30 +26,14 @@ import {
   getCurrentYYYYMM,
   getAssetAccountCode,
   getExpenseAccountCode,
+  getReclassificationExpenseCode,
 } from "./helpers";
+import { getNextNumber } from "../lib/counter";
+import { recordStatusChange } from "../expenses/auditTrail";
 import { getWibComponents, wibMidnightToUtc, calculateMonthRange } from "../lib/periodRange";
-import type { Id, Doc } from "../_generated/dataModel";
+import { resolveAccount } from "../lib/accountUtils";
+import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-
-// ---------------------------------------------------------------------------
-// Helper: resolve GL account by code
-// ---------------------------------------------------------------------------
-
-export async function resolveAccount(
-  ctx: MutationCtx,
-  code: string
-): Promise<Doc<"accounts">> {
-  const account = await ctx.db
-    .query("accounts")
-    .withIndex("by_code", (q) => q.eq("code", code))
-    .first();
-  if (!account) {
-    throw new ConvexError(
-      `System account ${code} not found. Please ask an admin to run accounts:seedDefaults from the Convex dashboard.`
-    );
-  }
-  return account;
-}
 
 // ---------------------------------------------------------------------------
 // Helper: get next asset number (custom YYMM counter)
@@ -391,10 +375,13 @@ export const disposeAsset = protectedMutation({
     disposalType: v.union(
       v.literal("sold"),
       v.literal("scrapped"),
-      v.literal("written_off")
+      v.literal("written_off"),
+      v.literal("reclassify_to_expense")
     ),
     disposalDate: v.number(),
     saleProceeds: v.optional(v.number()),
+    targetExpenseAccountId: v.optional(v.id("accounts")),
+    submitterId: v.optional(v.id("users")),
   },
   handler: async (ctx, args) => {
     const asset = await ctx.db.get(args.assetId);
@@ -403,6 +390,134 @@ export const disposeAsset = protectedMutation({
       throw new Error("Asset is already disposed");
     }
 
+    // -----------------------------------------------------------------------
+    // Reclassify to expense — separate branch with its own JE + expense record
+    // -----------------------------------------------------------------------
+    if (args.disposalType === "reclassify_to_expense") {
+      if (!args.submitterId) {
+        throw new ConvexError(
+          "Expense owner (submitterId) is required for asset reclassification"
+        );
+      }
+
+      const nbv = asset.cost - asset.accumulatedDepreciation;
+      if (nbv <= 0) {
+        throw new ConvexError(
+          "Cannot reclassify: Net Book Value must be positive"
+        );
+      }
+
+      // Resolve all GL accounts in parallel (mirrors existing disposal pattern)
+      const cat = ASSET_CATEGORIES.find((c) => c.key === asset.category);
+      const assetAccountCode = cat ? getAssetAccountCode(cat) : "1500";
+      const codesToResolve: string[] = [assetAccountCode];
+      if (!args.targetExpenseAccountId) {
+        codesToResolve.push(getReclassificationExpenseCode(asset.category));
+      }
+      if (cat?.glAccumCode) {
+        codesToResolve.push(cat.glAccumCode);
+      }
+
+      const resolvedAccounts = await Promise.all(
+        codesToResolve.map((code) => resolveAccount(ctx, code))
+      );
+
+      let idx = 0;
+      const fixedAssetAccount = resolvedAccounts[idx++];
+      const targetExpenseAccountId = args.targetExpenseAccountId
+        ? args.targetExpenseAccountId
+        : resolvedAccounts[idx++]._id;
+      const accumAccount = cat?.glAccumCode ? resolvedAccounts[idx++] : null;
+
+      // Build reclassification JE lines
+      const jeLines = [];
+
+      // DR Target Expense Account (NBV)
+      jeLines.push(
+        buildDebitLine(
+          targetExpenseAccountId,
+          nbv,
+          `Reclassified: ${asset.name}`
+        )
+      );
+
+      // DR Accumulated Depreciation (full accumulated amount, if > 0)
+      if (asset.accumulatedDepreciation > 0 && accumAccount) {
+        jeLines.push(
+          buildDebitLine(
+            accumAccount._id,
+            asset.accumulatedDepreciation,
+            "Remove accumulated depreciation"
+          )
+        );
+      }
+
+      // CR Fixed Assets (original cost)
+      jeLines.push(
+        buildCreditLine(
+          fixedAssetAccount._id,
+          asset.cost,
+          "Remove asset cost"
+        )
+      );
+
+      // Create compound JE
+      const jeId = await createJournalEntryWithLines(ctx, {
+        date: args.disposalDate,
+        description: `Asset Reclassification: ${asset.name} (${asset.assetNumber})`,
+        sourceType: "manual",
+        sourceId: asset._id as string,
+        createdBy: ctx.user._id,
+        lines: jeLines,
+      });
+
+      // Create expense record (recorded status — already approved via admin disposal)
+      const expenseNumber = await getNextNumber(ctx, "EXP");
+      const expenseId = await ctx.db.insert("expenses", {
+        expenseNumber,
+        submittedBy: args.submitterId,
+        amount: nbv,
+        accountId: targetExpenseAccountId,
+        expenseDate: args.disposalDate,
+        description: `Asset reclassified to expense: ${asset.name} (${asset.assetNumber})`,
+        vendorName: "",
+        paymentMethod: "company_paid" as const,
+        status: "recorded" as const,
+        lateSubmission: false,
+        submittedAt: Date.now(),
+        approvedBy: ctx.user._id,
+        approvedAt: Date.now(),
+        journalEntryId: jeId,
+        sourceAssetId: asset._id,
+        createdAt: Date.now(),
+      });
+
+      // Record audit trail
+      await recordStatusChange(
+        ctx,
+        expenseId,
+        undefined,
+        "recorded",
+        ctx.user._id,
+        `Reclassified from asset: ${asset.assetNumber}`
+      );
+
+      // Update asset to disposed
+      await ctx.db.patch(args.assetId, {
+        status: "disposed" as const,
+        disposalDate: args.disposalDate,
+        disposalType: "reclassify_to_expense" as const,
+        saleProceeds: 0,
+        disposalGainLoss: 0,
+        disposalJournalEntryId: jeId,
+      });
+
+      return { journalEntryId: jeId, gainLoss: 0, expenseId, expenseNumber };
+    }
+
+    // -----------------------------------------------------------------------
+    // Standard disposal (sold, scrapped, written_off)
+    // -----------------------------------------------------------------------
     const saleProceeds = args.saleProceeds ?? 0;
     const gainLoss = calculateDisposalGainLoss(
       asset.cost,

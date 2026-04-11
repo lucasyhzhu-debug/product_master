@@ -1,12 +1,16 @@
 /**
  * Asset disposal dialog.
  *
- * Captures disposal type (sold/scrapped/written_off), date, and sale proceeds.
- * Shows gain/loss preview before confirming.
+ * Captures disposal type (sold/scrapped/written_off/reclassify_to_expense),
+ * date, sale proceeds, and optional reclassification fields.
+ * Shows gain/loss preview (standard) or NBV breakdown (reclassify) before confirming.
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { formatCurrency } from "@/lib/utils";
 import { calculateDisposalGainLoss } from "@/lib/assetHelpers";
+import { SearchableSelect } from "@/components/shared/SearchableSelect";
 import {
   Dialog,
   DialogContent,
@@ -26,8 +30,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useDisposeAsset } from "@/hooks/convex/useFixedAssets";
+import { toast } from "sonner";
 
-type DisposalType = "sold" | "scrapped" | "written_off";
+type DisposalType = "sold" | "scrapped" | "written_off" | "reclassify_to_expense";
+
+// Mirror of CATEGORY_TO_EXPENSE_ACCOUNT in convex/fixedAssets/helpers.ts — keep in sync
+const CATEGORY_DEFAULT_EXPENSE_CODE: Record<string, string> = {
+  tanah: "6200",
+  bangunan: "6200",
+  kendaraan: "6200",
+  peralatan_kantor: "6200",
+  mesin_produksi: "6200",
+  mebelair: "6200",
+  perkakas: "6200",
+  perbaikan_sewa: "6200",
+  merek_dagang: "6200",
+  hak_paten: "6200",
+  perangkat_lunak: "6200",
+};
 
 interface DisposeAssetDialogProps {
   open: boolean;
@@ -38,6 +58,7 @@ interface DisposeAssetDialogProps {
     cost: number;
     accumulatedDepreciation: number;
     netBookValue: number;
+    category: string;
   };
 }
 
@@ -47,6 +68,23 @@ export function DisposeAssetDialog({ open, onClose, asset }: DisposeAssetDialogP
   const [disposalDate, setDisposalDate] = useState("");
   const [saleProceeds, setSaleProceeds] = useState("0");
   const [submitting, setSubmitting] = useState(false);
+
+  // Reclassify-specific state
+  const [targetAccountId, setTargetAccountId] = useState<string | null>(null);
+  const [submitterId, setSubmitterId] = useState<string | null>(null);
+
+  // Reset state when asset changes (WR-04: prevent stale form data across assets)
+  useEffect(() => {
+    setDisposalType("scrapped");
+    setDisposalDate("");
+    setSaleProceeds("0");
+    setTargetAccountId(null);
+    setSubmitterId(null);
+  }, [asset._id]);
+
+  // Data queries for reclassify fields (must be before any conditional returns)
+  const accounts = useQuery(api.accounts.queries.list, { activeOnly: true });
+  const users = useQuery(api.auth.queries.getActiveUsers);
 
   const proceedsNum = parseInt(saleProceeds || "0", 10) || 0;
 
@@ -58,18 +96,56 @@ export function DisposeAssetDialog({ open, onClose, asset }: DisposeAssetDialogP
     );
   }, [asset.cost, asset.accumulatedDepreciation, disposalType, proceedsNum]);
 
+  // Build expense account items for SearchableSelect
+  const expenseAccountItems = useMemo(() => {
+    if (!accounts) return [];
+    return accounts
+      .filter(a => a.isActive && (a.type === "opex" || a.type === "cogs" || a.type === "other"))
+      .map(a => ({ value: a._id, label: a.name, sublabel: a.code }));
+  }, [accounts]);
+
+  // Build user items for SearchableSelect
+  const userItems = useMemo(() => {
+    if (!users) return [];
+    return users.map(u => ({ value: u._id, label: u.name }));
+  }, [users]);
+
+  // Auto-map default expense account when reclassify_to_expense is selected
+  useEffect(() => {
+    if (disposalType === "reclassify_to_expense" && accounts && asset.category) {
+      const defaultCode = CATEGORY_DEFAULT_EXPENSE_CODE[asset.category] ?? "6200";
+      const defaultAccount = accounts.find(a => a.code === defaultCode);
+      if (defaultAccount) {
+        setTargetAccountId(defaultAccount._id);
+      }
+    }
+  }, [disposalType, accounts, asset.category]);
+
   const handleConfirm = async () => {
     if (!disposalDate) return;
+    if (disposalType === "reclassify_to_expense" && (!targetAccountId || !submitterId)) return;
 
     setSubmitting(true);
     try {
       const dateMs = new Date(disposalDate + "T00:00:00+07:00").getTime();
-      await disposeAsset({
+      const result = await disposeAsset({
         assetId: asset._id as any, // eslint-disable-line @typescript-eslint/no-explicit-any -- Convex Id<> branded type
         disposalType,
         disposalDate: dateMs,
         saleProceeds: disposalType === "sold" ? proceedsNum : 0,
+        ...(disposalType === "reclassify_to_expense" ? {
+          targetExpenseAccountId: targetAccountId as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+          submitterId: submitterId as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        } : {}),
       });
+
+      // Contextual success toasts (I-05: dialog handles all toasts, hook successMessage is empty)
+      if (disposalType === "reclassify_to_expense" && result?.expenseNumber) {
+        toast.success(`Asset reclassified to expense -- ${result.expenseNumber} created`);
+      } else {
+        toast.success("Asset disposed successfully");
+      }
+
       onClose();
     } catch {
       // Error toast handled by hook
@@ -100,6 +176,7 @@ export function DisposeAssetDialog({ open, onClose, asset }: DisposeAssetDialogP
                 <SelectItem value="sold">Sold</SelectItem>
                 <SelectItem value="scrapped">Scrapped</SelectItem>
                 <SelectItem value="written_off">Written Off</SelectItem>
+                <SelectItem value="reclassify_to_expense">Reclassify to Expense</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -128,26 +205,80 @@ export function DisposeAssetDialog({ open, onClose, asset }: DisposeAssetDialogP
             </div>
           )}
 
-          {/* Gain/Loss Preview */}
-          <div className="p-3 rounded-md bg-muted/50 space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Net Book Value</span>
-              <span>{formatCurrency(asset.netBookValue)}</span>
-            </div>
-            {disposalType === "sold" && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sale Proceeds</span>
-                <span>{formatCurrency(proceedsNum)}</span>
+          {/* Reclassify-specific fields */}
+          {disposalType === "reclassify_to_expense" && (
+            <>
+              {/* Target Expense Account */}
+              <div className="space-y-1.5">
+                <Label>Expense Account</Label>
+                <SearchableSelect
+                  items={expenseAccountItems}
+                  value={targetAccountId}
+                  onSelect={(value) => { setTargetAccountId(value); }}
+                  placeholder="Select expense account"
+                  searchPlaceholder="Search accounts..."
+                />
               </div>
-            )}
-            <div className="flex justify-between border-t pt-1 mt-1 font-medium">
-              <span>{gainLoss >= 0 ? "Gain on Disposal" : "Loss on Disposal"}</span>
-              <span className={gainLoss >= 0 ? "text-emerald-600" : "text-red-600"}>
-                {formatCurrency(Math.abs(gainLoss))}
-                {gainLoss < 0 && " (loss)"}
-              </span>
+
+              {/* Expense Owner */}
+              <div className="space-y-1.5">
+                <Label>Expense Owner</Label>
+                <SearchableSelect
+                  items={userItems}
+                  value={submitterId}
+                  onSelect={(value) => { setSubmitterId(value); }}
+                  placeholder="Select the person responsible for this expense"
+                  searchPlaceholder="Search users..."
+                />
+              </div>
+
+              {/* Warning text */}
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                This will reverse the asset capitalization and record {formatCurrency(asset.netBookValue)} as an operating expense. This cannot be undone.
+              </p>
+            </>
+          )}
+
+          {/* Gain/Loss Preview (standard disposal types) */}
+          {disposalType !== "reclassify_to_expense" && (
+            <div className="p-3 rounded-md bg-muted/50 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Net Book Value</span>
+                <span>{formatCurrency(asset.netBookValue)}</span>
+              </div>
+              {disposalType === "sold" && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sale Proceeds</span>
+                  <span>{formatCurrency(proceedsNum)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-1 mt-1 font-medium">
+                <span>{gainLoss >= 0 ? "Gain on Disposal" : "Loss on Disposal"}</span>
+                <span className={gainLoss >= 0 ? "text-emerald-600" : "text-red-600"}>
+                  {formatCurrency(Math.abs(gainLoss))}
+                  {gainLoss < 0 && " (loss)"}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* NBV Breakdown Preview (reclassify) */}
+          {disposalType === "reclassify_to_expense" && (
+            <div className="p-3 rounded-md bg-muted/50 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Asset Cost</span>
+                <span>{formatCurrency(asset.cost)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Accumulated Depreciation</span>
+                <span>{formatCurrency(asset.accumulatedDepreciation)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-1 mt-1 font-medium">
+                <span>Net Book Value (Expense Amount)</span>
+                <span>{formatCurrency(asset.netBookValue)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -157,7 +288,11 @@ export function DisposeAssetDialog({ open, onClose, asset }: DisposeAssetDialogP
           <Button
             variant="destructive"
             onClick={handleConfirm}
-            disabled={submitting || !disposalDate}
+            disabled={
+              submitting ||
+              !disposalDate ||
+              (disposalType === "reclassify_to_expense" && (!targetAccountId || !submitterId))
+            }
           >
             {submitting ? "Processing..." : "Confirm Disposal"}
           </Button>

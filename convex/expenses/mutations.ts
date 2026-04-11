@@ -40,10 +40,8 @@ import {
   calculateMonthlyDepreciation,
   getAssetAccountCode,
 } from "../fixedAssets/helpers";
-import {
-  getNextAssetNumber,
-  resolveAccount,
-} from "../fixedAssets/mutations";
+import { getNextAssetNumber } from "../fixedAssets/mutations";
+import { resolveAccount } from "../lib/accountUtils";
 
 // ---------------------------------------------------------------------------
 // Payment method validator (matches schema exactly)

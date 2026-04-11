@@ -1766,6 +1766,8 @@ export default defineSchema({
     paidBy: v.optional(v.id("users")), // Who executed the bank transfer (markAsPaid)
     sharedReceiptAcknowledged: v.optional(v.boolean()), // User confirmed intentional receipt reuse
     convertedToAssetId: v.optional(v.id("fixedAssets")), // Linked fixed asset when expense was converted to CapEx
+    sourceAssetId: v.optional(v.id("fixedAssets")), // Linked asset when expense was created via asset reclassification
+    importBatchId: v.optional(v.string()), // UUID linking expenses from same CSV import batch
     createdAt: v.number(),
   })
     .index("by_submitter_status", ["submittedBy", "status"])
@@ -1989,7 +1991,7 @@ export default defineSchema({
     accumulatedDepreciation: v.number(),
     lastDepreciationMonth: v.optional(v.string()), // "YYYY-MM"
     disposalDate: v.optional(v.number()),
-    disposalType: v.optional(v.union(v.literal("sold"), v.literal("scrapped"), v.literal("written_off"))),
+    disposalType: v.optional(v.union(v.literal("sold"), v.literal("scrapped"), v.literal("written_off"), v.literal("reclassify_to_expense"))),
     saleProceeds: v.optional(v.number()),
     disposalGainLoss: v.optional(v.number()),
     disposalJournalEntryId: v.optional(v.id("journalEntries")),

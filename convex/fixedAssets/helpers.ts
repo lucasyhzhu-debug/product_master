@@ -64,6 +64,41 @@ export function getExpenseAccountCode(cat: (typeof ASSET_CATEGORIES)[number]): s
 }
 
 // ---------------------------------------------------------------------------
+// Reclassification Expense Mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Default mapping from asset category to operating expense GL account code
+ * when reclassifying an asset as an operating expense.
+ *
+ * All categories default to "6200" (General & Administrative Expense) since
+ * the reclassification books the NBV as a general operating cost, not as
+ * depreciation/amortization expense (which are time-based, not event-based).
+ * The user can override via dropdown in the UI.
+ */
+export const CATEGORY_TO_EXPENSE_ACCOUNT: Record<string, string> = {
+  tanah: "6200",
+  bangunan: "6200",
+  kendaraan: "6200",
+  peralatan_kantor: "6200",
+  mesin_produksi: "6200",
+  mebelair: "6200",
+  perkakas: "6200",
+  perbaikan_sewa: "6200",
+  merek_dagang: "6200",
+  hak_paten: "6200",
+  perangkat_lunak: "6200",
+};
+
+/**
+ * Get the default expense account code for reclassifying an asset category.
+ * Returns "6200" if category not found (safe fallback).
+ */
+export function getReclassificationExpenseCode(categoryKey: string): string {
+  return CATEGORY_TO_EXPENSE_ACCOUNT[categoryKey] ?? "6200";
+}
+
+// ---------------------------------------------------------------------------
 // Current Month Helper
 // ---------------------------------------------------------------------------
 
