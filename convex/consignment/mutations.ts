@@ -301,10 +301,12 @@ export const markAsPaid = mutation({
   args: {
     token: v.string(),
     settlementId: v.id("consignmentSettlements"),
+    paidAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["admin", "manager"]);
     const now = Date.now();
+    const paidAt = args.paidAt ?? now;
 
     const settlement = await ctx.db.get(args.settlementId);
     if (!settlement) {
@@ -317,7 +319,7 @@ export const markAsPaid = mutation({
     // Mark as paid
     await ctx.db.patch(args.settlementId, {
       status: "paid" as const,
-      paidAt: now,
+      paidAt,
       updatedBy: user.name,
       updatedAt: now,
     });
