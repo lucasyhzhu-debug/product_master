@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feature: Bulk Expense Upload & Asset Reclassification -- 2026-04-11
+
+**For the team:** You can now import dozens of expenses at once from a CSV file instead of entering them one by one. The import page shows a live preview table where you can fix mistakes inline before submitting. Managers/admins can mark batches as "already paid" to skip the approval queue. Also, assets that were accidentally capitalized can now be reclassified as expenses directly from the Asset Register's dispose dialog.
+
+#### Added
+- Bulk expense CSV import with name-based matching (category by account name, owner by user name)
+- Editable preview table with inline SearchableSelect dropdowns for fixing unmatched fields
+- Batch and per-row trust mode toggle (admin/manager only)
+- "Reclassify to Expense" disposal option in Asset Register with auto-mapped expense account
+- Shared `resolveAccount` utility in `convex/lib/accountUtils.ts`
+- Duplicate detection for bulk-imported expenses (same amount + date within 7 days)
+
+#### Changed
+- `AccountRef` type now includes `_id` field for proper typed ID propagation
+- `useDisposeAsset` hook suppresses generic toast — dialog shows contextual messages
+
 ### Fix: Inventory Transaction Type Filters -- 2026-04-10
 
 **For the team:** Production entries in inventory were hard to find because GoFood sync entries dominated the list. The Recent Transactions panel now has filter pills (Production, GoFood, Orders, etc.) so you can quickly isolate the transactions you care about.
