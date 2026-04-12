@@ -256,91 +256,102 @@ export const fulfillFromInventory = mutation({
       throw new Error("No fulfillable items found on this order");
     }
 
-    // 3. Check availability for ALL items first (no partial drawdown)
-    //    Phase 78: Substitution-aware -- build plans with direct + substitute stock.
-    //    CRITICAL: Use a shared stock row cache so multiple items targeting the same
-    //    product + location share the same object reference. This ensures post-deduction
-    //    quantity updates in step 4 are visible to subsequent items.
-    const shortages: Array<{ productName: string; needed: number; available: number }> = [];
-    const productNameMap = new Map<string, string>();
-    const stockRowCache = new Map<string, Doc<"productInventory"> | null>();
+    // 3. Plan drawdown for ALL items (no partial fulfillment).
+    //    Phase 78: Substitution-aware with shared stock tracking.
+    //
+    //    stockTracker: Map<productId+locationId, { row, runningQty }>
+    //    - `row` is the existing DB row (or null if none exists yet)
+    //    - `runningQty` tracks the quantity AFTER planned deductions
+    //    This correctly handles:
+    //      a) Multiple items sharing the same direct or substitute stock
+    //      b) Aggregate sufficiency check (not per-item against pre-deduction qty)
+    //      c) Products with no existing stock row (runningQty starts at 0)
+    type StockEntry = { row: Doc<"productInventory"> | null; runningQty: number };
+    const stockTracker = new Map<string, StockEntry>();
 
-    async function getStockRow(menuProductId: Id<"menuProducts">, locationId: Id<"storageLocations">) {
-      const key = `${menuProductId}:${locationId}`;
-      if (stockRowCache.has(key)) return stockRowCache.get(key)!;
+    async function getStock(menuProductId: Id<"menuProducts">): Promise<StockEntry> {
+      const key = String(menuProductId);
+      const cached = stockTracker.get(key);
+      if (cached) return cached;
       const row = await ctx.db
         .query("productInventory")
         .withIndex("by_product_location", (q) =>
-          q.eq("menuProductId", menuProductId).eq("locationId", locationId)
+          q.eq("menuProductId", menuProductId).eq("locationId", args.locationId)
         )
         .first();
-      stockRowCache.set(key, row);
-      return row;
+      const entry: StockEntry = { row, runningQty: row?.quantity ?? 0 };
+      stockTracker.set(key, entry);
+      return entry;
     }
+
+    const shortages: Array<{ productName: string; needed: number; available: number }> = [];
 
     interface ItemPlan {
       item: typeof orderItems[0];
       menuProduct: Doc<"menuProducts">;
       plan: ReturnType<typeof resolveSubstitutionPlan>;
-      directStockRow: Doc<"productInventory"> | null;
-      substituteStockRow: Doc<"productInventory"> | null;
+      directStock: StockEntry;
+      substituteStock: StockEntry | null;
     }
     const itemPlans: ItemPlan[] = [];
 
     for (const item of orderItems) {
       const menuProduct = menuProductCache.get(String(item.menuProductId!))!;
-      productNameMap.set(String(item.menuProductId!), menuProduct?.name ?? item.productName);
-
-      const directStockRow = await getStockRow(item.menuProductId!, args.locationId);
-      const directAvailable = directStockRow?.quantity ?? 0;
+      const directStock = await getStock(item.menuProductId!);
 
       // Load substitution source if configured
       let sourceProduct: Doc<"menuProducts"> | null = null;
-      let substituteStockRow: Doc<"productInventory"> | null = null;
+      let substituteStock: StockEntry | null = null;
 
       if (menuProduct?.fulfillFromProductId) {
         sourceProduct = await ctx.db.get(menuProduct.fulfillFromProductId);
         if (sourceProduct) {
-          substituteStockRow = await getStockRow(menuProduct.fulfillFromProductId, args.locationId);
+          substituteStock = await getStock(menuProduct.fulfillFromProductId);
         }
       }
 
+      // Plan uses running (post-prior-deduction) quantity, not original DB value.
       const plan = resolveSubstitutionPlan(
         item.quantity,
-        directAvailable,
+        directStock.runningQty,
         menuProduct!,
         sourceProduct,
       );
 
-      // Check sufficiency: direct units covered by direct stock, substitute units covered by substitute stock
-      const substituteAvailable = substituteStockRow?.quantity ?? 0;
-      const directOk = directAvailable >= plan.directUnits;
-      const substituteOk = !plan.needsSubstitution || substituteAvailable >= plan.substituteUnits;
-
-      if (!directOk || !substituteOk) {
-        if (!plan.needsSubstitution) {
-          // No substitution configured, simple shortage
-          shortages.push({
-            productName: menuProduct?.name ?? item.productName,
-            needed: item.quantity,
-            available: directAvailable,
-          });
-        } else if (!substituteOk) {
-          // Substitute insufficient
+      // Sufficiency check against running quantities.
+      // resolveSubstitutionPlan clamps directUnits to max(runningQty, 0), so
+      // directUnits <= runningQty is guaranteed when runningQty >= 0. The only
+      // failure mode here is substitute shortage.
+      if (plan.needsSubstitution && substituteStock !== null) {
+        if (substituteStock.runningQty < plan.substituteUnits) {
           shortages.push({
             productName: `${sourceProduct?.name ?? "substitute"} (for ${menuProduct?.name})`,
             needed: plan.substituteUnits,
-            available: substituteAvailable,
+            available: substituteStock.runningQty,
           });
         }
+      } else if (plan.directUnits > directStock.runningQty) {
+        // No substitution configured: direct must cover full need.
+        shortages.push({
+          productName: menuProduct?.name ?? item.productName,
+          needed: item.quantity,
+          available: directStock.runningQty,
+        });
+      }
+
+      // Commit the planned deductions to the running quantities so the next
+      // item's plan sees post-deduction values.
+      directStock.runningQty -= plan.directUnits;
+      if (plan.needsSubstitution && substituteStock !== null) {
+        substituteStock.runningQty -= plan.substituteUnits;
       }
 
       itemPlans.push({
         item,
         menuProduct: menuProduct!,
         plan,
-        directStockRow,
-        substituteStockRow,
+        directStock,
+        substituteStock,
       });
     }
 
@@ -351,10 +362,9 @@ export const fulfillFromInventory = mutation({
       });
     }
 
-    // 4. Deduct all items atomically
-    //    Phase 78: Substitution-aware -- deduct direct then substitute per item.
-    //    CRITICAL: Update cached .quantity on stock row objects after each deduction
-    //    so subsequent items sharing the same stock row read post-deduction values.
+    // 4. Apply deductions atomically.
+    //    Transaction log + per-item `deductions` response use progressive prev/new:
+    //    each item's prev is the running qty BEFORE this item's deduction.
     const now = Date.now();
     let itemsFulfilled = 0;
     const deductions: Array<{
@@ -366,24 +376,20 @@ export const fulfillFromInventory = mutation({
       substituteRemaining?: number;
     }> = [];
 
-    for (const { item, menuProduct, plan, directStockRow, substituteStockRow } of itemPlans) {
+    // Progressive per-product quantity tracker (starts from original DB quantity).
+    const writeTracker = new Map<string, number>();
+    for (const [key, entry] of stockTracker) {
+      writeTracker.set(key, entry.row?.quantity ?? 0);
+    }
+
+    for (const { item, menuProduct, plan, directStock: _directStock, substituteStock: _substituteStock } of itemPlans) {
+      const directKey = String(item.menuProductId!);
+
       // Deduct direct stock
       if (plan.directUnits > 0) {
-        const prevQty = directStockRow?.quantity ?? 0;
+        const prevQty = writeTracker.get(directKey)!;
         const newQty = prevQty - plan.directUnits;
-
-        if (directStockRow) {
-          await ctx.db.patch(directStockRow._id, { quantity: newQty, lastUpdated: now });
-          // Update cached quantity for subsequent items sharing same directStockRow
-          (directStockRow as any).quantity = newQty;
-        } else {
-          await ctx.db.insert("productInventory", {
-            menuProductId: item.menuProductId!,
-            locationId: args.locationId,
-            quantity: newQty,
-            lastUpdated: now,
-          });
-        }
+        writeTracker.set(directKey, newQty);
 
         await ctx.db.insert("productInventoryTransactions", {
           menuProductId: item.menuProductId!,
@@ -398,43 +404,26 @@ export const fulfillFromInventory = mutation({
         });
       }
 
-      // remaining = post-deduction direct stock (already updated in cache above)
-      const directRemaining = plan.directUnits > 0
-        ? (directStockRow?.quantity ?? -(plan.directUnits))
-        : (directStockRow?.quantity ?? 0);
-
       const deduction: typeof deductions[0] = {
         productName: menuProduct.name ?? item.productName,
         used: plan.directUnits,
-        remaining: directRemaining,
+        remaining: writeTracker.get(directKey) ?? 0,
       };
 
       // Deduct substitute stock if needed
       if (plan.needsSubstitution && plan.substituteUnits > 0 && plan.sourceProduct) {
-        const subPrevQty = substituteStockRow?.quantity ?? 0;
-        const subNewQty = subPrevQty - plan.substituteUnits;
-
-        if (substituteStockRow) {
-          await ctx.db.patch(substituteStockRow._id, { quantity: subNewQty, lastUpdated: now });
-          // CRITICAL: Update cached quantity so subsequent items sharing the same
-          // substitute product read the post-deduction value instead of stale data.
-          (substituteStockRow as any).quantity = subNewQty;
-        } else {
-          await ctx.db.insert("productInventory", {
-            menuProductId: plan.sourceProduct._id,
-            locationId: args.locationId,
-            quantity: subNewQty,
-            lastUpdated: now,
-          });
-        }
+        const subKey = String(plan.sourceProduct._id);
+        const prevQty = writeTracker.get(subKey)!;
+        const newQty = prevQty - plan.substituteUnits;
+        writeTracker.set(subKey, newQty);
 
         await ctx.db.insert("productInventoryTransactions", {
           menuProductId: plan.sourceProduct._id,
           locationId: args.locationId,
           transactionType: "drawdown",
           quantity: -plan.substituteUnits,
-          previousQuantity: subPrevQty,
-          newQuantity: subNewQty,
+          previousQuantity: prevQty,
+          newQuantity: newQty,
           orderId: args.orderId,
           performedBy: user.name,
           createdAt: now,
@@ -442,11 +431,31 @@ export const fulfillFromInventory = mutation({
 
         deduction.substituteProductName = plan.sourceProduct.name;
         deduction.substituteUsed = plan.substituteUnits;
-        deduction.substituteRemaining = subNewQty;
+        deduction.substituteRemaining = newQty;
       }
 
       deductions.push(deduction);
       itemsFulfilled++;
+    }
+
+    // Apply the final running quantities to DB (single patch/insert per stock entry).
+    for (const [key, entry] of stockTracker) {
+      // Skip entries that were never touched (no items used this product)
+      const originalQty = entry.row?.quantity ?? 0;
+      if (entry.runningQty === originalQty) continue;
+
+      if (entry.row) {
+        await ctx.db.patch(entry.row._id, { quantity: entry.runningQty, lastUpdated: now });
+      } else {
+        // Row didn't exist — insert with final quantity.
+        // Parse key back to menuProductId (it's String(Id<"menuProducts">))
+        await ctx.db.insert("productInventory", {
+          menuProductId: key as Id<"menuProducts">,
+          locationId: args.locationId,
+          quantity: entry.runningQty,
+          lastUpdated: now,
+        });
+      }
     }
 
     // 5. Advance order status: PaymentReceived | BeingPrepared -> AwaitingDelivery
@@ -757,6 +766,38 @@ export const processGofoodSales = internalMutation({
 
     // Cache outletId -> linkedStorageLocationId mapping to avoid repeated queries
     const outletLocationCache = new Map<string, Id<"storageLocations"> | null>();
+    // Phase 78: Cache menuProducts to avoid N+1 per item.
+    const menuProductCache = new Map<string, Doc<"menuProducts"> | null>();
+    // Phase 78: Per-(product,location) running quantity tracker so multiple items
+    // in the same batch that share a direct or substitute source aggregate correctly.
+    type StockEntry = { row: Doc<"productInventory"> | null; runningQty: number };
+    const stockTracker = new Map<string, StockEntry>();
+
+    const getMenuProduct = async (id: Id<"menuProducts">): Promise<Doc<"menuProducts"> | null> => {
+      const key = String(id);
+      if (menuProductCache.has(key)) return menuProductCache.get(key) ?? null;
+      const row = await ctx.db.get(id);
+      menuProductCache.set(key, row);
+      return row;
+    };
+
+    const getStock = async (
+      menuProductId: Id<"menuProducts">,
+      locationId: Id<"storageLocations">
+    ): Promise<StockEntry> => {
+      const key = `${menuProductId}:${locationId}`;
+      const cached = stockTracker.get(key);
+      if (cached) return cached;
+      const row = await ctx.db
+        .query("productInventory")
+        .withIndex("by_product_location", (q) =>
+          q.eq("menuProductId", menuProductId).eq("locationId", locationId)
+        )
+        .first();
+      const entry: StockEntry = { row, runningQty: row?.quantity ?? 0 };
+      stockTracker.set(key, entry);
+      return entry;
+    };
 
     const now = Date.now();
     let processed = 0;
@@ -799,141 +840,93 @@ export const processGofoodSales = internalMutation({
 
       const locationId: Id<"storageLocations"> = linkedLocationId;
 
-      // Load or create the productInventory row
-      const existing = await ctx.db
-        .query("productInventory")
-        .withIndex("by_product_location", (q) =>
-          q.eq("menuProductId", item.menuProductId).eq("locationId", locationId)
-        )
-        .first();
+      // Phase 78: Use cached menuProduct + stock tracker so multiple items sharing
+      // the same direct product or substitute source aggregate correctly.
+      const menuProduct = await getMenuProduct(item.menuProductId);
+      const directStock = await getStock(item.menuProductId, locationId);
 
-      const previousQuantity = existing?.quantity ?? 0;
+      let sourceProduct: Doc<"menuProducts"> | null = null;
+      let substituteStock: StockEntry | null = null;
 
-      // Phase 78: Check for substitution
-      const menuProduct = await ctx.db.get(item.menuProductId);
       if (menuProduct?.fulfillFromProductId && menuProduct?.fulfillMultiplier) {
-        const sourceProduct = await ctx.db.get(menuProduct.fulfillFromProductId);
+        sourceProduct = await getMenuProduct(menuProduct.fulfillFromProductId);
         if (sourceProduct) {
-          const plan = resolveSubstitutionPlan(
-            item.quantity,
-            existing?.quantity ?? 0,
-            menuProduct,
-            sourceProduct,
-          );
-
-          if (plan.needsSubstitution && plan.substituteUnits > 0) {
-            // Deduct direct units first
-            const directNewQty = (existing?.quantity ?? 0) - plan.directUnits;
-            if (existing) {
-              await ctx.db.patch(existing._id, { quantity: directNewQty, lastUpdated: now });
-            } else if (plan.directUnits > 0) {
-              await ctx.db.insert("productInventory", {
-                menuProductId: item.menuProductId,
-                locationId,
-                quantity: directNewQty,
-                lastUpdated: now,
-              });
-            }
-
-            if (plan.directUnits > 0) {
-              await ctx.db.insert("productInventoryTransactions", {
-                menuProductId: item.menuProductId,
-                locationId,
-                transactionType: "gofood_sale",
-                quantity: -plan.directUnits,
-                previousQuantity: existing?.quantity ?? 0,
-                newQuantity: directNewQty,
-                gofoodOrderRef: item.gofoodOrderRef,
-                performedBy: "system:gobiz_sync",
-                createdAt: now,
-              });
-            }
-
-            // Check low-stock threshold for direct product
-            if (previousQuantity > globalThreshold && directNewQty <= globalThreshold) {
-              lowStockAlerts++;
-            }
-
-            // Deduct substitute units
-            const subExisting = await ctx.db
-              .query("productInventory")
-              .withIndex("by_product_location", (q) =>
-                q.eq("menuProductId", sourceProduct._id).eq("locationId", locationId)
-              )
-              .first();
-            const subPrevQty = subExisting?.quantity ?? 0;
-            const subNewQty = subPrevQty - plan.substituteUnits;
-
-            if (subExisting) {
-              await ctx.db.patch(subExisting._id, { quantity: subNewQty, lastUpdated: now });
-            } else {
-              await ctx.db.insert("productInventory", {
-                menuProductId: sourceProduct._id,
-                locationId,
-                quantity: subNewQty,
-                lastUpdated: now,
-              });
-            }
-
-            await ctx.db.insert("productInventoryTransactions", {
-              menuProductId: sourceProduct._id,
-              locationId,
-              transactionType: "gofood_sale",
-              quantity: -plan.substituteUnits,
-              previousQuantity: subPrevQty,
-              newQuantity: subNewQty,
-              gofoodOrderRef: item.gofoodOrderRef,
-              performedBy: "system:gobiz_sync",
-              createdAt: now,
-            });
-
-            // Check low-stock threshold for SUBSTITUTE product
-            if (subPrevQty > globalThreshold && subNewQty <= globalThreshold) {
-              lowStockAlerts++;
-            }
-
-            processed++;
-            // Skip the original deduction code below
-            continue;
-          }
+          substituteStock = await getStock(menuProduct.fulfillFromProductId, locationId);
         }
       }
 
-      // Original deduction (no substitution)
-      const newQuantity = previousQuantity - item.quantity;
+      const plan = resolveSubstitutionPlan(
+        item.quantity,
+        directStock.runningQty,
+        menuProduct ?? ({} as Doc<"menuProducts">),
+        sourceProduct,
+      );
 
-      if (existing) {
-        await ctx.db.patch(existing._id, {
-          quantity: newQuantity,
-          lastUpdated: now,
-        });
-      } else {
-        await ctx.db.insert("productInventory", {
+      // Deduct direct stock (if any)
+      if (plan.directUnits > 0) {
+        const prevQty = directStock.runningQty;
+        const newQty = prevQty - plan.directUnits;
+        directStock.runningQty = newQty;
+
+        await ctx.db.insert("productInventoryTransactions", {
           menuProductId: item.menuProductId,
           locationId,
-          quantity: newQuantity,
-          lastUpdated: now,
+          transactionType: "gofood_sale",
+          quantity: -plan.directUnits,
+          previousQuantity: prevQty,
+          newQuantity: newQty,
+          gofoodOrderRef: item.gofoodOrderRef,
+          performedBy: "system:gobiz_sync",
+          createdAt: now,
         });
+
+        if (prevQty > globalThreshold && newQty <= globalThreshold) {
+          lowStockAlerts++;
+        }
       }
 
-      // Log the GoFood sale transaction
-      await ctx.db.insert("productInventoryTransactions", {
-        menuProductId: item.menuProductId,
-        locationId,
-        transactionType: "gofood_sale",
-        quantity: -item.quantity,
-        previousQuantity,
-        newQuantity,
-        gofoodOrderRef: item.gofoodOrderRef,
-        performedBy: "system:gobiz_sync",
-        createdAt: now,
-      });
+      // Deduct substitute stock (if needed)
+      if (plan.needsSubstitution && plan.substituteUnits > 0 && sourceProduct && substituteStock) {
+        const subPrevQty = substituteStock.runningQty;
+        const subNewQty = subPrevQty - plan.substituteUnits;
+        substituteStock.runningQty = subNewQty;
+
+        await ctx.db.insert("productInventoryTransactions", {
+          menuProductId: sourceProduct._id,
+          locationId,
+          transactionType: "gofood_sale",
+          quantity: -plan.substituteUnits,
+          previousQuantity: subPrevQty,
+          newQuantity: subNewQty,
+          gofoodOrderRef: item.gofoodOrderRef,
+          performedBy: "system:gobiz_sync",
+          createdAt: now,
+        });
+
+        if (subPrevQty > globalThreshold && subNewQty <= globalThreshold) {
+          lowStockAlerts++;
+        }
+      }
 
       processed++;
+    }
 
-      // Check for low-stock alert (only when crossing threshold from above, not already negative)
-      if (previousQuantity > globalThreshold && newQuantity <= globalThreshold) {
-        lowStockAlerts++;
+    // Apply final running quantities to DB (single write per stock entry).
+    for (const [key, entry] of stockTracker) {
+      const originalQty = entry.row?.quantity ?? 0;
+      if (entry.runningQty === originalQty) continue;
+
+      if (entry.row) {
+        await ctx.db.patch(entry.row._id, { quantity: entry.runningQty, lastUpdated: now });
+      } else {
+        // key format: "menuProductId:locationId"
+        const [menuProductIdStr, locationIdStr] = key.split(":");
+        await ctx.db.insert("productInventory", {
+          menuProductId: menuProductIdStr as Id<"menuProducts">,
+          locationId: locationIdStr as Id<"storageLocations">,
+          quantity: entry.runningQty,
+          lastUpdated: now,
+        });
       }
     }
 

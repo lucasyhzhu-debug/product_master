@@ -382,6 +382,57 @@ describe("menuProducts update validation", () => {
     expect(updated?.fulfillMultiplier).toBe(3);
   });
 
+  test("fulfillMultiplier without fulfillFromProductId rejected", async () => {
+    const t = convexTest(schema, modules);
+    const token = await createTestUser(t);
+    const productA = await createMenuProduct(t, { name: "Product A" });
+
+    await expect(
+      t.mutation(api.menuProducts.mutations.update, {
+        token,
+        id: productA,
+        fulfillMultiplier: 3,
+      })
+    ).rejects.toThrow("fulfillMultiplier requires fulfillFromProductId");
+  });
+
+  test("deleting a product used as substitution source is rejected", async () => {
+    const t = convexTest(schema, modules);
+    const token = await createTestUser(t);
+    const source = await createMenuProduct(t, { name: "Dubai Single" });
+    await createMenuProduct(t, {
+      name: "Dubai Triple",
+      fulfillFromProductId: source,
+      fulfillMultiplier: 3,
+    });
+
+    await expect(
+      t.mutation(api.menuProducts.mutations.remove, {
+        token,
+        id: source,
+      })
+    ).rejects.toThrow("configured to fulfill from this product");
+  });
+
+  test("deactivating a product used as substitution source is rejected", async () => {
+    const t = convexTest(schema, modules);
+    const token = await createTestUser(t);
+    const source = await createMenuProduct(t, { name: "Dubai Single", isActive: true });
+    await createMenuProduct(t, {
+      name: "Dubai Triple",
+      fulfillFromProductId: source,
+      fulfillMultiplier: 3,
+    });
+
+    await expect(
+      t.mutation(api.menuProducts.mutations.update, {
+        token,
+        id: source,
+        isActive: false,
+      })
+    ).rejects.toThrow("configured to fulfill from this product");
+  });
+
   test("clear substitution accepted", async () => {
     const t = convexTest(schema, modules);
     const token = await createTestUser(t);
@@ -558,6 +609,67 @@ describe("fulfillFromInventory with substitution", () => {
 });
 
 // ============================================
+// 3b. processGofoodSales Integration Tests
+// ============================================
+
+describe("processGofoodSales with substitution", () => {
+  test("two sales sharing same substitute source get correct cumulative deductions", async () => {
+    // Regression for C1: BUG-4 from triple review — processGofoodSales must track
+    // running quantity so a second item sharing the same substitute doesn't double-deduct
+    // from the pre-batch quantity.
+    const t = convexTest(schema, modules);
+    const locationId = await createLocation(t);
+
+    const singleId = await createMenuProduct(t, { name: "Dubai Single", productType: "food" });
+    const tripleAId = await createMenuProduct(t, {
+      name: "Dubai Triple",
+      productType: "food",
+      fulfillFromProductId: singleId,
+      fulfillMultiplier: 3,
+    });
+    const tripleBId = await createMenuProduct(t, {
+      name: "Nutella Triple",
+      productType: "food",
+      fulfillFromProductId: singleId,
+      fulfillMultiplier: 3,
+    });
+
+    // Single has 10 stock, triples have 0
+    await createStockRow(t, tripleAId, locationId, 0);
+    await createStockRow(t, tripleBId, locationId, 0);
+    await createStockRow(t, singleId, locationId, 10);
+
+    // Create outlet linked to location (gobiz is the GoFood-related source literal)
+    const outletId = await t.run(async (ctx) =>
+      ctx.db.insert("externalOutlets", {
+        name: "Test Outlet",
+        source: "gobiz",
+        externalId: "OUTLET-001",
+        isActive: true,
+        linkedStorageLocationId: locationId,
+        createdBy: "test",
+        createdAt: Date.now(),
+      })
+    );
+
+    await t.mutation(api.productInventory.mutations.processGofoodSales, {
+      items: [
+        { menuProductId: tripleAId, quantity: 1, outletId, gofoodOrderRef: "GO-001" },
+        { menuProductId: tripleBId, quantity: 1, outletId, gofoodOrderRef: "GO-002" },
+      ],
+    } as any);
+
+    // Single should be 10 - 3 - 3 = 4 (both sales deducted from running qty)
+    const singleStock = await t.run(async (ctx) =>
+      ctx.db.query("productInventory").withIndex("by_product_location", (q) =>
+        q.eq("menuProductId", singleId).eq("locationId", locationId)
+      ).first()
+    );
+    expect(singleStock?.quantity).toBe(4);
+  });
+});
+
+// ============================================
 // 4. getStockForOrder Integration Tests
 // ============================================
 
@@ -594,6 +706,54 @@ describe("getStockForOrder with substitution", () => {
     expect(result[0].substituteProductName).toBe("Dubai Single");
     expect(result[0].substituteMultiplier).toBe(3);
     expect(result[0].isSufficient).toBe(true); // overall: substitute covers the shortfall
+  });
+
+  test("aggregate sufficiency check: two items competing for same substitute source that can only cover one", async () => {
+    // Regression test for: two items both pass per-item sufficiency (substitute has 3,
+    // each needs 3) but combined demand (6) exceeds stock. Must throw shortage.
+    const t = convexTest(schema, modules);
+    const staffToken = await createOrderStaffUser(t);
+    const locationId = await createLocation(t);
+
+    const singleId = await createMenuProduct(t, { name: "Dubai Single", productType: "food" });
+    const tripleAId = await createMenuProduct(t, {
+      name: "Dubai Triple",
+      productType: "food",
+      fulfillFromProductId: singleId,
+      fulfillMultiplier: 3,
+    });
+    const tripleBId = await createMenuProduct(t, {
+      name: "Nutella Triple",
+      productType: "food",
+      fulfillFromProductId: singleId,
+      fulfillMultiplier: 3,
+    });
+
+    // Both triples have 0 direct stock. Substitute has only 3 singles but both items need 3 each.
+    await createStockRow(t, tripleAId, locationId, 0);
+    await createStockRow(t, tripleBId, locationId, 0);
+    await createStockRow(t, singleId, locationId, 3);
+
+    const { orderId } = await createOrder(t, [
+      { menuProductId: tripleAId, quantity: 1, productName: "Dubai Triple" },
+      { menuProductId: tripleBId, quantity: 1, productName: "Nutella Triple" },
+    ]);
+
+    await expect(
+      t.mutation(api.productInventory.mutations.fulfillFromInventory, {
+        token: staffToken,
+        orderId,
+        locationId,
+      })
+    ).rejects.toThrow();
+
+    // Verify no stock was actually deducted
+    const singleStock = await t.run(async (ctx) =>
+      ctx.db.query("productInventory").withIndex("by_product_location", (q) =>
+        q.eq("menuProductId", singleId).eq("locationId", locationId)
+      ).first()
+    );
+    expect(singleStock?.quantity).toBe(3); // unchanged
   });
 
   test("returns isSufficient false when both sources insufficient", async () => {

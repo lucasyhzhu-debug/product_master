@@ -145,9 +145,9 @@ export function ProductForm({
       setIsActive(true);
 
       // Phase 78: Initialize substitution fields
-      if ('fulfillFromProductId' in product && product.fulfillFromProductId) {
-        setFulfillFromProductId(product.fulfillFromProductId as string);
-        setFulfillMultiplier((product as any).fulfillMultiplier?.toString() ?? '');
+      if (product.fulfillFromProductId) {
+        setFulfillFromProductId(product.fulfillFromProductId);
+        setFulfillMultiplier(product.fulfillMultiplier?.toString() ?? '');
       } else {
         setFulfillFromProductId('none');
         setFulfillMultiplier('');
@@ -293,6 +293,15 @@ export function ProductForm({
       return;
     }
 
+    // Phase 78: Validate substitution multiplier is a valid integer >= 2
+    if (fulfillFromProductId !== 'none') {
+      const multiplierInt = parseInt(fulfillMultiplier);
+      if (isNaN(multiplierInt) || multiplierInt < 2 || !Number.isInteger(multiplierInt)) {
+        toast.error('Substitution multiplier must be an integer of 2 or more');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       // Combine all components
@@ -405,12 +414,13 @@ export function ProductForm({
     }
   };
 
-  // Phase 78: Eligible substitution source products
+  // Phase 78: Eligible substitution source products — food only, not self,
+  // not already configured as a substitutor, active (query already filters).
   const eligibleSubstitutionProducts = useMemo(() => {
     if (!rawMenuProducts) return [];
     const currentId = product?._id;
     return rawMenuProducts.filter((p) => {
-      if (p.productType !== 'food' && p.productType !== undefined) return false;
+      if (p.productType !== 'food') return false;
       if (currentId && String(p._id) === String(currentId)) return false;
       if (p.fulfillFromProductId) return false;
       return true;

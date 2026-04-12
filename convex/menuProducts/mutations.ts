@@ -273,6 +273,28 @@ export const update = mutation({
       }
     }
 
+    // Phase 78: Deactivation guard — block setting isActive=false if this product
+    // is used as a substitution source by another product.
+    if (updates.isActive === false && current.isActive !== false) {
+      const usedAsActiveSource = await ctx.db
+        .query("menuProducts")
+        .filter((q) => q.eq(q.field("fulfillFromProductId"), id))
+        .first();
+      if (usedAsActiveSource) {
+        throw new Error(`Cannot deactivate: "${usedAsActiveSource.name}" is configured to fulfill from this product. Clear that substitution first.`);
+      }
+    }
+
+    // Phase 78: Reverse "both-or-neither" validation — reject fulfillMultiplier
+    // without fulfillFromProductId (prevents orphan multiplier values).
+    if (
+      args.fulfillMultiplier !== undefined &&
+      !args.fulfillFromProductId &&
+      !args.clearFulfillFrom
+    ) {
+      throw new Error("fulfillMultiplier requires fulfillFromProductId to be set");
+    }
+
     // Phase 78: Substitution validation
     if (args.fulfillFromProductId && !args.clearFulfillFrom) {
       // Multiplier must be provided with source
@@ -408,6 +430,15 @@ export const remove = mutation({
     // Block deletion of POS-assigned products
     if (product.posSlot !== undefined || product.packagingPosSlot !== undefined) {
       throw new Error("Cannot delete a POS-assigned product. Remove the POS slot assignment first.");
+    }
+
+    // Phase 78: Block deletion if another product uses this as a substitution source
+    const usedAsSubstitutionSource = await ctx.db
+      .query("menuProducts")
+      .filter((q) => q.eq(q.field("fulfillFromProductId"), args.id))
+      .first();
+    if (usedAsSubstitutionSource) {
+      throw new Error(`Cannot delete: "${usedAsSubstitutionSource.name}" is configured to fulfill from this product. Clear that substitution first.`);
     }
 
     await ctx.db.delete(args.id);
