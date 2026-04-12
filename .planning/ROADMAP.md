@@ -238,7 +238,14 @@ Plans:
   1. User can upload a BCA or Mandiri CSV export and see a preview of parsed transactions before importing
   2. System auto-detects the bank format (BCA vs Mandiri) and correctly parses amounts, dates, and descriptions
   3. After import, system auto-matches bank lines to existing expenses, revenue entries, reimbursements, and payroll by amount + date + description with confidence scoring
-**Plans**: TBD
+**Plans:** 6 plans
+Plans:
+- [ ] 72-01-PLAN.md -- Foundation: SheetJS CDN install + schema tables + CoA extension + by_name index + synthetic fixture
+- [ ] 72-02-PLAN.md -- Parser libs: BCA XLSX parser + CSV fallback + reconciliation checksum + Indonesian date + fuzzy match + SHA-256 (TDD)
+- [ ] 72-03-PLAN.md -- Match engine: Layer A keyword/counterparty classifier + Layer B record linkage + 26 rule fixtures (TDD)
+- [ ] 72-04-PLAN.md -- Convex API: rules seed + admin CRUD + createFromParsedStatement + dedup + admin-gated queries
+- [ ] 72-05-PLAN.md -- Frontend: /bank-reconciliation wizard + read-only review + /bank-rules admin CRUD + ProtectedRoute + nav
+- [ ] 72-06-PLAN.md -- Verification: full suite + P73 boundary audit + CHANGELOG/SCHEMA/API_REFERENCE/CLAUDE.md docs
 **UI hint**: yes
 
 ### Phase 73: Bank Reconciliation UI & Workflow
@@ -323,7 +330,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 |-------|-----------|----------------|--------|-----------|
 | 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
-| 72. Bank Statement Parser & Auto-Match | v2.0 | 0/TBD | Not started | - |
+| 72. Bank Statement Parser & Auto-Match | v2.0 | 0/6 | Not started | - |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
 | 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
