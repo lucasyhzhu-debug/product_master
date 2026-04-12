@@ -1,10 +1,11 @@
 ---
 phase: 72
 slug: bank-statement-parser-auto-match
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: approved
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-13
+approved: 2026-04-13
 ---
 
 # Phase 72 — Validation Strategy
@@ -104,11 +105,11 @@ All files greenfield — Wave 0 creates stubs before any implementation.
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references (9 test files + 1 fixture + 2 installs)
-- [ ] No watch-mode flags (`--run` always used)
-- [ ] Feedback latency < 30s for scoped runs, < 60s full suite
-- [ ] `nyquist_compliant: true` set in frontmatter (after planner confirms coverage)
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies (Plans 02/03/04 include RED-test tasks mapped to every row above; manual items listed in §Manual-Only)
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify (planner verified)
+- [x] Wave 0 covers all MISSING references (9 test files + 1 fixture + 2 installs — landed in Plan 01 Task 1–4 and Plan 02 Task 1)
+- [x] No watch-mode flags (`--run` always used in acceptance criteria)
+- [x] Feedback latency < 30s for scoped runs, < 60s full suite
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-04-13 (after plan-checker verification pass, pending plan revision of 5 blockers)

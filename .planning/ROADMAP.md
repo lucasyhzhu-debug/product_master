@@ -179,7 +179,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 
 - [x] **Phase 70: Data Accuracy Foundation** - Fix revenue recognition, add COGS override, extend employee profiles (completed 2026-04-10)
 - [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
-- [ ] **Phase 72: Bank Statement Parser & Auto-Match** - BCA/Mandiri CSV upload with format detection and auto-matching engine
+- [ ] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07)
 - [ ] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking
 - [ ] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
@@ -235,9 +235,9 @@ Plans:
 **Depends on**: Phase 70 (needs employee bank account from DA-04)
 **Requirements**: BANK-01, BANK-02
 **Success Criteria** (what must be TRUE):
-  1. User can upload a BCA or Mandiri CSV export and see a preview of parsed transactions before importing
-  2. System auto-detects the bank format (BCA vs Mandiri) and correctly parses amounts, dates, and descriptions
-  3. After import, system auto-matches bank lines to existing expenses, revenue entries, reimbursements, and payroll by amount + date + description with confidence scoring
+  1. User can upload a BCA XLSX e-statement (CSV fallback accepted) and see a preview of parsed transactions before importing. Mandiri and other banks deferred to a future phase (D-07).
+  2. Parser correctly extracts amounts, dates (DD-Mon with year inferred from Periode row), and descriptions. Import aborts if the reconciliation checksum (parsed debits/credits/balance delta vs footer totals) fails — no partial state persisted (D-06b).
+  3. After import, system auto-matches bank lines to existing expenses, revenue entries, reimbursements, and payroll by amount + date + description with confidence scoring (exact | strong | suggested | none). Line-level results are read-only in P72; interactive reconciliation UI and JE posting deferred to P73.
 **Plans:** 6 plans
 Plans:
 - [ ] 72-01-PLAN.md -- Foundation: SheetJS CDN install + schema tables + CoA extension + by_name index + synthetic fixture
