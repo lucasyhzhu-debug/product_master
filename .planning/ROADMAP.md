@@ -346,3 +346,42 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v2.0 Financial Management & Data Quality | 70-78 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
+
+---
+
+## Backlog
+
+### Phase 999.2: Dev Database Drift Fix — Sync Dev ComponentTypes With Prod After Cleanup (BACKLOG)
+
+**Goal:** Bring the dev Convex deployment (`dev:exciting-fennec-671`) back in line with prod after the 2026-04-12 componentTypes dedupe on prod. Dev was not cleaned up because the admin token used for prod was not valid on dev.
+
+**Why:** Dev and prod now have divergent `componentTypes` data shape — prod has canonical codes as survivors (`KUNAFA`, `BUTTER`, etc.) with real prices, while dev may still carry both `ING_*` and canonical variants. This causes:
+- Confusing BOM inspection when testing locally against dev
+- Risk of writing code that works against dev shape but misbehaves on prod shape
+- Stale `createIngredientComponentType` behavior may have already produced more `ING_*` rows on dev before the admin-gate fix
+
+**Requirements:** TBD — likely just:
+1. Run `componentTypes/seed:seedLeafKitchenComponents` against dev with dev admin token
+2. Run `componentTypes/dedupe:reportDuplicatesByName` to inspect drift
+3. If meaningful drift exists, run `mergeDuplicatesByName` dry-run then apply
+4. Consider: do we want a dev→prod schema/data parity check as a recurring task?
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+---
+
+### Phase 999.3: Fix `reportDuplicatesByName` to ignore inactive rows (BACKLOG, low priority)
+
+**Goal:** Minor cosmetic fix — after a successful merge, `componentTypes/dedupe:reportDuplicatesByName` still surfaces groups where the only remaining member is a deactivated (isActive:false) sibling of a live survivor. Filter by `isActive: true` when grouping so a successful merge leaves no groups.
+
+**Why:** Caught during the 2026-04-12 prod merge. Non-blocking — the Components page filters active rows and users see correct output. But the dedupe report query is a diagnostic tool, and reporting stale groups is noise.
+
+**Requirements:** TBD. Likely one-line change in `convex/componentTypes/dedupe.ts::reportDuplicatesByName` — add `.filter((ct) => ct.isActive)` before grouping, or use an index.
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready)
