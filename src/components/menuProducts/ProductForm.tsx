@@ -32,7 +32,6 @@ import {
   useAssignToPackagingSlot,
   usePosProducts,
   usePackagingPosProducts,
-  useMenuProducts,
   useMenuProductComponents,
   useComponentsByCategory,
   type PosProduct,
@@ -89,11 +88,9 @@ export function ProductForm({
   const allComponentsLoaded = productionComponents !== undefined &&
                                packagingComponents !== undefined;
 
-  // Query all products for duplicate name detection
-  const { data: allProducts } = useMenuProducts();
-
-  // Phase 78: Raw Convex query for substitution dropdown (needs fulfillFromProductId field)
-  const rawMenuProducts = useConvexQuery(convexApi.menuProducts.queries.list, { activeOnly: true });
+  // Single raw query used for both duplicate name detection (all products) and
+  // substitution dropdown (active food products). Client-side filtering below.
+  const rawMenuProducts = useConvexQuery(convexApi.menuProducts.queries.list, {});
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
@@ -420,22 +417,23 @@ export function ProductForm({
     if (!rawMenuProducts) return [];
     const currentId = product?._id;
     return rawMenuProducts.filter((p) => {
+      if (!p.isActive) return false;
       if (p.productType !== 'food') return false;
-      if (currentId && String(p._id) === String(currentId)) return false;
+      if (currentId && p._id === currentId) return false;
       if (p.fulfillFromProductId) return false;
       return true;
     });
   }, [rawMenuProducts, product]);
 
-  // Check for duplicate product name
+  // Check for duplicate product name (against all products, including inactive)
   const duplicateProduct = useMemo(() => {
-    if (!name.trim() || !allProducts) return null;
+    if (!name.trim() || !rawMenuProducts) return null;
     const trimmedName = name.trim().toLowerCase();
-    const existing = allProducts.find(
-      (p) => p.name.toLowerCase() === trimmedName && p.id !== (product?._id as unknown as number)
-    );
-    return existing || null;
-  }, [name, allProducts, product]);
+    const currentId = product?._id;
+    return rawMenuProducts.find(
+      (p) => p.name.toLowerCase() === trimmedName && p._id !== currentId
+    ) ?? null;
+  }, [name, rawMenuProducts, product]);
 
   // Calculate margin
   const cogs = calculatedValues.totalCost;
