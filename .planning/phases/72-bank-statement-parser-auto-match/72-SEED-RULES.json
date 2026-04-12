@@ -10,10 +10,19 @@
       "This seed file is consumed by `bankKeywordRules:seedDefaults` (to be implemented in Phase 72).",
       "Account refs are LOGICAL names (e.g. 'revenue-direct-sales'). The seeder resolves each to an accounts._id by account name or code. If any ref cannot be resolved, seed should fail loudly with the unresolved ref list — never silently skip.",
       "Direction is a first-class predicate because OVO (credit=revenue vs debit=logistics), Shopee (credit=marketplace payout vs debit=e-commerce supplies), and Tokopedia behave differently on debit vs credit sides.",
-      "Rules may combine counterparty AND descriptionPatterns. Semantics: counterparty (if present) must match AND descriptionPatterns (if present, any-mode unless descriptionPatternsMode='all') must match.",
+      "IMPORTANT — REAL BCA INPUT HAS NO COUNTERPARTY COLUMN. The actual BCA XLSX export has ONE description field (Keterangan) that contains counterparty name, reference codes, and memo text all concatenated. Therefore `counterpartyPatterns` and `descriptionPatterns` are BOTH evaluated as case-insensitive substring searches against the SAME rawDescription field. Semantic intent: `counterpartyPatterns` captures names/entity strings (e.g. 'DOMPET ANAK BANGSA', 'RISTIANA ETENG'), `descriptionPatterns` captures memo/reference keywords (e.g. 'BIAYA ADM', 'investment'). Evaluation treats them identically at runtime — the label is for human readability of the rule set only.",
+      "Rules may combine counterparty AND descriptionPatterns. Semantics: counterparty (if present) must match (any) AND descriptionPatterns (if present, per descriptionPatternsMode) must match. Both are substring-in-rawDescription checks.",
       "Precedence: higher `priority` evaluated first; first match wins. Ties broken by ruleCode ascending for determinism.",
       "R01 is a catch-all (isCatchAll=true) — it matches any unmatched credit as Direct Sales. It must be evaluated LAST regardless of priority — the engine checks `isCatchAll` as a tiebreaker."
     ],
+    "realInputFormat": {
+      "comment": "Grounded in actual BCA XLSX sample parsed during discuss-phase 2026-04-12 (Mutasi - BCA - 2511.xlsx). See CONTEXT.md D-06a and D-28 for full parser contract.",
+      "sheetLayout": "XLSX single-sheet, 5 columns (A: date 'DD-Mon', B: Keterangan description, C: Jumlah amount 'Rp X,XXX,XXX', D: DB/empty direction flag, E: Saldo balance)",
+      "metadataRows": ["row 0: title", "row 2: No. rekening", "row 3: Nama", "row 4: Periode (authoritative year source)", "row 5: Kode Mata Uang"],
+      "footerRows": ["Saldo Awal", "Mutasi Debet", "Mutasi Kredit", "Saldo Akhir"],
+      "reconciliationCheckRequired": "sum(debits) == Mutasi Debet AND sum(credits) == Mutasi Kredit AND opening + credits - debits == closing. Abort import on mismatch.",
+      "dateFormat": "DD-Mon with Indonesian month abbreviations (Jan/Feb/Mar/Apr/Mei/Jun/Jul/Agu/Sep/Okt/Nov/Des). Year inferred from Periode metadata."
+    },
     "precedenceTiers": {
       "100": "Named personal/entity counterparties (cafe owners, individual owners) — R11, R12, B02",
       "80": "Platform counterparties (GoPay, OVO, Tokopedia, AirPay, Katiga, Skala Pangan) — R02, R03, R04, R05, R06, R07",

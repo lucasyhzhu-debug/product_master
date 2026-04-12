@@ -21,34 +21,68 @@ Users upload BCA bank statement CSV → system parses, classifies each line via 
 
 ### Storage Model
 
-- **D-01:** Two new tables — `bankStatements` (header: fileHash, fileName, periodStart, periodEnd, lineCount, matchedCount, uploadedBy, createdAt) + `bankStatementLines` (child rows). Mirrors the `journalEntries`/`journalEntryLines` pattern.
+- **D-01:** Two new tables — `bankStatements` (header: fileHash, fileName, accountNumber, accountHolder, reportedPeriodStart, reportedPeriodEnd, currency, openingBalance, closingBalance, reportedDebitTotal, reportedCreditTotal, lineCount, matchedCount, uploadedBy, createdAt) + `bankStatementLines` (child rows). Mirrors the `journalEntries`/`journalEntryLines` pattern. Header fields come DIRECTLY from the BCA statement metadata rows (see D-06a) — they are the source of truth for reconciliation validation.
 - **D-02:** **Polymorphic match linkage** on each line — `matchedType: v.optional(v.union(v.literal("expense"), v.literal("revenue"), v.literal("reimbursement"), v.literal("payroll")))` + `matchedId: v.optional(v.string())`. Extends the `externalRevenueItems.linkedMenuProductId` idea to four targets without adding four nullable FK columns.
 - **D-03:** **Line-level reconciliation state only.** `bankStatementLines.status: v.union(v.literal("unmatched"), v.literal("auto_matched"), v.literal("suggested"), v.literal("confirmed"))`. Header counts derived via query — header stays immutable after import. P73 mutates line.status on manual action.
-- **D-04:** **Duplicate dedup via file hash** stored on `bankStatements.fileHash` (SHA-256 of CSV content). Re-upload with same hash blocked with error `"Already imported on {createdAt}"`. Line-level dedup not needed.
-- **D-05:** **Statement period derived** from lines: `periodStart = min(line.date)`, `periodEnd = max(line.date)`. User sees derived range in preview; can override before commit.
+- **D-04:** **Duplicate dedup via file hash** stored on `bankStatements.fileHash` (SHA-256 of raw XLSX bytes). Re-upload with same hash blocked with error `"Already imported on {createdAt}"`. Secondary dedup: `(accountNumber, reportedPeriodStart, reportedPeriodEnd)` composite should also be unique — guards against re-exports of the same period with different file metadata (e.g. re-downloaded statement).
+- **D-05:** **Statement period** taken from the `Periode : DD/MM/YYYY - DD/MM/YYYY` metadata row directly — NOT derived from line dates. Why: the user's actual BCA export uses `DD-Mon` date format on transaction rows (no year), so the period row is the authoritative source for year context. Line dates are reconstructed using the period's year.
 
-### Bank Statement Line Schema (from user's BCA template)
+### Real BCA Statement Format (input — authoritative)
 
-- **D-06:** `bankStatementLines` fields capture the full template — source data, classification output, and journaling suggestions:
-  - **Source (from CSV):** `statementId: v.id("bankStatements")`, `rowIndex: v.number()`, `date: v.number()` (epoch ms), `month: v.string()` ("YYYY-MM" derived), `description: v.string()`, `debitIdr: v.optional(v.number())`, `creditIdr: v.optional(v.number())`
-  - **Classification:** `originalCategory: v.optional(v.string())`, `matchMethod: v.optional(v.union(v.literal("keyword"), v.literal("exact_match"), v.literal("linked_to_record"), v.literal("unmatched")))`, `updatedCategoryAccountId: v.optional(v.id("accounts"))`, `subCategory: v.optional(v.string())`, `plSection: v.optional(v.string())`
+Sample: `D:\OneDrive\Documents\Malo Financials\2025\2511\Mutasi - BCA - 2511.xlsx` — reference file committed conceptually via this CONTEXT.md (actual file stays outside repo for privacy).
+
+- **D-06a:** Input file shape — **XLSX single-sheet** (not CSV). Layout:
+  - **Rows 0-5 (metadata block):**
+    - Row 0: `"Informasi Rekening - Mutasi Rekening"` (title banner)
+    - Row 2: `"No. rekening : {accountNumber}"`
+    - Row 3: `"Nama : {accountHolderCompany}"`
+    - Row 4: `"Periode : DD/MM/YYYY - DD/MM/YYYY"` — year source for transaction dates
+    - Row 5: `"Kode Mata Uang : Rp"`
+  - **Row 6 (column headers):** `Tanggal Transaksi | Keterangan | Jumlah | Keterangan | Saldo` — note columns B and D BOTH say "Keterangan" (BCA quirk). Parser MUST use column index, not header label.
+  - **Rows 7..N (transactions):** one per bank line, 5 cells each:
+    - Col A `Tanggal Transaksi`: date in `DD-Mon` format with Indonesian month abbreviations (`Jan/Feb/Mar/Apr/Mei/Jun/Jul/Agu/Sep/Okt/Nov/Des`). NO year — inferred from Periode.
+    - Col B `Keterangan`: raw description string (can contain counterparty name, reference codes, memo text — all concatenated; no separate fields).
+    - Col C `Jumlah`: amount with format `" Rp1,000,000 "` (leading/trailing whitespace + `Rp` prefix + thousands commas + optional decimals). Parser strips to integer IDR.
+    - Col D (direction flag — labelled "Keterangan" again): `"DB"` = debit (money out), `""` empty = credit (money in).
+    - Col E `Saldo`: running balance, format same as Jumlah. Populated only on the LAST transaction of each day (multi-transaction days show blank balance on all but the last line).
+  - **Rows after transactions (blank spacer rows)**
+  - **Footer summary block (4 rows):**
+    - `"Saldo Awal : {openingBalance}"`
+    - `"Mutasi Debet : {totalDebit}"`
+    - `"Mutasi Kredit : {totalCredit}"`
+    - `"Saldo Akhir : {closingBalance}"`
+- **D-06b:** **Parser validation (required on import).** After parsing all transaction rows:
+  - Sum of parsed debit amounts MUST equal `Mutasi Debet`
+  - Sum of parsed credit amounts MUST equal `Mutasi Kredit`
+  - `Saldo Awal + Mutasi Kredit − Mutasi Debet` MUST equal `Saldo Akhir`
+  - If any check fails, abort import and surface a diagnostic showing the diff (parsed vs reported). Never partially import a mis-reconciled statement — this is the audit integrity guarantee.
+- **D-06c:** **CSV fallback.** Keep a CSV parser path for the same logical shape (user may manually export-as-CSV). Detection: if file extension is `.xlsx/.xls` use SheetJS; if `.csv` use Papa Parse. Shared downstream pipeline after row extraction.
+
+### Bank Statement Line Schema
+
+- **D-06:** `bankStatementLines` fields — source data captured literally from BCA, plus classification + matching output:
+  - **Source (from statement):** `statementId: v.id("bankStatements")`, `rowIndex: v.number()` (source row number in XLSX, 1-indexed from first transaction row), `date: v.number()` (epoch ms, year inferred from statement Periode), `month: v.string()` ("YYYY-MM" derived), `rawDescription: v.string()` (full Keterangan cell contents, untouched), `direction: v.union(v.literal("debit"), v.literal("credit"))` (parsed from DB/CR flag column), `amountIdr: v.number()` (positive integer IDR, parser-normalized from Jumlah), `runningBalanceIdr: v.optional(v.number())` (Saldo — blank on non-last-of-day lines)
+  - **Derived (computed by parser):** `parsedCounterparty: v.optional(v.string())` — heuristic extraction of the likely counterparty substring from `rawDescription` (trailing name-case token sequence; null if no confident extraction). Used ONLY as a display/sort aid — rules match against `rawDescription` directly.
+  - **Classification (filled by match engine):** `originalCategory: v.optional(v.string())`, `matchMethod: v.optional(v.union(v.literal("keyword"), v.literal("exact_match"), v.literal("counterparty"), v.literal("linked_to_record"), v.literal("unmatched")))`, `updatedCategoryAccountId: v.optional(v.id("accounts"))`, `subCategory: v.optional(v.string())`, `plSection: v.optional(v.string())`, `matchedRuleId: v.optional(v.id("bankKeywordRules"))` (which rule fired)
   - **Journaling suggestion (not posted in P72):** `jeDebitAccountId: v.optional(v.id("accounts"))`, `jeCreditAccountId: v.optional(v.id("accounts"))`
   - **Record linkage:** `matchedType`, `matchedId` (see D-02)
-  - **Revenue attribution:** `linkedChannel: v.optional(v.string())` — populated when credit matches a known revenue-channel keyword (grabfood/shopee/etc.); null if uncertain
-  - **Review meta:** `overrideCategoryAccountId: v.optional(v.id("accounts"))` (P73 populates), `confidence: v.union(v.literal("exact"), v.literal("strong"), v.literal("suggested"), v.literal("none"))`, `notes: v.optional(v.string())`, `status` (see D-03), `isAutoMatched: v.boolean()`
+  - **Revenue attribution:** `linkedChannel: v.optional(v.string())`
+  - **Review meta:** `overrideCategoryAccountId: v.optional(v.id("accounts"))` (P73), `confidence: v.union(v.literal("exact"), v.literal("strong"), v.literal("suggested"), v.literal("none"))`, `notes: v.optional(v.string())`, `status` (D-03), `isAutoMatched: v.boolean()`, `flags: v.optional(v.array(v.string()))` (inherited from matched rule — e.g. `capex_needs_asset_register`)
+  - **Note on `debitIdr`/`creditIdr`:** **Not separate fields** — use `direction` + `amountIdr` (simpler, matches BCA shape). View layer can synthesize split columns for the reconciliation table display if needed.
 
 ### Scope: Bank Formats & Upload UX
 
-- **D-07:** **BCA only.** Single format. No Mandiri or other banks in P72. Adding banks later = new parser module in a registry. (Phase 72 goal in ROADMAP references BCA/Mandiri; we are narrowing to BCA based on actual business scope.)
-- **D-08:** CSV template follows the BCA e-statement shape the user provided: `No, Date, Month, Description, Debit (IDR), Credit (IDR)` as source columns (remaining template columns are reconciliation output, populated by the engine — not input). Parser ignores any columns beyond source inputs.
+- **D-07:** **BCA only.** Single format, single source-of-truth shape (see D-06a). No Mandiri or other banks in P72. Adding banks later = new parser module in a registry. (Phase 72 goal in ROADMAP references BCA/Mandiri; we are narrowing to BCA based on actual business scope.)
+- **D-08:** **XLSX primary, CSV fallback.** Primary input is BCA's `.xlsx` e-statement export (format described in D-06a). Parser dependency: SheetJS (`xlsx` npm package) — widely used, MIT, no native deps. CSV path uses existing Papa Parse from `src/lib/csvImportValidation.ts` for the same logical shape.
+- **D-08a:** **Output display = user's original reconciliation table.** The 17-column reconciliation view (from the user's pasted table, see `<specifics>`) is the OUTPUT layout for the review page — source columns (Date, Description, Debit, Credit, Saldo) rendered on the left, classification + JE suggestion columns on the right. Kept as-is — only the INPUT format changed.
 - **D-09:** **New dedicated page `/bank-reconciliation`** under Financial nav section. Separate from `/import` (Phase 71 Bulk Import). P72 ships upload wizard + minimal read-only post-import review list. P73 builds the full split-view review UI on the same route.
-- **D-10:** Upload wizard mirrors Phase 71 Bulk Import shell — state machine `upload → validating → review → importing → complete → error`. Reuse the same Papa Parse + row validation pattern from `src/lib/csvImportValidation.ts`; do not share state/components (different data shapes).
+- **D-10:** Upload wizard mirrors Phase 71 Bulk Import shell — state machine `upload → validating → review → importing → complete → error`. Do not share state; different parsing paths and different row schemas.
 
 ### Match Engine
 
 - **D-11:** **Two-layer matching** per line:
-  - **Layer A — Keyword classification:** Look up description against `bankKeywordRules` (new table). Sets `originalCategory`, `updatedCategoryAccountId`, `subCategory`, `plSection`, `jeDebitAccountId`, `jeCreditAccountId`, and `matchMethod="keyword"` / `"exact_match"` per rule type. Rules evaluated by priority desc; first match wins.
-  - **Layer B — Record linkage:** Try to link to existing `expenses` / `externalRevenue` / `reimbursementBatches` / `payrollEntries` by `amount exact + date within ±3 days + fuzzy description similarity`. If found, sets `matchedType` + `matchedId` + `matchMethod="linked_to_record"`.
+  - **Layer A — Keyword/Counterparty classification:** Evaluate `bankKeywordRules` against the line's `rawDescription` + `direction`. `counterpartyPatterns` in a rule = **substring-in-rawDescription match** (case-insensitive) — there is no separate counterparty field in the BCA input (see D-06a). `descriptionPatterns` = same but semantically for memo keywords. Rule's `direction` must match the line's `direction` (`debit`/`credit`) unless rule is `any`. Sets `originalCategory`, `updatedCategoryAccountId`, `subCategory`, `plSection`, `jeDebitAccountId`, `jeCreditAccountId`, `matchMethod`, `matchedRuleId`, and `flags` (from the rule). Rules evaluated by `priority DESC, ruleCode ASC`; first match wins; catch-all (`isCatchAll`) evaluated LAST.
+  - **Layer B — Record linkage:** Independently of Layer A, try to link to existing `expenses` / `externalRevenue` / `reimbursementBatches` / `payrollEntries` by `amountIdr exact + date within ±3 days + fuzzy description similarity`. If found, sets `matchedType` + `matchedId` + `matchMethod="linked_to_record"` (layering note: Layer B's match can coexist with Layer A's classification — e.g. a payroll payment matched via B still keeps its O01 JE suggestion from A; P73 user resolves which takes precedence).
 - **D-12:** **Confidence tiers** — string literal union `"exact" | "strong" | "suggested" | "none"`, mirroring `externalRevenueItems.matchConfidence`. Mapping:
   - `exact` = keyword rule exact pattern match, OR linked record with amount+date+description all matching
   - `strong` = keyword contains match with ≥1 high-priority rule, OR linked record with amount+date exact + description fuzzy score ≥ 0.8
@@ -138,15 +172,42 @@ Users upload BCA bank statement CSV → system parses, classifies each line via 
 
 - **D-27:** **Rules-only. No AI / LLM in P72 or P73.** Keyword rules are deterministic, debuggable, and free. "Learn from manual override" in P73 gives 90% of AI's value without the cost. Real AI revisited only if rule-based hit rate plateaus below ~90% (Deferred).
 
+### Parser Contract (BCA XLSX)
+
+- **D-28:** **Parser responsibilities (deterministic, testable):**
+  1. Read sheet via SheetJS. Accept only single-sheet workbooks; reject with diagnostic if multi-sheet.
+  2. Extract metadata from rows 2-5 by regex against column A:
+     - `/^No\. rekening\s*:\s*(\S+)/` → `accountNumber`
+     - `/^Nama\s*:\s*(.+)$/` → `accountHolder`
+     - `/^Periode\s*:\s*(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})/` → `reportedPeriodStart`, `reportedPeriodEnd`
+     - `/^Kode Mata Uang\s*:\s*(\w+)/` → `currency` (validate === "Rp", fail otherwise — P72 is IDR-only)
+  3. Locate header row by matching column A cell === `"Tanggal Transaksi"`. Fail import if not found.
+  4. Iterate rows below header until a row's column A is blank AND column B is blank (end of transactions). Skip blank spacer rows but treat a fully-blank row as potential terminator — then check if following rows look like footer.
+  5. For each transaction row:
+     - **Date:** Parse `DD-Mon` using Indonesian month map (`Jan, Feb, Mar, Apr, Mei, Jun, Jul, Agu, Sep, Okt, Nov, Des`). Year resolved from `reportedPeriodStart`; rollover heuristic if period spans year boundary — use period month to pick year.
+     - **Description:** Trim col B verbatim. Keep original casing. No interpretation.
+     - **Amount:** Col C stripped of whitespace and `Rp` prefix and thousands commas → parse as integer (or decimal if present, multiplied by 100 then rounded to integer IDR if sub-rupiah).
+     - **Direction:** Col D === `"DB"` → `direction="debit"`; empty → `direction="credit"`. Any other value → fail row with diagnostic.
+     - **Saldo:** Col E parsed same as amount if present; null if blank.
+     - **Heuristic counterparty parse:** Attempt to extract trailing name-case token sequence (2+ consecutive all-caps or Capitalized words) from `rawDescription`. Null if no confident match. Never required for matching — purely cosmetic.
+  6. Locate footer: scan remaining rows for `Saldo Awal`, `Mutasi Debet`, `Mutasi Kredit`, `Saldo Akhir` labels via regex. Extract numeric values.
+  7. **Reconciliation check:** computed sum-of-debits must equal `Mutasi Debet`; sum-of-credits must equal `Mutasi Kredit`; `openingBalance + credits − debits` must equal `closingBalance`. On failure, return import error listing expected vs actual — do NOT persist partial state.
+  8. Return structured `ParsedStatement { header, lines[] }` ready for insertion.
+- **D-29:** **Year rollover edge case:** when `reportedPeriodStart.month > reportedPeriodEnd.month` (period crosses December-January), use this rule: if the line's `DD-Mon` month >= period start month, use start year; else use end year. Unit test this explicitly with a Dec-Jan period.
+- **D-30:** **Indonesian month map** defined in `convex/lib/indonesianDate.ts` (new file): `{ Jan: 0, Feb: 1, Mar: 2, Apr: 3, Mei: 4, Jun: 5, Jul: 6, Agu: 7, Sep: 8, Okt: 9, Nov: 10, Des: 11 }`. Export for reuse by any downstream Indonesian-format parsing.
+
 ### Claude's Discretion
 
-- Exact BCA CSV column-name mapping details (BOM handling, delimiter variations, date format parsing — DD/MM/YYYY per template)
+- SheetJS parsing options (cellDates/raw flags tuning)
+- Exact parser error message wording
+- Counterparty heuristic extraction algorithm details (regex vs NER-light; err on "null if uncertain")
 - Levenshtein library choice (`fastest-levenshtein` vs hand-rolled) — pick lighter option
 - Confidence threshold tuning (0.8 fuzzy) — revisit after first real import
 - Exact seed rule set content — start from user template; expand as edge cases surface
 - Read-only review table pagination / sort defaults (date desc likely)
 - Account-ID lookup strategy in seed (by `code` or `name` — follow existing `accounts` seed conventions)
 - Levenshtein normalization details (case, whitespace, punctuation stripping)
+- Multi-sheet XLSX handling beyond "reject" — could allow user to pick sheet, defer to P73 if needed
 
 ### Folded Todos
 
@@ -257,9 +318,38 @@ None — no pending todos matched this phase.
 - Pierre (C03 production vs O02 shipping): description keyword disambiguates
 - BI-FAST: credit from unknown individual = Direct Sales (R09); debit to named owner = Owner Draw (B02)
 
-### User-provided BCA template (canonical CSV shape)
+### Real BCA XLSX reference sample
 
-The user pasted a sample template showing 17 columns — source + reconciliation output:
+File: `D:\OneDrive\Documents\Malo Financials\2025\2511\Mutasi - BCA - 2511.xlsx` (November 2025 MALO GROUP BAHAGIA PT statement, 5 transaction rows). Parsed during discuss-phase on 2026-04-12 to confirm layout. Representative row breakdown:
+
+| Row | Cell A | Cell B (Keterangan) | Cell C (Jumlah) | Cell D | Cell E (Saldo) | Notes |
+|---|---|---|---|---|---|---|
+| 0 | `Informasi Rekening - Mutasi Rekening` | | | | | title banner |
+| 2 | `No. rekening : 6044830994` | | | | | |
+| 3 | `Nama : MALO GROUP BAHAGIA PT` | | | | | |
+| 4 | `Periode : 01/11/2025 - 30/11/2025` | | | | | **year source** |
+| 5 | `Kode Mata Uang : Rp` | | | | | |
+| 6 | `Tanggal Transaksi` | `Keterangan` | `Jumlah` | `Keterangan` | `Saldo` | header (col D label is BCA quirk) |
+| 7 | `19-Nov` | `BI-FAST CR BIF TRANSFER DR 019 RISTIANA ETENG` | ` Rp1,000,000 ` | `` | ` Rp1,000,000 ` | credit (empty D) |
+| 8 | `20-Nov` | `ND-LAINNYA` | ` Rp50,000 ` | `DB` | ` Rp950,000 ` | debit (bank fee) |
+| 9 | `30-Nov` | `TRSF E-BANKING CR 3011/FTSCY/WS95271 135000000.00 Tania investment KEVIN YOSUA / RIST` | ` Rp135,000,000 ` | `` | `` | credit, saldo blank (not end of day) |
+| 10 | `30-Nov` | `TRSF E-BANKING DB 3011/FTSCY/WS95051 76876615.00 reimburse KEVIN YOSUA / RIST` | ` Rp76,876,615 ` | `DB` | `` | debit, saldo blank |
+| 11 | `30-Nov` | `BIAYA ADM` | ` Rp30,000 ` | `DB` | ` Rp59,043,385 ` | last of day — running balance shown |
+| 14 | `Saldo Awal : 0.00` | | | | | footer: opening |
+| 15 | `Mutasi Debet : 76,956,615.00` | | | | | footer: total debit |
+| 16 | `Mutasi Kredit : 136,000,000.00` | | | | | footer: total credit |
+| 17 | `Saldo Akhir : 59,043,385.00` | | | | | footer: closing |
+
+**Reconciliation check (must pass):**
+- Sum of parsed debits = 50,000 + 76,876,615 + 30,000 = **76,956,615** ✓ matches `Mutasi Debet`
+- Sum of parsed credits = 1,000,000 + 135,000,000 = **136,000,000** ✓ matches `Mutasi Kredit`
+- 0 + 136,000,000 − 76,956,615 = **59,043,385** ✓ matches `Saldo Akhir`
+
+This worked end-to-end on the sample file during discuss-phase — confirming the parser contract in D-28.
+
+### User-provided reconciliation output table (canonical OUTPUT shape)
+
+The user pasted a sample template showing 17 columns — this is the DISPLAY / output layout for the review page (NOT the input). Input is the BCA XLSX described above. Output columns:
 
 ```
 No | Date (DD/MM/YYYY) | Month (MMM YYYY) | Description | Debit (IDR) | Credit (IDR)
