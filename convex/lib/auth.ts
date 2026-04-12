@@ -12,7 +12,8 @@
  */
 
 import type { QueryCtx, MutationCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
 
 /**
  * User role types.
@@ -144,4 +145,35 @@ export async function requireRole(
   }
 
   return user;
+}
+
+/**
+ * Resolve the seed/system-op user id.
+ *
+ * - If a session token is supplied, verify admin role and return that user's _id.
+ * - If no token (Convex dashboard Functions-tab direct call), fall back to the
+ *   first admin user.
+ *
+ * Introduced for Phase 72 Plan 04 (bankKeywordRules:seedDefaults). Reusable by
+ * future system-level seeds that must record `createdBy` / `updatedBy` but may
+ * be invoked either from the dashboard (no token) or from the admin UI (token).
+ */
+export async function resolveSeederUserId(
+  ctx: MutationCtx,
+  token?: string,
+): Promise<Id<"users">> {
+  if (token) {
+    const user = await requireRole(ctx, token, ["admin"]);
+    return user._id;
+  }
+  const admin = await ctx.db
+    .query("users")
+    .withIndex("by_role", (q) => q.eq("role", "admin"))
+    .first();
+  if (!admin) {
+    throw new ConvexError(
+      "At least one admin user required for system-level seed",
+    );
+  }
+  return admin._id;
 }
