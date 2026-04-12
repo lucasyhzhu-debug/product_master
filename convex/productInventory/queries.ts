@@ -8,6 +8,7 @@
 import { query } from "../_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import { resolveSubstitutionPlan } from "./substitution";
 
 /**
  * Get all product inventory rows with joined menuProduct + location data.
@@ -348,13 +349,53 @@ export const getStockForOrder = query({
       const quantityNeeded = item.quantity;
       const isSufficient = quantityAvailable >= quantityNeeded;
 
+      // Phase 78: Check for substitution config
+      let substituteAvailable: number | undefined;
+      let substituteNeeded: number | undefined;
+      let substituteProductName: string | undefined;
+      let substituteMultiplier: number | undefined;
+      let overallSufficient = isSufficient;
+
+      if (menuProduct?.fulfillFromProductId && menuProduct?.fulfillMultiplier && !isSufficient) {
+        const sourceProduct = await ctx.db.get(menuProduct.fulfillFromProductId);
+        if (sourceProduct) {
+          const plan = resolveSubstitutionPlan(
+            quantityNeeded,
+            quantityAvailable,
+            menuProduct,
+            sourceProduct,
+          );
+
+          if (plan.needsSubstitution) {
+            const subStockRow = await ctx.db
+              .query("productInventory")
+              .withIndex("by_product_location", (q) =>
+                q.eq("menuProductId", sourceProduct._id).eq("locationId", args.locationId)
+              )
+              .first();
+
+            substituteAvailable = subStockRow?.quantity ?? 0;
+            substituteNeeded = plan.substituteUnits;
+            substituteProductName = sourceProduct.name;
+            substituteMultiplier = menuProduct.fulfillMultiplier;
+            overallSufficient = substituteAvailable >= plan.substituteUnits;
+          }
+        }
+      }
+
       availability.push({
         orderItemId: item._id,
         menuProductId: item.menuProductId!,
         productName: menuProduct?.name ?? item.productName,
         quantityNeeded,
         quantityAvailable,
-        isSufficient,
+        isSufficient: overallSufficient,
+        // Phase 78: Substitution details (only present for substitution-configured products with shortfall)
+        hasSubstitution: menuProduct?.fulfillFromProductId !== undefined,
+        substituteAvailable,
+        substituteNeeded,
+        substituteProductName,
+        substituteMultiplier,
       });
     }
 

@@ -121,6 +121,9 @@ export default defineSchema({
     cogsOverrideIdr: v.optional(v.number()),
     /** Storage ID for product photo (written back from GrabFood Menu Simulator uploads) */
     photoStorageId: v.optional(v.id("_storage")),
+    // Phase 78: Inventory substitution -- draw from another product when direct stock insufficient
+    fulfillFromProductId: v.optional(v.id("menuProducts")),
+    fulfillMultiplier: v.optional(v.number()),
   })
     .index("by_code", ["code"])
     .index("by_active", ["isActive"])

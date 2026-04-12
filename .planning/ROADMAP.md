@@ -12,7 +12,7 @@
 - [x] **v1.7 Expense & Accounting** - Phases 41-54 (shipped 2026-03-16)
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
-- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-77 (in progress)
+- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-78 (in progress)
 
 ## Phases
 
@@ -185,6 +185,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
+- [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
 
 ## Phase Details
 
@@ -298,10 +299,25 @@ Plans:
 **Plans**: TBD
 **UI hint**: yes
 
+### Phase 78: Product Inventory Substitution
+**Goal**: Triple products (Dubai Triple, Nutella Triple) can be fulfilled from single product inventory when direct stock is insufficient
+**Depends on**: Nothing (standalone inventory feature)
+**Requirements**: SUB-01, SUB-02, SUB-03, SUB-04
+**Success Criteria** (what must be TRUE):
+  1. Admin can configure a substitution source and multiplier on any food product via the product edit form
+  2. Order fulfillment draws direct stock first, then falls back to substitute singles for the remainder
+  3. Availability panel shows split sub-rows showing direct vs substitute stock for substitution products
+  4. GoFood auto-deduction applies same substitution logic (negative stock allowed)
+**Plans:** 2 plans
+Plans:
+- [ ] 78-01-PLAN.md -- Backend: schema, helper, validation, mutation/query updates, tests
+- [ ] 78-02-PLAN.md -- Frontend: ProductForm section, AvailabilityPanel sub-rows, toast enhancement
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -313,6 +329,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
+| 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -326,6 +343,6 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-77 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-78 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**

@@ -220,16 +220,27 @@ grep -c "help file" .claude/commands/updateGSD.md
 
 ---
 
-## Patch 4: plan-phase — Staff Review integration
+## Patch 4: plan-phase — Staff Review routing fix
 
 **File:** `get-shit-done/workflows/plan-phase.md`
-**Purpose:** Pre-existing patch — runs /staffreview on plans before execution.
-**Insertion anchor:** After plan-checker loop completes, before offering next step.
+**Purpose:** Ensures Step 12.5 (Staff Review Gate) is never bypassed. All exit paths from Step 12 (revision loop) originally routed to Step 13, skipping staffreview when plans needed revisions. Fixed all 3 occurrences to route through Step 12.5 first.
+**Insertion anchor:** Step 12 (Revision Loop) — three "proceed to step 13" directives changed to "proceed to step 12.5 (staff review)"
 **Dependencies:**
 - `.agent/skills/staffreview/SKILL.md`
+- Step 12.5 must exist in plan-phase.md (added by GSD core or prior patch)
+
+**Content:**
+```markdown
+Three routing fixes in Step 12:
+1. Line ~803: plan passes with no issues → "Proceed to step 12.5 (staff review)" (was step 13)
+2. Line ~814: stall → proceed anyway → "continue to step 12.5 (staff review)" (was step 13)
+3. Line ~822: 2nd stall → proceed anyway → "continue to step 12.5 (staff review)" (was step 13)
+```
 
 **Verification:**
 ```bash
+grep -c "step 12.5" .claude/get-shit-done/workflows/plan-phase.md
+# Expected: >= 4 (1 from step 11 + 3 fixed in step 12)
 grep -c "staffreview\|Staff Review" .claude/get-shit-done/workflows/plan-phase.md
 # Expected: >= 1
 ```
@@ -411,5 +422,54 @@ grep -c "run_seed_functions" .claude/get-shit-done/workflows/execute-plan.md
 grep -c "Seed production" .claude/get-shit-done/workflows/execute-phase.md
 # Expected: >= 1
 grep -c "seed_functions" .planning/config.json
+# Expected: >= 1
+```
+
+---
+
+## Patch 11: All workflows — Explicit task tree for quality gates
+
+**Files:**
+- `get-shit-done/workflows/execute-phase.md` (task tree after discover_plans step)
+- `get-shit-done/workflows/quick.md` (task tree before Step 6 + routing fix)
+- `commands/gsd/debug.md` (task tree at Step 2.5 + "Done" routing fix)
+
+**Purpose:** Quality gate steps (triple-review, simplify, document+merge) were invisible in the task tree — lumped under a vague "Phase verification and state updates" catch-all. This patch adds explicit `TaskCreate` instructions so every quality gate appears as a separate, visible task item with proper `blockedBy` dependencies. Also fixes two routing bugs: quick.md Step 6.5 (verification passed) jumped to Step 7, skipping 6.1/6.2; debug.md "Done" option bypassed Steps 6-7.
+**Insertion anchors:**
+- execute-phase.md: Between `</step>` closing `discover_plans` and `<step name="execute_waves">`
+- quick.md: Before `**Step 6: Spawn executor**`; also line 766 routing table
+- debug.md: New `## 2.5. Task Tree` before `## 3. Spawn gsd-debugger Agent`; also line 127 "Done" option
+**Dependencies:**
+- TaskCreate tool must be available to orchestrator agents
+- No new config keys
+
+**Content (execute-phase.md):**
+```markdown
+Task tree section with TaskCreate examples for waves + code review + triple review + simplify + phase verification + document and merge, each with blockedBy chains.
+```
+
+**Content (quick.md):**
+```markdown
+Task tree section with TaskCreate examples for executor + code review + verification + triple review + simplify + state update + document and merge.
+Routing fix: verification "passed" → "continue to step 6.1 (triple review)" (was step 7).
+```
+
+**Content (debug.md):**
+```markdown
+New Step 2.5 with TaskCreate examples for debug investigation + triple review + simplify + document and merge.
+"Done" option changed from "mark resolved" to "proceed to Step 6 (quality gates) and Step 7 (document and merge)".
+```
+
+**Verification:**
+```bash
+grep -c "TaskCreate" .claude/get-shit-done/workflows/execute-phase.md
+# Expected: >= 7
+grep -c "TaskCreate" .claude/get-shit-done/workflows/quick.md
+# Expected: >= 7
+grep -c "TaskCreate" .claude/commands/gsd/debug.md
+# Expected: >= 4
+grep -c "step 6.1 (triple review)" .claude/get-shit-done/workflows/quick.md
+# Expected: >= 1
+grep -c "proceed to Step 6" .claude/commands/gsd/debug.md
 # Expected: >= 1
 ```

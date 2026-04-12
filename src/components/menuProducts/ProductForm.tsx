@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, UtensilsCrossed, Package, RefreshCw } from 'lucide-react';
+import { Save, UtensilsCrossed, Package, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { useQuery as useConvexQuery } from 'convex/react';
+import { api as convexApi } from '../../../convex/_generated/api';
 import {
   Dialog,
   DialogContent,
@@ -30,7 +32,6 @@ import {
   useAssignToPackagingSlot,
   usePosProducts,
   usePackagingPosProducts,
-  useMenuProducts,
   useMenuProductComponents,
   useComponentsByCategory,
   type PosProduct,
@@ -87,8 +88,9 @@ export function ProductForm({
   const allComponentsLoaded = productionComponents !== undefined &&
                                packagingComponents !== undefined;
 
-  // Query all products for duplicate name detection
-  const { data: allProducts } = useMenuProducts();
+  // Single raw query used for both duplicate name detection (all products) and
+  // substitution dropdown (active food products). Client-side filtering below.
+  const rawMenuProducts = useConvexQuery(convexApi.menuProducts.queries.list, {});
 
   // Query existing components if editing
   const productId = product?._id as Id<"menuProducts"> | undefined;
@@ -105,6 +107,10 @@ export function ProductForm({
   const [isFree, setIsFree] = useState(false);
   const [posSlot, setPosSlot] = useState<string>('none');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Phase 78: Inventory substitution state
+  const [fulfillFromProductId, setFulfillFromProductId] = useState<string>('none');
+  const [fulfillMultiplier, setFulfillMultiplier] = useState<string>('');
 
   // Component state (separate for production and packaging)
   const [productionRows, setProductionRows] = useState<ComponentRow[]>([]);
@@ -134,6 +140,15 @@ export function ProductForm({
       // Determine active state (check for isActive on the raw product data)
       // PosProduct and LegacyProduct don't expose isActive directly, default to true
       setIsActive(true);
+
+      // Phase 78: Initialize substitution fields
+      if (product.fulfillFromProductId) {
+        setFulfillFromProductId(product.fulfillFromProductId);
+        setFulfillMultiplier(product.fulfillMultiplier?.toString() ?? '');
+      } else {
+        setFulfillFromProductId('none');
+        setFulfillMultiplier('');
+      }
 
       // Split existing components into production and packaging
       if (existingComponents && existingComponents.length > 0) {
@@ -186,6 +201,8 @@ export function ProductForm({
     setPrice('');
     setIsFree(false);
     setPosSlot(prefilledSlot ? prefilledSlot.toString() : 'none');
+    setFulfillFromProductId('none');
+    setFulfillMultiplier('');
     setProductionRows([]);
     setPackagingRows([]);
   };
@@ -273,6 +290,15 @@ export function ProductForm({
       return;
     }
 
+    // Phase 78: Validate substitution multiplier is a valid integer >= 2
+    if (fulfillFromProductId !== 'none') {
+      const multiplierInt = parseInt(fulfillMultiplier);
+      if (isNaN(multiplierInt) || multiplierInt < 2 || !Number.isInteger(multiplierInt)) {
+        toast.error('Substitution multiplier must be an integer of 2 or more');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       // Combine all components
@@ -312,10 +338,17 @@ export function ProductForm({
               'posSlot' in p && (p as { posSlot: number }).posSlot === targetSlot);
 
       if (isEditing) {
+        // Phase 78: Build substitution update fields
+        const substitutionUpdates = fulfillFromProductId !== 'none'
+          ? { fulfillFromProductId: fulfillFromProductId as Id<"menuProducts">, fulfillMultiplier: parseInt(fulfillMultiplier) }
+          : (product && 'fulfillFromProductId' in product && product.fulfillFromProductId
+              ? { clearFulfillFrom: true as const }
+              : {});
+
         // Update existing product
         await updateMutation.mutateAsync({
           id: product._id as Id<"menuProducts">,
-          updates: productData,
+          updates: { ...productData, ...substitutionUpdates },
         });
 
         // Handle slot assignment separately if changed
@@ -378,15 +411,29 @@ export function ProductForm({
     }
   };
 
-  // Check for duplicate product name
+  // Phase 78: Eligible substitution source products — food only, not self,
+  // not already configured as a substitutor, active (query already filters).
+  const eligibleSubstitutionProducts = useMemo(() => {
+    if (!rawMenuProducts) return [];
+    const currentId = product?._id;
+    return rawMenuProducts.filter((p) => {
+      if (!p.isActive) return false;
+      if (p.productType !== 'food') return false;
+      if (currentId && p._id === currentId) return false;
+      if (p.fulfillFromProductId) return false;
+      return true;
+    });
+  }, [rawMenuProducts, product]);
+
+  // Check for duplicate product name (against all products, including inactive)
   const duplicateProduct = useMemo(() => {
-    if (!name.trim() || !allProducts) return null;
+    if (!name.trim() || !rawMenuProducts) return null;
     const trimmedName = name.trim().toLowerCase();
-    const existing = allProducts.find(
-      (p) => p.name.toLowerCase() === trimmedName && p.id !== (product?._id as unknown as number)
-    );
-    return existing || null;
-  }, [name, allProducts, product]);
+    const currentId = product?._id;
+    return rawMenuProducts.find(
+      (p) => p.name.toLowerCase() === trimmedName && p._id !== currentId
+    ) ?? null;
+  }, [name, rawMenuProducts, product]);
 
   // Calculate margin
   const cogs = calculatedValues.totalCost;
@@ -626,6 +673,73 @@ export function ProductForm({
                   />
                 </div>
               </div>
+
+              {/* Phase 78: Inventory Fulfillment (Food only, edit mode) */}
+              {productType === 'food' && isEditing && (
+                <>
+                  <Separator />
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-semibold">Inventory Fulfillment</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      When direct stock is insufficient, fulfill from another product's inventory.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="fulfillFrom" className="text-sm font-semibold">Fulfill from</Label>
+                        <Select
+                          value={fulfillFromProductId}
+                          onValueChange={(val) => {
+                            setFulfillFromProductId(val);
+                            if (val === 'none') {
+                              setFulfillMultiplier('');
+                            }
+                          }}
+                        >
+                          <SelectTrigger id="fulfillFrom">
+                            <SelectValue placeholder="None" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {eligibleSubstitutionProducts.map((p) => (
+                              <SelectItem key={p._id} value={p._id as string}>
+                                {p.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="fulfillMultiplier" className="text-sm font-semibold">Units per product</Label>
+                        <Input
+                          id="fulfillMultiplier"
+                          type="number"
+                          min="2"
+                          step="1"
+                          value={fulfillMultiplier}
+                          onChange={(e) => setFulfillMultiplier(e.target.value)}
+                          placeholder="e.g., 3"
+                          disabled={fulfillFromProductId === 'none'}
+                        />
+                      </div>
+                    </div>
+
+                    {fulfillFromProductId !== 'none' && fulfillMultiplier && parseInt(fulfillMultiplier) >= 2 && (
+                      <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-3">
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                          1 {name || 'this product'} will draw {fulfillMultiplier}x{' '}
+                          {eligibleSubstitutionProducts.find(p => (p._id as string) === fulfillFromProductId)?.name ?? 'source product'}{' '}
+                          from inventory when direct stock is insufficient
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* POS Slot */}
               <div className="space-y-2">

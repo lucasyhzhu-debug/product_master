@@ -116,6 +116,9 @@ menuProducts: defineTable({
   posSlot: v.optional(v.number()),            // Food POS slot (1, 2, 3, ...), null = not on POS
   packagingPosSlot: v.optional(v.number()),   // Packaging POS slot, null = not on POS
   productType: v.optional(v.union(v.literal("food"), v.literal("packaging"))),
+  // Phase 78: Inventory substitution
+  fulfillFromProductId: v.optional(v.id("menuProducts")), // Source product for substitution
+  fulfillMultiplier: v.optional(v.number()),               // Units of source per 1 of this product (integer >= 2)
 })
   .index("by_code", ["code"])
   .index("by_active", ["isActive"])
@@ -129,6 +132,8 @@ menuProducts: defineTable({
 **Product Types:**
 - `food` - Has production components (balls) + packaging components, shown on food POS
 - `packaging` - Has only packaging components, shown on packaging POS in order form
+
+**Inventory Substitution (Phase 78):** When `fulfillFromProductId` is set, the product can draw from another product's inventory when direct stock is insufficient. `fulfillMultiplier` defines how many units of the source product equal 1 unit of this product (e.g., 3 singles = 1 triple). Validation: no self-reference, no chaining, multiplier >= 2, target must be active.
 
 ### 5. `recipes` - Recipe Parent Entity
 ```typescript
