@@ -112,6 +112,7 @@ export const getKitchenTargetsForDate = query({
       return {
         bigBalls,
         midBalls,
+        otherBalls: [] as Array<{ code: string; name: string; quantity: number }>,
         packagingBreakdown,
         source: "override" as const,
         overrideSource: (override.source ?? "manual") as "manual" | "restock_planner",
@@ -134,9 +135,12 @@ export const getKitchenTargetsForDate = query({
         productQtyMap.set(key, (productQtyMap.get(key) ?? 0) + entry.plannedQty);
       }
 
-      // BOM traversal: compute ball totals and packaging breakdown
+      // BOM traversal: compute ball totals (by code) and packaging breakdown
       let bigBalls = 0;
       let midBalls = 0;
+      // Aggregate any production `pcs` ball type other than BIG_BALL/MID_BALL
+      // so e.g. HAZELNUT_REGULAR surfaces as its own target row.
+      const otherBallsByCode = new Map<string, { code: string; name: string; quantity: number }>();
       const packagingBreakdownMap = new Map<string, { menuProductId: Id<"menuProducts">; name: string; quantity: number }>();
 
       for (const [menuProductIdStr, plannedQty] of productQtyMap) {
@@ -152,11 +156,25 @@ export const getKitchenTargetsForDate = query({
           const componentType = await ctx.db.get(comp.componentTypeId);
           if (!componentType || componentType.category !== "production") continue;
 
-          // Accumulate ball totals by code
+          // Accumulate ball totals by code (only pcs-unit ball types count)
+          if (componentType.unit !== "pcs") continue;
+
           if (componentType.code === "BIG_BALL") {
             bigBalls += comp.quantity * plannedQty;
           } else if (componentType.code === "MID_BALL") {
             midBalls += comp.quantity * plannedQty;
+          } else {
+            const existing = otherBallsByCode.get(componentType.code);
+            const addQty = comp.quantity * plannedQty;
+            if (existing) {
+              existing.quantity += addQty;
+            } else {
+              otherBallsByCode.set(componentType.code, {
+                code: componentType.code,
+                name: componentType.name,
+                quantity: addQty,
+              });
+            }
           }
         }
 
@@ -173,11 +191,13 @@ export const getKitchenTargetsForDate = query({
       }
 
       const packagingBreakdown = Array.from(packagingBreakdownMap.values());
+      const otherBalls = Array.from(otherBallsByCode.values());
 
       if (packagingBreakdown.length > 0) {
         return {
           bigBalls,
           midBalls,
+          otherBalls,
           packagingBreakdown,
           source: "dispatch_plan" as const,
         };
@@ -192,6 +212,7 @@ export const getKitchenTargetsForDate = query({
       return {
         bigBalls,
         midBalls,
+        otherBalls,
         packagingBreakdown: defaultPackaging,
         source: "dispatch_plan" as const,
       };
@@ -213,6 +234,7 @@ export const getKitchenTargetsForDate = query({
     return {
       bigBalls,
       midBalls,
+      otherBalls: [] as Array<{ code: string; name: string; quantity: number }>,
       packagingBreakdown,
       source: "defaults" as const,
     };

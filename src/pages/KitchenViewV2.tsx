@@ -64,19 +64,35 @@ export function KitchenViewV2() {
   const config = useQuery(api.kitchenConfig.queries.getConfig);
 
   // ============================================
-  // Per-component toggle cascade (Phase 21-10)
-  // enabledComponents: which ball type codes are active
-  // ============================================
-
-  const enabledComponents: string[] = config?.enabledProductionComponents ?? ['BIG_BALL', 'MID_BALL'];
-
-  // ============================================
   // BOM lookup for productBallTypes map
   // menuProductComponents.listAll + componentTypes.list filtered to production
   // ============================================
 
   const menuProductComps = useQuery(api.menuProductComponents.queries.listAll);
   const componentTypesList = useQuery(api.componentTypes.queries.list, {});
+
+  // ============================================
+  // Per-component toggle cascade (Phase 21-10)
+  // enabledComponents: which ball type codes are active.
+  // Default (null config) = ALL production pcs codes enabled, not just
+  // BIG_BALL/MID_BALL — otherwise any new ball type in a menu product's BOM
+  // (e.g. HAZELNUT_REGULAR) is silently hidden from the End of Shift form.
+  //
+  // During componentTypesList load we return `undefined` so downstream
+  // filters (ProductionTargetsBar, EndOfShiftForm) treat it as "no filter —
+  // show all". Returning a legacy two-code array here would briefly re-hide
+  // non-BIG/MID products for ~200ms on first paint.
+  // ============================================
+
+  const enabledComponents: string[] | undefined = useMemo(() => {
+    if (config?.enabledProductionComponents) {
+      return config.enabledProductionComponents;
+    }
+    if (!componentTypesList) return undefined; // loading — no filter
+    return componentTypesList
+      .filter((ct) => ct.category === 'production' && ct.unit === 'pcs' && ct.isActive)
+      .map((ct) => ct.code);
+  }, [config?.enabledProductionComponents, componentTypesList]);
 
   const productBallTypes = useMemo(() => {
     if (!menuProductComps || !componentTypesList) return undefined;

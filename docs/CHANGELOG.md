@@ -16,6 +16,28 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Kitchen Components Duplication & Reporting Gap -- 2026-04-12
+
+**For the team:** Fixes three issues visible on the Components page and Kitchen reporting: (1) Kitchen reporting now shows every production ball type (including Hazelnut) instead of only Dubai/BIG+MID. (2) Components page duplicates (e.g. `KUNAFA` + `ING_KUNAFA`) can be cleaned up via a new admin dedupe mutation that preserves whichever row holds real pricing and renames the code back to canonical form. (3) `createIngredientComponentType` now refuses to create a second row for an ingredient that already has a matching canonical entry.
+
+#### Added
+- `convex/componentTypes/dedupe.ts` — `reportDuplicatesByName` (admin query) surfaces duplicate groups, expected canonical code presence (`HAZELNUT_REGULAR`, `FILLING_PISTACHIO`, etc.), and missing codes; `mergeDuplicatesByName` (admin mutation, `dryRun` flag) repoints all 9 FK-like references (`menuProductComponents`, `productionComponentLinks`, `productionComponentIngredients`, `ingredients.ingredientComponentTypeId`, `inventoryBatches`, `componentStock` with merge-by-location, `componentTransactions`, `orderComponentReservations`), copies meaningful field values (unitCost, gramsPerUnit, consumptionStage, etc.) from duplicates onto the survivor, and optionally renames the survivor code from `ING_X` → `X` with collision guard.
+- `convex/componentTypes/helpers.ts` — shared `normalizeName` + `EXPECTED_CANONICAL_CODES` constant.
+- `getKitchenTargetsForDate` now returns `otherBalls: { code, name, quantity }[]` alongside `bigBalls`/`midBalls` so any production `pcs` ball type surfaces on kitchen StatCards.
+
+#### Changed
+- `src/pages/KitchenViewV2.tsx` — `enabledComponents` default derived from active production `pcs` componentTypes instead of hardcoded `['BIG_BALL', 'MID_BALL']`. Returns `undefined` during load to avoid loading flicker.
+- `src/components/kitchen/ProductionTargetsBar.tsx` — renders a StatCard per `otherBalls` entry (responsive `grid-cols-2 sm:grid-cols-3`).
+- `convex/componentTypes/mutations.ts::createIngredientComponentType` — now admin/manager gated, checks for an existing production componentType with matching normalized name before creating a new `ING_*` row.
+
+#### Post-deploy runbook (BOTH dev and prod, admin token, Convex dashboard Functions tab)
+1. `componentTypes/seed:seedLeafKitchenComponents { token }` — idempotent
+2. `componentTypes/dedupe:reportDuplicatesByName { token }` — preview duplicates and canonical presence
+3. `componentTypes/dedupe:mergeDuplicatesByName { token, dryRun: true }` — preview plan
+4. `componentTypes/dedupe:mergeDuplicatesByName { token, dryRun: false }` — apply
+
+---
+
 ### Feature: Product Inventory Substitution -- 2026-04-12
 
 **For the team:** Triple products (like Dubai Triple) can now automatically draw from single product inventory when direct triple stock runs out. Admins configure this from the product edit form. The fulfillment screen shows exactly where stock will come from (direct vs substitute) before you confirm, and the success toast breaks down each deduction clearly.
