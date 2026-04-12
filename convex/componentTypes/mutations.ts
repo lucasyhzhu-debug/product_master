@@ -7,6 +7,8 @@
 import { mutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import { requireRole } from "../lib/auth";
+import { normalizeName } from "./helpers";
 
 /**
  * Create a new component type
@@ -359,6 +361,11 @@ export const createIngredientComponentType = mutation({
     token: v.string(),
   },
   handler: async (ctx, args) => {
+    // Authz: only admin or manager may wire ingredients to componentTypes.
+    // Without this gate, any session token (kitchen, order_staff) could
+    // create production componentTypes and patch ingredient FK pointers.
+    await requireRole(ctx, args.token, ["admin", "manager"]);
+
     // Validate ingredient exists
     const ingredient = await ctx.db.get(args.ingredientId);
     if (!ingredient) {
@@ -371,6 +378,26 @@ export const createIngredientComponentType = mutation({
       if (existing) {
         return existing._id; // Already linked, return existing
       }
+    }
+
+    // Reuse an existing production componentType with a matching normalized
+    // name before creating a new ING_* row. Prevents visual duplicates on the
+    // Components page when a seed (e.g. FILLING_PISTACHIO) and an ingredient
+    // (e.g. "Filling-Pistachio") would otherwise produce two rows with the
+    // same display name.
+    const normalizedIngredientName = normalizeName(ingredient.name);
+    const allProduction = await ctx.db
+      .query("componentTypes")
+      .withIndex("by_category", (q) => q.eq("category", "production"))
+      .collect();
+    const nameMatch = allProduction.find(
+      (c) => normalizeName(c.name) === normalizedIngredientName
+    );
+    if (nameMatch) {
+      await ctx.db.patch(args.ingredientId, {
+        ingredientComponentTypeId: nameMatch._id,
+      });
+      return nameMatch._id;
     }
 
     // Auto-generate code from ingredient name
