@@ -23,17 +23,25 @@ After merging any code change, add a new entry with:
 #### Added
 - `fulfillFromProductId` and `fulfillMultiplier` fields on menuProducts schema
 - `resolveSubstitutionPlan()` pure helper for direct/substitute stock splitting
-- Validation: no self-reference, no chaining, multiplier >= 2, active target only
-- Substitution-aware `fulfillFromInventory` mutation (direct first, then substitute)
-- Substitution-aware `processGofoodSales` mutation (same logic, negative stock allowed)
+- `createStockTracker()` shared helper for substitution-aware deductions (aggregates
+  running quantities across items sharing direct/substitute sources)
+- Validation: no self-reference, no chaining, multiplier integer >= 2, active target only,
+  both-or-neither (cannot set multiplier without source)
+- FK protection: deleting or deactivating a product used as a substitution source is blocked
+- Substitution-aware `fulfillFromInventory` mutation with aggregate sufficiency check
+  across items sharing the same source (prevents silent negative stock)
+- Substitution-aware `processGofoodSales` mutation with cumulative deduction tracking
+  and low-stock alerts for substitute products
 - `getStockForOrder` query returns substitution availability details for UI
 - ProductForm "Inventory Fulfillment" section (food products, edit mode only)
 - AvailabilityPanel split sub-rows: direct stock / substitute source / overall verdict
 - Enhanced fulfillment toast with per-source deduction breakdown
-- Comprehensive test suite for substitution logic
+- Comprehensive test suite (24 tests) covering pure helper, validation, FK guards,
+  integration paths, and cumulative deduction regressions
 
 #### Files Modified
 - `convex/schema.ts`, `convex/productInventory/substitution.ts` (new)
+- `convex/productInventory/stockTracker.ts` (new — shared cumulative-deduction helper)
 - `convex/menuProducts/mutations.ts`, `convex/productInventory/mutations.ts`, `convex/productInventory/queries.ts`
 - `src/hooks/convex/useMenuProducts.ts`, `src/components/menuProducts/ProductForm.tsx`
 - `src/components/inventory/InventoryAvailabilityPanel.tsx`, `src/components/inventory/FulfillFromInventoryButton.tsx`
