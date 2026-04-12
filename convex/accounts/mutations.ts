@@ -95,6 +95,33 @@ export const DEFAULT_ACCOUNTS = [
   { code: "3100", name: "Owner's Capital", type: "equity" as const, category: "Equity", isSystem: true, isActive: true },
   { code: "3200", name: "Retained Earnings", type: "equity" as const, category: "Equity", isSystem: true, isActive: true },
   { code: "3300", name: "Current Period P&L", type: "equity" as const, category: "Equity", isSystem: true, isActive: true },
+
+  // Phase 72: Bank Statement Parser & Auto-Match — rule-referenced accounts (72-SEED-RULES.json §accountRefs)
+  // Asset
+  { code: "1110", name: "Cash / Bank — BCA Main", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  { code: "1510", name: "Fixed Assets — Equipment & Machinery", type: "asset" as const, category: "Assets", isSystem: true, isActive: true },
+  // Equity (contra)
+  { code: "3400", name: "Equity — Owner Drawing / Related-Party Receivable", type: "equity" as const, category: "Equity", isSystem: true, isActive: true },
+  // Revenue
+  { code: "4110", name: "Revenue — Direct Sales / Transfers", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true },
+  { code: "4210", name: "Revenue — GoPay / GoFood", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true },
+  { code: "4310", name: "Revenue — OVO / ShopeePay", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true },
+  { code: "4320", name: "Revenue — Marketplace Payouts (Tokopedia)", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true },
+  { code: "4330", name: "Revenue — Marketplace Payouts (Shopee / AirPay)", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true },
+  { code: "4810", name: "Revenue — Cafe Wholesale (Ruma 52)", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true },
+  { code: "4820", name: "Revenue — Cafe Wholesale (Thirdhome)", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true },
+  { code: "4910", name: "Revenue — Customer Refunds (contra-revenue)", type: "revenue" as const, category: "Revenue", isSystem: true, isActive: true, description: "Contra-revenue — negates revenue in P&L. Debits to this account reduce reported revenue (not an OpEx)." },
+  // COGS
+  { code: "5110", name: "COGS — Raw Materials & Ingredients", type: "cogs" as const, category: "Cost of Goods Sold", isSystem: true, isActive: true },
+  { code: "5210", name: "COGS — Packaging", type: "cogs" as const, category: "Cost of Goods Sold", isSystem: true, isActive: true },
+  { code: "5500", name: "COGS — Production Labor (Contractor)", type: "cogs" as const, category: "Cost of Goods Sold", isSystem: true, isActive: true },
+  // OpEx
+  { code: "6110", name: "OpEx — Payroll & Wages", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6310", name: "OpEx — Delivery & Logistics", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6410", name: "OpEx — Marketing & Printing", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6420", name: "OpEx — E-commerce / Marketplace Supplies", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6810", name: "OpEx — Legal & Licensing", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
+  { code: "6710", name: "OpEx — R&D / Telecom / Office / Bank Fees", type: "opex" as const, category: "Operating Expenses", isSystem: true, isActive: true },
 ] as const;
 
 // ---------------------------------------------------------------------------
