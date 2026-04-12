@@ -60,25 +60,61 @@ Users upload BCA bank statement CSV → system parses, classifies each line via 
 
 ### Keyword Rules Table
 
-- **D-16:** **New `bankKeywordRules` table** with admin CRUD:
+- **D-16:** **New `bankKeywordRules` table** with admin CRUD. Schema enriched after parsing real rule seed (see `72-SEED-RULES.json`) — counterparty, direction, and multi-pattern matching are first-class:
   ```
   {
-    keywordPattern: v.string(),
-    matchType: v.union(v.literal("contains"), v.literal("exact"), v.literal("regex")),
-    suggestedCategoryAccountId: v.id("accounts"),
-    suggestedJeDebitAccountId: v.id("accounts"),
-    suggestedJeCreditAccountId: v.id("accounts"),
-    subCategoryTemplate: v.optional(v.string()),  // e.g. "BCA Bank Admin / Transaction Fee"
-    plSection: v.string(),                         // "Operating Expenses" | "Equity" | "Below the Line" | "Revenue"
-    linkedChannel: v.optional(v.string()),         // "grabfood" | "shopee" | ... — for revenue-aggregation
-    confidence: v.union(v.literal("exact"), v.literal("strong"), v.literal("suggested")),
-    priority: v.number(),                          // higher = evaluated first
+    ruleCode: v.string(),                          // "R01", "C02", etc. for traceability to source table
+    plSection: v.union(
+      v.literal("Revenue"),
+      v.literal("COGS"),
+      v.literal("OpEx"),
+      v.literal("Below the Line")
+    ),
+    direction: v.union(
+      v.literal("debit"),
+      v.literal("credit"),
+      v.literal("any")
+    ),                                              // FIRST-CLASS predicate — OVO credit ≠ OVO debit
+    matchType: v.union(
+      v.literal("counterparty"),
+      v.literal("description_contains"),
+      v.literal("description_exact"),
+      v.literal("description_regex"),
+      v.literal("counterparty_or_keyword"),
+      v.literal("counterparty_and_keyword"),
+      v.literal("catch_all")
+    ),
+    counterpartyPatterns: v.optional(v.array(v.string())),  // case-insensitive contains match
+    descriptionPatterns: v.optional(v.array(v.string())),   // multi-pattern array
+    descriptionPatternsMode: v.union(
+      v.literal("any"),                             // any-match
+      v.literal("all"),                             // all-must-match
+      v.literal("hint")                             // not required; raises confidence if matches
+    ),
+    isCatchAll: v.boolean(),                        // catch-all rules evaluate LAST regardless of priority
+    categoryAccountId: v.id("accounts"),            // CoA category
+    subCategoryTemplate: v.optional(v.string()),    // e.g. "BCA Bank Admin Fee"
+    jeDebitAccountId: v.id("accounts"),
+    jeCreditAccountId: v.id("accounts"),
+    linkedChannel: v.optional(v.string()),          // "gopay" | "ovo" | "tokopedia" | "shopee" | "cafe_ruma52" | ...
+    confidence: v.union(
+      v.literal("exact"),
+      v.literal("strong"),
+      v.literal("suggested")
+    ),
+    priority: v.number(),                           // 100/80/60/40/20 — higher evaluated first
+    flags: v.optional(v.array(v.string())),         // "direction_sensitive" | "needs_line_item_review" | "capex_needs_asset_register" | "negates_revenue" | "related_party" | "catch_all_misc"
     isActive: v.boolean(),
     createdBy: v.id("users"),
     createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    updatedBy: v.optional(v.id("users")),
   }
   ```
-- **D-17:** **Seed ~15-20 rules** from the user's template examples on first deploy (BIAYA ADM, ND-LAINNYA, TRSF E-BANKING reimburse, TRSF E-BANKING investment, BI-FAST CR, etc.). Seed runs once via Convex dashboard `Functions` tab (follow `tags:seedDefaults` / `menuProducts:seedDefaults` pattern).
+- **D-17:** **Seed 26 rules** from `72-SEED-RULES.json` (not 15-20 — real rule set is richer). Seed runs once via Convex dashboard `Functions` tab via `bankKeywordRules:seedDefaults` (follow `tags:seedDefaults` / `menuProducts:seedDefaults` pattern). Seeder resolves logical `accountRef` names to `accounts._id` at seed time — if any ref cannot be resolved, seed fails loudly with the unresolved list (never silently skip).
+- **D-17a:** **CoA prerequisite.** Seeder requires 19 specific accounts to exist (listed in `accountRefs` section of `72-SEED-RULES.json`). If missing, planner must insert a "CoA setup wave" before the rule-seed wave — either add missing accounts to the seed itself, or document manual CoA setup as a runbook step.
+- **D-17b:** **Evaluation semantics.** Engine iterates rules by `priority DESC, ruleCode ASC`. For each candidate rule: (1) direction must match line direction (unless rule.direction="any"); (2) if `counterpartyPatterns` provided, line counterparty must case-insensitive-contain at least one; (3) if `descriptionPatterns` provided, apply `descriptionPatternsMode`: `any`=at least one matches, `all`=every one matches, `hint`=optional but presence elevates confidence. Catch-all rules (R01) evaluated ONLY after every non-catch-all failed — the engine must segregate these regardless of priority.
+- **D-17c:** **Special CapEx handling (B01).** When a line matches B01, the suggested JE is placeholder only — the P73 confirmation flow should route CapEx lines into the Asset Register intake (Phase 45+) so depreciation schedule is set up rather than posting a flat DR to Fixed Assets. Flag `capex_needs_asset_register` surfaces this on the line.
 - **D-18:** **Admin CRUD page for rules** — either a dedicated `/bank-rules` page or an integrated "Rules" tab on `/bank-reconciliation`. P72 ships the CRUD; P73 adds the "learn from override" flow (when user overrides a line's category, offer to save the description pattern as a new rule).
 - **D-19:** Rules are **admin-only** (same `requireRole(ctx, token, ["admin"])` guard as other sensitive mutations).
 
@@ -156,6 +192,7 @@ None — no pending todos matched this phase.
 
 ### User-provided canonical template
 - BCA e-statement CSV template — captured in `<specifics>` section below (not in a standalone file; this CONTEXT.md is the source of truth for schema derivation)
+- **`.planning/phases/72-bank-statement-parser-auto-match/72-SEED-RULES.json`** — machine-readable seed for 26 rules with logical account refs, consumed by `bankKeywordRules:seedDefaults`. **Authoritative source** for the seed rule set — prose examples in this doc are illustrative only.
 
 ### Legacy (do NOT extend)
 - `convex/journalImport/mutations.ts` `bulkCreateJournalEntries` — legacy; P72 does not touch it
@@ -194,6 +231,31 @@ None — no pending todos matched this phase.
 
 <specifics>
 ## Specific Ideas
+
+### Auto-Seed Rules (full parsed set)
+
+**`72-SEED-RULES.json`** is the canonical machine-readable seed — 26 rules (R01-R12, C01-C03, O01-O09, B01-B02) with logical account refs, direction, counterparty/description patterns, confidence, priority, and flags. The planner should treat this as authoritative over the prose examples below and wire the seeder to consume it directly.
+
+**Summary of rule set:**
+- 12 Revenue rules (R01-R12): direct sales, platform payouts (GoPay, OVO, Tokopedia, Shopee, Katiga), B2B (Skala Pangan), cafes (Ruma 52, Thirdhome), auto-credit patterns, refunds (contra-revenue)
+- 3 COGS rules (C01-C03): raw materials, packaging, production labor
+- 9 OpEx rules (O01-O09): payroll, logistics (shipping/LalaMove/OVO-debit), printing, e-commerce supplies (Shopee/Tokopedia debit), legal, R&D/misc
+- 2 Below-the-Line rules (B01-B02): CapEx, owner draws
+
+**Precedence tiers (priority DESC):**
+- 100 — Named personal/entity counterparties (R11, R12, B02)
+- 80 — Platform counterparties (R02-R07)
+- 60 — Description pattern OR counterparty (C01-C03, O01, O03, O04, O06, O07, B01)
+- 40 — Description keyword + direction (O02, O05, O08, O09, R08, R09, R10)
+- 20 — Catch-all (R01 only) — evaluated LAST regardless of priority via `isCatchAll=true`
+
+**Critical ambiguities handled by direction or counterparty:**
+- OVO: credit=revenue (R03), debit=logistics (O04)
+- Shopee: credit=marketplace revenue (R05), debit=e-commerce supplies (O06)
+- Tokopedia: credit=marketplace revenue (R04), debit=e-commerce supplies (O07)
+- "Stickers" keyword: NIU ULUNG/NILSON counterparty → packaging (C02); PILAR/JOSS PRINT counterparty → printing (O05)
+- Pierre (C03 production vs O02 shipping): description keyword disambiguates
+- BI-FAST: credit from unknown individual = Direct Sales (R09); debit to named owner = Owner Draw (B02)
 
 ### User-provided BCA template (canonical CSV shape)
 
