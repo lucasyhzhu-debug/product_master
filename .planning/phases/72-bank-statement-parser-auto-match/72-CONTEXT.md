@@ -91,6 +91,7 @@ Sample: `D:\OneDrive\Documents\Malo Financials\2025\2511\Mutasi - BCA - 2511.xls
 - **D-13:** **Fuzzy description matching** for record linkage uses Levenshtein similarity. Start with a minimal implementation (`fastest-levenshtein` or hand-rolled) — do NOT pull in heavy NLP libs. Threshold for "strong" tier: similarity ≥ 0.8 after lowercase + remove-whitespace normalization.
 - **D-14:** **Date window** for record match: ±3 days default. Tune later if hit rate is off.
 - **D-15:** Payroll match uses `users.bankAccountHolderName` (added in Phase 70 DA-04) — description contains holder name AND amount exact AND date within window.
+  - **D-15 Revision (2026-04-13):** Earlier draft referenced `users.bankAccountHolderName` — that field exists but `payrollEntries` has NO `userId` link to `users` (see `convex/schema.ts:1949-1978` — only `recipientName: v.string()`). Actual implementation: Layer B matches `payrollEntry.recipientName` substring in bank line's `rawDescription` directly (case-insensitive), amount exact, date in ±14 day window of `periodStart` (payroll period bounds are looser than the ±3 day window used for expenses). Still skip the payroll scan entirely for lines flagged `related_party` (B02 matches) per D-17b.
 
 ### Keyword Rules Table
 
