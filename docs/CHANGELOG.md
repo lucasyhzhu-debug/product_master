@@ -16,17 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
-### Fix: Consignment Revenue Recognition on Period End -- 2026-04-13
+### Fix: Consignment Revenue Recognition on Cash-Receipt Date -- 2026-04-13
 
-**For the team:** Consignment settlement revenue was showing up on the daily channel chart on the *first* day of the consignment period (e.g. Mar 30 for a Mar 30–Apr 5 settlement). It now lands on the *last* day of the consignment period (Apr 5 in that example), which is the date Frollie recognizes the cash. Future work will add a payment-date picker so the actual bank-credit date can be captured when it differs from period end.
+**For the team:** Consignment settlement revenue was showing up on the daily channel chart on the *first* day of the consignment period (e.g. Mar 30 for a Mar 30–Apr 5 settlement paid Apr 11). It now lands on the cash-receipt date — either the `paidAt` entered via the SettlementTimeline date picker (Apr 11 in that example) or the consignment period end for pending settlements. Both the time-series chart and the period summary tiles agree on the same date.
 
-**Root cause:** `consignmentSettlements.paidAt` was never propagated to the linked `externalRevenue` row. The daily aggregation bucketing fell back to `periodStart`, and the `by_period` index range filter also scanned by `periodStart`, so settlements were bucketed on their consignment start.
+**Root cause:** `consignmentSettlements.paidAt` was never propagated to the linked `externalRevenue` row. The daily aggregation bucketing fell back to `periodStart`, and the `by_period` index range filter also scanned by `periodStart`, so settlements were bucketed on their consignment start. Without syncing all three externalRevenue date fields to the recognition date, the time-series view and the period summary view would disagree when `paidAt` ≠ `periodEnd`.
 
-**Fix:** `createSettlement`, `updateSettlement`, and `markAsPaid` now store the recognition date on `externalRevenue` (`periodStart = periodEnd = transactionDate = consignment.periodEnd`). `markAsPaid` additionally defaults `paidAt` to `settlement.periodEnd` (caller may override for forward-compat with a future payment-date picker) and patches the linked revenue row's `transactionDate` so bank reconciliation can match on the cash-receipt date. The income statement is unaffected — it already queries `consignmentSettlements` directly and stays on accrual for PT statutory P&L.
+**Fix:**
+- `createSettlement`, `updateSettlement`, and `markAsPaid` now write the recognition date to all three externalRevenue period fields together (`periodStart = periodEnd = transactionDate = recognitionDate`) via a shared `collapseRevenuePeriod(target)` helper in `convex/consignment/helpers.ts`. Recognition date = `paidAt` for paid settlements, `periodEnd` for pending.
+- `markAsPaid` honours caller-supplied `paidAt` (the date picker) and falls back to `settlement.periodEnd` when omitted. Future-date guard applies only to caller-supplied values, allowing settlements whose `periodEnd` is still in the future to be marked paid.
+- `createSettlement` now also seeds `externalRevenue.productName = outlet.name` so bank-reconciliation fuzzy text matching (`convex/bankStatements/matchEngine.ts`) has a descriptor to score against — closes a pre-existing gap noted in the debug session.
 
-**Backfill:** `convex/migrations/consignmentRecognitionDate.ts` — `inspectConsignmentRecognition` (dry-run) and `backfillConsignmentRecognition` (idempotent apply). Rewrites existing consignment `externalRevenue` rows to `(periodEnd, periodEnd, periodEnd)` and aligns paid settlements' `paidAt` to `periodEnd`. Run once via Convex dashboard Functions tab post-deploy.
+Income statement is unaffected: it queries `consignmentSettlements` directly by `periodStart` and stays on accrual for PT statutory P&L.
 
-**Files modified:** `convex/consignment/mutations.ts` (createSettlement + updateSettlement + markAsPaid). New file `convex/migrations/consignmentRecognitionDate.ts`.
+**Backfill:** `convex/migrations/consignmentRecognitionDate.ts` — `inspectConsignmentRecognition` (dry-run, parallel reads) and `backfillConsignmentRecognition` (idempotent apply). For each consignment settlement, computes `target = paidAt ?? periodEnd` and patches the linked `externalRevenue` row's three period fields to match. **Does NOT modify `consignmentSettlements.paidAt`** — user-captured cash-receipt dates are preserved. Both functions surface orphaned paid settlements (no `linkedRevenueId`) for audit. Run once via Convex dashboard Functions tab post-deploy.
+
+**Files modified:** `convex/consignment/mutations.ts` (createSettlement + updateSettlement + markAsPaid), `convex/consignment/helpers.ts` (new `collapseRevenuePeriod` + `consignmentRecognitionDate` helpers). New file `convex/migrations/consignmentRecognitionDate.ts`.
 
 ### Feat: Phase 72 — Bank Statement Parser & Auto-Match -- 2026-04-13
 
