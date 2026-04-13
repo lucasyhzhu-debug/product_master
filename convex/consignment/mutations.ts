@@ -14,6 +14,7 @@ import {
   shouldAutoArchive,
   assertSettlementEditable,
   validateSettlementInput,
+  collapseRevenuePeriod,
 } from "./helpers";
 
 // ============================================
@@ -184,16 +185,9 @@ export const createSettlement = mutation({
       outlet.revSharePercent
     );
 
-    // Create externalRevenue record (revenue bridge) — inline to preserve Convex types.
-    // At creation the settlement is pending; the expected recognition date is periodEnd.
-    // markAsPaid later re-stamps all three period fields to the actual paidAt the
-    // frontend date picker supplies, so paid-date-different-from-periodEnd cases bucket
-    // correctly. The full consignment period span stays on consignmentSettlements as
-    // the source of truth; only that table preserves accrual semantics. Collapsing
-    // periodStart == periodEnd here keeps the by_period index naturally finding the
-    // row on its recognition date across every aggregation query.
-    // productName = outlet name so bank-reconciliation fuzzy text scoring
-    // (matchEngine.ts) has a descriptor to match against.
+    // Create externalRevenue (revenue bridge). Pending recognition date = periodEnd;
+    // markAsPaid re-stamps to actual paidAt later. productName carries the outlet name
+    // so bank-recon fuzzy text matching (matchEngine.ts) has a descriptor.
     const revenueId = await ctx.db.insert("externalRevenue", {
       source: "consignment" as const,
       outletId: outlet.externalOutletId,
@@ -201,9 +195,7 @@ export const createSettlement = mutation({
       revenueGross: args.totalRevenue,
       revenueNet: frolliePayment,
       transactionCount: 1,
-      periodStart: args.periodEnd,
-      periodEnd: args.periodEnd,
-      transactionDate: args.periodEnd,
+      ...collapseRevenuePeriod(args.periodEnd),
       dataOrigin: "manual_entry" as const,
       confidence: "manual" as const,
       transactionType: "sales" as const,
@@ -294,14 +286,10 @@ export const updateSettlement = mutation({
         revPatch.revenueGross = args.totalRevenue;
         revPatch.revenueNet = newFrolliePayment;
       }
-      // Pending recognition date = consignment periodEnd. Collapse externalRevenue
-      // period to the end date on any period edit so the row keeps bucketing correctly.
-      // (updateSettlement only runs on pending settlements — assertSettlementEditable
-      // throws on paid above, so this is always pre-payment.)
+      // updateSettlement only runs on pending settlements (assertSettlementEditable
+      // throws on paid above), so collapse to the new periodEnd on any period edit.
       if (args.periodStart !== undefined || args.periodEnd !== undefined) {
-        revPatch.periodStart = effectiveEnd;
-        revPatch.periodEnd = effectiveEnd;
-        revPatch.transactionDate = effectiveEnd;
+        Object.assign(revPatch, collapseRevenuePeriod(effectiveEnd));
       }
       if (Object.keys(revPatch).length > 0) {
         await ctx.db.patch(settlement.linkedRevenueId, revPatch);
@@ -355,17 +343,10 @@ export const markAsPaid = mutation({
       updatedAt: now,
     });
 
-    // Propagate paidAt to ALL three period fields on linked externalRevenue so the
-    // by_period index range filter, the time-series bucket key, and the bank-recon
-    // transactionDate all agree. Without this sync, when paidAt ≠ periodEnd the
-    // chart's range filter would skip the row while transactionDate-based views see
-    // it on paidAt — a worse inconsistency than the original bug.
+    // Sync all three externalRevenue period fields to paidAt so the by_period index
+    // range filter, time-series bucket key, and bank-recon transactionDate agree.
     if (settlement.linkedRevenueId) {
-      await ctx.db.patch(settlement.linkedRevenueId, {
-        periodStart: paidAt,
-        periodEnd: paidAt,
-        transactionDate: paidAt,
-      });
+      await ctx.db.patch(settlement.linkedRevenueId, collapseRevenuePeriod(paidAt));
     }
 
     // Event auto-archive: deactivate event-type outlets after payment

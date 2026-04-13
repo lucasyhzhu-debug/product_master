@@ -24,10 +24,22 @@
  */
 
 import { internalMutation, internalQuery } from "../_generated/server";
+import { collapseRevenuePeriod, consignmentRecognitionDate } from "../consignment/helpers";
+
+type RevPeriodFields = {
+  periodStart: number;
+  periodEnd: number;
+  transactionDate?: number;
+};
+
+function isAlreadyCollapsed(rev: RevPeriodFields, target: number): boolean {
+  return rev.periodStart === target && rev.periodEnd === target && rev.transactionDate === target;
+}
 
 /**
  * Dry-run: list externalRevenue rows the backfill would patch and the target dates,
- * without mutating anything.
+ * without mutating anything. Full-table scan is acceptable for one-shot migration
+ * at current scale (~tens to low-hundreds of consignment settlements).
  */
 export const inspectConsignmentRecognition = internalQuery({
   args: {},
@@ -47,25 +59,21 @@ export const inspectConsignmentRecognition = internalQuery({
 
     const orphanedPaidSettlements: Array<{ id: string; paidAt: number | undefined }> = [];
 
-    for (const s of settlements) {
-      const target = s.paidAt ?? s.periodEnd;
-      const targetSource: "paidAt" | "periodEnd" = s.paidAt !== undefined ? "paidAt" : "periodEnd";
+    // Parallelize linked revenue reads — read-only, no transaction concerns.
+    const revs = await Promise.all(
+      settlements.map((s) => (s.linkedRevenueId ? ctx.db.get(s.linkedRevenueId) : null))
+    );
 
+    settlements.forEach((s, i) => {
       if (!s.linkedRevenueId) {
         if (s.status === "paid") orphanedPaidSettlements.push({ id: s._id, paidAt: s.paidAt });
-        continue;
+        return;
       }
+      const rev = revs[i];
+      if (!rev) return;
 
-      const rev = await ctx.db.get(s.linkedRevenueId);
-      if (!rev) continue;
-
-      if (
-        rev.periodStart === target &&
-        rev.periodEnd === target &&
-        rev.transactionDate === target
-      ) {
-        continue;
-      }
+      const target = consignmentRecognitionDate(s);
+      if (isAlreadyCollapsed(rev, target)) return;
 
       revenueToPatch.push({
         settlementId: s._id,
@@ -75,9 +83,9 @@ export const inspectConsignmentRecognition = internalQuery({
         currentPeriodEnd: rev.periodEnd,
         currentTransactionDate: rev.transactionDate,
         target,
-        targetSource,
+        targetSource: s.paidAt !== undefined ? "paidAt" : "periodEnd",
       });
-    }
+    });
 
     return {
       totalSettlements: settlements.length,
@@ -91,7 +99,7 @@ export const inspectConsignmentRecognition = internalQuery({
 
 /**
  * Apply the backfill. Idempotent — skipping rows already in the target shape means
- * re-running is a no-op. Returns counts of patched rows + their IDs for audit.
+ * re-running is a no-op. Returns patched IDs and orphan count for audit.
  */
 export const backfillConsignmentRecognition = internalMutation({
   args: {},
@@ -99,33 +107,27 @@ export const backfillConsignmentRecognition = internalMutation({
     const settlements = await ctx.db.query("consignmentSettlements").collect();
 
     let patched = 0;
+    let orphanedPaidSettlements = 0;
     const patchedIds: string[] = [];
 
+    // Sequential — Convex mutations serialize writes in their transaction.
     for (const s of settlements) {
-      if (!s.linkedRevenueId) continue;
+      if (!s.linkedRevenueId) {
+        if (s.status === "paid") orphanedPaidSettlements += 1;
+        continue;
+      }
 
       const rev = await ctx.db.get(s.linkedRevenueId);
       if (!rev) continue;
 
-      const target = s.paidAt ?? s.periodEnd;
+      const target = consignmentRecognitionDate(s);
+      if (isAlreadyCollapsed(rev, target)) continue;
 
-      if (
-        rev.periodStart === target &&
-        rev.periodEnd === target &&
-        rev.transactionDate === target
-      ) {
-        continue;
-      }
-
-      await ctx.db.patch(s.linkedRevenueId, {
-        periodStart: target,
-        periodEnd: target,
-        transactionDate: target,
-      });
+      await ctx.db.patch(s.linkedRevenueId, collapseRevenuePeriod(target));
       patched += 1;
       patchedIds.push(s.linkedRevenueId);
     }
 
-    return { patched, patchedIds };
+    return { patched, orphanedPaidSettlements, patchedIds };
   },
 });

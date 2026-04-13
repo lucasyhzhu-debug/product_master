@@ -71,3 +71,28 @@ export function validateSettlementInput(input: {
   }
 }
 
+/**
+ * Build the three-field collapse for a consignment externalRevenue row.
+ * Consignment recognition uses a single date — periodStart, periodEnd,
+ * and transactionDate on externalRevenue all carry it. The full accrual
+ * span lives on consignmentSettlements as the source of truth. Spreading
+ * this helper guarantees the three fields are always written together.
+ */
+export function collapseRevenuePeriod(target: number): {
+  periodStart: number;
+  periodEnd: number;
+  transactionDate: number;
+} {
+  return { periodStart: target, periodEnd: target, transactionDate: target };
+}
+
+/**
+ * Recognition date for a consignment settlement: cash-receipt date when
+ * known (paidAt), expected receipt (periodEnd) otherwise.
+ */
+export function consignmentRecognitionDate(s: {
+  paidAt?: number;
+  periodEnd: number;
+}): number {
+  return s.paidAt ?? s.periodEnd;
+}
