@@ -16,7 +16,10 @@ export default defineConfig({
         { name: 'assets/index-*.js', limit: '500 kB', mode: 'uncompressed' },
         // Vendor chunks — stable across deploys, cached by browser
         { name: 'assets/vendor-react-*.js', limit: '500 kB', mode: 'uncompressed' },
-        { name: 'assets/vendor-*.js', limit: '500 kB', mode: 'uncompressed' },
+        // Bumped to 600 kB after Phase 72 added xlsx (~50 kB) to the generic vendor
+        // chunk. If vendor keeps growing, split xlsx into its own chunk via
+        // manualChunks below — bank reconciliation is the only consumer.
+        { name: 'assets/vendor-*.js', limit: '600 kB', mode: 'uncompressed' },
         // Page chunks — default 150 kB is fine for all of them
       ],
     }),
