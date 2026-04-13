@@ -16,6 +16,23 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feat: Bank Statement Parser & Auto-Match UI (Phase 72 Plan 05) -- 2026-04-13
+
+**For the team:** Admins can now import BCA bank statements (XLSX or CSV), automatically classify each transaction against a rule set, and review the results in a read-only 17-column table. A separate `/bank-rules` page lets admins seed the 26 canonical rules, create new rules, edit priority/flags/patterns, or deactivate rules they no longer want. Journal posting is deliberately NOT part of this phase (that is Phase 73) — the bank data is imported and classified, but the final JE post is a separate workflow.
+
+#### Added
+- `src/pages/BankReconciliationPage.tsx` — wizard: upload → pre-import reconciliation preview → confirm → post-import read-only review, plus a history list of the last 50 statements.
+- `src/pages/BankRulesManager.tsx` — admin CRUD for `bankKeywordRules` with Seed Defaults button + inactive-toggle.
+- `src/components/bankReconciliation/StatementUploadStep.tsx` — 10 MB size cap enforced before parser runs; SHA-256 hash computed for dedup; extension-dispatched to `parseBcaXlsx` / `parseBcaCsv`.
+- `src/components/bankReconciliation/StatementReviewTable.tsx` — 17-column read-only table (P72 is intentionally not editable; Phase 73 adds manual match + expense wiring).
+- `src/components/bankReconciliation/StatementHistoryList.tsx` — recent uploads with matched % and masked account number.
+- `src/components/bankReconciliation/RuleFormDialog.tsx` — all 16 rule fields with chip-style pattern editor and regex compile-check.
+- `src/hooks/convex/useBankReconciliation.ts` — Convex query + mutation wrappers for the full admin surface.
+
+#### Changed
+- `src/App.tsx` — two new admin-only nested routes (`/bank-reconciliation`, `/bank-rules`) using `allowedRoles={["admin"]}`.
+- `src/components/layout/Header.tsx` — Accounting dropdown now includes both entries (visible to admins only via a new `rolesAllowed` filter branch).
+
 ### Fix: Kitchen Components Duplication & Reporting Gap -- 2026-04-12
 
 **For the team:** Fixes three issues visible on the Components page and Kitchen reporting: (1) Kitchen reporting now shows every production ball type (including Hazelnut) instead of only Dubai/BIG+MID. (2) Components page duplicates (e.g. `KUNAFA` + `ING_KUNAFA`) can be cleaned up via a new admin dedupe mutation that preserves whichever row holds real pricing and renames the code back to canonical form. (3) `createIngredientComponentType` now refuses to create a second row for an ingredient that already has a matching canonical entry.
