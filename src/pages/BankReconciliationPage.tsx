@@ -27,6 +27,7 @@ import { formatCurrency } from "@/lib/utils";
 import {
   useBankStatements,
   useBankStatement,
+  useBankStatementByFileHash,
   useBankStatementLines,
   useCreateStatement,
 } from "@/hooks/convex/useBankReconciliation";
@@ -77,6 +78,19 @@ function formatDate(ms: number): string {
   return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}/${d.getUTCFullYear()}`;
 }
 
+/**
+ * Convex wraps thrown `ConvexError(msg)` into an Error whose message is
+ * `"[CONVEX M(path)] [Request ID: ...] Server Error\nUncaught ConvexError: <msg>\nCalled by client"`.
+ * Extract only the user-facing `<msg>` portion so error cards don't leak
+ * request IDs and handler paths to the user.
+ */
+function humanizeError(err: unknown): string {
+  if (!(err instanceof Error)) return "Failed to import bank statement.";
+  const match = err.message.match(/Uncaught ConvexError:\s*([\s\S]*?)(?:\r?\n\s*Called by client|$)/);
+  if (match && match[1]) return match[1].trim();
+  return err.message;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -92,6 +106,12 @@ export function BankReconciliationPage() {
 
   const selectedStatement = useBankStatement(selectedId);
   const selectedLines = useBankStatementLines(selectedId);
+
+  // Early dedup probe: when a file lands in the review step, check its hash
+  // against past uploads BEFORE the user has to read the preview + click
+  // Confirm just to be told it was already imported.
+  const reviewHash = wizard.step === "review" ? wizard.fileHash : null;
+  const existingDupe = useBankStatementByFileHash(reviewHash);
 
   // Load all accounts once for label resolution in imported review.
   // Guard with auth — matches the pattern used by every other hook in this file.
@@ -151,8 +171,7 @@ export function BankReconciliationPage() {
       // auto-select the newly imported statement for easy review
       setSelectedId(result.statementId);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to import bank statement.";
+      const message = humanizeError(err);
       setWizard({ step: "error", message, parsed });
       toast.error(message);
     }
@@ -205,6 +224,7 @@ export function BankReconciliationPage() {
           {wizard.step === "review" && (
             <ReviewSection
               parsed={wizard.parsed}
+              duplicate={existingDupe ?? null}
               onConfirm={() =>
                 handleConfirmImport(wizard.parsed, wizard.fileHash, wizard.fileName)
               }
@@ -317,16 +337,19 @@ export function BankReconciliationPage() {
 
 function ReviewSection({
   parsed,
+  duplicate,
   onConfirm,
   onCancel,
 }: {
   parsed: ParsedStatement;
+  duplicate: { _id: Id<"bankStatements">; createdAt: number } | null;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const { header, lines } = parsed;
   const debitCount = lines.filter((l) => l.direction === "debit").length;
   const creditCount = lines.filter((l) => l.direction === "credit").length;
+  const isDuplicate = duplicate !== null;
 
   return (
     <div className="space-y-4">
@@ -356,15 +379,28 @@ function ReviewSection({
         </div>
       </div>
 
-      <Alert>
-        <CheckCircle2 className="h-4 w-4" />
-        <AlertTitle>Reconciled — ready to import</AlertTitle>
-        <AlertDescription>
-          {lines.length} transaction{lines.length === 1 ? "" : "s"} ({debitCount} debit,{" "}
-          {creditCount} credit). Totals match the header footer. Classification and match
-          candidates are computed server-side on import.
-        </AlertDescription>
-      </Alert>
+      {isDuplicate ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Already imported</AlertTitle>
+          <AlertDescription>
+            This file was imported on {formatDate(duplicate.createdAt)}. Re-importing the same
+            statement isn't allowed — it would create duplicate line-level matches. Cancel and
+            upload a different period, or open Statement History below to review the existing
+            import.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert>
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertTitle>Reconciled — ready to import</AlertTitle>
+          <AlertDescription>
+            {lines.length} transaction{lines.length === 1 ? "" : "s"} ({debitCount} debit,{" "}
+            {creditCount} credit). Totals match the header footer. Classification and match
+            candidates are computed server-side on import.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <StatementReviewTable mode="preview" parsed={parsed} />
 
@@ -372,7 +408,9 @@ function ReviewSection({
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button onClick={onConfirm}>Confirm Import</Button>
+        <Button onClick={onConfirm} disabled={isDuplicate}>
+          Confirm Import
+        </Button>
       </div>
     </div>
   );

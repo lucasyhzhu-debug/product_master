@@ -53,6 +53,19 @@ export function useBankStatementLines(
   );
 }
 
+/**
+ * Probe for a pre-existing statement with the given fileHash. Returns
+ * `undefined` while loading, `null` when no duplicate, or the existing
+ * header's `{_id, createdAt}` when one is found. Pass `null` to skip.
+ */
+export function useBankStatementByFileHash(fileHash: string | null) {
+  const { user } = useAuth();
+  return useQuery(
+    api.bankStatements.queries.findByFileHash,
+    fileHash && user?.token ? { token: user.token, fileHash } : "skip",
+  );
+}
+
 /** Active (or all) bank keyword rules sorted by priority DESC, ruleCode ASC. */
 export function useBankKeywordRules(includeInactive?: boolean) {
   const { user } = useAuth();

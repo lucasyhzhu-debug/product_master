@@ -15,6 +15,7 @@
  */
 
 import { convexTest } from "convex-test";
+import type { SessionId } from "convex-helpers/server/sessions";
 import { describe, expect, it } from "vitest";
 import schema from "../../schema";
 import { api } from "../../_generated/api";
@@ -63,8 +64,8 @@ async function seedBareAdminUser(t: TestT) {
   });
 }
 
-async function seedAdminUserAndSession(t: TestT): Promise<string> {
-  const sessionId = `test-session-admin-${Date.now()}-${Math.random()}`;
+async function seedAdminUserAndSession(t: TestT): Promise<SessionId> {
+  const sessionId = `test-session-admin-${Date.now()}-${Math.random()}` as SessionId;
   await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       name: "Test Admin",
@@ -253,7 +254,7 @@ describe("bankKeywordRules:seedDefaults", () => {
 // ---------------------------------------------------------------------------
 
 describe("bankKeywordRules:create — validation + auth", () => {
-  async function setupWithSeed(): Promise<{ t: TestT; sessionId: string; accountId: string }> {
+  async function setupWithSeed(): Promise<{ t: TestT; sessionId: SessionId; accountId: string }> {
     const t = convexTest(schema);
     await seedAccounts(t);
     const sessionId = await seedAdminUserAndSession(t);

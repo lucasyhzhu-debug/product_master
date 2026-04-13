@@ -36,6 +36,29 @@ export const getStatement = query({
   },
 });
 
+/**
+ * Dedup probe — fire after the client computes the file hash, BEFORE showing
+ * the review step. Lets the UI surface "already imported on ..." upfront
+ * instead of letting the user scroll through preview and click Confirm only
+ * to hit the server-side dedup guard in createFromParsedStatement.
+ * Returns a minimal shape (no PII leak): { _id, createdAt } or null.
+ */
+export const findByFileHash = query({
+  args: {
+    token: v.string(),
+    fileHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    const existing = await ctx.db
+      .query("bankStatements")
+      .withIndex("by_fileHash", (q) => q.eq("fileHash", args.fileHash))
+      .first();
+    if (!existing) return null;
+    return { _id: existing._id, createdAt: existing.createdAt };
+  },
+});
+
 export const listLines = query({
   args: {
     token: v.string(),
