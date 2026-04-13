@@ -19,6 +19,7 @@ import { Plus, Pencil, PowerOff, Sparkles, ListChecks } from "lucide-react";
 
 import { api } from "../../convex/_generated/api";
 import type { Id, Doc } from "../../convex/_generated/dataModel";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -59,8 +60,12 @@ export function BankRulesManager() {
   useDocumentTitle("Bank Rules");
 
   const [showInactive, setShowInactive] = useState(false);
+  const { user } = useAuth();
   const rules = useBankKeywordRules(showInactive);
-  const accounts = useQuery(api.accounts.queries.list, {});
+  // Skip the accounts query until the user is authed — matches the pattern used
+  // by `useBankKeywordRules`. Without this, unauthed renders fire a pointless
+  // query and inconsistent hook behavior across the page.
+  const accounts = useQuery(api.accounts.queries.list, user?.token ? {} : "skip");
   const deactivate = useDeactivateBankRule();
   const seedDefaults = useSeedBankRules();
 

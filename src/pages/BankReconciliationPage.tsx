@@ -17,6 +17,7 @@ import { ArrowLeft, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,9 @@ export function BankReconciliationPage() {
   const selectedLines = useBankStatementLines(selectedId);
 
   // Load all accounts once for label resolution in imported review.
-  const allAccounts = useQuery(api.accounts.queries.list, {});
+  // Guard with auth — matches the pattern used by every other hook in this file.
+  const { user } = useAuth();
+  const allAccounts = useQuery(api.accounts.queries.list, user?.token ? {} : "skip");
   const accountsById = useMemo(() => {
     if (!allAccounts) return undefined;
     const map = new Map<string, { _id: Id<"accounts">; name: string; code?: string }>();

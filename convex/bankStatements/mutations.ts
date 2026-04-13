@@ -110,11 +110,23 @@ export const createFromParsedStatement = mutation({
     // 4) Server-side reconciliation re-validation (T-72-19).
     //    Client is untrusted — re-check sum(debit lines) === reportedDebitTotal,
     //    symmetric for credit, BEFORE any insert.
+    //    Reject non-integer amounts up front — strict `!==` on floats would
+    //    otherwise surface as a confusing "reconciliation failed" error.
     let computedDebit = 0;
     let computedCredit = 0;
     for (const ln of args.lines) {
+      if (!Number.isInteger(ln.amountIdr) || ln.amountIdr < 0) {
+        throw new ConvexError(
+          `Invalid line amount: amountIdr must be a non-negative integer (got ${ln.amountIdr}).`,
+        );
+      }
       if (ln.direction === "debit") computedDebit += ln.amountIdr;
       else computedCredit += ln.amountIdr;
+    }
+    if (!Number.isInteger(args.header.reportedDebitTotal) || !Number.isInteger(args.header.reportedCreditTotal)) {
+      throw new ConvexError(
+        "Invalid header: reportedDebitTotal and reportedCreditTotal must be integers (IDR cents are not used).",
+      );
     }
     if (computedDebit !== args.header.reportedDebitTotal) {
       throw new ConvexError(

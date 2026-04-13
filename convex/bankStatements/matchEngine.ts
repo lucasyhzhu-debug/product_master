@@ -245,8 +245,16 @@ export async function findLinkedRecord(
 
   const skipPayroll = line.flags?.includes("related_party") ?? false;
 
-  // 1. Expenses — amount-first index
-  {
+  // Direction gating per double-entry semantics:
+  //   debit line (money out)  → expense / reimbursement / payroll candidates
+  //   credit line (money in)  → externalRevenue candidates
+  // Without this gate, a credit line can fuzzy-match an expense of the same
+  // amount (and vice versa), producing semantically wrong linkages.
+  const scanOutflows = line.direction === "debit";
+  const scanInflows = line.direction === "credit";
+
+  // 1. Expenses — amount-first index (debit lines only)
+  if (scanOutflows) {
     const rows = await ctx.db
       .query("expenses")
       .withIndex("by_amount_date_submitter", (q) =>
@@ -267,8 +275,8 @@ export async function findLinkedRecord(
     }
   }
 
-  // 2. externalRevenue — amount-first index on revenueGross+transactionDate
-  {
+  // 2. externalRevenue — amount-first index on revenueGross+transactionDate (credit lines only)
+  if (scanInflows) {
     const rows = await ctx.db
       .query("externalRevenue")
       .withIndex("by_amount_transactionDate", (q) =>
@@ -293,10 +301,10 @@ export async function findLinkedRecord(
     }
   }
 
-  // 3. reimbursementBatches — amount-first index on totalAmount+createdAt.
+  // 3. reimbursementBatches — amount-first index on totalAmount+createdAt (debit lines only).
   //    reimbursementBatches has no description column; fuzzy against batchNumber
   //    as a weak proxy. Callers typically reconcile by batch total alone.
-  {
+  if (scanOutflows) {
     const rows = await ctx.db
       .query("reimbursementBatches")
       .withIndex("by_amount_createdAt", (q) =>
@@ -317,9 +325,9 @@ export async function findLinkedRecord(
     }
   }
 
-  // 4. payrollEntries — amount-first index on amount+periodStart.
+  // 4. payrollEntries — amount-first index on amount+periodStart (debit lines only).
   //    SKIP if related_party flag present.
-  if (!skipPayroll) {
+  if (scanOutflows && !skipPayroll) {
     const rows = await ctx.db
       .query("payrollEntries")
       .withIndex("by_amount_period", (q) =>

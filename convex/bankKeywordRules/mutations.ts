@@ -179,6 +179,27 @@ export const create = protectedMutation({
     if (existing) {
       throw new ConvexError(`Rule code ${args.ruleCode} already exists`);
     }
+    // Uniqueness guard: a second active catch-all with overlapping direction
+    // would silently shadow R01 in the match engine (see matchEngine.ts — all
+    // catch-alls evaluate last, so the first match wins by priority).
+    if (args.isCatchAll && args.isActive) {
+      const conflicts = await ctx.db
+        .query("bankKeywordRules")
+        .withIndex("by_isCatchAll", (q) => q.eq("isCatchAll", true))
+        .collect();
+      const overlap = conflicts.find(
+        (r) =>
+          r.isActive &&
+          (r.direction === "any" ||
+            args.direction === "any" ||
+            r.direction === args.direction),
+      );
+      if (overlap) {
+        throw new ConvexError(
+          `Active catch-all rule ${overlap.ruleCode} (direction=${overlap.direction}) already matches direction=${args.direction}. Deactivate it or scope one of the two to a narrower direction first.`,
+        );
+      }
+    }
     return await ctx.db.insert("bankKeywordRules", {
       ...args,
       createdBy: ctx.user._id,

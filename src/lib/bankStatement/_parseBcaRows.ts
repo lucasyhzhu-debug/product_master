@@ -70,6 +70,14 @@ function parseAmount(raw: string, rowIdxForDiag: number): number | null {
   if (!Number.isFinite(n)) {
     throw new Error(`Row ${rowIdxForDiag}: cannot parse amount`);
   }
+  // BCA exports always use positive amounts with a separate DB/CR direction
+  // column. A negative value indicates a non-standard export variant (e.g.,
+  // mobile CSV with signed amounts) which would confuse reconciliation math.
+  if (n < 0) {
+    throw new Error(
+      `Row ${rowIdxForDiag}: negative amount not supported — use the standard BCA XLSX e-statement format`,
+    );
+  }
   return Math.round(n);
 }
 
