@@ -179,7 +179,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 
 - [x] **Phase 70: Data Accuracy Foundation** - Fix revenue recognition, add COGS override, extend employee profiles (completed 2026-04-10)
 - [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
-- [ ] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07)
+- [x] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07) (completed 2026-04-13)
 - [ ] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking
 - [ ] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
@@ -238,14 +238,14 @@ Plans:
   1. User can upload a BCA XLSX e-statement (CSV fallback accepted) and see a preview of parsed transactions before importing. Mandiri and other banks deferred to a future phase (D-07).
   2. Parser correctly extracts amounts, dates (DD-Mon with year inferred from Periode row), and descriptions. Import aborts if the reconciliation checksum (parsed debits/credits/balance delta vs footer totals) fails — no partial state persisted (D-06b).
   3. After import, system auto-matches bank lines to existing expenses, revenue entries, reimbursements, and payroll by amount + date + description with confidence scoring (exact | strong | suggested | none). Line-level results are read-only in P72; interactive reconciliation UI and JE posting deferred to P73.
-**Plans:** 6 plans
+**Plans:** 6/6 plans complete
 Plans:
-- [ ] 72-01-PLAN.md -- Foundation: SheetJS CDN install + schema tables + CoA extension + by_name index + synthetic fixture
-- [ ] 72-02-PLAN.md -- Parser libs: BCA XLSX parser + CSV fallback + reconciliation checksum + Indonesian date + fuzzy match + SHA-256 (TDD)
-- [ ] 72-03-PLAN.md -- Match engine: Layer A keyword/counterparty classifier + Layer B record linkage + 26 rule fixtures (TDD)
-- [ ] 72-04-PLAN.md -- Convex API: rules seed + admin CRUD + createFromParsedStatement + dedup + admin-gated queries
-- [ ] 72-05-PLAN.md -- Frontend: /bank-reconciliation wizard + read-only review + /bank-rules admin CRUD + ProtectedRoute + nav
-- [ ] 72-06-PLAN.md -- Verification: full suite + P73 boundary audit + CHANGELOG/SCHEMA/API_REFERENCE/CLAUDE.md docs
+- [x] 72-01-PLAN.md -- Foundation: SheetJS CDN install + schema tables + CoA extension + by_name index + synthetic fixture
+- [x] 72-02-PLAN.md -- Parser libs: BCA XLSX parser + CSV fallback + reconciliation checksum + Indonesian date + fuzzy match + SHA-256 (TDD)
+- [x] 72-03-PLAN.md -- Match engine: Layer A keyword/counterparty classifier + Layer B record linkage + 26 rule fixtures (TDD)
+- [x] 72-04-PLAN.md -- Convex API: rules seed + admin CRUD + createFromParsedStatement + dedup + admin-gated queries
+- [x] 72-05-PLAN.md -- Frontend: /bank-reconciliation wizard + read-only review + /bank-rules admin CRUD + ProtectedRoute + nav
+- [x] 72-06-PLAN.md -- Verification: full suite + P73 boundary audit + CHANGELOG/SCHEMA/API_REFERENCE/CLAUDE.md docs
 **UI hint**: yes
 
 ### Phase 73: Bank Reconciliation UI & Workflow
@@ -330,7 +330,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 |-------|-----------|----------------|--------|-----------|
 | 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
-| 72. Bank Statement Parser & Auto-Match | v2.0 | 0/6 | Not started | - |
+| 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete   | 2026-04-13 |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
 | 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
