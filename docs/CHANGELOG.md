@@ -16,22 +16,53 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
-### Feat: Bank Statement Parser & Auto-Match UI (Phase 72 Plan 05) -- 2026-04-13
+### Feat: Phase 72 — Bank Statement Parser & Auto-Match -- 2026-04-13
 
-**For the team:** Admins can now import BCA bank statements (XLSX or CSV), automatically classify each transaction against a rule set, and review the results in a read-only 17-column table. A separate `/bank-rules` page lets admins seed the 26 canonical rules, create new rules, edit priority/flags/patterns, or deactivate rules they no longer want. Journal posting is deliberately NOT part of this phase (that is Phase 73) — the bank data is imported and classified, but the final JE post is a separate workflow.
+**For the team:** Admins can now import BCA bank statements (XLSX or CSV), automatically classify each transaction against a 26-rule engine, and review the results in a read-only 17-column table. A separate `/bank-rules` page lets admins seed the canonical rules, create new rules, edit priority/flags/patterns, or deactivate rules they no longer want. Reconciliation checksums are verified twice (client + server) so a tampered file is rejected before any data hits the database. Journal posting is deliberately NOT part of this phase (that is Phase 73) — the bank data is imported and classified, and proposal JE account IDs are persisted per line, but no `journalEntries` rows are written.
+
+**Requirements delivered:** BANK-01 (import BCA statements end-to-end), BANK-02 (auto-classify via editable rule engine).
+
+#### Plan-by-plan summary
+
+- **Plan 01 — Foundations:** Installed `xlsx@0.20.3` from the SheetJS CDN tarball (avoids CVE-2023-30533 / CVE-2024-22363 on the frozen npm 0.18.5) plus `fastest-levenshtein@1.0.16`. Added schema tables `bankStatements`, `bankStatementLines`, `bankKeywordRules`. Extended `journalEntries.sourceType` with `"bank_statement"` (11th literal) and `NON_REVERSIBLE_TYPES`. Added `accounts.by_name` index plus three amount-first compound indexes on `externalRevenue`, `reimbursementBatches`, `payrollEntries` for Plan 03 Layer B scanning. Appended 20 new PSAK-coded accounts (1110, 1510, 3400, 4110/4210/4310/4320/4330/4810/4820/4910, 5110/5210/5500, 6110/6310/6410/6420/6710/6810) to `DEFAULT_ACCOUNTS`. Shipped a no-PII synthetic BCA fixture generator (5 exports).
+- **Plan 02 — Parser & libraries:** BCA XLSX parser (`parseBcaXlsx`) + CSV fallback (`parseBcaCsv`) sharing a `_parseBcaRows` helper. EXACT-integer reconciliation checksum (abort on any non-zero diff). Indonesian date parser with year-rollover handling (`resolveYearForRollover` implements Dec→Jan carry). Fuzzy similarity wrapper (`similarityScore` — asymmetric `max(Levenshtein, containment)`). SHA-256 file hash helper (`computeSha256`). All mitigations for T-72-06/07/10 in place (MAX_ROWS=5000, bounded counterparty regex, error messages never leak PII).
+- **Plan 03 — Match engine:** Two-layer matcher. Layer A keyword/counterparty classification with catch-all segregation BEFORE priority sort (T-72-14 mitigation) and direction-first predicate (T-72-16). Layer B record linkage across expenses / externalRevenue / reimbursementBatches / payrollEntries using amount-first indexes, fuzzy threshold ≥ 0.8, and ±3 day window (payroll gets ±14 day window + recipient substring match). `related_party` flag skips payroll scan entirely. 48 green tests covering all 26 rule fixtures + ordering + direction + hint + linkage.
+- **Plan 04 — Convex API:** `bankKeywordRules.seedDefaults` (idempotent upsert-by-ruleCode, fail-loud ConvexError on unresolved account refs with zero partial-seed risk). Admin CRUD for rules via `protectedMutation`. `bankStatements.createFromParsedStatement` — admin-gated atomic ingest that (a) re-validates reconciliation server-side (T-72-19), (b) dedups by fileHash + by accountNumber+period (secondary error masks accountNumber to last 4 digits — T-72-21), (c) runs the match engine inline per line, (d) persists full classification + proposal JE fields. MAX_LINES=5000 cap. Does NOT post journal entries. Added `resolveSeederUserId` helper in `convex/lib/auth.ts` for system-seed reusability. 75 green tests.
+- **Plan 05 — UI:** `/bank-reconciliation` admin page with upload wizard (discriminated-union state machine: upload → validating → review → importing → complete → error) and statement history. 10 MB size cap enforced BEFORE parse (T-72-25). SHA-256 computed client-side for dedup. `/bank-rules` admin CRUD page with Seed Defaults button and inactive toggle. All routes wrapped in `ProtectedRoute allowedRoles={["admin"]}` (defense in depth with server gates). No `dangerouslySetInnerHTML`, no `readAsText` anywhere — all XLSX via `file.arrayBuffer()`. Nav wired into `Header.tsx` Accounting dropdown via new `rolesAllowed` filter (no new permission key).
+- **Plan 06 — Verification & docs:** Phase boundary audit clean — 9 targeted greps confirm no P73 scope leaked (no `createJournalEntryWithLines`, no split-view UI, no inline expense creation, no revenue aggregation, no learn-from-override, no line-level state mutations, no `"suggested"`/`"confirmed"` status literals in mutations). Full test suite: 1317 passing (19 unrelated pre-existing failures in `csvImportValidation`, `gobizAdapter`, `k3martCockpit`, `bigsellerOrders` — documented in Plan 02 SUMMARY). Refreshed `convex/accounts/__tests__/seed.test.ts` to match the new 74-account total. `npm run type-check` + `npm run build` both green.
 
 #### Added
-- `src/pages/BankReconciliationPage.tsx` — wizard: upload → pre-import reconciliation preview → confirm → post-import read-only review, plus a history list of the last 50 statements.
-- `src/pages/BankRulesManager.tsx` — admin CRUD for `bankKeywordRules` with Seed Defaults button + inactive-toggle.
-- `src/components/bankReconciliation/StatementUploadStep.tsx` — 10 MB size cap enforced before parser runs; SHA-256 hash computed for dedup; extension-dispatched to `parseBcaXlsx` / `parseBcaCsv`.
-- `src/components/bankReconciliation/StatementReviewTable.tsx` — 17-column read-only table (P72 is intentionally not editable; Phase 73 adds manual match + expense wiring).
-- `src/components/bankReconciliation/StatementHistoryList.tsx` — recent uploads with matched % and masked account number.
-- `src/components/bankReconciliation/RuleFormDialog.tsx` — all 16 rule fields with chip-style pattern editor and regex compile-check.
-- `src/hooks/convex/useBankReconciliation.ts` — Convex query + mutation wrappers for the full admin surface.
+- Schema: `bankStatements`, `bankStatementLines`, `bankKeywordRules` tables.
+- Indexes: `accounts.by_name`, `externalRevenue.by_amount_transactionDate`, `reimbursementBatches.by_amount_createdAt`, `payrollEntries.by_amount_period`.
+- Journal source literal: `"bank_statement"` added to `journalEntries.sourceType` (non-reversible — corrections via manual JE).
+- 20 new CoA accounts in `DEFAULT_ACCOUNTS` (1110, 1510, 3400, 4110, 4210, 4310, 4320, 4330, 4810, 4820, 4910, 5110, 5210, 5500, 6110, 6310, 6410, 6420, 6710, 6810).
+- Convex API: `convex/bankStatements/{mutations,queries,matchEngine}.ts`, `convex/bankKeywordRules/{mutations,queries,defaultRules}.ts`.
+- Frontend: `src/pages/BankReconciliationPage.tsx`, `src/pages/BankRulesManager.tsx`, `src/components/bankReconciliation/` (4 components), `src/hooks/convex/useBankReconciliation.ts`.
+- Parser library: `src/lib/bankStatement/` (parseBcaXlsx, parseBcaCsv, reconciliation, fuzzyMatch, fileHash, types, _parseBcaRows).
+- Shared utilities: `convex/lib/indonesianDate.ts` (INDONESIAN_MONTHS, parseIndonesianDate, resolveYearForRollover), `convex/lib/auth.ts::resolveSeederUserId`.
 
 #### Changed
-- `src/App.tsx` — two new admin-only nested routes (`/bank-reconciliation`, `/bank-rules`) using `allowedRoles={["admin"]}`.
-- `src/components/layout/Header.tsx` — Accounting dropdown now includes both entries (visible to admins only via a new `rolesAllowed` filter branch).
+- `src/App.tsx` — two new admin-only nested routes (`/bank-reconciliation`, `/bank-rules`).
+- `src/components/layout/Header.tsx` — Accounting dropdown includes both entries (gated via new `rolesAllowed` NavItem filter).
+- `convex/lib/journalEngine.ts` — `JournalSourceType` union extended with `"bank_statement"`, added to `NON_REVERSIBLE_TYPES`.
+- `docs/SCHEMA.md`, `docs/API_REFERENCE.md`, `CLAUDE.md` — documentation updated for new tables, endpoints, and the xlsx CDN install pitfall.
+
+#### Out of scope (deferred to Phase 73)
+- Split-view UI (one bank line ↔ multiple expenses/revenue rows)
+- Manual match / unmatch mutations and UI
+- Inline "Create expense from this bank line" flow
+- Revenue aggregation dashboard
+- Learn-from-override (auto-generate rules from manual overrides)
+- Journal entry POSTING from bank statement lines (only PROPOSAL account IDs are stored in Phase 72)
+
+#### Production deployment runbook
+
+1. Merge Phase 72 PR to main → Convex auto-deploys → schema tables + 3 new indexes + 20-account DEFAULT_ACCOUNTS land (compiled, not inserted).
+2. Admin runs `accounts:seedDefaults` in PROD Convex dashboard Functions tab → 20 new accounts inserted via upsert-by-code (idempotent).
+3. Admin runs `bankKeywordRules:seedDefaults` in PROD Convex dashboard Functions tab → 26 rules inserted. If any account ref is unresolved (e.g. step 2 was skipped), fails loudly with ConvexError listing missing refs — no partial seed.
+4. Admin navigates to `/bank-reconciliation` and uploads the reference sample `Mutasi - BCA - 2511.xlsx` → verify full end-to-end: parse → reconciliation → import → review table shows expected rows with classification + auto-matches.
+
+SCHEMA.md schema table count moves from 70 → 73 tables after this phase (`bankStatements`, `bankStatementLines`, `bankKeywordRules`).
 
 ### Fix: Kitchen Components Duplication & Reporting Gap -- 2026-04-12
 
