@@ -47,6 +47,18 @@ After merging any code change, add a new entry with:
 - `convex/lib/journalEngine.ts` — `JournalSourceType` union extended with `"bank_statement"`, added to `NON_REVERSIBLE_TYPES`.
 - `docs/SCHEMA.md`, `docs/API_REFERENCE.md`, `CLAUDE.md` — documentation updated for new tables, endpoints, and the xlsx CDN install pitfall.
 
+#### Post-review hardening (after triple-review + live BCA UAT)
+- Moved `similarityScore` to `convex/lib/fuzzyMatch.ts` (CR-01 — was importing across the Convex bundler boundary from `src/`; silent prod failure risk).
+- Direction-gated `findLinkedRecord` so debit lines only match expense/reimbursement/payroll and credit lines only match `externalRevenue` — prior code could fuzzy-match a credit line to an expense of the same amount.
+- BOM strip in `parseBcaCsv` — BCA portal CSV exports are UTF-8 BOM-prefixed; previously every portal download threw "BCA metadata missing: account number".
+- Server-side `Number.isInteger` + non-negative guards on `amountIdr` and header totals so a malformed client payload fails with a precise validator error instead of a confusing "reconciliation failed".
+- Catch-all uniqueness: `bankKeywordRules.create` rejects a second active catch-all with overlapping direction (would otherwise silently shadow R01).
+- `parseAmount` rejects negative values with a clear error (BCA mobile CSV variant has signed amounts; XLSX e-statement never does).
+- Skip-guard on `accounts.queries.list` in both bank pages — matches the pattern every other hook already uses.
+- Early dedup probe: new admin-only `findByFileHash` query fires during the review step so re-uploads show a destructive "Already imported on {date}" banner with Confirm disabled — no round-trip to hit the server-side dedup.
+- `humanizeError()` strips the `[CONVEX M(...)] [Request ID: ...] Uncaught ConvexError: ... Called by client` wrapper before display.
+- Refactored error step into an `ErrorSection` that classifies the failure (reconciliation / duplicate / validation / generic) with a plain-language title + detail. Reconciliation diff now renders as labeled rows with inline hints and prints "matches" for zero rows so the one actually off stands out.
+
 #### Out of scope (deferred to Phase 73)
 - Split-view UI (one bank line ↔ multiple expenses/revenue rows)
 - Manual match / unmatch mutations and UI

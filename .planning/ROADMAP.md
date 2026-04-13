@@ -330,7 +330,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 |-------|-----------|----------------|--------|-----------|
 | 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
-| 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete   | 2026-04-13 |
+| 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
 | 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
