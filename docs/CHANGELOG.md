@@ -16,6 +16,18 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Consignment Revenue Recognition on Period End -- 2026-04-13
+
+**For the team:** Consignment settlement revenue was showing up on the daily channel chart on the *first* day of the consignment period (e.g. Mar 30 for a Mar 30–Apr 5 settlement). It now lands on the *last* day of the consignment period (Apr 5 in that example), which is the date Frollie recognizes the cash. Future work will add a payment-date picker so the actual bank-credit date can be captured when it differs from period end.
+
+**Root cause:** `consignmentSettlements.paidAt` was never propagated to the linked `externalRevenue` row. The daily aggregation bucketing fell back to `periodStart`, and the `by_period` index range filter also scanned by `periodStart`, so settlements were bucketed on their consignment start.
+
+**Fix:** `createSettlement`, `updateSettlement`, and `markAsPaid` now store the recognition date on `externalRevenue` (`periodStart = periodEnd = transactionDate = consignment.periodEnd`). `markAsPaid` additionally defaults `paidAt` to `settlement.periodEnd` (caller may override for forward-compat with a future payment-date picker) and patches the linked revenue row's `transactionDate` so bank reconciliation can match on the cash-receipt date. The income statement is unaffected — it already queries `consignmentSettlements` directly and stays on accrual for PT statutory P&L.
+
+**Backfill:** `convex/migrations/consignmentRecognitionDate.ts` — `inspectConsignmentRecognition` (dry-run) and `backfillConsignmentRecognition` (idempotent apply). Rewrites existing consignment `externalRevenue` rows to `(periodEnd, periodEnd, periodEnd)` and aligns paid settlements' `paidAt` to `periodEnd`. Run once via Convex dashboard Functions tab post-deploy.
+
+**Files modified:** `convex/consignment/mutations.ts` (createSettlement + updateSettlement + markAsPaid). New file `convex/migrations/consignmentRecognitionDate.ts`.
+
 ### Feat: Phase 72 — Bank Statement Parser & Auto-Match -- 2026-04-13
 
 **For the team:** Admins can now import BCA bank statements (XLSX or CSV), automatically classify each transaction against a 26-rule engine, and review the results in a read-only 17-column table. A separate `/bank-rules` page lets admins seed the canonical rules, create new rules, edit priority/flags/patterns, or deactivate rules they no longer want. Reconciliation checksums are verified twice (client + server) so a tampered file is rejected before any data hits the database. Journal posting is deliberately NOT part of this phase (that is Phase 73) — the bank data is imported and classified, and proposal JE account IDs are persisted per line, but no `journalEntries` rows are written.

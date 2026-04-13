@@ -184,15 +184,20 @@ export const createSettlement = mutation({
       outlet.revSharePercent
     );
 
-    // Create externalRevenue record (revenue bridge) — inline to preserve Convex types
+    // Create externalRevenue record (revenue bridge) — inline to preserve Convex types.
+    // Consignment revenue recognizes on the consignment period-end date (cash-basis
+    // proxy for dashboards + bank reconciliation). The full consignment period span
+    // stays on consignmentSettlements; externalRevenue carries only the recognition
+    // date so the `by_period` index naturally finds the row on the correct day.
     const revenueId = await ctx.db.insert("externalRevenue", {
       source: "consignment" as const,
       outletId: outlet.externalOutletId,
       revenueGross: args.totalRevenue,
       revenueNet: frolliePayment,
       transactionCount: 1,
-      periodStart: args.periodStart,
+      periodStart: args.periodEnd,
       periodEnd: args.periodEnd,
+      transactionDate: args.periodEnd,
       dataOrigin: "manual_entry" as const,
       confidence: "manual" as const,
       transactionType: "sales" as const,
@@ -283,8 +288,14 @@ export const updateSettlement = mutation({
         revPatch.revenueGross = args.totalRevenue;
         revPatch.revenueNet = newFrolliePayment;
       }
-      if (args.periodStart !== undefined) revPatch.periodStart = args.periodStart;
-      if (args.periodEnd !== undefined) revPatch.periodEnd = args.periodEnd;
+      // Recognition date = consignment periodEnd. Collapse externalRevenue period
+      // to the end date on any period edit so the row keeps bucketing correctly.
+      if (args.periodStart !== undefined || args.periodEnd !== undefined) {
+        const effectiveEnd = args.periodEnd ?? settlement.periodEnd;
+        revPatch.periodStart = effectiveEnd;
+        revPatch.periodEnd = effectiveEnd;
+        revPatch.transactionDate = effectiveEnd;
+      }
       if (Object.keys(revPatch).length > 0) {
         await ctx.db.patch(settlement.linkedRevenueId, revPatch);
       }
@@ -306,12 +317,6 @@ export const markAsPaid = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["admin", "manager"]);
     const now = Date.now();
-    const paidAt = args.paidAt ?? now;
-
-    // Guard: reject invalid or future timestamps
-    if (!Number.isFinite(paidAt) || paidAt > now) {
-      throw new Error("Paid date must be a valid date not in the future");
-    }
 
     const settlement = await ctx.db.get(args.settlementId);
     if (!settlement) {
@@ -321,6 +326,15 @@ export const markAsPaid = mutation({
     // Guard: cannot mark already-paid settlement
     assertSettlementEditable(settlement.status);
 
+    // Recognition date = consignment periodEnd until a payment-date picker ships.
+    // Callers may still pass an explicit paidAt (forward-compat for the picker).
+    const paidAt = args.paidAt ?? settlement.periodEnd;
+
+    // Guard: reject invalid or future timestamps
+    if (!Number.isFinite(paidAt) || paidAt > now) {
+      throw new Error("Paid date must be a valid date not in the future");
+    }
+
     // Mark as paid
     await ctx.db.patch(args.settlementId, {
       status: "paid" as const,
@@ -328,6 +342,13 @@ export const markAsPaid = mutation({
       updatedBy: user.name,
       updatedAt: now,
     });
+
+    // Propagate paidAt to the linked externalRevenue row so bank reconciliation
+    // can match on the cash-receipt date. Period fields already collapsed at
+    // createSettlement; no additional period patch needed.
+    if (settlement.linkedRevenueId) {
+      await ctx.db.patch(settlement.linkedRevenueId, { transactionDate: paidAt });
+    }
 
     // Event auto-archive: deactivate event-type outlets after payment
     const outlet = await ctx.db.get(settlement.outletId);
