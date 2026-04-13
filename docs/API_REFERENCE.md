@@ -814,6 +814,90 @@ inventory.expireBatch({                    // Mark expired (blocked if reserved)
 
 ---
 
+## Bank Reconciliation (Phase 72)
+
+Admin-only. All functions require an admin session token. Queries gated via `requireRole(ctx, token, ["admin"])`; CRUD mutations use `protectedMutation({ roles: ["admin"] })`. `seedDefaults` is dashboard-callable with an optional token (falls back to first admin user when invoked from the Convex dashboard Functions tab).
+
+### Queries (Read Operations)
+
+```typescript
+// List most-recent 50 imported bank statements (descending by createdAt)
+bankStatements.listStatements({ token }): BankStatementHeader[]
+
+// Fetch a single statement header by id
+bankStatements.getStatement({ token, id }): BankStatementHeader | null
+
+// List all lines for a statement, with optional status filter
+bankStatements.listLines({
+  token,
+  statementId,
+  statusFilter?: "unmatched" | "auto_matched"
+}): BankStatementLine[]
+
+// List active (or all) keyword rules, sorted priority DESC then ruleCode ASC
+bankKeywordRules.list({
+  token,
+  includeInactive?: boolean
+}): BankKeywordRule[]
+
+// Fetch a single rule by id
+bankKeywordRules.getById({ token, id }): BankKeywordRule | null
+```
+
+### Mutations (Write Operations)
+
+```typescript
+// Ingest a ParsedStatement (from frontend parser lib).
+// Atomically inserts header + N lines, runs match engine inline per line,
+// patches header.matchedCount at end. Never posts journalEntries.
+// Throws ConvexError on:
+//  - reconciliation mismatch (debit/credit/balance diff non-zero — T-72-19)
+//  - dedup violation by fileHash ("Already imported")
+//  - dedup violation by accountNumber+period ("already imported" with masked account)
+//  - line count > MAX_LINES (5000)
+bankStatements.createFromParsedStatement({
+  token,
+  header: {
+    fileHash, fileName, bankName, accountNumber, accountHolder,
+    periodStart, periodEnd, currencyCode,
+    openingBalance, closingBalance,
+    reportedDebitTotal, reportedCreditTotal
+  },
+  lines: ParsedLine[]
+}): {
+  statementId: Id<"bankStatements">,
+  lineCount: number,
+  matchedCount: number
+}
+
+// Seed all 26 canonical rules via upsert-by-ruleCode.
+// Idempotent. Fails loudly with ConvexError listing unresolved account names
+// if any expected account is missing (no partial seed).
+// Dashboard-callable with no token (falls back to first admin user).
+bankKeywordRules.seedDefaults({
+  token?: string
+}): Array<{ ruleCode: string, action: "created" | "updated", id: Id<"bankKeywordRules"> }>
+
+// Admin CRUD
+bankKeywordRules.create({ token, ...fields }): Id<"bankKeywordRules">
+bankKeywordRules.update({ token, id, patch }): null
+bankKeywordRules.deactivate({ token, id }): null
+```
+
+**Classification pipeline per line (inside `createFromParsedStatement`):**
+```
+ParsedLine
+  → classifyLine(line, activeRules)     // Layer A — pure classifier
+  → findLinkedRecord(ctx, line)         // Layer B — ctx scan across 4 tables
+  → computeConfidence(rule, hintHit, linkage)
+  → insert bankStatementLines { classification + proposal JE account IDs }
+```
+
+**Proposal-only JE fields (NOT posted in Phase 72):**
+`jeDebitAccountId`, `jeCreditAccountId` on `bankStatementLines` are written from the matching rule's account references. Phase 73 reads these values to post real `journalEntries` after user confirmation.
+
+---
+
 ## Response Patterns
 
 ### List Endpoints (Summaries)

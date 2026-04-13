@@ -40,7 +40,8 @@ export type JournalSourceType =
   | "manual" // Template-based manual entries created via manualJournal/mutations.ts (Phase 62)
   | "depreciation" // Auto-generated monthly depreciation entries (Phase 60)
   | "depreciation_void" // Reversal of depreciation entries (Phase 60)
-  | "asset_acquisition"; // Equipment purchase JE from expense-to-CapEx conversion
+  | "asset_acquisition" // Equipment purchase JE from expense-to-CapEx conversion
+  | "bank_statement"; // Bank statement reconciliation suggestion (Phase 72+). Suggestion only in P72; posted via P73.
 
 /** Void source types that reverse an original entry */
 export type VoidSourceType = "expense_void" | "reimbursement_void" | "payroll_void" | "depreciation_void";
@@ -70,6 +71,7 @@ const NON_REVERSIBLE_TYPES: readonly string[] = [
   "payroll_void",
   "depreciation_void",
   "asset_acquisition", // Requires manual correction, not automated reversal
+  "bank_statement", // Phase 72+: no automated reversal — correction via manual journal entry
 ];
 
 /** Maps original source type → expected void source type */

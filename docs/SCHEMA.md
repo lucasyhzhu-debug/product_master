@@ -1649,3 +1649,101 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 
 **`kitchenConfig`** -- Added optional field:
 - `enabledKitchenComponents`: `string[]` -- which kitchen component codes appear in the shift form (null = all enabled)
+
+## Bank Reconciliation (Phase 72)
+
+Three new tables support BCA statement import + auto-classification. No journal entries are posted in Phase 72 — only PROPOSAL account IDs (`jeDebitAccountId`, `jeCreditAccountId`) are persisted per line, ready to be consumed by the Phase 73 posting flow.
+
+### `bankStatements` -- Imported Bank Statement Header
+
+**Immutability:** After insert, only `matchedCount` is ever patched. All other fields are locked (ingest is atomic parent-child).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fileHash` | `string` | SHA-256 hex of the uploaded XLSX/CSV. Primary dedup key. |
+| `fileName` | `string` | Original filename (for display). |
+| `bankName` | `string` | Hardcoded `"BCA"` in Phase 72; schema supports other banks. |
+| `accountNumber` | `string` | Source account number (PII — masked to last 4 digits in all UI surfaces). |
+| `accountHolder` | `string` | Account holder name (PII — not rendered in UI except in the header preview). |
+| `periodStart` | `number` | Epoch ms of statement period start (UTC midnight, WIB date). |
+| `periodEnd` | `number` | Epoch ms of statement period end (UTC midnight, WIB date). |
+| `currencyCode` | `string` | ISO code (always `"IDR"` for BCA statements). |
+| `openingBalance` | `number` | Saldo Awal (IDR integer). |
+| `closingBalance` | `number` | Saldo Akhir (IDR integer). |
+| `reportedDebitTotal` | `number` | Mutasi Debet footer value (IDR integer). |
+| `reportedCreditTotal` | `number` | Mutasi Kredit footer value (IDR integer). |
+| `lineCount` | `number` | Total number of transaction lines. |
+| `matchedCount` | `number` | Count of lines where `isAutoMatched=true`. Denormalized; only field that's ever patched. |
+| `uploadedBy` | `id("users")` | Admin who uploaded (from verified token). |
+| `createdAt` | `number` | Epoch ms of upload. |
+
+**Indexes:** `by_fileHash` (primary dedup), `by_account_period` ([accountNumber, periodStart, periodEnd] — secondary dedup), `by_createdAt` (history list ordering).
+
+### `bankStatementLines` -- Parsed Transaction Rows + Match State
+
+One row per transaction in the statement. Polymorphic `matchedType`+`matchedId` (first use of polymorphic ref in this codebase — schema guarded by union types).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `statementId` | `id("bankStatements")` | Parent statement. |
+| `rowIndex` | `number` | 0-based source row index (for audit trail). |
+| `date` | `number` | Epoch ms (UTC midnight, WIB date resolved via `resolveYearForRollover`). |
+| `month` | `string` | `"YYYY-MM"` (WIB-bucketed via `getWibComponents`). |
+| `rawDescription` | `string` | Original description text from BCA. |
+| `direction` | `union` | `"debit"` \| `"credit"`. |
+| `amountIdr` | `number` | Absolute IDR amount (integer). |
+| `runningBalanceIdr` | `optional number` | Saldo after this transaction (null if BCA left blank). |
+| `parsedCounterparty` | `optional string` | Heuristic-extracted trailing uppercase token sequence. |
+| `originalCategory` | `optional string` | Category from matching rule (e.g., `"Revenue"`). |
+| `subCategory` | `optional string` | Sub-category from matching rule. |
+| `plSection` | `optional string` | P&L section (revenue / cogs / opex / other). |
+| `updatedCategoryAccountId` | `optional id("accounts")` | Target GL account from matching rule. |
+| `matchedRuleId` | `optional id("bankKeywordRules")` | Which rule classified this line. |
+| `jeDebitAccountId` | `optional id("accounts")` | PROPOSAL debit account (from rule; NOT posted in Phase 72). |
+| `jeCreditAccountId` | `optional id("accounts")` | PROPOSAL credit account (from rule; NOT posted in Phase 72). |
+| `linkedChannel` | `optional string` | Sales channel (from rule) if this is a revenue line. |
+| `matchedType` | `optional union` | `"expense"` \| `"externalRevenue"` \| `"reimbursement"` \| `"payroll"` — polymorphic record-linkage target. |
+| `matchedId` | `optional string` | Id of the linked record (typed via `matchedType`). |
+| `confidence` | `union` | `"exact"` \| `"strong"` \| `"suggested"` \| `"none"`. |
+| `status` | `union` | `"unmatched"` \| `"auto_matched"` \| `"suggested"` \| `"confirmed"`. **Phase 72 only writes `unmatched` \| `auto_matched`** — `suggested` and `confirmed` are reserved for Phase 73 manual-review UI. |
+| `isAutoMatched` | `boolean` | True when Layer B found a linked record. |
+| `matchMethod` | `union` | `"keyword"` \| `"exact_match"` \| `"counterparty"` \| `"linked_to_record"` \| `"unmatched"`. |
+| `flags` | `array<string>` | Rule-level flags (e.g., `"related_party"`, `"needs_review"`). |
+
+**Indexes:** `by_statement` (statementId), `by_statement_status` ([statementId, status]), `by_matched` ([matchedType, matchedId]), `by_date` (date).
+
+### `bankKeywordRules` -- Admin-Editable Auto-Classification Rules
+
+26 canonical rules seeded via `bankKeywordRules.seedDefaults` (see `convex/bankKeywordRules/defaultRules.ts`). Codes follow `/^[A-Z]\d{2}$/`. Only R01 is the catch-all.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ruleCode` | `string` | Unique code matching `/^[A-Z]\d{2}$/` (e.g., `"R01"`, `"C02"`, `"B02"`). |
+| `description` | `string` | Human-readable description of what this rule matches. |
+| `priority` | `number` | Integer 0–200. Higher wins within its bucket. |
+| `isActive` | `boolean` | Soft-delete flag. |
+| `isCatchAll` | `boolean` | If true, this rule is evaluated ONLY if no non-catch-all rule matched (T-72-14 mitigation). |
+| `direction` | `union` | `"debit"` \| `"credit"` \| `"any"`. |
+| `matchType` | `union` | `"counterparty"` \| `"description_contains"` \| `"description_exact"` \| `"description_regex"` \| `"counterparty_or_keyword"` \| `"counterparty_and_keyword"` \| `"catch_all"`. |
+| `counterpartyPatterns` | `array<string>` | Substring patterns to test against `parsedCounterparty`. |
+| `descriptionPatterns` | `array<string>` | Patterns to test against `rawDescription` (semantics per `descriptionPatternsMode`). |
+| `descriptionPatternsMode` | `union` | `"any"` \| `"all"` \| `"hint"` — `"hint"` never gates match, only toggles `hintHit` for confidence elevation. |
+| `originalCategory` | `string` | Default category for matched lines. |
+| `subCategory` | `optional string` | Default sub-category. |
+| `plSection` | `string` | `"revenue"` \| `"cogs"` \| `"opex"` \| `"other"`. |
+| `categoryAccountName` | `string` | Name (NOT code) of the target GL account. Resolved via `accounts.by_name` index at seed time. |
+| `jeDebitAccountName` | `optional string` | Name of proposal debit account. |
+| `jeCreditAccountName` | `optional string` | Name of proposal credit account. |
+| `linkedChannel` | `optional string` | Sales channel identifier for revenue lines. |
+| `confidence` | `union` | `"exact"` \| `"strong"` \| `"suggested"` — intrinsic rule confidence before hint/linkage elevation. |
+| `flags` | `array<string>` | Flags copied onto matching lines (e.g., `"related_party"`, `"needs_review"`). |
+
+**Indexes:** `by_ruleCode` (unique lookup + upsert), `by_active_priority` ([isActive, priority] — query load order), `by_isCatchAll` (catch-all segregation).
+
+### Extensions to existing tables
+
+- **`journalEntries.sourceType`** gained `"bank_statement"` literal (11th union member). Also added to `NON_REVERSIBLE_TYPES` in `convex/lib/journalEngine.ts` — corrections go through manual JE, not automated void (matches `asset_acquisition` precedent).
+- **`accounts`** gained `by_name` index — used by `bankKeywordRules.seedDefaults` to resolve `categoryAccountName` / `jeDebitAccountName` / `jeCreditAccountName` at seed time.
+- **`externalRevenue`** gained `by_amount_transactionDate` compound index — used by Layer B record-linkage scan.
+- **`reimbursementBatches`** gained `by_amount_createdAt` compound index — used by Layer B record-linkage scan.
+- **`payrollEntries`** gained `by_amount_period` compound index — used by Layer B record-linkage scan.

@@ -1133,7 +1133,9 @@ export default defineSchema({
     .index("by_period", ["periodStart"])
     .index("by_source_period", ["source", "periodStart"])
     // OI-11: removed by_product -- zero withIndex references
-    .index("by_source_txn", ["source", "externalTransactionId"]),
+    .index("by_source_txn", ["source", "externalTransactionId"])
+    // Phase 72: amount-first index for bank auto-match Layer B scan
+    .index("by_amount_transactionDate", ["revenueGross", "transactionDate"]),
 
   externalRevenueItems: defineTable({
     revenueId: v.id("externalRevenue"),
@@ -1717,7 +1719,8 @@ export default defineSchema({
   })
     .index("by_code", ["code"])
     .index("by_type", ["type"])
-    .index("by_active_type", ["isActive", "type"]),
+    .index("by_active_type", ["isActive", "type"])
+    .index("by_name", ["name"]),
 
   // Expense records — full lifecycle from draft to reimbursed/voided
   expenses: defineTable({
@@ -1819,7 +1822,9 @@ export default defineSchema({
   })
     .index("by_batch_number", ["batchNumber"])
     .index("by_employee_status", ["employeeUserId", "status"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    // Phase 72: amount-first index for bank auto-match Layer B scan
+    .index("by_amount_createdAt", ["totalAmount", "createdAt"]),
 
   // Reimbursement batch line items — link expenses to batches
   reimbursementBatchItems: defineTable({
@@ -1844,7 +1849,8 @@ export default defineSchema({
       v.literal("manual"),
       v.literal("depreciation"),
       v.literal("depreciation_void"),
-      v.literal("asset_acquisition")
+      v.literal("asset_acquisition"),
+      v.literal("bank_statement")
     ),
     sourceId: v.optional(v.string()),
     isReversed: v.boolean(),
@@ -1885,6 +1891,154 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_active", ["isActive"]),
+
+  // ============================================
+  // BANK RECONCILIATION (Phase 72)
+  // BCA statement ingestion + auto-match engine
+  // ============================================
+
+  // Bank statement header — IMMUTABLE after insert (only matchedCount may be patched by match engine).
+  // accountNumber / accountHolder are PII — never log at query/mutation boundary.
+  bankStatements: defineTable({
+    // Dedup & integrity (D-04)
+    fileHash: v.string(),                              // SHA-256 of raw file bytes
+    fileName: v.string(),
+    // BCA header data (D-06a — direct from XLSX metadata rows 2-5)
+    accountNumber: v.string(),                         // PII — never log
+    accountHolder: v.string(),                         // PII — never log
+    reportedPeriodStart: v.number(),                   // epoch ms, from Periode row
+    reportedPeriodEnd: v.number(),                     // epoch ms, from Periode row
+    currency: v.string(),                              // "Rp" per D-06a (IDR-only P72)
+    // BCA footer totals (D-06a — authoritative for reconciliation per D-06b)
+    openingBalance: v.number(),                        // integer IDR, from "Saldo Awal"
+    closingBalance: v.number(),                        // integer IDR, from "Saldo Akhir"
+    reportedDebitTotal: v.number(),                    // integer IDR, from "Mutasi Debet"
+    reportedCreditTotal: v.number(),                   // integer IDR, from "Mutasi Kredit"
+    // Denormalized counters
+    lineCount: v.number(),
+    matchedCount: v.number(),
+    // Audit
+    uploadedBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_fileHash", ["fileHash"])
+    .index("by_account_period", ["accountNumber", "reportedPeriodStart", "reportedPeriodEnd"])
+    .index("by_createdAt", ["createdAt"]),
+
+  // Bank statement line rows (one per transaction)
+  bankStatementLines: defineTable({
+    statementId: v.id("bankStatements"),
+    rowIndex: v.number(),                              // 1-indexed source row
+    // Parsed source (D-06 — "direction + amountIdr" not split)
+    date: v.number(),                                  // epoch ms, year from Periode (D-29)
+    month: v.string(),                                 // "YYYY-MM" derived
+    rawDescription: v.string(),                        // full Keterangan, untouched (D-06)
+    direction: v.union(v.literal("debit"), v.literal("credit")),
+    amountIdr: v.number(),                             // positive integer IDR
+    runningBalanceIdr: v.optional(v.number()),         // Saldo (D-06 — blank on non-last-of-day)
+    // Derived (D-06)
+    parsedCounterparty: v.optional(v.string()),
+    // Classification (filled by match engine plan 03)
+    originalCategory: v.optional(v.string()),
+    matchMethod: v.optional(v.union(
+      v.literal("keyword"),
+      v.literal("exact_match"),
+      v.literal("counterparty"),
+      v.literal("linked_to_record"),
+      v.literal("unmatched"),
+    )),
+    updatedCategoryAccountId: v.optional(v.id("accounts")),
+    subCategory: v.optional(v.string()),
+    plSection: v.optional(v.string()),
+    matchedRuleId: v.optional(v.id("bankKeywordRules")),
+    // Journaling suggestion (D-20 — NOT posted in P72)
+    jeDebitAccountId: v.optional(v.id("accounts")),
+    jeCreditAccountId: v.optional(v.id("accounts")),
+    // Polymorphic record linkage (D-02)
+    matchedType: v.optional(v.union(
+      v.literal("expense"),
+      v.literal("revenue"),
+      v.literal("reimbursement"),
+      v.literal("payroll"),
+    )),
+    matchedId: v.optional(v.string()),                 // stringified Convex Id; polymorphic (D-02)
+    // Revenue attribution (D-23)
+    linkedChannel: v.optional(v.string()),
+    // Review meta (D-06)
+    overrideCategoryAccountId: v.optional(v.id("accounts")),
+    confidence: v.union(
+      v.literal("exact"),
+      v.literal("strong"),
+      v.literal("suggested"),
+      v.literal("none"),
+    ),
+    notes: v.optional(v.string()),
+    status: v.union(
+      v.literal("unmatched"),
+      v.literal("auto_matched"),
+      v.literal("suggested"),
+      v.literal("confirmed"),
+    ),
+    isAutoMatched: v.boolean(),
+    flags: v.optional(v.array(v.string())),            // rule.flags inherited
+  })
+    .index("by_statement", ["statementId"])
+    .index("by_statement_status", ["statementId", "status"])
+    .index("by_matched", ["matchedType", "matchedId"])
+    .index("by_date", ["date"]),
+
+  // Admin-editable keyword rules for auto-classification (D-16; see 72-SEED-RULES.json)
+  bankKeywordRules: defineTable({
+    ruleCode: v.string(),                              // "R01", "C02", etc.
+    plSection: v.union(
+      v.literal("Revenue"),
+      v.literal("COGS"),
+      v.literal("OpEx"),
+      v.literal("Below the Line"),
+    ),
+    direction: v.union(
+      v.literal("debit"),
+      v.literal("credit"),
+      v.literal("any"),
+    ),
+    matchType: v.union(
+      v.literal("counterparty"),
+      v.literal("description_contains"),
+      v.literal("description_exact"),
+      v.literal("description_regex"),
+      v.literal("counterparty_or_keyword"),
+      v.literal("counterparty_and_keyword"),
+      v.literal("catch_all"),
+    ),
+    counterpartyPatterns: v.optional(v.array(v.string())),
+    descriptionPatterns: v.optional(v.array(v.string())),
+    descriptionPatternsMode: v.union(
+      v.literal("any"),
+      v.literal("all"),
+      v.literal("hint"),
+    ),
+    isCatchAll: v.boolean(),
+    categoryAccountId: v.id("accounts"),
+    subCategoryTemplate: v.optional(v.string()),
+    jeDebitAccountId: v.id("accounts"),
+    jeCreditAccountId: v.id("accounts"),
+    linkedChannel: v.optional(v.string()),
+    confidence: v.union(
+      v.literal("exact"),
+      v.literal("strong"),
+      v.literal("suggested"),
+    ),
+    priority: v.number(),
+    flags: v.optional(v.array(v.string())),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.optional(v.number()),
+    updatedBy: v.optional(v.id("users")),
+  })
+    .index("by_ruleCode", ["ruleCode"])
+    .index("by_active_priority", ["isActive", "priority"])
+    .index("by_isCatchAll", ["isCatchAll"]),
 
   // ============================================
   // INVOICE SYSTEM
@@ -1975,7 +2129,9 @@ export default defineSchema({
   })
     .index("by_period", ["periodStart"])
     .index("by_employee_type", ["employeeType"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    // Phase 72: amount-first index for bank auto-match Layer B scan
+    .index("by_amount_period", ["amount", "periodStart"]),
 
   // Fixed assets — PSAK-aligned asset register with denormalized depreciation tracking
   fixedAssets: defineTable({

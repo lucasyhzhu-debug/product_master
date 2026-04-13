@@ -50,6 +50,7 @@
     "convex-helpers": "^0.1.112",
     "date-fns": "^4.1.0",
     "driver.js": "^1.4.0",
+    "fastest-levenshtein": "^1.0.16",
     "framer-motion": "^11.15.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "^0.564.0",
@@ -59,7 +60,8 @@
     "react-router-dom": "^7.13.0",
     "recharts": "^3.7.0",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",

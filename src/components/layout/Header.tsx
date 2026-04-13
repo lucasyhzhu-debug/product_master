@@ -78,6 +78,7 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: PermissionKey;
+  rolesAllowed?: UserRole[];
   preload?: () => void;
 };
 
@@ -114,6 +115,8 @@ const accountingItems: NavItem[] = [
   { path: '/journal', label: 'Journal Entry', icon: BookMarked, permission: 'canManageReimbursements' },
   { path: '/accounts', label: 'Chart of Accounts', icon: Landmark, permission: 'canManageReimbursements' },
   { path: '/bank-accounts', label: 'Bank Accounts', icon: Landmark, permission: 'canManageReimbursements' },
+  { path: '/bank-reconciliation', label: 'Bank Reconciliation', icon: Landmark, rolesAllowed: ['admin'] },
+  { path: '/bank-rules', label: 'Bank Rules', icon: BookMarked, rolesAllowed: ['admin'] },
   { path: '/import', label: 'Historical Import', icon: FileUp, permission: 'canManageReimbursements' },
   { path: '/assets', label: 'Asset Register', icon: Building2, permission: 'canAccessAssets' },
 ];
@@ -163,7 +166,11 @@ export function Header() {
     : [];
 
   const visibleAccountingItems = user
-    ? accountingItems.filter(item => !item.permission || hasPermission(item.permission))
+    ? accountingItems.filter(item => {
+        if (item.permission && !hasPermission(item.permission)) return false;
+        if (item.rolesAllowed && !item.rolesAllowed.includes(user.role)) return false;
+        return true;
+      })
     : [];
 
   const visibleConfigItems = user
