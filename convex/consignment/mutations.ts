@@ -185,13 +185,19 @@ export const createSettlement = mutation({
     );
 
     // Create externalRevenue record (revenue bridge) — inline to preserve Convex types.
-    // Consignment revenue recognizes on the consignment period-end date (cash-basis
-    // proxy for dashboards + bank reconciliation). The full consignment period span
-    // stays on consignmentSettlements; externalRevenue carries only the recognition
-    // date so the `by_period` index naturally finds the row on the correct day.
+    // At creation the settlement is pending; the expected recognition date is periodEnd.
+    // markAsPaid later re-stamps all three period fields to the actual paidAt the
+    // frontend date picker supplies, so paid-date-different-from-periodEnd cases bucket
+    // correctly. The full consignment period span stays on consignmentSettlements as
+    // the source of truth; only that table preserves accrual semantics. Collapsing
+    // periodStart == periodEnd here keeps the by_period index naturally finding the
+    // row on its recognition date across every aggregation query.
+    // productName = outlet name so bank-reconciliation fuzzy text scoring
+    // (matchEngine.ts) has a descriptor to match against.
     const revenueId = await ctx.db.insert("externalRevenue", {
       source: "consignment" as const,
       outletId: outlet.externalOutletId,
+      productName: outlet.name,
       revenueGross: args.totalRevenue,
       revenueNet: frolliePayment,
       transactionCount: 1,
@@ -288,10 +294,11 @@ export const updateSettlement = mutation({
         revPatch.revenueGross = args.totalRevenue;
         revPatch.revenueNet = newFrolliePayment;
       }
-      // Recognition date = consignment periodEnd. Collapse externalRevenue period
-      // to the end date on any period edit so the row keeps bucketing correctly.
+      // Pending recognition date = consignment periodEnd. Collapse externalRevenue
+      // period to the end date on any period edit so the row keeps bucketing correctly.
+      // (updateSettlement only runs on pending settlements — assertSettlementEditable
+      // throws on paid above, so this is always pre-payment.)
       if (args.periodStart !== undefined || args.periodEnd !== undefined) {
-        const effectiveEnd = args.periodEnd ?? settlement.periodEnd;
         revPatch.periodStart = effectiveEnd;
         revPatch.periodEnd = effectiveEnd;
         revPatch.transactionDate = effectiveEnd;
@@ -326,13 +333,18 @@ export const markAsPaid = mutation({
     // Guard: cannot mark already-paid settlement
     assertSettlementEditable(settlement.status);
 
-    // Recognition date = consignment periodEnd until a payment-date picker ships.
-    // Callers may still pass an explicit paidAt (forward-compat for the picker).
+    // Recognition date defaults to consignment periodEnd; the frontend date picker
+    // (SettlementTimeline.tsx) supplies the actual cash-receipt date when known.
     const paidAt = args.paidAt ?? settlement.periodEnd;
 
-    // Guard: reject invalid or future timestamps
-    if (!Number.isFinite(paidAt) || paidAt > now) {
-      throw new Error("Paid date must be a valid date not in the future");
+    // Future-date guard applies only to caller-supplied paidAt — a settlement whose
+    // periodEnd is legitimately in the future must still be markable as paid.
+    if (args.paidAt !== undefined) {
+      if (!Number.isFinite(args.paidAt) || args.paidAt > now) {
+        throw new Error("Paid date must be a valid date not in the future");
+      }
+    } else if (!Number.isFinite(paidAt)) {
+      throw new Error("Settlement periodEnd is invalid");
     }
 
     // Mark as paid
@@ -343,11 +355,17 @@ export const markAsPaid = mutation({
       updatedAt: now,
     });
 
-    // Propagate paidAt to the linked externalRevenue row so bank reconciliation
-    // can match on the cash-receipt date. Period fields already collapsed at
-    // createSettlement; no additional period patch needed.
+    // Propagate paidAt to ALL three period fields on linked externalRevenue so the
+    // by_period index range filter, the time-series bucket key, and the bank-recon
+    // transactionDate all agree. Without this sync, when paidAt ≠ periodEnd the
+    // chart's range filter would skip the row while transactionDate-based views see
+    // it on paidAt — a worse inconsistency than the original bug.
     if (settlement.linkedRevenueId) {
-      await ctx.db.patch(settlement.linkedRevenueId, { transactionDate: paidAt });
+      await ctx.db.patch(settlement.linkedRevenueId, {
+        periodStart: paidAt,
+        periodEnd: paidAt,
+        transactionDate: paidAt,
+      });
     }
 
     // Event auto-archive: deactivate event-type outlets after payment
