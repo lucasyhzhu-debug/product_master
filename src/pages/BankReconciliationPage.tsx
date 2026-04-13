@@ -257,33 +257,11 @@ export function BankReconciliationPage() {
           )}
 
           {wizard.step === "error" && (
-            <div className="flex flex-col gap-4 py-4">
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Could not import statement.</AlertTitle>
-                <AlertDescription className="whitespace-pre-wrap">
-                  {wizard.message}
-                </AlertDescription>
-              </Alert>
-              {wizard.diff && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Reconciliation diagnostic</CardTitle>
-                  </CardHeader>
-                  <CardContent className="text-xs space-y-1 tabular-nums">
-                    <div>Debit diff: {formatCurrency(wizard.diff.debitDiff)}</div>
-                    <div>Credit diff: {formatCurrency(wizard.diff.creditDiff)}</div>
-                    <div>Balance diff: {formatCurrency(wizard.diff.balanceDiff)}</div>
-                  </CardContent>
-                </Card>
-              )}
-              <div>
-                <Button variant="outline" onClick={reset}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Start Over
-                </Button>
-              </div>
-            </div>
+            <ErrorSection
+              message={wizard.message}
+              diff={wizard.diff}
+              onReset={reset}
+            />
           )}
         </CardContent>
       </Card>
@@ -327,6 +305,130 @@ export function BankReconciliationPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Error section
+// ---------------------------------------------------------------------------
+
+/**
+ * Classify the error so we can render a tailored headline + guidance block
+ * rather than a single wall of red text. Reconciliation failures carry a
+ * `diff`; duplicate / validation / auth errors do not.
+ */
+function classifyError(message: string, diff?: ReconciliationDiff): {
+  kind: "reconciliation" | "duplicate" | "validation" | "generic";
+  title: string;
+  detail: string;
+} {
+  if (diff || /reconciliation/i.test(message)) {
+    return {
+      kind: "reconciliation",
+      title: "Numbers don't add up",
+      detail:
+        "The sum of the transaction rows doesn't match the totals printed in the statement footer. This usually means the file was edited, truncated, or exported mid-page. Re-download the original file from the BCA portal and try again.",
+    };
+  }
+  if (/already imported/i.test(message)) {
+    return {
+      kind: "duplicate",
+      title: "Already imported",
+      detail: message,
+    };
+  }
+  if (/invalid|must be|required/i.test(message)) {
+    return {
+      kind: "validation",
+      title: "File is invalid",
+      detail: message,
+    };
+  }
+  return {
+    kind: "generic",
+    title: "Could not import statement",
+    detail: message,
+  };
+}
+
+function DiffRow({
+  label,
+  amount,
+  hint,
+}: {
+  label: string;
+  amount: number;
+  hint: string;
+}) {
+  const zero = amount === 0;
+  return (
+    <div className="flex items-start justify-between gap-4 py-1.5">
+      <div className="space-y-0.5">
+        <div className="text-xs font-medium">{label}</div>
+        <div className="text-xs text-muted-foreground">{hint}</div>
+      </div>
+      <div
+        className={`text-sm font-mono tabular-nums whitespace-nowrap ${
+          zero ? "text-muted-foreground" : "text-destructive font-semibold"
+        }`}
+      >
+        {zero ? "matches" : formatCurrency(amount)}
+      </div>
+    </div>
+  );
+}
+
+function ErrorSection({
+  message,
+  diff,
+  onReset,
+}: {
+  message: string;
+  diff?: ReconciliationDiff;
+  onReset: () => void;
+}) {
+  const { kind, title, detail } = classifyError(message, diff);
+
+  return (
+    <div className="flex flex-col gap-4 py-2">
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>{title}</AlertTitle>
+        <AlertDescription>{detail}</AlertDescription>
+      </Alert>
+
+      {kind === "reconciliation" && diff && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Where the mismatch is</CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y divide-border/50">
+            <DiffRow
+              label="Debit column"
+              amount={diff.debitDiff}
+              hint="Sum of debit rows vs. Mutasi Debet footer"
+            />
+            <DiffRow
+              label="Credit column"
+              amount={diff.creditDiff}
+              hint="Sum of credit rows vs. Mutasi Kredit footer"
+            />
+            <DiffRow
+              label="Opening → closing balance"
+              amount={diff.balanceDiff}
+              hint="Opening + credits − debits vs. Saldo Akhir"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      <div>
+        <Button variant="outline" onClick={onReset}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Start Over
+        </Button>
+      </div>
     </div>
   );
 }
