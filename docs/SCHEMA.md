@@ -1107,20 +1107,27 @@ Consignment outlet definitions for manual settlement tracking.
 ---
 
 ### consignmentSettlements (Phase 26)
-Manual consignment revenue settlement entries per outlet per period.
+Manual consignment revenue settlement entries per outlet per period. Source of truth for the consignment accrual span (`periodStart`–`periodEnd`).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| source | `"consignment"` | Always "consignment" |
 | outletId | Id<"consignmentOutlets"> | Reference to outlet |
 | periodStart | number | Settlement period start timestamp (ms) |
 | periodEnd | number | Settlement period end timestamp (ms) |
 | totalRevenue | number | Gross revenue collected in IDR |
+| revSharePercent | number | Outlet's revenue share % at settlement time (frozen) |
+| revShareAmount | number | Outlet's cut in IDR (computed from frozen rate) |
+| frolliePayment | number | Frollie's cut in IDR |
+| status | `"pending" \| "paid"` | Settlement state |
+| paidAt | number? | Cash-receipt timestamp — set on `markAsPaid`, captured via the SettlementTimeline date picker |
+| linkedRevenueId | Id<"externalRevenue">? | Bridge to externalRevenue row that powers analytics |
 | notes | string? | Optional settlement notes |
-| settledBy | string | Admin who recorded the settlement |
-| settledAt | number | Settlement entry timestamp |
+| createdBy / createdAt | string / number | Audit |
+| updatedBy? / updatedAt? | string? / number? | Audit |
 
-**Indexes:** `by_source`, `by_outlet`, `by_period`, `by_outlet_period`
+**Indexes:** `by_outlet`, `by_period` (`periodStart`), `by_status`
+
+**Recognition-date semantics (Phase fix 2026-04-13):** the linked `externalRevenue` row uses **collapsed period fields** — `periodStart = periodEnd = transactionDate = recognitionDate`, where `recognitionDate = paidAt ?? periodEnd`. The full consignment period span stays on `consignmentSettlements`; `externalRevenue` carries only the recognition date so the `by_period` index naturally finds the row on the correct day across every aggregation query. Income statement queries `consignmentSettlements` directly by `periodStart` and stays on accrual for PT statutory P&L. Implemented via the shared `collapseRevenuePeriod(target)` helper in `convex/consignment/helpers.ts`.
 
 ---
 
