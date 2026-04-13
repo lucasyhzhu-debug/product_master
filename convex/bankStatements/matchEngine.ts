@@ -21,7 +21,7 @@
 
 import type { QueryCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import { similarityScore } from "../../src/lib/bankStatement/fuzzyMatch";
+import { similarityScore } from "../lib/fuzzyMatch";
 
 export type BankKeywordRule = Doc<"bankKeywordRules">;
 
