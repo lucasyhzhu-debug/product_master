@@ -177,6 +177,7 @@ export interface BigSellerOrderRow {
   // Shopee-specific fields (from shopee/pageList.json)
   originalPrice?: number; // Shopee: product sale price (maps to saleAmount)
   buyerTotalAmount?: number; // Shopee: total buyer paid incl. shipping (maps to orderAmount)
+  buyerPaidShippingFee?: number; // Shopee: buyer-paid shipping (maps to buyerShippingFee)
   sellerTransactionFee?: number;
   orderAmsCommissionFee?: number;
   campaignFee?: number;
@@ -280,6 +281,17 @@ export function normalizePlatformFees(
     // ── ENH-ORDERAMOUNT: Shopee orderAmount from buyerTotalAmount ──
     if (shouldOverwrite(order.orderAmount, order.buyerTotalAmount ?? 0)) {
       order.orderAmount = order.buyerTotalAmount ?? 0;
+    }
+
+    // ── BUYER-SHIPPING (Phase 54 research line 351; missed during original
+    // execution): Shopee `/shopee/pageList.json` does not return the common
+    // `buyerShippingFee` field — use Shopee-specific `buyerPaidShippingFee`.
+    // Docs/BIGSELLER_PROFIT_API.md field-availability matrix line 1456
+    // confirms common `buyerShippingFee` is MISSING on shopee endpoint; line
+    // 1472 confirms the mapping `buyerShippingFee <- buyerPaidShippingFee`.
+    // Positive convention — no negate. ──
+    if (shouldOverwrite(order.buyerShippingFee, order.buyerPaidShippingFee ?? 0)) {
+      order.buyerShippingFee = Math.abs(order.buyerPaidShippingFee ?? 0);
     }
 
   } else if (platform === "tiktok") {

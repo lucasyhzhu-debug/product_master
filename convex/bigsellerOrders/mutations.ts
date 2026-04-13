@@ -1,6 +1,34 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 
+type SkuEntry = {
+  sku: string;
+  skuNum: number;
+  returnNum: number;
+  isAddition: number;
+};
+
+/**
+ * Decide which `skuVoList` to write on a re-sync of an existing order.
+ *
+ * Preserve-non-empty guard: when BigSeller returns an order with empty
+ * `skuVoList` but the stored order already has entries, keep the stored
+ * entries. Prevents re-syncs from destroying previously-known SKU data.
+ * Observed 2026-04-13 for Shopee orders (BigSeller intermittently returns
+ * empty skuVoList despite allSkuNum > 0).
+ *
+ * Pure function — exported for direct testing.
+ */
+export function resolveSkuVoListOnUpdate(
+  incoming: readonly SkuEntry[],
+  existing: readonly SkuEntry[]
+): SkuEntry[] {
+  if (incoming.length === 0 && existing.length > 0) {
+    return [...existing];
+  }
+  return [...incoming];
+}
+
 /**
  * Upsert BigSeller orders -- dedup by platformOrderId.
  * Called by sync action, never directly from frontend.
@@ -52,8 +80,13 @@ export const upsertOrders = internalMutation({
         .unique();
 
       if (existing) {
-        // Update: patch all fields except createdAt
+        // Update: patch all fields except createdAt.
+        // Apply preserve-non-empty guard for skuVoList via helper.
         const { createdAt: _, ...updateData } = order;
+        updateData.skuVoList = resolveSkuVoListOnUpdate(
+          updateData.skuVoList ?? [],
+          existing.skuVoList ?? []
+        );
         await ctx.db.patch(existing._id, updateData);
         updated++;
       } else {

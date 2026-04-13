@@ -341,6 +341,15 @@ export function useUpdateProductMapping() {
   return useMutation(api.externalData.mutations.updateProductMapping);
 }
 
+/**
+ * Set the menuProduct for a BigSeller SKU by (source + externalProductCode).
+ * Creates the mapping row on the fly if one does not exist. Used by the
+ * inline "Map manually" dropdown in BigSellerOrdersTable.
+ */
+export function useSetMenuProductForSku() {
+  return useMutation(api.externalData.mutations.setMenuProductForSku);
+}
+
 // ============================================
 // Sales Analytics Chart Hooks
 // ============================================

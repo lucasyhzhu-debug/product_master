@@ -502,6 +502,104 @@ export const updateProductMapping = mutation({
   },
 });
 
+/**
+ * Set the menuProduct for a BigSeller (shopee/tiktok) SKU by source +
+ * externalProductCode. Creates the externalProductMappings row on the fly
+ * if one does not already exist. Used by the "Map manually" affordance in
+ * the BigSellerOrdersTable so unmapped SKUs can be linked directly from the
+ * row without first visiting the Product Mapping tab.
+ *
+ * After the mapping row exists / is patched, the same retroactive revenue
+ * update logic as updateProductMapping runs (in-line to keep this a single
+ * mutation).
+ */
+export const setMenuProductForSku = mutation({
+  args: {
+    token: v.string(),
+    source: sourceValidator,
+    externalProductCode: v.string(),
+    menuProductId: v.optional(v.id("menuProducts")),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    // Upsert mapping row
+    let mapping = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) =>
+        q.eq("source", args.source).eq("externalProductCode", args.externalProductCode)
+      )
+      .unique();
+
+    if (!mapping) {
+      const newId = await ctx.db.insert("externalProductMappings", {
+        source: args.source,
+        externalProductCode: args.externalProductCode,
+        // Display name falls back to the code when unknown — the UI can
+        // rename later if BigSeller ever exposes product names.
+        externalProductName: args.externalProductCode,
+        menuProductId: args.menuProductId,
+        isAutoMapped: false,
+        createdAt: Date.now(),
+      });
+      mapping = await ctx.db.get(newId);
+      if (!mapping) throw new Error("Failed to create mapping");
+    } else {
+      await ctx.db.patch(mapping._id, {
+        menuProductId: args.menuProductId,
+        isAutoMapped: false,
+        createdAt: Date.now(),
+      });
+    }
+
+    // Retroactive externalRevenueItems update (mirror updateProductMapping)
+    const items = await ctx.db.query("externalRevenueItems")
+      .withIndex("by_product_name", (q) =>
+        q.eq("source", args.source).eq("productName", mapping!.externalProductName)
+      )
+      .collect();
+
+    for (const item of items) {
+      await ctx.db.patch(item._id, {
+        linkedMenuProductId: args.menuProductId,
+        isAutoMatched: false,
+        matchConfidence: "exact",
+      });
+    }
+
+    // BigSeller-side retroactive linking on externalRevenue via linkedRevenueId
+    let bigsellerUpdated = 0;
+    if (
+      (args.source === "shopee" || args.source === "tiktok") &&
+      args.menuProductId
+    ) {
+      const bsOrders = await ctx.db
+        .query("bigsellerOrders")
+        .withIndex("by_platform", (q) => q.eq("platform", args.source))
+        .collect();
+
+      for (const order of bsOrders) {
+        const hasSku = order.skuVoList?.some(
+          (item: { sku: string }) => item.sku === args.externalProductCode
+        );
+        if (!hasSku) continue;
+        if (order.linkedRevenueId) {
+          await ctx.db.patch(order.linkedRevenueId, {
+            linkedMenuProductId: args.menuProductId,
+          });
+          bigsellerUpdated++;
+        }
+      }
+    }
+
+    return {
+      mappingId: mapping._id,
+      updatedItems: items.length,
+      bigsellerUpdated,
+    };
+  },
+});
+
 // ─── REVENUE ITEMS MUTATIONS (journal-level data) ───
 
 export const saveRevenueItems = internalMutation({

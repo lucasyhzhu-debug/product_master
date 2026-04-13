@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +29,8 @@ import {
 } from "@/components/ui/tooltip";
 import { ChevronLeft, ChevronRight, Package } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { useBigSellerOrders } from "@/hooks/convex";
+import { useBigSellerOrders, useSetMenuProductForSku } from "@/hooks/convex";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PAGE_SIZE = 20;
 
@@ -43,12 +48,15 @@ const PLATFORM_BADGES: Record<string, { label: string; className: string }> = {
   },
 };
 
-function formatSkus(skuVoList: Array<{ sku: string; skuNum: number }>) {
-  if (!skuVoList || skuVoList.length === 0) return "--";
-  const skus = skuVoList.map((s) => s.sku).filter(Boolean);
-  if (skus.length <= 3) return skus.join(", ");
-  return skus.slice(0, 3).join(", ");
-}
+type ResolvedSku = {
+  sku: string;
+  skuNum: number;
+  returnNum: number;
+  isAddition: number;
+  externalProductMappingId: Id<"externalProductMappings"> | null;
+  mappedMenuProductId: Id<"menuProducts"> | null;
+  mappedMenuProductName: string | null;
+};
 
 function formatDate(ms: number) {
   return new Date(ms).toLocaleDateString("id-ID", {
@@ -88,10 +96,52 @@ export function BigSellerOrdersTable() {
   }
 
   const { data, isLoading } = useBigSellerOrders(filters);
+  const { user } = useAuth();
+  const setMenuProductForSku = useSetMenuProductForSku();
+
+  // Fetch menu products for the "Map manually" dropdown. Small dataset
+  // (<100 items); fetched once per page render.
+  const menuProductsRaw = useQuery(api.menuProducts.queries.list, {});
+  const menuProducts = (menuProductsRaw ?? []).map((mp) => ({
+    _id: mp._id,
+    name: mp.name,
+  }));
 
   const orders = data?.orders ?? [];
   const totalPages = data?.totalPages ?? 1;
   const total = data?.total ?? 0;
+
+  async function handleMapSku(
+    source: string,
+    externalProductCode: string,
+    menuProductId: Id<"menuProducts"> | undefined
+  ) {
+    if (!user?.token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    if (source !== "shopee" && source !== "tiktok") {
+      toast.error(`Cannot map platform "${source}" from this table`);
+      return;
+    }
+    try {
+      await setMenuProductForSku({
+        token: user.token,
+        source,
+        externalProductCode,
+        menuProductId,
+      });
+      toast.success(
+        menuProductId
+          ? `Mapped ${externalProductCode}`
+          : `Cleared mapping for ${externalProductCode}`
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to set mapping"
+      );
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -159,7 +209,36 @@ export function BigSellerOrdersTable() {
               <TableHead className="text-xs">Date</TableHead>
               <TableHead className="text-xs">Platform</TableHead>
               <TableHead className="text-xs">Shop</TableHead>
-              <TableHead className="text-xs">SKUs</TableHead>
+              <TableHead className="text-xs">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">BigSeller SKU</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-[240px]">
+                        Raw SKU code sent by BigSeller / platform per line item.
+                        Empty ("--") means BigSeller did not return SKU data for this order.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableHead>
+              <TableHead className="text-xs">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">Frollie Product</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs max-w-[240px]">
+                        Internal Frollie menu product resolved via Product Mapping.
+                        Use the dropdown to map unmapped SKUs inline.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </TableHead>
               <TableHead className="text-xs text-right">
                 <TooltipProvider>
                   <Tooltip>
@@ -184,7 +263,7 @@ export function BigSellerOrdersTable() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell colSpan={11} className="text-center py-8">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
                     Loading orders...
                   </div>
@@ -192,7 +271,7 @@ export function BigSellerOrdersTable() {
               </TableRow>
             ) : orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell colSpan={11} className="text-center py-8">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground text-sm">
                     <Package className="h-8 w-8 opacity-40" />
                     <p>No synced orders yet. Run a sync to pull BigSeller data.</p>
@@ -204,13 +283,19 @@ export function BigSellerOrdersTable() {
                 const platformConfig =
                   PLATFORM_BADGES[order.platform] ??
                   PLATFORM_BADGES["shopee"];
-                const skuList = order.skuVoList ?? [];
-                const displaySkus = formatSkus(skuList);
-                const hasMoreSkus = skuList.length > 3;
-                const allSkus = skuList
-                  .map((s) => s.sku)
-                  .filter(Boolean)
-                  .join(", ");
+                const resolved: ResolvedSku[] =
+                  (order as { resolvedSkus?: ResolvedSku[] }).resolvedSkus ??
+                  (order.skuVoList ?? []).map((s) => ({
+                    sku: s.sku,
+                    skuNum: s.skuNum,
+                    returnNum: s.returnNum,
+                    isAddition: s.isAddition,
+                    externalProductMappingId: null,
+                    mappedMenuProductId: null,
+                    mappedMenuProductName: null,
+                  }));
+                const hasAllSkuNum =
+                  (order.allSkuNum ?? 0) > 0 && resolved.length === 0;
 
                 return (
                   <TableRow key={order._id}>
@@ -228,24 +313,92 @@ export function BigSellerOrdersTable() {
                     <TableCell className="text-xs max-w-[120px] truncate">
                       {order.shopName}
                     </TableCell>
-                    <TableCell className="text-xs max-w-[150px]">
-                      {hasMoreSkus ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-help">
-                                {displaySkus}...
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs max-w-[300px]">
-                                {allSkus}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                    {/* BigSeller SKU column */}
+                    <TableCell className="text-xs max-w-[160px] align-top">
+                      {resolved.length === 0 ? (
+                        hasAllSkuNum ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help italic text-muted-foreground">
+                                  Pending SKU
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs max-w-[280px]">
+                                  BigSeller reports {order.allSkuNum} unit
+                                  {order.allSkuNum === 1 ? "" : "s"} on this
+                                  order but has not yet returned the SKU
+                                  breakdown. A later re-sync should populate
+                                  this.
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-muted-foreground">--</span>
+                        )
                       ) : (
-                        displaySkus
+                        <div className="flex flex-col gap-0.5">
+                          {resolved.map((r, i) => (
+                            <span key={`${r.sku}-${i}`} className="font-mono">
+                              {r.sku}
+                              {r.skuNum > 1 ? (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  × {r.skuNum}
+                                </span>
+                              ) : null}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
+                    {/* Frollie Product column */}
+                    <TableCell className="text-xs max-w-[220px] align-top">
+                      {resolved.length === 0 ? (
+                        <span className="text-muted-foreground">--</span>
+                      ) : (
+                        <div className="flex flex-col gap-1">
+                          {resolved.map((r, i) =>
+                            r.mappedMenuProductName ? (
+                              <span
+                                key={`${r.sku}-name-${i}`}
+                                className="truncate"
+                                title={r.mappedMenuProductName}
+                              >
+                                {r.mappedMenuProductName}
+                              </span>
+                            ) : (
+                              <Select
+                                key={`${r.sku}-map-${i}`}
+                                value=""
+                                onValueChange={(value) => {
+                                  void handleMapSku(
+                                    order.platform,
+                                    r.sku,
+                                    value as Id<"menuProducts">
+                                  );
+                                }}
+                              >
+                                <SelectTrigger className="h-6 text-[11px] w-full max-w-[210px]">
+                                  <SelectValue placeholder="Map manually…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {menuProducts.map((mp) => (
+                                    <SelectItem
+                                      key={mp._id}
+                                      value={mp._id}
+                                      className="text-xs"
+                                    >
+                                      {mp.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )
+                          )}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-right font-mono">
