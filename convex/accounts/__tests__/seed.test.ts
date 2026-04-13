@@ -10,9 +10,15 @@ import { describe, it, expect } from "vitest";
 import { DEFAULT_ACCOUNTS } from "../mutations";
 
 describe("DEFAULT_ACCOUNTS data integrity", () => {
-  it("has exactly 54 entries", () => {
-    // 7 Revenue + 4 COGS + 13 OpEx + 5 Other + 17 Assets + 5 Liabilities + 3 Equity = 54
-    expect(DEFAULT_ACCOUNTS).toHaveLength(54);
+  it("has exactly 74 entries", () => {
+    // 15 Revenue + 7 COGS + 19 OpEx + 5 Other + 19 Assets + 5 Liabilities + 4 Equity = 74
+    // Phase 72 added 20 new accounts referenced by bank-keyword-rule seed:
+    //   Revenue: +8 (4110, 4210, 4310, 4320, 4330, 4810, 4820, 4910)
+    //   COGS:    +3 (5110, 5210, 5500)
+    //   OpEx:    +6 (6110, 6310, 6410, 6420, 6710, 6810)
+    //   Asset:   +2 (1110, 1510)
+    //   Equity:  +1 (3400)
+    expect(DEFAULT_ACCOUNTS).toHaveLength(74);
   });
 
   it("all entries have isSystem: true", () => {
@@ -79,13 +85,13 @@ describe("DEFAULT_ACCOUNTS data integrity", () => {
       {} as Record<string, number>,
     );
 
-    expect(typeCounts.revenue).toBe(7);
-    expect(typeCounts.cogs).toBe(4);
-    expect(typeCounts.opex).toBe(13); // +1: 6150 Depreciation, +1: 6160 Amortization
+    expect(typeCounts.revenue).toBe(15); // +8 (Phase 72): 4110, 4210, 4310, 4320, 4330, 4810, 4820, 4910
+    expect(typeCounts.cogs).toBe(7); // +3 (Phase 72): 5110, 5210, 5500
+    expect(typeCounts.opex).toBe(19); // +1: 6150 Depreciation, +1: 6160 Amortization, +6 (Phase 72): 6110, 6310, 6410, 6420, 6710, 6810
     expect(typeCounts.other).toBe(5); // +2: 7300 Gain, 7400 Loss on Asset Disposal (Phase 60)
-    expect(typeCounts.asset).toBe(17); // +7: 1610-1670 Accum Depr, +4: 1700, 1710-1730 Intangible
+    expect(typeCounts.asset).toBe(19); // +7: 1610-1670 Accum Depr, +4: 1700, 1710-1730 Intangible, +2 (Phase 72): 1110, 1510
     expect(typeCounts.liability).toBe(5);
-    expect(typeCounts.equity).toBe(3);
+    expect(typeCounts.equity).toBe(4); // +1 (Phase 72): 3400
   });
 
   it("contains all key account codes", () => {
