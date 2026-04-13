@@ -135,6 +135,12 @@ const BulkPriceUpdate = lazyWithPreload(() =>
 const StaffPerformance = lazyWithPreload(() =>
   import('./pages/StaffPerformance').then(m => ({ default: m.StaffPerformance }))
 );
+const BankReconciliationPage = lazyWithPreload(() =>
+  import('./pages/BankReconciliationPage').then(m => ({ default: m.BankReconciliationPage }))
+);
+const BankRulesManager = lazyWithPreload(() =>
+  import('./pages/BankRulesManager').then(m => ({ default: m.BankRulesManager }))
+);
 
 function App() {
   return (
@@ -416,6 +422,26 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canManageReimbursements">
                         <ManualJournalEntry />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Bank Reconciliation — /bank-reconciliation (admin-only, Phase 72) */}
+                  <Route
+                    path="bank-reconciliation"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <BankReconciliationPage />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Bank Rules — /bank-rules (admin-only, Phase 72) */}
+                  <Route
+                    path="bank-rules"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <BankRulesManager />
                       </ProtectedRoute>
                     }
                   />
