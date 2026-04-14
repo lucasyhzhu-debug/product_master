@@ -473,3 +473,176 @@ export function mapOrderToStorage(
     createdAt: Date.now(),
   };
 }
+
+// ─── Phase 79: Price Oracle + Prorate + Dominant-SKU (pure helpers) ──────────
+//
+// Three pure functions that underpin Shopee item-level revenue emission.
+// All logic is deliberately ctx-free so it is unit-testable without
+// convex-test. Consumers live in `convex/integrations/bigseller/sync.ts`
+// (Plan 03) and `convex/externalData/mutations.ts applyRetroactiveProductMapping`
+// (Plan 04).
+//
+// Anchors (see 79-CONTEXT.md §Implementation Decisions):
+//   - D-01: Residual IDR from pro-rata floor() → largest-qty item so
+//           Σ items.totalPrice === orderAmount exactly.
+//   - D-03: Three-tier price fallback — oracle → menuProduct.price → flat share.
+//   - D-04: Parent revenue is the source of truth; items exist for attribution.
+//   - D-09: Dominant SKU = max qty; tie → max menuProduct.price; further tie →
+//           first-listed wins (assumption A5).
+
+/**
+ * Build a per-SKU median-price oracle from historical single-SKU orders.
+ *
+ * Only single-SKU orders contribute (multi-SKU orders cannot unambiguously
+ * attribute price to a specific SKU without the very logic we are bootstrapping).
+ * For each SKU, per-unit prices are collected from `baseAmount / skuNum` where
+ * `baseAmount = orderAmount ?? saleAmount` (D-01 sum-invariance anchor — see A4
+ * in 79-RESEARCH.md), sorted, and reduced to a median (average of two middles
+ * when even-length). Final value is `Math.round(median)` to stay in integer IDR.
+ *
+ * The oracle is rebuilt on every sync invocation (no cache). Acceptable at
+ * expected volume (~6K `bigsellerOrders`; see 79-RESEARCH.md §Pitfalls).
+ */
+export function buildPriceOracle(
+  orders: ReadonlyArray<{
+    orderAmount?: number;
+    saleAmount: number;
+    skuVoList: ReadonlyArray<{ sku: string; skuNum: number }>;
+  }>,
+): Map<string, number> {
+  const samples = new Map<string, number[]>();
+  for (const order of orders) {
+    if (order.skuVoList.length !== 1) continue; // single-SKU only
+    const entry = order.skuVoList[0];
+    // Division-by-zero guard: skip skuNum <= 0.
+    if (entry.skuNum <= 0) continue;
+    const baseAmount = order.orderAmount ?? order.saleAmount;
+    if (!baseAmount || baseAmount <= 0) continue;
+    const perUnit = baseAmount / entry.skuNum;
+    if (!samples.has(entry.sku)) samples.set(entry.sku, []);
+    samples.get(entry.sku)!.push(perUnit);
+  }
+  const oracle = new Map<string, number>();
+  for (const [sku, prices] of samples) {
+    // NOTE: Staff-review Improvement 1 proposed skipping SKUs where
+    // `prices.length < 2` (median of n=1 is noise; tier-2 fallback is more
+    // reliable). Phase 79 Wave 0 tests intentionally pin the simpler
+    // "accept any n>=1" behavior because Frollie's Shopee history is
+    // dominated by single-SKU orders — throwing away n=1 samples would
+    // leave >50% of common SKUs without oracle coverage at launch. Keeping
+    // the code path here as documentation so future work can revisit if
+    // mis-priced single-SKU samples are observed.
+    prices.sort((a, b) => a - b);
+    const mid = Math.floor(prices.length / 2);
+    const median =
+      prices.length % 2 === 0 ? (prices[mid - 1] + prices[mid]) / 2 : prices[mid];
+    oracle.set(sku, Math.round(median));
+  }
+  return oracle;
+}
+
+/**
+ * Pro-rate an order's `baseAmount` across its SKUs so that
+ * `Σ items.totalPrice === baseAmount` exactly (integer IDR equality — D-01/D-04).
+ *
+ * Algorithm:
+ *   1. Tentative per-unit weight = oracle.get(sku) ?? mapping.menuProductPrice ??
+ *      (baseAmount / totalQty).   [D-03 three-tier fallback]
+ *   2. Weighted pro-rata with Math.floor → each item gets `flooredTotal` IDR.
+ *   3. Residual = baseAmount − Σ floored → assigned to the largest-qty item.
+ *      Tie-break: V8 Array.sort is stable, so the first item at the max qty
+ *      (by original skuVoList order) wins.
+ *
+ * Returns `unitPrice = Math.round(totalPrice / skuNum)` for display.
+ * Returns `[]` for an empty skuVoList or non-positive baseAmount.
+ */
+export function prorateItems(
+  order: {
+    orderAmount?: number;
+    saleAmount: number;
+    skuVoList: Array<{ sku: string; skuNum: number }>;
+  },
+  oracle: Map<string, number>,
+  mappingBySku: Map<string, { menuProductId?: string; menuProductPrice?: number }>,
+): Array<{ sku: string; skuNum: number; unitPrice: number; totalPrice: number }> {
+  const baseAmount = order.orderAmount ?? order.saleAmount;
+  if (order.skuVoList.length === 0 || baseAmount <= 0) return [];
+
+  const totalQty = order.skuVoList.reduce((s, x) => s + x.skuNum, 0);
+  // Guard against totalQty === 0 edge case (all skuNum = 0).
+  if (totalQty <= 0) return [];
+
+  // Step 1: tentative per-unit weight via 3-tier fallback (D-03).
+  const tentative = order.skuVoList.map((e) => {
+    const mapping = mappingBySku.get(e.sku);
+    const weight =
+      oracle.get(e.sku) ?? mapping?.menuProductPrice ?? baseAmount / totalQty;
+    // Math.max(1, ...) prevents zero-weight items from collapsing totalWeight.
+    return { ...e, tentativeUnit: Math.max(1, Math.round(weight)) };
+  });
+
+  // Step 2: weighted pro-rata with Math.floor.
+  const totalWeight = tentative.reduce((s, e) => s + e.tentativeUnit * e.skuNum, 0);
+  const scaled = tentative.map((e) => {
+    const share = (e.tentativeUnit * e.skuNum) / totalWeight;
+    const flooredTotal = Math.floor(baseAmount * share);
+    return { sku: e.sku, skuNum: e.skuNum, totalPrice: flooredTotal };
+  });
+
+  // Step 3: residual → largest-qty item (D-01). Tie-break uses V8's stable
+  // Array.sort; the first item at the max qty (original order) wins.
+  const residual = baseAmount - scaled.reduce((s, e) => s + e.totalPrice, 0);
+  if (residual !== 0) {
+    const idx = scaled
+      .map((e, i) => ({ i, qty: e.skuNum }))
+      .sort((a, b) => b.qty - a.qty)[0].i;
+    scaled[idx].totalPrice += residual;
+  }
+
+  return scaled.map((e) => ({
+    sku: e.sku,
+    skuNum: e.skuNum,
+    // Math.max(1, skuNum) guards against division-by-zero; but we already
+    // filtered totalQty <= 0 above, so skuNum can still be 0 on a per-item
+    // basis if skuVoList mixes zero-qty lines with real ones. Guard anyway.
+    unitPrice: Math.round(e.totalPrice / Math.max(1, e.skuNum)),
+    totalPrice: e.totalPrice,
+  }));
+}
+
+/**
+ * Identify the dominant SKU for a multi-SKU order (D-09).
+ *
+ * Rules:
+ *   - Empty skuVoList → `{ sku: null, menuProductId: null }`.
+ *   - Single entry → trivial.
+ *   - Multiple entries → max skuNum wins. Ties broken by max
+ *     `mapping.menuProductPrice`. Further ties fall back to first-listed
+ *     (relies on V8 Array.sort stability; assumption A5 in 79-RESEARCH.md).
+ *
+ * `menuProductId` is resolved via `mappingBySku.get(sku)?.menuProductId`;
+ * returns `null` when no mapping exists.
+ */
+export function dominantSku(
+  skuVoList: ReadonlyArray<{ sku: string; skuNum: number }>,
+  mappingBySku: Map<string, { menuProductId?: string; menuProductPrice?: number }>,
+): { sku: string | null; menuProductId: string | null } {
+  if (skuVoList.length === 0) return { sku: null, menuProductId: null };
+  if (skuVoList.length === 1) {
+    const entry = skuVoList[0];
+    return {
+      sku: entry.sku,
+      menuProductId: mappingBySku.get(entry.sku)?.menuProductId ?? null,
+    };
+  }
+  const sorted = [...skuVoList].sort((a, b) => {
+    if (b.skuNum !== a.skuNum) return b.skuNum - a.skuNum; // max qty
+    const ap = mappingBySku.get(a.sku)?.menuProductPrice ?? 0;
+    const bp = mappingBySku.get(b.sku)?.menuProductPrice ?? 0;
+    return bp - ap; // tie → max price; further tie → first-listed (stable sort)
+  });
+  return {
+    sku: sorted[0].sku,
+    menuProductId: mappingBySku.get(sorted[0].sku)?.menuProductId ?? null,
+  };
+}
