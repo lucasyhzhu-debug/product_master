@@ -31,10 +31,19 @@ type FilterArgs = {
 /**
  * Index-bounded shared loader: returns filtered orders + items + unit-per-product map.
  * Uses by_completed_at (primary) + by_order_date (legacy fallback) to avoid full-table scans.
+ *
+ * `preloadedUnitsPerProduct` lets callers share a single units-per-product map across
+ * multiple loadFilteredData() calls (e.g. current + prior period). Skips an internal
+ * fetch when provided (see M4).
  */
-async function loadFilteredData(ctx: QueryCtx, args: FilterArgs) {
+async function loadFilteredData(
+  ctx: QueryCtx,
+  args: FilterArgs,
+  preloadedUnitsPerProduct?: Map<Id<"menuProducts">, number>,
+) {
   if (args.fromTs >= args.toTs) {
-    const unitsPerProduct = await getProductionUnitsPerProduct(ctx);
+    const unitsPerProduct =
+      preloadedUnitsPerProduct ?? (await getProductionUnitsPerProduct(ctx));
     return {
       orders: [] as Doc<"orders">[],
       items: [] as Doc<"orderItems">[],
@@ -64,7 +73,7 @@ async function loadFilteredData(ctx: QueryCtx, args: FilterArgs) {
     )
     .collect();
 
-  const orders: Doc<"orders">[] = [];
+  let orders: Doc<"orders">[] = [];
   const seen = new Set<string>();
   // Primary: include every order whose completedAt falls in the window.
   // This is the "true" event date for reporting.
@@ -89,24 +98,42 @@ async function loadFilteredData(ctx: QueryCtx, args: FilterArgs) {
     orders.push(o);
   }
 
-  const orderById = new Map<string, Doc<"orders">>();
-  for (const o of orders) orderById.set(o._id as string, o);
-
-  // Fetch items per-order using by_order index (no global orderItems scan)
+  // Fetch items per-order using by_order index (parallelized — no global orderItems scan).
+  // I4: replace sequential for-loop await with Promise.all.
+  const itemsPerOrder = await Promise.all(
+    orders.map((o) =>
+      ctx.db
+        .query("orderItems")
+        .withIndex("by_order", (q) => q.eq("orderId", o._id))
+        .collect(),
+    ),
+  );
   const items: Doc<"orderItems">[] = [];
-  for (const o of orders) {
-    const orderItems = await ctx.db
-      .query("orderItems")
-      .withIndex("by_order", (q) => q.eq("orderId", o._id))
-      .collect();
+  const matchedOrderIds = new Set<string>();
+  for (let i = 0; i < orders.length; i++) {
+    const o = orders[i];
+    const orderItems = itemsPerOrder[i];
+    let kept = 0;
     for (const it of orderItems) {
       if (it.isCancelled) continue;
       if (productSet && (!it.menuProductId || !productSet.has(it.menuProductId as string))) continue;
       items.push(it);
+      kept++;
     }
+    if (kept > 0) matchedOrderIds.add(o._id as string);
   }
 
-  const unitsPerProduct = await getProductionUnitsPerProduct(ctx);
+  // C1: if menuProductIds filter was applied, drop orders with zero surviving items.
+  // Otherwise orderCount / AOV / unitsPerTxn / aovByChannel inflate with unrelated orders.
+  if (productSet) {
+    orders = orders.filter((o) => matchedOrderIds.has(o._id as string));
+  }
+
+  const orderById = new Map<string, Doc<"orders">>();
+  for (const o of orders) orderById.set(o._id as string, o);
+
+  const unitsPerProduct =
+    preloadedUnitsPerProduct ?? (await getProductionUnitsPerProduct(ctx));
   return { orders, items, orderById, unitsPerProduct };
 }
 
@@ -156,8 +183,10 @@ function computeKpis(
 export const kpiSummary = query({
   args: filterArgs,
   handler: async (ctx, args) => {
-    const current = await loadFilteredData(ctx, args);
-    const prior = await loadFilteredData(ctx, priorPeriod(args));
+    // M4: fetch once, share across current+prior loads.
+    const unitsPerProduct = await getProductionUnitsPerProduct(ctx);
+    const current = await loadFilteredData(ctx, args, unitsPerProduct);
+    const prior = await loadFilteredData(ctx, priorPeriod(args), unitsPerProduct);
     const cur = computeKpis(current.orders, current.items, current.unitsPerProduct);
     const pri = computeKpis(prior.orders, prior.items, prior.unitsPerProduct);
     return {
@@ -185,7 +214,7 @@ function jakartaMondayIndex(ts: number): number {
 }
 
 function jakartaHour(ts: number): number {
-  return new Date(ts + 7 * 60 * 60 * 1000).getUTCHours();
+  return getWibComponents(ts).hour;
 }
 
 function bucketKey(ts: number, granularity: "day" | "week"): string {
@@ -295,6 +324,7 @@ export const channelEconomics = query({
       const net = b.gross - b.discount;
       // v1: platform fees = 0 (deferred per spec). Take-rate reflects discount depth only.
       const fees = 0;
+      // TODO(v2): split revPerUnit vs netPerUnit when fees are modelled
       return {
         channel,
         gross: b.gross,
@@ -305,7 +335,6 @@ export const channelEconomics = query({
         orderCount: b.orders.size,
         takePct: b.gross === 0 ? 0 : ((b.discount + fees) / b.gross) * 100,
         revPerUnit: b.units === 0 ? 0 : net / b.units,
-        netPerUnit: b.units === 0 ? 0 : net / b.units,
       };
     });
     rows.sort((a, b) => b.gross - a.gross);
@@ -422,7 +451,7 @@ export const skuPareto = query({
     // `manual:${productName}` key only for manual items with no menuProductId
     // so they still appear but do not merge with BOM-linked products of the
     // same display name (see WR-05).
-    const byProduct = new Map<string, { name: string; revenue: number }>();
+    const byProduct = new Map<string, { key: string; name: string; revenue: number }>();
     for (const it of items) {
       const o = orderById.get(it.orderId as string);
       if (!o) continue;
@@ -430,18 +459,26 @@ export const skuPareto = query({
       const rev = itemNetRevenue(it);
       const prev = byProduct.get(key);
       if (prev) prev.revenue += rev;
-      else byProduct.set(key, { name: it.productName, revenue: rev });
+      else byProduct.set(key, { key, name: it.productName, revenue: rev });
     }
     const sorted = Array.from(byProduct.values()).sort((a, b) => b.revenue - a.revenue);
     const totalRevenue = sorted.reduce((sum, p) => sum + p.revenue, 0);
     const topN = args.topN ?? 10;
     const top = sorted.slice(0, topN);
     const otherRevenue = sorted.slice(topN).reduce((sum, p) => sum + p.revenue, 0);
-    const rows: Array<{ name: string; revenue: number; cumulativePct: number }> = [];
+    // I3: productKey is stable identity (menuProductId or `manual:<name>`).
+    // UI must use productKey for React keys to handle products that share a display name.
+    const rows: Array<{
+      productKey: string;
+      name: string;
+      revenue: number;
+      cumulativePct: number;
+    }> = [];
     let running = 0;
     for (const p of top) {
       running += p.revenue;
       rows.push({
+        productKey: p.key,
         name: p.name,
         revenue: p.revenue,
         cumulativePct: totalRevenue === 0 ? 0 : (running / totalRevenue) * 100,
@@ -450,6 +487,7 @@ export const skuPareto = query({
     if (otherRevenue > 0) {
       running += otherRevenue;
       rows.push({
+        productKey: "__other__",
         name: "Other",
         revenue: otherRevenue,
         cumulativePct: totalRevenue === 0 ? 0 : (running / totalRevenue) * 100,
@@ -505,7 +543,8 @@ export const skuChannelMatrix = query({
           pctOfChannel: channelTotal === 0 ? 0 : (rev / channelTotal) * 100,
         };
       });
-      return { product, channels: channelCells };
+      // I3: productKey is stable identity for React keys (two products can share display name).
+      return { productKey: key, product, channels: channelCells };
     });
     return { products: topProducts, channels, matrix };
   },
@@ -529,8 +568,14 @@ export const channelMomentum = query({
     const bucketCount = pickBucketCount(span);
     const bucketSpan = span / bucketCount;
 
-    const { orders, items, orderById, unitsPerProduct } = await loadFilteredData(ctx, args);
-    const priorData = await loadFilteredData(ctx, priorPeriod(args));
+    // M4: fetch once, share across current+prior loads.
+    const unitsPerProductMap = await getProductionUnitsPerProduct(ctx);
+    const { orders, items, orderById, unitsPerProduct } = await loadFilteredData(
+      ctx,
+      args,
+      unitsPerProductMap,
+    );
+    const priorData = await loadFilteredData(ctx, priorPeriod(args), unitsPerProductMap);
 
     const byChannel = new Map<
       DisplayChannel,
