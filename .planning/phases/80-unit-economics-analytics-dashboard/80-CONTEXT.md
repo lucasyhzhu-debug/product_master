@@ -148,10 +148,21 @@ Raw `orders.channel` literals (11 total) collapse into 8 display channels:
 
 ### Cross-channel unification tests (Task 4b additions — `tests/convex/unitEconomicsCrossChannel.test.ts`)
 11. `kpiSummary` — a Shopee `externalRevenueItems` row (source=shopee, linkedMenuProductId set) contributes to `current.units` AND `current.netRevenue`
-12. `kpiSummary` — a `gobiz` source external row is skipped when its `orders` twin already exists (no double-count — R5)
+12. `kpiSummary` — a `source="internal"` external row is SKIPPED when its `orders` twin already exists (no double-count — R5 applies ONLY to internal, not gobiz)
+12b. `kpiSummary` — a `source="gobiz"` external row CONTRIBUTES (gobiz has no orders twin — skipping it would zero out GoFood revenue)
+12c. `kpiSummary` — a row with `transactionDate` in-window but `periodStart` outside the window IS included (validates 31-day periodStart scan widening)
 13. `skuPareto` — Shopee item with matched `linkedMenuProductId` appears in the top-N list
-14. `channelEconomics` — Shopee externalRevenueItems contribute to the "Shopee" display channel row (NOT to bigseller/Other)
+14. `channelEconomics` — Shopee externalRevenueItems contribute to the "Shopee" row; gobiz contributes to "GoFood" row; neither appears as "bigseller" or "Other"
 15. `loadFilteredData` — returns `unmatchedExternalItems > 0` when a Shopee item lacks `linkedMenuProductId` (diagnostic check)
+16. `kpiSummary` — rows with `transactionType="return"` are EXCLUDED from positive units (regression guard for returns filter)
+17. `kpiSummary` + `channelEconomics` + `skuPareto` + `volumeByType` + `unitsPerTxnByChannel` — R5 internal-skip is symmetric: all 5 queries return single-count not double-count for an orders row + internal twin pair
+
+**Critical corrections applied 2026-04-14 (staffreview):**
+- R5 skip rule: `internal` ONLY, NOT `gobiz` (gobiz has no orders twin; skipping it would zero out GoFood)
+- `externalSourceToDisplayChannel("gobiz")` returns `"GoFood"`, NOT `"Direct"` (gobiz IS GoFood via GoBiz merchant app)
+- `loadFilteredData` returns `unifiedItems` ONLY (NOT both `orderItems` + `unifiedItems`) — R7 prevents copy-paste landmine
+- External scan widens `by_period` index by 31 days then post-filters on `transactionDate ?? periodStart` — fixes the "late-transactionDate row missed" bug
+- `revenueHelpers` retyped via `RevenueBearing` structural interface so both `Doc<"orderItems">` and `UnifiedItem` pass through unchanged
 
 ### Frontend smoke tests (`tests/frontend/analytics/`)
 1. `KpiRow` — loading state + render with mock data + null-delta handling
