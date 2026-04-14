@@ -20,7 +20,9 @@ function toDateInput(ts: number): string {
 
 function fromDateInput(value: string, endOfDay = false): number {
   if (!value) return Date.now();
-  const base = new Date(value + "T00:00:00Z").getTime();
+  // WIB midnight (UTC+7). Backend windows and bucket keys are WIB-aligned;
+  // parsing as UTC would shift the intended window by 7 hours.
+  const base = new Date(value + "T00:00:00+07:00").getTime();
   return endOfDay ? base + 86400000 - 1 : base;
 }
 
