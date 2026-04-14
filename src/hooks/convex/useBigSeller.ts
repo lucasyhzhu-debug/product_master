@@ -2,7 +2,7 @@
  * Convex hooks for BigSeller sync integration.
  * Wraps sync state query, order queries, unmapped SKUs, order stats, and sync trigger action.
  */
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -75,4 +75,21 @@ export function useBigSellerOrderStats() {
  */
 export function useStartBigSellerSync() {
   return useAction(api.integrations.bigseller.sync.startSync);
+}
+
+/**
+ * Phase 79 Plan 07: Admin backfill of historical Shopee/TikTok item rows.
+ * Callers should paginate by re-invoking until `hasMore === false`.
+ */
+export function useBackfillBigsellerItems() {
+  return useMutation(api.bigsellerOrders.mutations.backfillBigsellerItems);
+}
+
+/**
+ * Phase 79 Plan 07: Re-scan bigsellerOrders with empty skuVoList — triggers
+ * a fresh BigSeller sync over the empty-row date span (preserve-non-empty
+ * guard applies). UI should watch sync state and call backfill on completion.
+ */
+export function useRescanEmptyRows() {
+  return useAction(api.bigsellerOrders.actions.rescanEmptyRows);
 }

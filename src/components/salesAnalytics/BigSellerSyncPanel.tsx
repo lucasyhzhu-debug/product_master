@@ -17,6 +17,8 @@ import {
   useBigSellerSyncState,
   useBigSellerOrderStats,
   useStartBigSellerSync,
+  useBackfillBigsellerItems,
+  useRescanEmptyRows,
 } from "@/hooks/convex";
 
 interface BigSellerSyncPanelProps {
@@ -71,6 +73,10 @@ export function BigSellerSyncPanel({
   const { data: syncState } = useBigSellerSyncState();
   const { data: orderStats } = useBigSellerOrderStats();
   const startSync = useStartBigSellerSync();
+  const backfill = useBackfillBigsellerItems();
+  const rescan = useRescanEmptyRows();
+  const [isBackfilling, setIsBackfilling] = useState(false);
+  const [isRescanning, setIsRescanning] = useState(false);
 
   // Date range for manual sync
   const today = new Date().toISOString().slice(0, 10);
@@ -164,6 +170,77 @@ export function BigSellerSyncPanel({
 
   const currentStepIndex = getStepIndex(stage);
 
+  // ── Phase 79 Plan 07: Backfill historical items ────────────────────────────
+  const onBackfill = async () => {
+    if (!user?.token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setIsBackfilling(true);
+    const toastId = toast.loading("Backfilling historical Shopee/TikTok items...");
+    try {
+      let totalCreated = 0;
+      let totalSkipped = 0;
+      let totalOrders = 0;
+      let hasMore = true;
+      let safetyIterations = 0;
+      while (hasMore && safetyIterations < 50) {
+        safetyIterations++;
+        const r = await backfill({ token: user.token, limit: 500 });
+        totalCreated += r.created;
+        totalSkipped += r.skipped;
+        totalOrders += r.processedOrders;
+        hasMore = r.hasMore;
+      }
+      toast.success(
+        `Created ${totalCreated} items from ${totalOrders} orders (${totalSkipped} skipped as duplicates)`,
+        { id: toastId },
+      );
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Backfill failed",
+        { id: toastId },
+      );
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
+  // ── Phase 79 Plan 07: Re-check empty rows via fresh sync ───────────────────
+  const onRescan = async () => {
+    if (!user?.token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setIsRescanning(true);
+    const toastId = toast.loading("Re-checking empty rows...");
+    try {
+      const r = await rescan({ token: user.token });
+      if (!r.success) {
+        toast.error(
+          "error" in r && r.error ? r.error : "Re-check failed",
+          { id: toastId },
+        );
+        return;
+      }
+      if (r.triggered) {
+        toast.success(
+          `Re-sync triggered for ${r.emptyOrderCount} empty row${r.emptyOrderCount === 1 ? "" : "s"} (${r.startDate} → ${r.endDate}). Click "Backfill historical items" after sync completes.`,
+          { id: toastId },
+        );
+      } else {
+        toast.success("No empty rows found — nothing to re-check.", { id: toastId });
+      }
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Re-check failed",
+        { id: toastId },
+      );
+    } finally {
+      setIsRescanning(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* Sync Controls Row */}
@@ -212,6 +289,42 @@ export function BigSellerSyncPanel({
             </>
           )}
         </Button>
+      </div>
+
+      {/* Phase 79 Plan 07: Item-level data admin actions */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onBackfill}
+          disabled={isBackfilling || !user?.token}
+          className="h-8 text-xs gap-1.5"
+        >
+          {isBackfilling ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3 w-3" />
+          )}
+          Backfill historical items
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onRescan}
+          disabled={isRescanning || isActive || !user?.token}
+          className="h-8 text-xs gap-1.5"
+        >
+          {isRescanning ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-3 w-3" />
+          )}
+          Re-check empty rows
+        </Button>
+        <span className="text-[11px] text-muted-foreground">
+          Materialise per-SKU item rows for past orders / re-sync rows with
+          missing SKU data.
+        </span>
       </div>
 
       {/* Token expired warning */}
