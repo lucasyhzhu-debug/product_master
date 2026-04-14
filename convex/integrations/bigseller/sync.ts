@@ -796,6 +796,75 @@ export const fetchOrders = internalAction({
           }
         }
 
+        // ── Phase 79: Emit externalRevenueItems per Shopee/TikTok order ──
+        // Branch only for shopee/tiktok where skuVoList is populated. The per-
+        // platform loop guarantees `platform` is the canonical source for every
+        // row in this batch — defensive assertion below catches future
+        // refactors that might break that invariant (T-79-02).
+        if (platform === "shopee" || platform === "tiktok") {
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const result = revenueResults[i];
+            if (!result?.id) continue;
+            if (!row.skuVoList || row.skuVoList.length === 0) continue;
+            const revenueId = result.id as Id<"externalRevenue">;
+
+            // Cross-platform leak guard (T-79-02): the per-platform loop
+            // groups shops by BIGSELLER_SHOP_PLATFORM_MAP[shopId], and
+            // mapOrderToRevenue stamps `source = platform.toLowerCase()`,
+            // so revenueResults[i] MUST belong to `platform`. If a future
+            // refactor breaks that contract, fail loudly rather than emit
+            // items against the wrong platform's revenueId.
+            const revDoc = await ctx.runQuery(
+              internal.integrations.bigseller.queries.getRevenueById,
+              { revenueId }
+            );
+            if (revDoc && revDoc.source !== platform) {
+              throw new Error(
+                `Cross-platform leak guard: revenueSource=${revDoc.source} !== order.platform=${platform} (revenueId=${revenueId})`
+              );
+            }
+
+            const prorated = prorateItems(
+              {
+                orderAmount: row.orderAmount,
+                saleAmount: row.saleAmount,
+                skuVoList: row.skuVoList,
+              },
+              priceOracle,
+              mappingBySku
+            );
+            const items = prorated.map((p) => {
+              const mapping = mappingBySku.get(p.sku);
+              const menuProductIdStr = mapping?.menuProductId;
+              const menuProduct = menuProductIdStr
+                ? menuProductById.get(menuProductIdStr)
+                : null;
+              const productName = menuProduct?.name ?? p.sku; // fallback: raw SKU code
+              return {
+                externalItemId: p.sku, // D-18 dedup key (revenueId, externalItemId)
+                productName,
+                unitPrice: p.unitPrice,
+                quantity: p.skuNum,
+                totalPrice: p.totalPrice,
+                linkedMenuProductId: menuProductIdStr
+                  ? (menuProductIdStr as Id<"menuProducts">)
+                  : undefined,
+                isAutoMatched: Boolean(menuProductIdStr),
+                matchConfidence: (menuProductIdStr ? "exact" : "none") as
+                  | "exact"
+                  | "none",
+              };
+            });
+            if (items.length > 0) {
+              await ctx.runMutation(
+                internal.externalData.mutations.saveRevenueItems,
+                { revenueId, items }
+              );
+            }
+          }
+        }
+
         // Collect SKU codes and platforms for product mapping
         // Use loop platform variable, not row.platform (null on platform-specific endpoints)
         for (const row of rows) {

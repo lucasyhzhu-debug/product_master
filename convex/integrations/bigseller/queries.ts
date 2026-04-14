@@ -105,7 +105,7 @@ export const getShopeeAndTikTokMappingsWithProducts = internalQuery({
         const mp = await ctx.db.get(m.menuProductId);
         if (mp) {
           name = mp.name;
-          price = mp.price;
+          price = mp.defaultPrice;
         }
       }
       out.push({
