@@ -66,12 +66,21 @@ async function loadFilteredData(ctx: QueryCtx, args: FilterArgs) {
 
   const orders: Doc<"orders">[] = [];
   const seen = new Set<string>();
+  // Primary: include every order whose completedAt falls in the window.
+  // This is the "true" event date for reporting.
   for (const o of byCompleted) {
     if (o.status === "Draft" || o.status === "Cancelled") continue;
     if (channelSet && !channelSet.has(toDisplayChannel(o.channel))) continue;
     orders.push(o);
     seen.add(o._id as string);
   }
+  // Legacy fallback: ONLY include orders with NO completedAt (null-safe).
+  //
+  // Intentional asymmetry (WR-06): orders that have completedAt outside the
+  // window are dropped even if their orderDate falls inside it. Their "true"
+  // event date is completedAt, which places them in a different period. Do
+  // NOT relax this guard to allow completed orders through — that would
+  // double-bucket the same order into two periods.
   for (const o of byOrderDate) {
     if (seen.has(o._id as string)) continue;
     if (o.completedAt !== undefined) continue; // only orders MISSING completedAt
