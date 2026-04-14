@@ -409,14 +409,19 @@ export const skuPareto = query({
   args: { ...filterArgs, topN: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const { items, orderById } = await loadFilteredData(ctx, args);
+    // Group by menuProductId (canonical identity). Fall back to a synthetic
+    // `manual:${productName}` key only for manual items with no menuProductId
+    // so they still appear but do not merge with BOM-linked products of the
+    // same display name (see WR-05).
     const byProduct = new Map<string, { name: string; revenue: number }>();
     for (const it of items) {
       const o = orderById.get(it.orderId as string);
       if (!o) continue;
-      const name = it.productName;
+      const key = (it.menuProductId as string | undefined) ?? `manual:${it.productName}`;
       const rev = itemNetRevenue(it);
-      if (!byProduct.has(name)) byProduct.set(name, { name, revenue: 0 });
-      byProduct.get(name)!.revenue += rev;
+      const prev = byProduct.get(key);
+      if (prev) prev.revenue += rev;
+      else byProduct.set(key, { name: it.productName, revenue: rev });
     }
     const sorted = Array.from(byProduct.values()).sort((a, b) => b.revenue - a.revenue);
     const totalRevenue = sorted.reduce((sum, p) => sum + p.revenue, 0);
@@ -449,35 +454,41 @@ export const skuChannelMatrix = query({
   args: { ...filterArgs, topN: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const { items, orderById } = await loadFilteredData(ctx, args);
+    // Group by canonical product key (menuProductId) — see WR-05. Display name
+    // is preserved for the UI row label but identity is the menuProductId.
     const productTotals = new Map<string, number>();
+    const productNames = new Map<string, string>();
     const cell = new Map<string, Map<DisplayChannel, number>>();
     const channelTotals = new Map<DisplayChannel, number>();
 
     for (const it of items) {
       const o = orderById.get(it.orderId as string);
       if (!o) continue;
-      const name = it.productName;
+      const key = (it.menuProductId as string | undefined) ?? `manual:${it.productName}`;
       const ch = toDisplayChannel(o.channel);
       const rev = itemNetRevenue(it);
-      productTotals.set(name, (productTotals.get(name) ?? 0) + rev);
+      productTotals.set(key, (productTotals.get(key) ?? 0) + rev);
+      if (!productNames.has(key)) productNames.set(key, it.productName);
       channelTotals.set(ch, (channelTotals.get(ch) ?? 0) + rev);
-      if (!cell.has(name)) cell.set(name, new Map());
-      const m = cell.get(name)!;
+      if (!cell.has(key)) cell.set(key, new Map());
+      const m = cell.get(key)!;
       m.set(ch, (m.get(ch) ?? 0) + rev);
     }
 
     const topN = args.topN ?? 8;
-    const topProducts = Array.from(productTotals.entries())
+    const topKeys = Array.from(productTotals.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, topN)
-      .map(([name]) => name);
+      .map(([key]) => key);
+    const topProducts = topKeys.map((key) => productNames.get(key) ?? key);
     const channels = Array.from(channelTotals.keys()).sort(
       (a, b) => (channelTotals.get(b) ?? 0) - (channelTotals.get(a) ?? 0),
     );
 
-    const matrix = topProducts.map((product) => {
+    const matrix = topKeys.map((key) => {
+      const product = productNames.get(key) ?? key;
       const channelCells = channels.map((channel) => {
-        const rev = cell.get(product)?.get(channel) ?? 0;
+        const rev = cell.get(key)?.get(channel) ?? 0;
         const channelTotal = channelTotals.get(channel) ?? 0;
         return {
           channel,
