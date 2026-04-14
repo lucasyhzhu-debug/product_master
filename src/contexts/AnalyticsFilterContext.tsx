@@ -1,27 +1,14 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { Id } from "@convex/_generated/dataModel";
+import type { Id } from "../../convex/_generated/dataModel";
+// Single source of truth for display-channel taxonomy. Keep backend/frontend
+// aligned by re-exporting from the Convex module (WR-04).
+import {
+  DISPLAY_CHANNELS,
+  type DisplayChannel,
+} from "../../convex/reports/channelTaxonomy";
 
-export type DisplayChannel =
-  | "Shopee"
-  | "Tokopedia"
-  | "GoFood"
-  | "K3Mart"
-  | "Direct"
-  | "Consignment"
-  | "TikTok"
-  | "Other";
-
-export const DISPLAY_CHANNELS: DisplayChannel[] = [
-  "Shopee",
-  "Tokopedia",
-  "GoFood",
-  "K3Mart",
-  "Direct",
-  "Consignment",
-  "TikTok",
-  "Other",
-];
+export { DISPLAY_CHANNELS, type DisplayChannel };
 
 export interface AnalyticsFilters {
   fromTs: number;
