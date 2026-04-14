@@ -626,27 +626,27 @@ These are the Nyquist validation anchors — verify the **same phenomenon from t
 
 **Impact:** None of A1-A6 block implementation. A4 is the only one worth flagging for explicit user confirmation during planning.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Oracle denominator: `orderAmount` (matches D-01 exactly) vs `saleAmount` (product-only, stricter per-unit price meaning)?**
    - What we know: D-01 pro-rates against `orderAmount`. Oracle used as relative weight.
    - What's unclear: Whether any UI surfaces unit price for display (where shipping inflation matters).
-   - Recommendation: Use `orderAmount` for internal consistency; add a code comment documenting the caveat. Surface to user during `/gsd-plan-phase` review.
+   - **RESOLVED:** Use `orderAmount` to preserve the D-01 sum invariant (Σ items.totalPrice === parent.revenueGross). The caveat is documented in a code comment inside `buildPriceOracle`. No UI currently surfaces raw unit price, so shipping inflation is not observable to users.
 
 2. **Should the "Re-check empty rows" button re-trigger a full pageList fetch for the affected date range, or a surgical lookup by order ID?**
    - What we know: D-19 says "fetch fresh pageList data for that order's date range."
    - What's unclear: pageList is date-ranged (not per-order-id); surgical lookup would require a different endpoint.
-   - Recommendation: Date-range re-fetch (matches D-19 literal wording). Identify the *date span* covering all empty rows, re-sync that span. Efficient enough for small backlogs.
+   - **RESOLVED:** Date-range re-fetch per D-19 literal wording. Implementation identifies the minimal date span covering all empty rows and re-syncs that span through existing pageList flow. Efficient for expected backlog sizes (< 100 rows).
 
 3. **Does the cron action need a triggeredBy log for observability beyond `externalSyncLogs`?**
    - What we know: D-13 says log to externalSyncLogs only; no email/toast.
    - What's unclear: Whether admin wants a visible badge in `BigSellerSyncPanel` showing "last cron run at HH:MM."
-   - Recommendation: Add a non-intrusive "Last auto-sync: 12h ago" indicator in the panel — low cost, high observability value. Classify as Claude's discretion (not blocking).
+   - **RESOLVED:** Out of scope for Phase 79. D-13 explicitly says log-only — adding a UI badge would expand scope. `externalSyncLogs` is queryable via the existing sync history UI; that satisfies observability.
 
 4. **Placeholder `externalProductMappings` row cleanup?**
    - What we know: Sync auto-creates a mapping row for every seen SKU (`convex/integrations/bigseller/sync.ts:763`).
    - What's unclear: After Phase 79, newly-retired SKUs still accumulate as "unmapped" rows forever.
-   - Recommendation: Out of scope for Phase 79. Log as backlog item — needs a dedicated data-hygiene phase.
+   - **RESOLVED:** Out of scope for Phase 79. Deferred to a future data-hygiene phase. Logged as backlog item — not a blocker because accumulated rows are cosmetic, not correctness-impacting.
 
 ## Sources
 
