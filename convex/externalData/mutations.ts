@@ -1,7 +1,10 @@
-import { v } from "convex/values";
-import { mutation, internalMutation } from "../_generated/server";
+import { v, type Infer } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import { mutation, internalMutation, type MutationCtx } from "../_generated/server";
 import { requireRole } from "../lib/auth";
 import { externalSource, syncType } from "../schema";
+
+type ExternalSource = Infer<typeof externalSource>;
 
 // Source validator reused across functions (uses shared externalSource from schema for consistency)
 const sourceValidator = externalSource;
@@ -440,6 +443,57 @@ export const linkProductMapping = mutation({
  * Update a product mapping and retroactively update all revenue items
  * with the matching external product name.
  */
+async function applyRetroactiveProductMapping(
+  ctx: MutationCtx,
+  args: {
+    source: ExternalSource;
+    externalProductCode: string;
+    externalProductName: string;
+    menuProductId: Id<"menuProducts"> | undefined;
+  }
+): Promise<{ updatedItems: number; bigsellerUpdated: number }> {
+  const items = await ctx.db
+    .query("externalRevenueItems")
+    .withIndex("by_product_name", (q) =>
+      q.eq("source", args.source).eq("productName", args.externalProductName)
+    )
+    .collect();
+
+  for (const item of items) {
+    await ctx.db.patch(item._id, {
+      linkedMenuProductId: args.menuProductId,
+      isAutoMatched: false,
+      matchConfidence: "exact",
+    });
+  }
+
+  let bigsellerUpdated = 0;
+  if (
+    (args.source === "shopee" || args.source === "tiktok") &&
+    args.menuProductId
+  ) {
+    const bsOrders = await ctx.db
+      .query("bigsellerOrders")
+      .withIndex("by_platform", (q) => q.eq("platform", args.source))
+      .collect();
+
+    for (const order of bsOrders) {
+      const hasSku = order.skuVoList?.some(
+        (item) => item.sku === args.externalProductCode
+      );
+      if (!hasSku) continue;
+      if (order.linkedRevenueId) {
+        await ctx.db.patch(order.linkedRevenueId, {
+          linkedMenuProductId: args.menuProductId,
+        });
+        bigsellerUpdated++;
+      }
+    }
+  }
+
+  return { updatedItems: items.length, bigsellerUpdated };
+}
+
 export const updateProductMapping = mutation({
   args: {
     token: v.string(),
@@ -451,54 +505,18 @@ export const updateProductMapping = mutation({
     const mapping = await ctx.db.get(args.mappingId);
     if (!mapping) throw new Error("Mapping not found");
 
-    // Update the mapping
     await ctx.db.patch(args.mappingId, {
       menuProductId: args.menuProductId,
       isAutoMapped: false,
       createdAt: Date.now(),
     });
 
-    // Retroactively update all revenue items with this external product
-    const items = await ctx.db.query("externalRevenueItems")
-      .withIndex("by_product_name", (q) =>
-        q.eq("source", mapping.source).eq("productName", mapping.externalProductName)
-      )
-      .collect();
-
-    for (const item of items) {
-      await ctx.db.patch(item._id, {
-        linkedMenuProductId: args.menuProductId,
-        isAutoMatched: false,
-        matchConfidence: "exact",
-      });
-    }
-
-    // BigSeller retroactive mapping: update externalRevenue via bigsellerOrders.linkedRevenueId
-    let bigsellerUpdated = 0;
-    if (
-      (mapping.source === "shopee" || mapping.source === "tiktok") &&
-      args.menuProductId
-    ) {
-      const bsOrders = await ctx.db
-        .query("bigsellerOrders")
-        .withIndex("by_platform", (q) => q.eq("platform", mapping.source))
-        .collect();
-
-      for (const order of bsOrders) {
-        const hasSku = order.skuVoList?.some(
-          (item: { sku: string }) => item.sku === mapping.externalProductCode
-        );
-        if (!hasSku) continue;
-        if (order.linkedRevenueId) {
-          await ctx.db.patch(order.linkedRevenueId, {
-            linkedMenuProductId: args.menuProductId,
-          });
-          bigsellerUpdated++;
-        }
-      }
-    }
-
-    return { updatedItems: items.length, bigsellerUpdated };
+    return await applyRetroactiveProductMapping(ctx, {
+      source: mapping.source,
+      externalProductCode: mapping.externalProductCode,
+      externalProductName: mapping.externalProductName,
+      menuProductId: args.menuProductId,
+    });
   },
 });
 
@@ -531,72 +549,36 @@ export const setMenuProductForSku = mutation({
       )
       .unique();
 
+    let mappingId: Id<"externalProductMappings">;
+    let externalProductName: string;
     if (!mapping) {
-      const newId = await ctx.db.insert("externalProductMappings", {
+      mappingId = await ctx.db.insert("externalProductMappings", {
         source: args.source,
         externalProductCode: args.externalProductCode,
-        // Display name falls back to the code when unknown — the UI can
-        // rename later if BigSeller ever exposes product names.
         externalProductName: args.externalProductCode,
         menuProductId: args.menuProductId,
         isAutoMapped: false,
         createdAt: Date.now(),
       });
-      mapping = await ctx.db.get(newId);
-      if (!mapping) throw new Error("Failed to create mapping");
+      externalProductName = args.externalProductCode;
     } else {
       await ctx.db.patch(mapping._id, {
         menuProductId: args.menuProductId,
         isAutoMapped: false,
         createdAt: Date.now(),
       });
+      mappingId = mapping._id;
+      externalProductName = mapping.externalProductName;
     }
 
-    // Retroactive externalRevenueItems update (mirror updateProductMapping)
-    const items = await ctx.db.query("externalRevenueItems")
-      .withIndex("by_product_name", (q) =>
-        q.eq("source", args.source).eq("productName", mapping!.externalProductName)
-      )
-      .collect();
+    const retro = await applyRetroactiveProductMapping(ctx, {
+      source: args.source,
+      externalProductCode: args.externalProductCode,
+      externalProductName,
+      menuProductId: args.menuProductId,
+    });
 
-    for (const item of items) {
-      await ctx.db.patch(item._id, {
-        linkedMenuProductId: args.menuProductId,
-        isAutoMatched: false,
-        matchConfidence: "exact",
-      });
-    }
-
-    // BigSeller-side retroactive linking on externalRevenue via linkedRevenueId
-    let bigsellerUpdated = 0;
-    if (
-      (args.source === "shopee" || args.source === "tiktok") &&
-      args.menuProductId
-    ) {
-      const bsOrders = await ctx.db
-        .query("bigsellerOrders")
-        .withIndex("by_platform", (q) => q.eq("platform", args.source))
-        .collect();
-
-      for (const order of bsOrders) {
-        const hasSku = order.skuVoList?.some(
-          (item: { sku: string }) => item.sku === args.externalProductCode
-        );
-        if (!hasSku) continue;
-        if (order.linkedRevenueId) {
-          await ctx.db.patch(order.linkedRevenueId, {
-            linkedMenuProductId: args.menuProductId,
-          });
-          bigsellerUpdated++;
-        }
-      }
-    }
-
-    return {
-      mappingId: mapping._id,
-      updatedItems: items.length,
-      bigsellerUpdated,
-    };
+    return { mappingId, ...retro };
   },
 });
 
