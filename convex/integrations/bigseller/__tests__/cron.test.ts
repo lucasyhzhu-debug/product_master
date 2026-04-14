@@ -26,16 +26,26 @@ describe("nightlySync cron — skip-if-not-idle", () => {
         stage: "idle",
         pollAttempt: 0,
         maxPolls: 10,
-      } as never);
+        attempt: 0,
+        startDate: "",
+        endDate: "",
+        startedAt: 0,
+      });
     });
 
-    // @ts-expect-error — Wave 1 (Plan 05) will register this internal action.
     await t.action(internal.integrations.bigseller.cron.nightlySync, {});
 
     const logs = await t.run(async (ctx) => ctx.db.query("externalSyncLogs").collect());
     expect(logs.length).toBeGreaterThanOrEqual(1);
-    const errorLogs = logs.filter((l: any) => l.status === "error");
-    expect(errorLogs.length).toBe(0);
+    // The cron must NOT emit the skip signal when state is idle — that's the
+    // contract under test here. Downstream sync-chain errors (e.g. missing
+    // token) are covered by the "logs a full error row" case below.
+    const skipLogs = logs.filter(
+      (l: any) =>
+        typeof l.errorMessage === "string" &&
+        l.errorMessage.includes("skipped: manual sync in progress"),
+    );
+    expect(skipLogs.length).toBe(0);
   });
 
   it("skips and writes an error log when stage !== 'idle'", async () => {
@@ -46,7 +56,11 @@ describe("nightlySync cron — skip-if-not-idle", () => {
         stage: "fetching",
         pollAttempt: 2,
         maxPolls: 10,
-      } as never);
+        attempt: 1,
+        startDate: "2026-04-01",
+        endDate: "2026-04-14",
+        startedAt: Date.now(),
+      });
     });
 
     const before = await t.run(async (ctx) => ({
@@ -56,7 +70,6 @@ describe("nightlySync cron — skip-if-not-idle", () => {
       orders: (await ctx.db.query("bigsellerOrders").collect()).length,
     }));
 
-    // @ts-expect-error — Wave 1 will register this action.
     await t.action(internal.integrations.bigseller.cron.nightlySync, {});
 
     const after = await t.run(async (ctx) => ({
@@ -88,12 +101,15 @@ describe("nightlySync cron — skip-if-not-idle", () => {
         stage: "idle",
         pollAttempt: 0,
         maxPolls: 10,
-      } as never);
+        attempt: 0,
+        startDate: "",
+        endDate: "",
+        startedAt: 0,
+      });
     });
 
     // Force failure by leaving no platformCredentials → sync should throw and
     // the cron must capture this into externalSyncLogs rather than crashing.
-    // @ts-expect-error — Wave 1 will register this action.
     await t.action(internal.integrations.bigseller.cron.nightlySync, {});
 
     const logs = await t.run(async (ctx) => ctx.db.query("externalSyncLogs").collect());

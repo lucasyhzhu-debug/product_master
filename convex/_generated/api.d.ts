@@ -78,6 +78,7 @@ import type * as ingredients_mutations from "../ingredients/mutations.js";
 import type * as ingredients_queries from "../ingredients/queries.js";
 import type * as integrations_bigseller_adapter from "../integrations/bigseller/adapter.js";
 import type * as integrations_bigseller_config from "../integrations/bigseller/config.js";
+import type * as integrations_bigseller_cron from "../integrations/bigseller/cron.js";
 import type * as integrations_bigseller_helpers from "../integrations/bigseller/helpers.js";
 import type * as integrations_bigseller_mutations from "../integrations/bigseller/mutations.js";
 import type * as integrations_bigseller_queries from "../integrations/bigseller/queries.js";
@@ -304,6 +305,7 @@ declare const fullApi: ApiFromModules<{
   "ingredients/queries": typeof ingredients_queries;
   "integrations/bigseller/adapter": typeof integrations_bigseller_adapter;
   "integrations/bigseller/config": typeof integrations_bigseller_config;
+  "integrations/bigseller/cron": typeof integrations_bigseller_cron;
   "integrations/bigseller/helpers": typeof integrations_bigseller_helpers;
   "integrations/bigseller/mutations": typeof integrations_bigseller_mutations;
   "integrations/bigseller/queries": typeof integrations_bigseller_queries;
