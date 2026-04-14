@@ -814,6 +814,38 @@ inventory.expireBatch({                    // Mark expired (blocked if reserved)
 
 ---
 
+## Reports: Unit Economics (Phase 80)
+
+Manager/admin analytics queries in `convex/reports/unitEconomics.ts`. All queries share filter args: `{ fromTs: number, toTs: number, channels?: string[], menuProductIds?: Id<"menuProducts">[] }`. Excludes `Draft` and `Cancelled` orders. Uses `by_completed_at` (primary) + `by_order_date` (legacy fallback) indexes for bounded scans. Revenue math sourced from denormalized `orderItems.lineTotal` via `itemNetRevenue`/`itemGrossRevenue`/`itemDiscount` helpers. Production-unit counting iterates `componentTypes` where `category="production" AND unit="pcs"` — Big Ball + Mid Ball + Hazelnut (+future) counted automatically.
+
+| Query | Returns | Used by |
+|---|---|---|
+| `kpiSummary` | `{ current, prior, delta }` across 6 KPIs | A: KPI Row |
+| `byWeekday` | `{ labels, orders[7], units[7] }` (Mon-Sun) | B1 |
+| `dayHourHeatmap` | `{ grid: number[7][8], max, rowLabels, colLabels }` | B2 |
+| `channelEconomics` | per-channel `{ gross, discount, fees, net, units, takePct, revPerUnit, netPerUnit }` | C3, C4 |
+| `volumeByType` | `{ buckets, series: [{ code, name, values[] }] }` with day/week granularity | D1, D4 |
+| `unitsPerTxnByChannel` | per-channel `{ units, orderCount, unitsPerTxn }` | D2 |
+| `aovByChannel` | per-channel `{ grossAov, netAov }` | D3 |
+| `skuPareto` | `{ rows: [{ name, revenue, cumulativePct }], totalRevenue }` (topN + "Other") | E1 |
+| `skuChannelMatrix` | `{ products, channels, matrix: [{ product, channels: [{channel, revenue, pctOfChannel}] }] }` | E2 |
+| `channelMomentum` | `{ bucketCount, channels: [{ channel, revenueSpark, unitsSpark, aovSpark, totalRevenue, priorRevenue, wowPct }] }` with adaptive buckets (7/13/12 by span) | F1 |
+| `rollingTrend` | `{ dates, daily, rolling7, rolling28 }` | F2 |
+
+### Display Channel Taxonomy (`convex/reports/channelTaxonomy.ts`)
+
+Raw `orders.channel` literal → DisplayChannel:
+- `shopee` → Shopee
+- `tokopedia` → Tokopedia
+- `grabfood` → GoFood
+- `k3mart_gf` → K3Mart
+- `whatsapp`, `instagram` → Direct
+- `legato_tamtem`, `legato_goldfinch`, `bazaar` → Consignment
+- `tiktok` → TikTok
+- everything else / undefined → Other
+
+---
+
 ## Bank Reconciliation (Phase 72)
 
 Admin-only. All functions require an admin session token. Queries gated via `requireRole(ctx, token, ["admin"])`; CRUD mutations use `protectedMutation({ roles: ["admin"] })`. `seedDefaults` is dashboard-callable with an optional token (falls back to first admin user when invoked from the Convex dashboard Functions tab).

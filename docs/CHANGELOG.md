@@ -16,6 +16,23 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feat: Phase 80 — Unit Economics Analytics Dashboard -- 2026-04-15
+
+**For the team:** Managers and admins can open `/analytics` to see 13 widgets across 6 lenses (headline KPIs, time patterns, channel economics, volume/mix, SKU concentration, momentum). Filterable by date range (7d/30d/90d presets or custom), display channel (Shopee, Tokopedia, GoFood, K3Mart, Direct, Consignment, TikTok, Other), and menu product. All filter state syncs to the URL so views are bookmarkable.
+
+**Critical fixes baked in:**
+- Dynamic BOM iteration for production-unit counting — Big Ball + Mid Ball + Hazelnut (+ future production types) are counted automatically. No hardcoded BIG_BALL/MID_BALL checks anywhere in the new code. `convex/dispatchPlanner/queries.ts` migrated off its hardcoded accumulator (Pitfall #11 closure). Return shape preserves `bigBalls`/`midBalls` for backward compat and adds `unitsByType` record for new callers.
+- Indexed `by_completed_at` + `by_order_date` bounded scans on orders (eliminates 11x full-table-scan footprint from naive loaders).
+- Denormalized `lineTotal` used throughout (via `itemNetRevenue`/`itemGrossRevenue`/`itemDiscount` helpers — no manual revenue recomputation).
+
+**Files added:**
+- Backend: `convex/reports/unitEconomics.ts` (11 queries), `convex/reports/productionUnitHelpers.ts`, `convex/reports/revenueHelpers.ts`, `convex/reports/channelTaxonomy.ts`
+- Frontend: `src/pages/AnalyticsDashboard.tsx`, 14 widgets in `src/components/analytics/`, `src/contexts/AnalyticsFilterContext.tsx`, `src/hooks/convex/useAnalytics.ts`
+- Tests: `tests/convex/unitEconomics.test.ts` (9 cases), `tests/frontend/analytics/*.tsx` (3 smoke tests, 5 test cases)
+- Schema: `orders.by_completed_at` + `orders.by_order_date` indexes; `src/lib/platformColors.ts` extended with display-channel aggregates.
+
+**Migration:** None. Read-only additive changes. Route protected by `canAccessDashboard` (manager + admin).
+
 ### Feat: Phase 72 — Bank Statement Parser & Auto-Match -- 2026-04-13
 
 **For the team:** Admins can now import BCA bank statements (XLSX or CSV), automatically classify each transaction against a 26-rule engine, and review the results in a read-only 17-column table. A separate `/bank-rules` page lets admins seed the canonical rules, create new rules, edit priority/flags/patterns, or deactivate rules they no longer want. Reconciliation checksums are verified twice (client + server) so a tampered file is rejected before any data hits the database. Journal posting is deliberately NOT part of this phase (that is Phase 73) — the bank data is imported and classified, and proposal JE account IDs are persisted per line, but no `journalEntries` rows are written.
