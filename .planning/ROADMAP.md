@@ -333,7 +333,7 @@ Plans:
   5. Existing hardcoded `BIG_BALL`/`MID_BALL` accumulator in `convex/dispatchPlanner/queries.ts` is migrated to the same dynamic helper (regression-guarded by test)
   6. New `by_completed_at` index on orders bounds all date-range scans (no full-table scans)
   7. `npm run type-check` + `npm run build` + `npm run test` all pass
-**Plans:** 1 plan + 1 addendum (staff-review fixes)
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] PLAN.md -- 16 tasks across 3 waves: backend helpers/queries (T1-T7), frontend widgets (T8-T13), verification (T14-T16)
 - [ ] PLAN-ADDENDUM.md -- Staff-review patches: T1.5 (index), T1.6 (dispatchPlanner migration), T14.5 (frontend tests), use lineTotal helpers + platformColors + periodRange
@@ -360,7 +360,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
-| 80. Unit Economics Analytics Dashboard | v2.0 | 0/2 | Not started | - |
+| 80. Unit Economics Analytics Dashboard | v2.0 | 2/2 | Complete   | 2026-04-14 |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
