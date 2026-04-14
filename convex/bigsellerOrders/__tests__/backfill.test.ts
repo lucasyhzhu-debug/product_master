@@ -100,7 +100,6 @@ describe("backfillBigsellerItems — idempotency + D-18", () => {
     await seedOrderWithRevenue(t, "SH-002", [{ sku: "C", skuNum: 3 }]);
     await seedOrderWithRevenue(t, "SH-003", [{ sku: "D", skuNum: 1 }]);
 
-    // @ts-expect-error — Wave 1 will add this mutation.
     const result = await t.mutation(api.bigsellerOrders.mutations.backfillBigsellerItems, { token });
 
     expect(result.created).toBe(4); // 2 + 1 + 1 distinct SKU rows across 3 orders
@@ -115,11 +114,9 @@ describe("backfillBigsellerItems — idempotency + D-18", () => {
     await seedOrderWithRevenue(t, "SH-001", [{ sku: "A", skuNum: 2 }]);
     await seedOrderWithRevenue(t, "SH-002", [{ sku: "B", skuNum: 3 }]);
 
-    // @ts-expect-error — Wave 1 will add this mutation.
     const first = await t.mutation(api.bigsellerOrders.mutations.backfillBigsellerItems, { token });
     expect(first.created).toBe(2);
 
-    // @ts-expect-error — Wave 1 will add this mutation.
     const second = await t.mutation(api.bigsellerOrders.mutations.backfillBigsellerItems, { token });
     expect(second.created).toBe(0);
     expect(second.skipped).toBe(2);
@@ -133,7 +130,6 @@ describe("backfillBigsellerItems — idempotency + D-18", () => {
     const token = await seedSession(t, "admin");
     await seedOrderWithRevenue(t, "SH-EMPTY", []);
 
-    // @ts-expect-error — Wave 1 will add this mutation.
     const result = await t.mutation(api.bigsellerOrders.mutations.backfillBigsellerItems, { token });
     expect(result.created).toBe(0);
 
@@ -149,17 +145,14 @@ describe("backfillBigsellerItems — idempotency + D-18", () => {
     await seedOrderWithRevenue(t, "SH-001", [{ sku: "A", skuNum: 1 }]);
 
     await expect(
-      // @ts-expect-error — Wave 1 will add this mutation.
       t.mutation(api.bigsellerOrders.mutations.backfillBigsellerItems, { token: managerToken }),
     ).rejects.toThrow();
 
     await expect(
-      // @ts-expect-error — Wave 1 will add this mutation.
       t.mutation(api.bigsellerOrders.mutations.backfillBigsellerItems, { token: kitchenToken }),
     ).rejects.toThrow();
 
     await expect(
-      // @ts-expect-error — Wave 1 will add this mutation.
       t.mutation(api.bigsellerOrders.mutations.backfillBigsellerItems, { token: "invalid" }),
     ).rejects.toThrow();
   });

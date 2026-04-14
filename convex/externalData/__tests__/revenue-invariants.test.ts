@@ -108,7 +108,6 @@ describe("Revenue invariants — D-04", () => {
       } as never);
     });
 
-    // @ts-expect-error — Wave 1 (Plan 04) will widen retroactive mapping to cover items.
     await t.mutation(api.externalData.mutations.applyRetroactiveProductMapping, {
       token,
       source: "shopee",
@@ -139,7 +138,6 @@ describe("Revenue invariants — D-04", () => {
     // read from externalRevenueItems. The assertion below MUST fail today if the
     // query still sums parent.revenueGross for shopee because that would imply
     // double-counting once items exist.
-    // @ts-expect-error — Wave 1 will add/branch this query.
     const result = await t.query(api.externalData.queries.sellThroughQuery, { channel: "shopee" });
 
     // Concrete invariant: the sum of per-product revenue equals parent.revenueGross,

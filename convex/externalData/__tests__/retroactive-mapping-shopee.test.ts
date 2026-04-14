@@ -94,7 +94,6 @@ describe("applyRetroactiveProductMapping — Shopee cascade (D-08, D-09)", () =>
       { sku: "B", qty: 3, unitPrice: 30000 },
     ]);
 
-    // @ts-expect-error — Wave 1 will expand retroactive mapping signature.
     await t.mutation(api.externalData.mutations.applyRetroactiveProductMapping, {
       token,
       source: "shopee",
@@ -137,12 +136,10 @@ describe("applyRetroactiveProductMapping — Shopee cascade (D-08, D-09)", () =>
     ]);
 
     // B mapped first.
-    // @ts-expect-error — Wave 1 will expand signature.
     await t.mutation(api.externalData.mutations.applyRetroactiveProductMapping, {
       token, source: "shopee", externalProductCode: "B", menuProductId: mpB,
     });
     // Then A — dominant, should take parent.
-    // @ts-expect-error — Wave 1 will expand signature.
     await t.mutation(api.externalData.mutations.applyRetroactiveProductMapping, {
       token, source: "shopee", externalProductCode: "A", menuProductId: mpA,
     });
@@ -160,7 +157,6 @@ describe("applyRetroactiveProductMapping — Shopee cascade (D-08, D-09)", () =>
       { sku: "B", qty: 3, unitPrice: 30000 },
     ]);
 
-    // @ts-expect-error — Wave 1 will expand signature.
     await t.mutation(api.externalData.mutations.applyRetroactiveProductMapping, {
       token, source: "shopee", externalProductCode: "B", menuProductId: mpB,
     });
@@ -178,7 +174,6 @@ describe("applyRetroactiveProductMapping — Shopee cascade (D-08, D-09)", () =>
       { sku: "A", qty: 2, unitPrice: 30000 },
     ]);
 
-    // @ts-expect-error — Wave 1 will expand signature.
     await t.mutation(api.externalData.mutations.applyRetroactiveProductMapping, {
       token, source: "shopee", externalProductCode: "A", menuProductId: mpA,
     });
@@ -187,7 +182,6 @@ describe("applyRetroactiveProductMapping — Shopee cascade (D-08, D-09)", () =>
       parent: await ctx.db.get(revenueId),
     }));
 
-    // @ts-expect-error — Wave 1 will expand signature.
     await t.mutation(api.externalData.mutations.applyRetroactiveProductMapping, {
       token, source: "shopee", externalProductCode: "A", menuProductId: mpA,
     });

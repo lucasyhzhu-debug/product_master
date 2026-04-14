@@ -11,7 +11,6 @@
  */
 
 import { describe, it, expect } from "vitest";
-// @ts-expect-error — Wave 1 will add this export. Red-bar by design.
 import { dominantSku } from "../helpers";
 
 type Sku = { sku: string; skuNum: number };
