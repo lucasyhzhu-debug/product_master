@@ -59,6 +59,7 @@ const primaryTabs: TabItem[] = [
 ];
 
 const moreItems: TabItem[] = [
+  { path: '/analytics', icon: BarChart3, label: 'Analytics', permission: 'canAccessDashboard' },
   { path: '/expenses', icon: Receipt, label: 'Expenses', permission: 'canSubmitExpenses' },
   { path: '/expenses/approve', icon: ClipboardCheck, label: 'Approvals', permission: 'canApproveExpenses' },
   { path: '/expense-analytics', icon: BarChart3, label: 'Exp. Analytics', permission: 'canAccessExpenseAnalytics' },
