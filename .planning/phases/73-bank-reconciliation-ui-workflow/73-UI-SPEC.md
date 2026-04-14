@@ -43,7 +43,7 @@ Declared values (multiples of 4, mapped to existing Tailwind spacing tokens):
 
 **Exceptions:**
 - Split-pane column gap: `12px` (`gap-3`) — between left bank lines pane and right candidate records pane on tablet landscape (900–1200px). Uses `gap-4` (16px) on desktop ≥1200px.
-- Mini progress bar in `StatementHistoryList` row: fixed 6px bar height (`h-1.5`) — standard Progress primitive variant, not a spacing exception.
+- Mini progress bar in `StatementHistoryList` row: fixed 6px bar height (`h-1.5`) — Tailwind component-size utility applied to a UI primitive's track height, not a layout spacing value. Do NOT use `h-1.5` for margin, padding, or gap.
 
 ---
 
@@ -68,11 +68,11 @@ Base font family inherited from `--font-sans` (Inter). Monospace (`font-mono`) p
 |------|-------|-------|
 | Dominant (60%) | `--color-background` = `hsl(0 0% 100%)` (white) | Page background, dialog background, table row background |
 | Secondary (30%) | `--color-secondary` = `hsl(210 40% 96.1%)` (cool off-white) + `--color-muted` | Card surfaces, split-pane backgrounds, tab bar background, disabled state surfaces, `(unallocated)` synthetic row tinting |
-| Accent (10%) | `--color-brand` = `#0D9488` (teal) / `--color-primary` = `hsl(172 90% 30%)` | Reserved elements only — see list below |
+| Accent (10%) | `--color-brand` = `#0D9488` (teal) / `--color-primary` = `hsl(172 90% 30%)` (aliases — same computed value) | Reserved elements only — see list below |
 | Destructive | `--color-destructive` = `hsl(0 84.2% 60.2%)` | Unmatch button, reversal indicator, Diff-negative flag for revenue gap (ExtRev > Bank), balance-mismatch error in batch Confirm modal |
 
 **Accent (teal) reserved for:**
-1. Primary CTA buttons: `[Match selected]`, `[Confirm]`, `[Post N journal entries]`, `[Save rule]`, `[Create expense from this line]`, `[Route to Asset Register]`
+1. Primary CTA buttons: `[Match selected]`, `[Confirm match]`, `[Post N journal entries]`, `[Save rule]`, `[Create expense from this line]`, `[Route to Asset Register]`
 2. Active tab indicator (underline / background on `TabsTrigger[data-state=active]`)
 3. Selected bank-line row highlight (left pane) — 4px left border in `--color-brand` + `--color-brand-light` row background
 4. Selected candidate record highlight (right pane) — identical treatment
@@ -94,7 +94,7 @@ Channel-specific colors in Revenue Gap table rows (gopay / tokopedia / shopee / 
 | Element | Copy |
 |---------|------|
 | Primary CTA (bank line match) | `Match selected` |
-| Primary CTA (JE post) | `Confirm` (per-line) / `Confirm all exact-tier` (batch) |
+| Primary CTA (JE post) | `Confirm match` (per-line) / `Confirm all exact-tier` (batch) |
 | Primary CTA (batch modal) | `Post {N} journal entries` — N interpolated live |
 | Primary CTA (inline expense) | `Create expense from this line` |
 | Primary CTA (inline revenue) | `Create revenue from this line` |
@@ -160,11 +160,11 @@ No new registry blocks are introduced in Phase 73. All new components in `src/co
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved
