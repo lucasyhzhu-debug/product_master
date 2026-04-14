@@ -12,7 +12,7 @@
 - [x] **v1.7 Expense & Accounting** - Phases 41-54 (shipped 2026-03-16)
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
-- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-78 (in progress)
+- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80 (in progress)
 
 ## Phases
 
@@ -186,6 +186,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
 - [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
+- [ ] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron
 
 ## Phase Details
 
@@ -321,10 +322,50 @@ Plans:
 - [ ] 78-02-PLAN.md -- Frontend: ProductForm section, AvailabilityPanel sub-rows, toast enhancement
 **UI hint**: yes
 
+### Phase 79: Shopee Item-Level Revenue
+**Goal**: Shopee and TikTok channels support the same product-level analytics as GoJek/GoFood by capturing full per-item transaction data (SKU, quantity, unit price, customer name/details) into `externalRevenueItems` at sync time — enabling BOM-driven ball counts, per-product COGS, sell-through per product, and customer-level insights.
+**Depends on**: Phase 70 (externalRevenueItems pipeline established)
+**Requirements**: DA-05, DA-06, DA-07, DA-08, DA-09, DA-10, DA-11, DA-12, DA-13
+**Success Criteria** (what must be TRUE):
+  1. New BigSeller syncs write one `externalRevenueItems` row per `skuVoList` entry (quantity = `skuNum`, unit price pro-rated from `orderAmount` unless platform-reported), without double-counting revenue vs the parent `externalRevenue` row
+  2. Retroactive SKU→menuProduct mapping updates items' `linkedMenuProductId` alongside the parent `linkedMenuProductId`
+  3. Sell-through query has `shopee` and `tiktok` branches returning real per-product volume (not revenue-extrapolated estimates)
+  4. Lifetime ball counts include Shopee/TikTok via actual `item.quantity × ballsPerProduct` from BOM, not via `avgRevenuePerBall` division
+  5. Income statement per-product COGS reflects actual BOM cost × quantity for Shopee/TikTok
+  6. Backfill migration converts all existing `bigsellerOrders` into `externalRevenueItems` idempotently with no double-counted revenue
+  7. Customer name, phone, and address (when BigSeller provides them) are persisted on `bigsellerOrders`; admin can opt-in link to `customers` table
+  8. Daily cron re-syncs the last 7 days of BigSeller data so same-day `--` rows auto-backfill when Shopee finalizes SKU data
+  9. UI shows "Pending SKU from Shopee" (not bare `--`) for sub-48-hour rows with empty `skuVoList`
+**Plans:** TBD (run /gsd-plan-phase 79 to break down)
+**UI hint**: yes
+
+### Phase 80: Unit Economics Analytics Dashboard
+**Goal**: New `/analytics` page with 13 widgets answering CFO/CEO unit-economics questions: where revenue comes from, how much per unit (BOM-resolved), and momentum — filterable by date, channel, and product
+**Depends on**: Nothing (read-only over existing orders/orderItems/menuProducts/componentTypes data)
+**Requirements**: AOV per channel, units sold (BOM-resolved across Big Ball + Mid Ball + Hazelnut + future production types), units per transaction by channel, weekday seasonality, day×hour heatmap, channel rev/unit + take-rate, product-type mix over time, SKU Pareto, SKU×channel heatmap, per-channel momentum sparklines, rolling 7d/28d trend
+**Success Criteria** (what must be TRUE):
+  1. Manager/admin opens `/analytics` and sees 6 KPI tiles (Revenue net, Units, AOV, Rev/Unit, Orders, Units/Txn) with WoW deltas
+  2. All "units sold" metrics dynamically iterate `componentTypes` where `category=production AND unit=pcs` — Hazelnut and any future production types are counted automatically without code changes
+  3. Date range, channel, and product filters reflect in every widget within 500ms (dev env)
+  4. Filter state is URL-synced — pasting a filtered URL into a new tab restores the same view
+  5. Existing hardcoded `BIG_BALL`/`MID_BALL` accumulator in `convex/dispatchPlanner/queries.ts` is migrated to the same dynamic helper (regression-guarded by test)
+  6. New `by_completed_at` index on orders bounds all date-range scans (no full-table scans)
+  7. `npm run type-check` + `npm run build` + `npm run test` all pass
+**Plans:** 1 plan + 1 addendum (staff-review fixes)
+Plans:
+- [ ] PLAN.md -- 16 tasks across 3 waves: backend helpers/queries (T1-T7), frontend widgets (T8-T13), verification (T14-T16)
+- [ ] PLAN-ADDENDUM.md -- Staff-review patches: T1.5 (index), T1.6 (dispatchPlanner migration), T14.5 (frontend tests), use lineTotal helpers + platformColors + periodRange
+**UI hint**: yes
+**Source artifacts**:
+- Spec: `docs/superpowers/specs/2026-04-13-unit-economics-analytics-dashboard-design.md`
+- Plan: `docs/superpowers/plans/2026-04-13-unit-economics-analytics-dashboard.md`
+- Plan addendum: `docs/superpowers/plans/2026-04-13-unit-economics-analytics-dashboard-ADDENDUM.md`
+- Staff review: `docs/reviews/staffreview-unit-economics-analytics-dashboard-2026-04-13.md`
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -337,6 +378,8 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
+| 79. Shopee Item-Level Revenue | v2.0 | 0/TBD | Not started | - |
+| 80. Unit Economics Analytics Dashboard | v2.0 | 0/2 | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -350,7 +393,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-78 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
