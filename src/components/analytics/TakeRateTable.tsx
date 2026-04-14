@@ -26,7 +26,7 @@ export function TakeRateTable() {
                 <td>{formatCurrency(r.gross)}</td>
                 <td>{formatCurrency(r.discount)}</td>
                 <td>{r.takePct.toFixed(1)}%</td>
-                <td>{formatCurrency(r.netPerUnit)}</td>
+                <td>{formatCurrency(r.revPerUnit)}</td>
               </tr>
             ))}
           </tbody>

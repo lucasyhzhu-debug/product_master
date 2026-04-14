@@ -29,7 +29,7 @@ export function SkuChannelHeatmap() {
           </thead>
           <tbody>
             {data.matrix.map((row) => (
-              <tr key={row.product}>
+              <tr key={row.productKey}>
                 <td className="py-1">{row.product}</td>
                 {row.channels.map((c) => (
                   <td
