@@ -52,16 +52,41 @@ export function AnalyticsFilterProvider({ children }: { children: ReactNode }) {
     return { fromTs, toTs, channels, menuProductIds };
   }, [params]);
 
+  // Functional update against the live URLSearchParams so rapid sequential
+  // setFilters() calls in the same tick do not stomp each other via the
+  // render-time `filters` snapshot (see WR-03).
   const setFilters = (next: Partial<AnalyticsFilters>) => {
-    const merged = { ...filters, ...next };
-    const p = new URLSearchParams(params);
-    p.set("from", String(merged.fromTs));
-    p.set("to", String(merged.toTs));
-    if (merged.channels.length) p.set("channels", merged.channels.join(","));
-    else p.delete("channels");
-    if (merged.menuProductIds.length) p.set("products", merged.menuProductIds.join(","));
-    else p.delete("products");
-    setParams(p, { replace: true });
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        const now = Date.now();
+        const defaultFrom = now - 30 * 86400000;
+        const prevFromTs = Number(p.get("from")) || defaultFrom;
+        const prevToTs = Number(p.get("to")) || now;
+        const prevChannels = (p.get("channels") ?? "")
+          .split(",")
+          .filter(Boolean) as DisplayChannel[];
+        const prevMenuProductIds = (p.get("products") ?? "")
+          .split(",")
+          .filter(Boolean) as Id<"menuProducts">[];
+
+        const merged: AnalyticsFilters = {
+          fromTs: next.fromTs ?? prevFromTs,
+          toTs: next.toTs ?? prevToTs,
+          channels: next.channels ?? prevChannels,
+          menuProductIds: next.menuProductIds ?? prevMenuProductIds,
+        };
+        p.set("from", String(merged.fromTs));
+        p.set("to", String(merged.toTs));
+        if (merged.channels.length) p.set("channels", merged.channels.join(","));
+        else p.delete("channels");
+        if (merged.menuProductIds.length)
+          p.set("products", merged.menuProductIds.join(","));
+        else p.delete("products");
+        return p;
+      },
+      { replace: true },
+    );
   };
 
   return (
