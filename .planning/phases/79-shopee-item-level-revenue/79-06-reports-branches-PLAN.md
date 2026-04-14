@@ -32,7 +32,7 @@ Add a `shopee` / `tiktok` branch to the sell-through product-level query in `con
 
 Purpose: DA-07 + DA-08 + DA-09. Three success criteria satisfied by one code change + two validation tests.
 
-Output: sell-through shopee/tiktok branches live; 3 tests green (sell-through-shopee, lifetime auto-pickup, incomeStatement-shopee).
+Output: sell-through shopee/tiktok branches live; 2 tests green (sell-through-shopee, incomeStatement-shopee); zero-diff verified for lifetime + COGS helpers.
 </objective>
 
 <execution_context>
@@ -123,28 +123,39 @@ Locate the existing sell-through product-level query in `convex/externalData/que
     - convex/reports/__tests__/incomeStatement-shopee.test.ts (already seeded with Shopee items + BOM)
   </read_first>
   <action>
-Run the two tests that prove lifetime helpers and income statement COGS pick up Shopee items without any code changes:
+Verify the "zero code change" claim for DA-08 (lifetime) and DA-09 (COGS) via two mechanical checks:
 
-1. `npm run test -- --run convex/reports/__tests__/incomeStatement-shopee.test.ts`
-2. `npm run test -- --run convex/externalData/helpers/__tests__/lifetimeHelpers.test.ts` (if it exists; if not, create a minimal lifetime test that:
-   - Seeds Shopee revenue with 2 items linked to menuProducts with BOM ballsPerProduct=1 each
-   - Calls computeLifetimeTotals for source="shopee"
-   - Asserts totalBalls = Σ item.quantity × ballsPerProduct (NOT revenue/avgPrice)
-   - Asserts items are NOT counted via the avgRevenuePerBall fallback path)
+**Check 1 — Run the Wave 0 incomeStatement test (green without touching incomeStatement.ts):**
 
-If either test fails, the assumption that these queries are "source-agnostic" was wrong — STOP and file a new task. If they pass, document the verification in `79-06-SUMMARY.md`:
+```
+npm run test -- --run convex/reports/__tests__/incomeStatement-shopee.test.ts
+```
 
-> DA-08 (lifetime) and DA-09 (COGS) require ZERO code changes in Phase 79. Shopee items flow through existing source-agnostic queries automatically once Plan 03 wires item emission. Verification: [2 test results].
+This test (seeded in Plan 01 Task 2 File 9) asserts Shopee per-product COGS = BOM × quantity. If it passes without any edit to `convex/reports/incomeStatement.ts`, DA-09 is satisfied source-agnostically.
 
-**Do NOT** modify lifetimeHelpers.ts or incomeStatement.ts in this phase. If they need changes to pass, the assumption was wrong — escalate.
+**Check 2 — Zero-diff assertion against lifetime + COGS helper files:**
+
+After running the test (and all of Plan 06), assert that the phase has NOT modified the source-agnostic helpers:
+
+```
+git diff --stat origin/main -- convex/externalData/helpers/lifetimeHelpers.ts convex/externalData/helpers/costOfGoodsHelpers.ts convex/reports/incomeStatement.ts
+```
+
+Expected output: **empty / zero lines changed** across all three files. Any non-zero diff means the assumption was wrong — STOP and escalate (the phase needs a new plan to cover helper edits).
+
+Document the verification in `79-06-SUMMARY.md`:
+
+> DA-08 (lifetime) and DA-09 (COGS) require ZERO code changes in Phase 79. Verified via (1) incomeStatement-shopee.test.ts green without touching incomeStatement.ts, and (2) `git diff --stat origin/main` returning zero lines changed in lifetimeHelpers.ts, costOfGoodsHelpers.ts, incomeStatement.ts.
+
+**Do NOT** modify lifetimeHelpers.ts, costOfGoodsHelpers.ts, or incomeStatement.ts in this phase. If they need changes to pass the test, the source-agnostic assumption was wrong — escalate.
   </action>
   <verify>
     <automated>npm run test -- --run convex/reports/__tests__/incomeStatement-shopee.test.ts</automated>
   </verify>
   <acceptance_criteria>
-    - incomeStatement-shopee.test.ts GREEN without touching incomeStatement.ts (diff shows zero lines changed in that file)
-    - lifetimeHelpers test (existing or newly created) GREEN without touching lifetimeHelpers.ts
-    - SUMMARY.md notes "DA-08, DA-09: verified source-agnostic pickup via tests only"
+    - incomeStatement-shopee.test.ts GREEN (verified by the <automated> command)
+    - `git diff --stat origin/main -- convex/externalData/helpers/lifetimeHelpers.ts convex/externalData/helpers/costOfGoodsHelpers.ts convex/reports/incomeStatement.ts` reports ZERO lines changed across all three files
+    - SUMMARY.md notes "DA-08, DA-09: verified source-agnostic pickup via test-green + zero-diff assertion"
   </acceptance_criteria>
   <done>Two "zero-code-change" success criteria verified via tests.</done>
 </task>
@@ -152,13 +163,13 @@ If either test fails, the assumption that these queries are "source-agnostic" wa
 </tasks>
 
 <verification>
-3 tests from Plan 01 Task 2 turn green. Two of them (lifetime, COGS) green WITHOUT any production code changes to lifetimeHelpers.ts / incomeStatement.ts — this is the verification of RESEARCH.md's "source-agnostic" claim.
+2 tests from Plan 01 Task 2 turn green (sell-through-shopee, incomeStatement-shopee). A zero-diff git assertion on lifetimeHelpers.ts + costOfGoodsHelpers.ts + incomeStatement.ts verifies RESEARCH.md's "source-agnostic" claim mechanically.
 </verification>
 
 <success_criteria>
 - [ ] sell-through-shopee.test.ts green
 - [ ] incomeStatement-shopee.test.ts green
-- [ ] lifetimeHelpers test green (existing or new)
+- [ ] Zero-diff assertion passes on lifetimeHelpers.ts, costOfGoodsHelpers.ts, incomeStatement.ts
 - [ ] Zero code changes outside queries.ts in this plan
 - [ ] `npm run build` passes
 </success_criteria>
@@ -178,7 +189,7 @@ If either test fails, the assumption that these queries are "source-agnostic" wa
 - [ ] SUMMARY.md documents "zero code change" verification for DA-08 + DA-09
 
 ## Success Criteria (this plan)
-- [ ] 3 tests green
+- [ ] 2 tests green + zero-diff assertion passes
 - [ ] Zero code changes in lifetimeHelpers.ts + incomeStatement.ts
 - [ ] Build + type-check pass
 

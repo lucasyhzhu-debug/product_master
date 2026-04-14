@@ -14,6 +14,8 @@ files_modified:
   - convex/externalData/__tests__/retroactive-mapping-shopee.test.ts
   - convex/externalData/__tests__/sell-through-shopee.test.ts
   - convex/reports/__tests__/incomeStatement-shopee.test.ts
+  - src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx
+  - src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx
 autonomous: true
 requirements: [DA-05, DA-06, DA-07, DA-09, DA-10, DA-12]
 tags: [bigseller, shopee, tiktok, tdd, scaffolding]
@@ -41,6 +43,10 @@ must_haves:
       provides: Shopee/TikTok branch returns real per-product volume
     - path: convex/reports/__tests__/incomeStatement-shopee.test.ts
       provides: Shopee per-product COGS uses BOM × quantity
+    - path: src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx
+      provides: Backfill/Re-check button render + click tests (Plan 07 T2)
+    - path: src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx
+      provides: "Pending SKU from Shopee" 24h label branch tests (Plan 07 T3)
   key_links:
     - from: Wave 0 test files
       to: Wave 1 plan tasks (02..06)
@@ -49,11 +55,11 @@ must_haves:
 ---
 
 <objective>
-Create 9 failing test files (Wave 0 of Nyquist validation strategy) that pin down expected behavior for every pure helper, mutation, and query branch introduced in Wave 1. Every Wave-1 task has an <automated> pointer into these files; they MUST exist and fail red before Wave 1 begins.
+Create 11 failing test files (Wave 0 of Nyquist validation strategy) that pin down expected behavior for every pure helper, mutation, and query branch introduced in Wave 1. Every Wave-1 task has an <automated> pointer into these files; they MUST exist and fail red before Wave 1 begins.
 
 Purpose: TDD guard rails. Prevent silent scope drift, enforce residual-rounding invariant (D-01), revenue-conservation invariant (D-04), and dominant-SKU rule (D-09) as non-negotiable acceptance criteria.
 
-Output: 9 .test.ts files, all committed, all failing (import errors or NotImplementedError). Wave 1 flips them green.
+Output: 11 .test.ts/.test.tsx files, all committed, all failing (import errors or NotImplementedError). Wave 1 flips them green.
 </objective>
 
 <execution_context>
@@ -161,7 +167,7 @@ All three files MUST fail with import errors until Wave 1 adds the exports.
 </task>
 
 <task type="auto">
-  <name>Task 2: Create 6 convex-test integration test files</name>
+  <name>Task 2: Create 8 integration + component test files</name>
   <read_first>
     - convex/integrations/bigseller/__tests__/ (existing test file structure)
     - convex/externalData/mutations.ts (saveRevenueItems line 587, applyRetroactiveProductMapping line 446)
@@ -209,32 +215,50 @@ Create six convex-test integration test files using the `convexTest` harness (pa
 2. COGS override on menuProduct (Phase 70 feature) used when present.
 3. Unmapped items contribute to `unmappedProductsMap` with zero COGS, not counted as mapped product.
 
-All 6 files MUST fail red until Wave 1 lands the implementations.
+**File 10: `src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx`** — Component test stub for Plan 07 Task 2. Uses React Testing Library + vitest. Test cases:
+1. Renders "Backfill historical items" button (exact string).
+2. Renders "Re-check empty rows" button (exact string).
+3. Clicking "Backfill historical items" calls the `useBackfillBigsellerItems` mutation hook (mock the hook).
+4. While backfill in flight, button is disabled; toast.loading / toast.success assertions via `vi.mock("sonner")`.
+
+Until Plan 07 Task 2 ships, this file fails red because the buttons don't exist yet — stub the component import and assert `expect(screen.queryByText("Backfill historical items")).toBeInTheDocument()` which will fail red.
+
+**File 11: `src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx`** — Component test stub for Plan 07 Task 3. Test cases:
+1. Row with age < 24h AND empty skuVoList renders "Pending SKU from Shopee" (italic, muted-foreground class).
+2. Row with age >= 24h AND empty skuVoList renders bare "--".
+3. Row with resolved SKUs renders the resolved product names (not the Pending label).
+4. No column headers or cells named "Buyer name", "Buyer phone", "Buyer address" (DA-11 deferral assertion via `queryByText`).
+
+Until Plan 07 Task 3 ships, assertions for "Pending SKU from Shopee" fail red.
+
+All 8 files MUST fail red until Wave 1 (tests 4-9) and Wave 3 (tests 10-11) land the implementations.
   </action>
   <verify>
-    <automated>npm run test -- --run convex/integrations/bigseller/__tests__/cron.test.ts convex/bigsellerOrders/__tests__/backfill.test.ts convex/externalData/__tests__/revenue-invariants.test.ts convex/externalData/__tests__/retroactive-mapping-shopee.test.ts convex/externalData/__tests__/sell-through-shopee.test.ts convex/reports/__tests__/incomeStatement-shopee.test.ts</automated>
+    <automated>npm run test -- --run convex/integrations/bigseller/__tests__/cron.test.ts convex/bigsellerOrders/__tests__/backfill.test.ts convex/externalData/__tests__/revenue-invariants.test.ts convex/externalData/__tests__/retroactive-mapping-shopee.test.ts convex/externalData/__tests__/sell-through-shopee.test.ts convex/reports/__tests__/incomeStatement-shopee.test.ts src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx</automated>
   </verify>
   <acceptance_criteria>
-    - 6 new test files exist under convex/*/__tests__/
-    - Each file uses convexTest harness with schema + modules import
-    - vitest reports all 6 RED (missing exports / NotImplementedError / wrong behavior)
+    - 8 new test files exist (6 under convex/*/__tests__/, 2 under src/components/salesAnalytics/__tests__/)
+    - Each convex file uses convexTest harness with schema + modules import
+    - Each component file uses @testing-library/react render() + screen queries
+    - vitest reports all 8 RED (missing exports / NotImplementedError / missing component text)
     - No `expect(true).toBe(true)` placeholders
     - Each file has at least 2 distinct test cases
     - Revenue invariant test asserts integer equality (not approximate)
+    - BigSellerOrdersTable.test.tsx includes a DA-11-deferral assertion (no "Buyer name/phone/address" text anywhere)
   </acceptance_criteria>
-  <done>6 integration test files committed, all failing red, ready for Wave 1 to turn green.</done>
+  <done>8 integration + component test files committed, all failing red, ready for Waves 1-3 to turn green.</done>
 </task>
 
 <task type="auto">
   <name>Task 3: Populate VALIDATION.md per-task map + mark wave_0_complete</name>
   <read_first>
     - .planning/phases/79-shopee-item-level-revenue/79-VALIDATION.md
-    - All 9 new test files created in tasks 1-2
+    - All 11 new test files created in tasks 1-2
   </read_first>
   <action>
 Edit `.planning/phases/79-shopee-item-level-revenue/79-VALIDATION.md`:
 
-1. Replace the "TBD" row in §Per-Task Verification Map with one row per Wave-1 task (9 tasks across plans 02..06). Columns: Task ID (e.g., `79-02-T1`), Plan, Wave, Requirement (DA-XX), Threat Ref, Secure Behavior, Test Type, Automated Command (`npm run test -- --run <file>`), File Exists (✅ after Wave 0), Status (⬜ pending).
+1. Replace the "TBD" row in §Per-Task Verification Map with one row per Wave-1+ task (plans 02..07). Plan 07 T2 and T3 now have Wave 0 file coverage (component test stubs). Columns: Task ID (e.g., `79-02-T1`), Plan, Wave, Requirement (DA-XX), Threat Ref, Secure Behavior, Test Type, Automated Command (`npm run test -- --run <file>`), File Exists (✅ after Wave 0), Status (⬜ pending).
 
 2. In §Wave 0 Requirements, check off all 8 bullet checkboxes since files are now created.
 
@@ -259,14 +283,14 @@ Edit `.planning/phases/79-shopee-item-level-revenue/79-VALIDATION.md`:
 </tasks>
 
 <verification>
-All 9 test files compile but run red. Helper and mutation signatures referenced are the EXACT names Wave 1 will implement. VALIDATION.md updated.
+All 11 test files compile but run red. Helper and mutation signatures referenced are the EXACT names Wave 1 will implement. VALIDATION.md updated.
 </verification>
 
 <success_criteria>
-- [ ] 9 .test.ts files created and committed
-- [ ] All 9 fail red (`npm run test -- --run <each>` returns non-zero exit)
+- [ ] 11 test files created and committed (9 .test.ts + 2 .test.tsx)
+- [ ] All 11 fail red (`npm run test -- --run <each>` returns non-zero exit)
 - [ ] 79-VALIDATION.md frontmatter: `wave_0_complete: true`, `nyquist_compliant: true`
-- [ ] Per-task verification map has ≥9 rows
+- [ ] Per-task verification map has ≥11 rows
 - [ ] No `expect(true).toBe(true)` anti-pattern
 - [ ] `npm run type-check` still passes (test files may reference missing exports via `@ts-expect-error` or rely on vitest runtime)
 </success_criteria>
@@ -280,7 +304,7 @@ All 9 test files compile but run red. Helper and mutation signatures referenced 
 | Agent | Task | Files |
 |-------|------|-------|
 | convex-backend | Pure helper tests (priceOracle/prorate/dominantSku) | 3 files |
-| convex-backend | Integration tests (cron/backfill/invariants/retro/sellThrough/incomeStatement) | 6 files |
+| convex-backend | Integration + component tests (cron/backfill/invariants/retro/sellThrough/incomeStatement + 2 UI stubs) | 8 files |
 | Planner | VALIDATION.md population | 1 file |
 
 ## Documentation Updates
@@ -288,7 +312,7 @@ All 9 test files compile but run red. Helper and mutation signatures referenced 
 - [ ] No other doc changes until Wave 1+
 
 ## Success Criteria (this plan)
-- [ ] `npm run test -- --run` produces EXACTLY 9 red files (no green from these new files)
+- [ ] `npm run test -- --run` produces EXACTLY 11 red files (no green from these new files)
 - [ ] `npm run type-check` passes
 - [ ] All test files committed in a single TDD-scaffolding commit
 

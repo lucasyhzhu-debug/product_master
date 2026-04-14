@@ -8,6 +8,7 @@ files_modified:
   - convex/crons.ts
   - convex/integrations/bigseller/cron.ts
   - convex/integrations/bigseller/queries.ts
+  - convex/externalData/mutations.ts
 autonomous: true
 requirements: [DA-12]
 tags: [bigseller, shopee, cron, skip-if-busy]

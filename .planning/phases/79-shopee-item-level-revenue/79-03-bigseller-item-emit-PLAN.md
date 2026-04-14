@@ -7,6 +7,7 @@ depends_on: [79-01, 79-02]
 files_modified:
   - convex/integrations/bigseller/sync.ts
   - convex/integrations/bigseller/helpers.ts
+  - convex/bigsellerOrders/queries.ts
 autonomous: true
 requirements: [DA-05, DA-11]
 tags: [bigseller, shopee, sync, item-emit]
@@ -84,27 +85,82 @@ export function prorateItems(order, oracle, mappingBySku): Array<{sku, skuNum, u
 <tasks>
 
 <task type="auto">
-  <name>Task 1: Emit externalRevenueItems per order in BigSeller sync fetchOrders stage</name>
+  <name>Task 1: Load priceOracle + mappingBySku (oracle/mapping preparation)</name>
   <read_first>
-    - convex/integrations/bigseller/sync.ts (find `fetchOrders` stage; locate where `saveRevenue` is called per batch — note the revenue ID / order mapping)
-    - convex/integrations/gobiz/adapter.ts lines 450-490 (canonical mirror pattern)
-    - convex/externalData/mutations.ts lines 587-644 (saveRevenueItems signature + dedup)
-    - convex/integrations/bigseller/helpers.ts (existing mapOrderToRevenue; DO NOT modify, reuse mappingBySku-style structures)
+    - convex/integrations/bigseller/sync.ts (find `fetchOrders` stage)
+    - convex/bigsellerOrders/queries.ts (check for an existing "single-SKU" query; add `getSingleSkuOrdersForOracle` if absent)
+    - convex/integrations/bigseller/helpers.ts (buildPriceOracle signature from Plan 02)
   </read_first>
   <action>
-**Step 1 — Build priceOracle once per sync run (before the order loop):**
+**Step 1 — Add `getSingleSkuOrdersForOracle` internalQuery to `convex/bigsellerOrders/queries.ts` (if absent):**
 
-In the `fetchOrders` stage (or at the top of the stage that iterates orders), load historical single-SKU bigsellerOrders via a new internal query `getSingleSkuOrdersForOracle` (add to `convex/bigsellerOrders/queries.ts` if a suitable one doesn't exist). Scope: all bigsellerOrders where `skuVoList.length === 1` (use `.collect()` — documented max ~6K rows per assumption A1, safe). Call `buildPriceOracle(orders)` → priceOracle Map.
+```typescript
+export const getSingleSkuOrdersForOracle = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Scope: all bigsellerOrders where skuVoList.length === 1.
+    // .collect() — max ~6K rows per RESEARCH.md assumption A1.
+    const all = await ctx.db.query("bigsellerOrders").collect();
+    return all.filter(o => Array.isArray(o.skuVoList) && o.skuVoList.length === 1);
+  },
+});
+```
 
-Alternative (simpler): accept performance cost of building oracle per sync call. If >6K orders become a problem, paginate in a follow-up.
+**Step 2 — In the `fetchOrders` stage, BEFORE the per-order loop, build priceOracle once per sync run:**
 
-**Step 2 — Build mappingBySku:**
+```typescript
+const singleSkuOrders = await ctx.runQuery(internal.bigsellerOrders.queries.getSingleSkuOrdersForOracle, {});
+const priceOracle = buildPriceOracle(singleSkuOrders);
+```
 
-Query all `externalProductMappings` where `source === "shopee" || source === "tiktok"`. Build `Map<sku, {menuProductId, menuProductPrice}>`. For menuProductPrice, fetch associated `menuProducts` row and use `menuProduct.price` field. Cache menuProductById as Map too.
+**Step 3 — Build mappingBySku + menuProductById (same scope, before per-order loop):**
 
-**Step 3 — Emit items per order:**
+```typescript
+const shopeeMappings = await ctx.db.query("externalProductMappings")
+  .withIndex("by_source", q => q.eq("source", "shopee")).collect();
+const tiktokMappings = await ctx.db.query("externalProductMappings")
+  .withIndex("by_source", q => q.eq("source", "tiktok")).collect();
+const allMappings = [...shopeeMappings, ...tiktokMappings];
 
-Inside the per-platform loop (after `saveRevenue` creates/updates the parent revenueId and `linkRevenueToOrders` links it to the bigsellerOrder), branch for Shopee/TikTok platforms:
+const menuProductById = new Map<string, {name: string; price: number}>();
+const mappingBySku = new Map<string, {menuProductId?: string; menuProductPrice?: number}>();
+for (const m of allMappings) {
+  const mp = m.menuProductId ? await ctx.db.get(m.menuProductId) : null;
+  if (mp) menuProductById.set(String(m.menuProductId), { name: mp.name, price: mp.price });
+  mappingBySku.set(m.externalSku, {
+    menuProductId: m.menuProductId ? String(m.menuProductId) : undefined,
+    menuProductPrice: mp?.price,
+  });
+}
+```
+
+Produces `{ priceOracle, mappingBySku, menuProductById }` locals that Task 2 consumes inside the per-platform loop. Do NOT modify existing mapOrderToRevenue logic.
+  </action>
+  <verify>
+    <automated>npm run test -- --run convex/integrations/bigseller/__tests__/priceOracle.test.ts convex/integrations/bigseller/__tests__/helpers.test.ts</automated>
+  </verify>
+  <acceptance_criteria>
+    - `grep -n "getSingleSkuOrdersForOracle" convex/bigsellerOrders/queries.ts` returns match
+    - `grep -n "buildPriceOracle" convex/integrations/bigseller/sync.ts` returns match (imported + called once before per-order loop)
+    - `grep -n "mappingBySku" convex/integrations/bigseller/sync.ts` returns match
+    - priceOracle test GREEN (Plan 02 Task 1 test file)
+    - `npm run type-check` + `npm run build` pass
+  </acceptance_criteria>
+  <done>Oracle and mapping pre-loaded once per sync run; locals available for Task 2 to consume.</done>
+</task>
+
+<task type="auto">
+  <name>Task 2: Emit externalRevenueItems per order in BigSeller sync per-platform loop</name>
+  <read_first>
+    - convex/integrations/bigseller/sync.ts (Task 1 added oracle/mapping locals at top of fetchOrders stage)
+    - convex/integrations/gobiz/adapter.ts lines 450-490 (canonical mirror pattern)
+    - convex/externalData/mutations.ts lines 587-644 (saveRevenueItems signature + dedup)
+    - convex/integrations/bigseller/helpers.ts (prorateItems signature from Plan 02)
+  </read_first>
+  <action>
+**Step 1 — Emit items per order inside the per-platform loop:**
+
+After `saveRevenue` creates/updates the parent revenueId and `linkRevenueToOrders` links it to the bigsellerOrder, branch for Shopee/TikTok platforms:
 
 ```typescript
 if ((order.platform === "shopee" || order.platform === "tiktok") && order.skuVoList && order.skuVoList.length > 0) {
@@ -116,7 +172,7 @@ if ((order.platform === "shopee" || order.platform === "tiktok") && order.skuVoL
   const items = prorated.map(p => {
     const mapping = mappingBySku.get(p.sku);
     const menuProductId = mapping?.menuProductId as Id<"menuProducts"> | undefined;
-    const menuProduct = menuProductId ? menuProductById.get(menuProductId) : null;
+    const menuProduct = menuProductId ? menuProductById.get(String(menuProductId)) : null;
     const productName = menuProduct?.name ?? p.sku;  // fallback: raw SKU code
     return {
       externalItemId: p.sku,                        // D-18 dedup key
@@ -136,38 +192,48 @@ if ((order.platform === "shopee" || order.platform === "tiktok") && order.skuVoL
 }
 ```
 
-**Step 4 — Document DA-11 deferral in code:**
+**Step 2 — Document DA-11 deferral in code (place comment near the item-emit branch):**
 
-Add a comment block near the item-emit branch:
 ```typescript
 // DA-11 deferral: BigSeller pageList does NOT expose buyerName/buyerPhone/buyerAddress.
 // Only financial buyer* fields (buyerShippingFee, buyerTotalAmount) are returned.
 // Per D-07, customer data capture is deferred entirely this phase.
-// See: .planning/phases/79-shopee-item-level-revenue/79-RESEARCH.md §Summary + §Critical finding.
+// See: .planning/phases/79-shopee-item-level-revenue/79-RESEARCH.md Section Summary + Critical finding.
 ```
 
-**Step 5 — Cross-platform guard (avoid Pitfall 1):**
+**Step 3 — Cross-platform guard (avoid Pitfall 1):**
 
-The per-order iteration already knows which platform it belongs to (from the adapter's filter). Add a defensive assertion: `if (revenueSource !== order.platform) throw new Error(...)`. Document this as the guard for cross-platform leakage.
+Add a defensive assertion before the `saveRevenueItems` call:
+
+```typescript
+if (revenueSource !== order.platform) {
+  throw new Error(`Cross-platform leak guard: revenueSource=${revenueSource} !== order.platform=${order.platform}`);
+}
+```
+
+The grep below confirms GoFood/Gojek/Kitchen code paths are untouched (this branch is additive inside a shopee/tiktok conditional).
 
 **Do NOT:**
 - Delete & recreate items (rely on `saveRevenueItems` dedup).
 - Add a parallel `processBigsellerSales` inventory deduction (D-22).
 - Fetch per-order BigSeller detail endpoint (D-07).
+- Modify the GoFood/Gojek/Kitchen emit branches (out of scope).
   </action>
   <verify>
     <automated>npm run test -- --run convex/externalData/__tests__/revenue-invariants.test.ts convex/integrations/bigseller/__tests__/helpers.test.ts</automated>
   </verify>
   <acceptance_criteria>
     - `grep -n "saveRevenueItems" convex/integrations/bigseller/sync.ts` returns at least one match
-    - `grep -n "buildPriceOracle\|prorateItems" convex/integrations/bigseller/sync.ts` returns matches (imports + call sites)
+    - `grep -n "prorateItems" convex/integrations/bigseller/sync.ts` returns match (call site inside per-platform loop)
     - `grep -n "DA-11 deferral" convex/integrations/bigseller/sync.ts` returns match (code comment present)
+    - `grep -n "Cross-platform leak guard" convex/integrations/bigseller/sync.ts` returns match
     - revenue-invariants test passes: Σ items.totalPrice === parent.revenueGross for new Shopee rows
     - No `processBigsellerSales` symbol introduced (`grep -r "processBigsellerSales" convex/` returns no match — guards D-22)
+    - Cross-platform guard: `git diff origin/main -- convex/integrations/gobiz/ convex/integrations/gojek/ convex/orders/` reports ZERO lines changed (sibling integrations untouched)
     - `npm run type-check` passes
     - `npm run build` passes
   </acceptance_criteria>
-  <done>BigSeller sync emits items; revenue invariant test green; no inventory-deduction side-effect added.</done>
+  <done>BigSeller sync emits items; revenue invariant test green; sibling integrations untouched; no inventory-deduction side-effect added.</done>
 </task>
 
 </tasks>
@@ -207,7 +273,8 @@ New sync runs create item rows. Existing sync rows unchanged (backfill handled i
 ### Wave 2: Sync emit [SEQUENTIAL after Plan 02]
 | Agent | Task | Files |
 |-------|------|-------|
-| convex-backend | Wire prorateItems + saveRevenueItems into fetchOrders | convex/integrations/bigseller/sync.ts, helpers.ts (for oracle query if needed) |
+| convex-backend | T1: Load oracle + mapping pre-loop | convex/integrations/bigseller/sync.ts, convex/bigsellerOrders/queries.ts |
+| convex-backend | T2: Emit items inside per-platform loop | convex/integrations/bigseller/sync.ts |
 
 ## Documentation Updates
 - [ ] Code comment: DA-11 deferral rationale + RESEARCH.md link
