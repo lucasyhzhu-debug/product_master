@@ -78,6 +78,9 @@ Output: New cron entry; skip-if-busy guard tested; cron.test.ts green.
 import { internalAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 
+// D-12: exact wording required for grep assertion; do not modify without updating tests.
+export const CRON_SKIP_REASON_MANUAL_SYNC = "skipped: manual sync in progress" as const;
+
 export const nightlySync = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -88,7 +91,7 @@ export const nightlySync = internalAction({
         source: "shopee",
         syncType: "scheduled",
         status: "error",
-        errorMessage: "skipped: manual sync in progress",
+        errorMessage: CRON_SKIP_REASON_MANUAL_SYNC,
         timestamp: Date.now(),
       });
       return;
@@ -172,7 +175,8 @@ crons.daily(
     - `grep -n "hourUTC: 20" convex/crons.ts` returns match (exactly 20, not 19 or 21)
     - `grep -n "minuteUTC: 0" convex/crons.ts` returns match
     - `grep -n "bigseller nightly" convex/crons.ts` returns match (descriptive cron name)
-    - `grep -n "skipped: manual sync in progress" convex/integrations/bigseller/cron.ts` returns EXACT string match (D-12 literal wording)
+    - `grep -n "skipped: manual sync in progress" convex/integrations/bigseller/cron.ts` returns EXACT string match (D-12 literal wording — stored in `CRON_SKIP_REASON_MANUAL_SYNC` constant)
+    - `grep -n "CRON_SKIP_REASON_MANUAL_SYNC" convex/integrations/bigseller/cron.ts` returns both the export and its usage (refinement: constant not inlined)
     - cron.test.ts all cases green
     - `npm run type-check` + `npm run build` pass
   </acceptance_criteria>

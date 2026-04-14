@@ -108,6 +108,22 @@ Check `convex/schema.ts` for `externalRevenueItems` index containing `["source",
 ```
 This is additive; does NOT require data migration.
 
+**Step 5 — Cascade batch guard (staff review Improvement 2):**
+
+Before the by-SKU patch loop, count candidate items:
+```typescript
+const itemCount = itemsBySku.length;
+if (itemCount > 4000) {
+  throw new Error(
+    `Cascade batch size ${itemCount} exceeds Convex mutation limit (4000). ` +
+    `Schedule a paginated action instead. SKU: ${args.externalProductCode}`
+  );
+}
+// NOTE: Frollie Shopee volume (~6K total orders across all SKUs — per RESEARCH §Pitfalls) keeps
+// per-SKU cascade well under this limit. Guard exists to fail-fast if a hot SKU ever grows past
+// the Convex mutation transaction ceiling rather than silently truncating.
+```
+
 **Do NOT:**
 - Add `isManuallyMapped` flag (D-10).
 - Touch GoFood/GoBiz/internal branches — they remain as-is.
@@ -120,6 +136,7 @@ This is additive; does NOT require data migration.
     - `grep -n "dominantSku" convex/externalData/mutations.ts` returns match (imported + called)
     - `grep -n "by_source_external_item" convex/schema.ts convex/externalData/mutations.ts` returns matches
     - retroactive-mapping-shopee test GREEN (all 4 cases)
+    - `grep -n "itemCount > 4000\|Cascade batch size" convex/externalData/mutations.ts` returns match (batch guard present)
     - No `isManuallyMapped` symbol introduced (`grep -r "isManuallyMapped" convex/ src/` returns no match)
     - GoFood/GoBiz/internal branches in applyRetroactiveProductMapping unchanged (diff shows only Shopee/TikTok branch additions + dominantSku import)
     - `npm run type-check` + `npm run build` pass

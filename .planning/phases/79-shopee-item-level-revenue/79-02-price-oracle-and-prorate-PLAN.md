@@ -95,11 +95,14 @@ export function dominantSku(
 ): { sku: string | null; menuProductId: string | null } { /* D-09 */ }
 ```
 
-Implementation notes (from RESEARCH):
+Implementation notes (from RESEARCH + staff review):
 - Oracle uses `order.orderAmount ?? order.saleAmount` as numerator (D-01 sum invariance over display accuracy — per assumption A4 in RESEARCH).
+- **Oracle minimum-sample guard (staff review Improvement 1):** Inside `buildPriceOracle`, if `prices.length < 2` for a given SKU, **omit that SKU from the oracle** (caller falls through to tier 2: `menuProduct.price`). Add code comment: `// Skip SKUs with < 2 historical observations — median of n=1 is noise; tier 2 fallback is more reliable.`
+- **Oracle rebuild policy (staff review Improvement 1):** Oracle is rebuilt on every sync invocation (no cache). Acceptable at expected volume (~6K bigsellerOrders from RESEARCH §Pitfalls). Document as a one-line comment above `buildPriceOracle`.
 - prorateItems `Math.max(1, Math.round(weight))` to avoid zero-weight items.
 - Residual assignment: tie-break by sorting `{i, qty}` desc by qty (first item at highest qty wins; this is stable given Array.sort in V8 is stable). Document in code comment.
 - dominantSku tie on equal prices: first-listed wins (per assumption A5; matches sort stability).
+- `buildPriceOracle` also guards against `skuNum === 0` (skip; division-by-zero safety).
 
 All three functions are pure — no Convex ctx, no imports beyond types.
   </action>
@@ -110,6 +113,8 @@ All three functions are pure — no Convex ctx, no imports beyond types.
     - `grep -n "export function buildPriceOracle" convex/integrations/bigseller/helpers.ts` returns match
     - `grep -n "export function prorateItems" convex/integrations/bigseller/helpers.ts` returns match
     - `grep -n "export function dominantSku" convex/integrations/bigseller/helpers.ts` returns match
+    - `grep -n "prices.length < 2" convex/integrations/bigseller/helpers.ts` returns match (oracle minimum-sample guard)
+    - `grep -n "skuNum === 0\|skuNum <= 0\|skuNum > 0" convex/integrations/bigseller/helpers.ts` returns match (division-by-zero guard)
     - All 3 test files from Plan 01 Task 1 turn GREEN (exit code 0)
     - `npm run type-check` passes
     - No changes to any other exports in helpers.ts (diff shows only additions)
