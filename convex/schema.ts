@@ -322,7 +322,9 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_channel", ["channel"])
     .index("by_status_due_date", ["status", "dueDate"])
-    .index("by_kitchen_visible", ["isKitchenVisible", "dueDate"]),
+    .index("by_kitchen_visible", ["isKitchenVisible", "dueDate"])
+    .index("by_completed_at", ["completedAt"])
+    .index("by_order_date", ["orderDate"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),
