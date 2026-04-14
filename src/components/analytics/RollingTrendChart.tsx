@@ -30,7 +30,7 @@ export function RollingTrendChart() {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
           <YAxis tickFormatter={(v) => formatCurrency(v)} />
-          <Tooltip formatter={(v: number) => formatCurrency(v)} />
+          <Tooltip formatter={(v) => formatCurrency(typeof v === "number" ? v : 0)} />
           <Legend />
           <Bar dataKey="daily" fill="#f9731644" name="Daily" />
           <Line dataKey="r7" stroke="#10b981" dot={false} name="7d rolling" />

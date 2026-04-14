@@ -25,7 +25,7 @@ export function RevPerUnitChart() {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="channel" />
           <YAxis tickFormatter={(v) => formatCurrency(v)} />
-          <Tooltip formatter={(v: number) => formatCurrency(v)} />
+          <Tooltip formatter={(v) => formatCurrency(typeof v === "number" ? v : 0)} />
           <Bar dataKey="value">
             {rows.map((r) => (
               <Cell key={r.channel} fill={getPlatformPalette(r.channel).hex} />

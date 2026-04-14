@@ -24,7 +24,7 @@ export function AovByChannel() {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="channel" />
           <YAxis tickFormatter={(v) => formatCurrency(v)} />
-          <Tooltip formatter={(v: number) => formatCurrency(v)} />
+          <Tooltip formatter={(v) => formatCurrency(typeof v === "number" ? v : 0)} />
           <Legend />
           <Bar dataKey="gross" name="Gross AOV" fill="#10b981" />
           <Bar dataKey="net" name="Net AOV" fill="#8b5cf6" />

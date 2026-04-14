@@ -26,9 +26,10 @@ export function SkuParetoChart() {
           <YAxis yAxisId="left" tickFormatter={(v) => formatCurrency(v)} />
           <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} domain={[0, 100]} />
           <Tooltip
-            formatter={(v: number, name: string) =>
-              name === "cumulativePct" ? `${v.toFixed(1)}%` : formatCurrency(v)
-            }
+            formatter={(v, name) => {
+              const num = typeof v === "number" ? v : 0;
+              return name === "cumulativePct" ? `${num.toFixed(1)}%` : formatCurrency(num);
+            }}
           />
           <Legend />
           <Bar yAxisId="left" dataKey="revenue" fill="#f97316" name="Revenue" />
