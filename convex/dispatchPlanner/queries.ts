@@ -7,7 +7,7 @@
 
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { ChannelSection, UnifiedWeeklyPlan } from "./types";
 import { generateWeekDates, CHANNEL_COLORS } from "./helpers";
 import { getTodayJakarta } from "../k3martCockpit/helpers";
@@ -19,6 +19,7 @@ import {
   computeBallTotals,
 } from "./helpers/weeklyPlanBuilder";
 import { simulateInventoryForDates } from "./helpers/inventorySimulation";
+import { getProductionUnitsByTypePerProduct } from "../reports/productionUnitHelpers";
 
 // ============================================
 // Simple config queries
@@ -248,58 +249,38 @@ export const getBallTotalsForDispatchPlanDate = query({
 
     // Early return only if both sources are empty
     if (dayPlans.length === 0 && orderProductQty.size === 0) {
-      return { bigBalls: 0, midBalls: 0, packagingBreakdown: [] as Array<{ menuProductId: string; quantity: number }> };
+      return {
+        bigBalls: 0,
+        midBalls: 0,
+        unitsByType: {} as Record<string, number>,
+        packagingBreakdown: [] as Array<{ menuProductId: string; quantity: number }>,
+      };
     }
 
-    // Fetch BOM and componentTypes needed for traversal
-    const allBomEntries = await ctx.db.query("menuProductComponents").collect();
-    const componentTypes = await ctx.db
-      .query("componentTypes")
-      .withIndex("by_active", (q: any) => q.eq("isActive", true))
-      .collect();
-    const componentTypeMap = new Map<string, Doc<"componentTypes">>();
-    for (const ct of componentTypes) {
-      componentTypeMap.set(ct._id as string, ct);
-    }
-    const bomByProduct = new Map<string, Doc<"menuProductComponents">[]>();
-    for (const entry of allBomEntries) {
-      const mpId = entry.menuProductId as string;
-      if (!bomByProduct.has(mpId)) bomByProduct.set(mpId, []);
-      bomByProduct.get(mpId)!.push(entry);
-    }
-
-    let bigBalls = 0;
-    let midBalls = 0;
+    // Dynamic BOM resolution — iterates all componentTypes where category=production AND unit=pcs.
+    // Big Ball + Mid Ball + Hazelnut (+future) are counted automatically (Pitfall #11 closure).
+    const { byProduct } = await getProductionUnitsByTypePerProduct(ctx);
+    const unitsByType: Record<string, number> = {};
     const packagingMap = new Map<string, number>(); // menuProductId -> quantity
 
     // Pass 1: dispatch plan entries
     for (const plan of dayPlans) {
       const mpId = plan.menuProductId as string;
-      const bom = bomByProduct.get(mpId) ?? [];
-      // Aggregate packaging quantity per product
       packagingMap.set(mpId, (packagingMap.get(mpId) ?? 0) + plan.plannedQty);
-      // Sum ball totals from BOM
-      for (const entry of bom) {
-        const ct = componentTypeMap.get(entry.componentTypeId as string);
-        if (!ct || ct.category !== "production") continue;
-        const qty = plan.plannedQty * entry.quantity;
-        if (ct.code === "BIG_BALL") bigBalls += qty;
-        else if (ct.code === "MID_BALL") midBalls += qty;
+      const perType = byProduct.get(plan.menuProductId);
+      if (!perType) continue;
+      for (const [code, pcsPerUnit] of perType.entries()) {
+        unitsByType[code] = (unitsByType[code] ?? 0) + pcsPerUnit * plan.plannedQty;
       }
     }
 
     // Pass 2: Direct Sales order-derived quantities
     for (const [mpId, qty] of orderProductQty) {
-      const bom = bomByProduct.get(mpId) ?? [];
-      // Add to packaging map (same product may exist in both sources)
       packagingMap.set(mpId, (packagingMap.get(mpId) ?? 0) + qty);
-      // Sum ball totals from BOM
-      for (const entry of bom) {
-        const ct = componentTypeMap.get(entry.componentTypeId as string);
-        if (!ct || ct.category !== "production") continue;
-        const ballQty = qty * entry.quantity;
-        if (ct.code === "BIG_BALL") bigBalls += ballQty;
-        else if (ct.code === "MID_BALL") midBalls += ballQty;
+      const perType = byProduct.get(mpId as Id<"menuProducts">);
+      if (!perType) continue;
+      for (const [code, pcsPerUnit] of perType.entries()) {
+        unitsByType[code] = (unitsByType[code] ?? 0) + pcsPerUnit * qty;
       }
     }
 
@@ -308,6 +289,13 @@ export const getBallTotalsForDispatchPlanDate = query({
       quantity,
     }));
 
-    return { bigBalls, midBalls, packagingBreakdown };
+    // Backward-compatible return: existing UI consumers still see bigBalls/midBalls.
+    // New callers can use unitsByType which includes HAZELNUT_REGULAR and future types.
+    return {
+      bigBalls: unitsByType["BIG_BALL"] ?? 0,
+      midBalls: unitsByType["MID_BALL"] ?? 0,
+      unitsByType,
+      packagingBreakdown,
+    };
   },
 });
