@@ -98,7 +98,13 @@ describe("Revenue invariants — D-04", () => {
 
     const menuProductId = await t.run(async (ctx) => {
       return await ctx.db.insert("menuProducts", {
-        name: "Product A", price: 30000, isActive: true, displayOrder: 0, createdAt: Date.now(),
+        code: "PRODUCT_A",
+        name: "Product A",
+        grams: 80,
+        defaultPrice: 30000,
+        isActive: true,
+        unitCost: 0,
+        cachedProductionSummary: "",
       } as never);
     });
 

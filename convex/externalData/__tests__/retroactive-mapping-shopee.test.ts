@@ -38,7 +38,13 @@ async function seedAdminToken(t: TestT): Promise<string> {
 async function seedMenuProduct(t: TestT, name: string, price: number): Promise<Id<"menuProducts">> {
   return await t.run(async (ctx) => {
     return await ctx.db.insert("menuProducts", {
-      name, price, isActive: true, displayOrder: 0, createdAt: Date.now(),
+      code: name.replace(/\s+/g, "_").toUpperCase(),
+      name,
+      grams: 80,
+      defaultPrice: price,
+      isActive: true,
+      unitCost: 0,
+      cachedProductionSummary: "",
     } as never);
   });
 }

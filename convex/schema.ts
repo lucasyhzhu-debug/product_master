@@ -1157,7 +1157,10 @@ export default defineSchema({
     .index("by_revenue", ["revenueId"])
     .index("by_source", ["source"])
     .index("by_menu_product", ["linkedMenuProductId"])
-    .index("by_product_name", ["source", "productName"]),
+    .index("by_product_name", ["source", "productName"])
+    // Phase 79 Plan 04: cascade lookup for Shopee/TikTok retroactive mapping
+    // (key by (source, externalItemId=SKU))
+    .index("by_source_external_item", ["source", "externalItemId"]),
 
   externalSyncLogs: defineTable({
     source: externalSource,
