@@ -351,10 +351,11 @@ Plans:
   5. Existing hardcoded `BIG_BALL`/`MID_BALL` accumulator in `convex/dispatchPlanner/queries.ts` is migrated to the same dynamic helper (regression-guarded by test)
   6. New `by_completed_at` index on orders bounds all date-range scans (no full-table scans)
   7. `npm run type-check` + `npm run build` + `npm run test` all pass
-**Plans:** 1 plan + 1 addendum (staff-review fixes)
+**Plans:** 3 plans
 Plans:
-- [ ] PLAN.md -- 16 tasks across 3 waves: backend helpers/queries (T1-T7), frontend widgets (T8-T13), verification (T14-T16)
-- [ ] PLAN-ADDENDUM.md -- Staff-review patches: T1.5 (index), T1.6 (dispatchPlanner migration), T14.5 (frontend tests), use lineTotal helpers + platformColors + periodRange
+- [ ] 80-01-PLAN.md -- Wave 1 Backend: helpers (production-unit BOM, revenue, channel taxonomy, platformColors), schema indexes (T1.5), dispatchPlanner migration (T1.6), 11 unitEconomics queries (T2-T7)
+- [ ] 80-02-PLAN.md -- Wave 2 Frontend: filter context + URL sync, 11 typed hooks, 13 widgets across 6 lenses, AnalyticsDashboard page, /analytics route, nav entries in Header + MobileBottomNav
+- [ ] 80-03-PLAN.md -- Wave 3 Verification: 10 backend tests (T14), 3 frontend smoke tests (T14.5 — creates tests/frontend/), quality gate, docs (CHANGELOG/API_REFERENCE/ROADMAP/CLAUDE.md), squash-merge PR
 **UI hint**: yes
 **Source artifacts**:
 - Spec: `docs/superpowers/specs/2026-04-13-unit-economics-analytics-dashboard-design.md`
@@ -379,7 +380,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
 | 79. Shopee Item-Level Revenue | v2.0 | 0/TBD | Not started | - |
-| 80. Unit Economics Analytics Dashboard | v2.0 | 0/2 | Not started | - |
+| 80. Unit Economics Analytics Dashboard | v2.0 | 0/3 | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -435,3 +436,28 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+---
+
+### Phase 999.4: Unified Cross-Channel Inventory Deduction (BACKLOG, URGENT — promote after 79)
+
+**Goal:** Replace the current per-channel inventory deduction pattern (`processGofoodSales` outlet-keyed; order-fulfillment flow for direct GoJek; K3Mart custom path; Shopee/TikTok absent) with **one centralised mutation** that accepts `{ source, menuProductId, quantity, externalOrderRef }` and resolves the correct `storageLocationId` via a per-source routing table configurable by admin.
+
+**Why:** Raised during Phase 79 discussion (2026-04-14). User wants to choose where inventory pulls from for each channel (Shopee → HQ, GoFood Outlet-X → Depot-X, etc.) without needing a new function per channel. Today Shopee/TikTok sales deduct nothing from inventory — stock drifts from reality every day. Adding a Shopee-specific `processBigsellerSales` would entrench the anti-pattern.
+
+**Requirements (proposed):**
+1. New `productInventory/channelRouting` table: `{ source, menuProductId?, storageLocationId }` — with optional per-product override (e.g., frozen products always pull from cold storage regardless of channel)
+2. Admin UI on Inventory Settings: matrix of source × (default location | product overrides)
+3. New internal mutation `processChannelSale({ source, menuProductId, quantity, externalOrderRef })` using stockTracker + Phase 78 substitution
+4. Refactor `processGofoodSales` to call the new mutation per item (or replace entirely, migrating the outlet → location resolution into the routing table as per-outlet overrides)
+5. Add BigSeller sync call site: after `saveRevenueItems`, call `processChannelSale` per item
+6. Add GoBiz direct-order path, K3Mart path
+7. Negative-stock-allowed preserved
+8. Transaction type field gains generic `channel_sale` (or keep per-source `gofood_sale`, `shopee_sale`, etc. for ledger readability — design decision)
+
+**Depends on:** Phase 79 (Shopee item pipeline must exist to deduct from)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready — user-tagged URGENT)
