@@ -125,17 +125,22 @@ export function BigSellerOrdersTable() {
       return;
     }
     try {
-      await setMenuProductForSku({
+      const result = await setMenuProductForSku({
         token: user.token,
         source,
         externalProductCode,
         menuProductId,
       });
-      toast.success(
-        menuProductId
-          ? `Mapped ${externalProductCode}`
-          : `Cleared mapping for ${externalProductCode}`
-      );
+      if (menuProductId) {
+        const linkedCount = result.updatedItems + result.bigsellerUpdated;
+        toast.success(
+          linkedCount > 0
+            ? `Mapped ${externalProductCode} · relinked ${linkedCount} past order${linkedCount === 1 ? "" : "s"}`
+            : `Mapped ${externalProductCode} · no past orders to relink`
+        );
+      } else {
+        toast.success(`Cleared mapping for ${externalProductCode}`);
+      }
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to set mapping"

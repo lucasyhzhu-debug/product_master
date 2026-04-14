@@ -521,7 +521,7 @@ export const setMenuProductForSku = mutation({
     menuProductId: v.optional(v.id("menuProducts")),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin"]);
+    await requireRole(ctx, args.token, ["admin", "manager"]);
 
     // Upsert mapping row
     let mapping = await ctx.db
