@@ -21,6 +21,7 @@ import type * as bankKeywordRules_queries from "../bankKeywordRules/queries.js";
 import type * as bankStatements_matchEngine from "../bankStatements/matchEngine.js";
 import type * as bankStatements_mutations from "../bankStatements/mutations.js";
 import type * as bankStatements_queries from "../bankStatements/queries.js";
+import type * as bigsellerOrders_actions from "../bigsellerOrders/actions.js";
 import type * as bigsellerOrders_mutations from "../bigsellerOrders/mutations.js";
 import type * as bigsellerOrders_queries from "../bigsellerOrders/queries.js";
 import type * as businessSettings_mutations from "../businessSettings/mutations.js";
@@ -248,6 +249,7 @@ declare const fullApi: ApiFromModules<{
   "bankStatements/matchEngine": typeof bankStatements_matchEngine;
   "bankStatements/mutations": typeof bankStatements_mutations;
   "bankStatements/queries": typeof bankStatements_queries;
+  "bigsellerOrders/actions": typeof bigsellerOrders_actions;
   "bigsellerOrders/mutations": typeof bigsellerOrders_mutations;
   "bigsellerOrders/queries": typeof bigsellerOrders_queries;
   "businessSettings/mutations": typeof businessSettings_mutations;
