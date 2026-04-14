@@ -16,6 +16,29 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Shopee SKU Preserve + Query-time Mapping + Per-Platform Fees -- 2026-04-14
+
+**For the team:** The BigSeller sync table on Sales Analytics had three issues: (1) recent Shopee orders showed `--` in the SKUs column and all previously-known SKU mappings appeared to vanish after re-sync; (2) there was no way to see which Frollie product each BigSeller SKU maps to, or to fix an unmapped SKU without leaving the page; (3) the Buyer Shipping column was stuck at Rp 0 for Shopee rows despite BigSeller's API returning the fee. All three are now fixed and mappings are preserved across re-syncs.
+
+**Root causes:**
+- `upsertOrders` was unconditionally overwriting `bigsellerOrders.skuVoList`. When BigSeller's `/shopee/pageList.json` returned an empty `skuVoList` on a re-sync (upstream data-freshness glitch), our DB overwrote good data with empty.
+- The sync table only rendered raw BigSeller SKU strings — it never joined against `externalProductMappings` to show the mapped Frollie product, so users could not diagnose mapping gaps inline.
+- `buyerPaidShippingFee` was present on BigSeller's Shopee payload but absent from our `BigSellerOrderRow` type and extractor — a regression vs the Phase 54 fee-mapping intent. The field was silently dropped during Shopee normalization.
+
+**Fix:**
+- `convex/bigsellerOrders/mutations.ts` — pure helper `resolveSkuVoListOnUpdate(incoming, existing)` returns `existing` when `incoming` is empty and `existing` has entries; otherwise returns `incoming`. Used by `upsertOrders` so empty upstream responses no longer erase known SKUs. Dead `applyRetroactiveMapping` internalMutation removed.
+- `convex/bigsellerOrders/queries.ts` — `listOrders` now joins each `skuVoList[].sku` against `externalProductMappings` (by `source` + `externalProductCode`) → `menuProducts` and returns per-SKU `resolvedSkus: [{ sku, mappedMenuProductName, mappedMenuProductId, externalProductMappingId }]`. No schema change; reactive to mapping edits. New `diagnoseSkuState` internalQuery for Convex Dashboard triage.
+- `convex/externalData/mutations.ts` — new `setMenuProductForSku` mutation lets the "Map Manually" UI affordance upsert a mapping by `(source, externalProductCode)` directly from the sync table row. Role guard `["admin", "manager"]` matches the query that drives the table. Shared helper `applyRetroactiveProductMapping` consolidates the retro-link logic (externalRevenueItems patch + BigSeller `linkedRevenueId` patch) that was previously duplicated across `updateProductMapping` and `setMenuProductForSku`.
+- `convex/integrations/bigseller/helpers.ts` — `BigSellerOrderRow` now carries optional `buyerPaidShippingFee` and the Shopee branch maps it into `buyerShippingFee` so the sync UI shows the full fee breakdown.
+- `src/components/salesAnalytics/BigSellerOrdersTable.tsx` — dual columns "BigSeller SKU" (raw) and "Frollie Product" (resolved name, inline `Map manually…` Select for unmapped SKUs). Pending-SKU tooltip when BigSeller returned `allSkuNum > 0` but `skuVoList` is empty. Toast surfaces `updatedItems + bigsellerUpdated` count so users see how many past orders were relinked.
+- `src/components/salesAnalytics/BigSellerSyncPanel.tsx` + `OverviewTab.tsx` — "Profit = Revenue" warning copy clarified with actionable next steps (enter COGS in BigSeller dashboard, or map SKUs to Frollie products for BOM-based margin in Sales Analytics).
+
+**Tests:** 6 new unit tests for the preserve-non-empty helper, 6 new tests for Shopee fee mapping (`buyerPaidShippingFee` → `buyerShippingFee`). `npm run type-check`, `npm run build`, and the affected Vitest suites all pass.
+
+**Backfill:** Not required. Re-syncing the affected Shopee date range once BigSeller's upstream catalog catches up will repopulate `skuVoList`, and the new preserve-guard ensures any future empty response from BigSeller no longer erases known SKUs.
+
+**Files modified:** `convex/bigsellerOrders/mutations.ts`, `convex/bigsellerOrders/queries.ts`, `convex/bigsellerOrders/__tests__/mutations.test.ts`, `convex/externalData/mutations.ts`, `convex/integrations/bigseller/helpers.ts`, `convex/integrations/bigseller/__tests__/normalization.test.ts`, `src/components/salesAnalytics/BigSellerOrdersTable.tsx`, `src/components/salesAnalytics/BigSellerSyncPanel.tsx`, `src/components/salesAnalytics/OverviewTab.tsx`, `src/hooks/convex/useExternalData.ts`, `src/hooks/convex/index.ts`.
+
 ### Fix: Vercel Build — Vendor Bundle Cap Bumped to 600 kB -- 2026-04-13
 
 **For the team:** Vercel deploys had been failing for ~21 hours with `vendor-*.js (542.9 / 500 kB) limit exceeded`. Phase 72's `xlsx` library landed in the generic vendor chunk and pushed it past the 500 kB cap. Bumped the cap to 600 kB so deploys go green again. If vendor keeps growing we should split `xlsx` into its own chunk (it's only used by the bank reconciliation page) — TODO captured inline in `vite.config.ts`.
