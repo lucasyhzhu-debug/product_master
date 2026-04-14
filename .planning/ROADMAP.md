@@ -186,7 +186,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
 - [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
-- [ ] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron
+- [x] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron (completed 2026-04-14)
 
 ## Phase Details
 
@@ -257,7 +257,13 @@ Plans:
   1. User can view a split-screen interface showing unmatched bank lines on one side and candidate system records on the other
   2. User can manually match a bank line to a system record, or unmatch an auto-matched pair
   3. Each uploaded statement shows matched/unmatched/suggested counts with a reconciliation progress indicator
-**Plans**: TBD
+**Plans:** 5 plans
+Plans:
+- [ ] 73-PLAN-1.md — Schema + backend mutations/queries + Wave 0 scaffolds
+- [ ] 73-PLAN-2.md — Split-view workspace + tab shell + batch confirm modal
+- [ ] 73-PLAN-3.md — Revenue Gap tab + history list progress + learn-from-override + Rules tab
+- [ ] 73-PLAN-4.md — Inline create dialogs + CapEx handoff to Asset Register
+- [ ] 73-PLAN-5.md — E2E smoke + docs + manual UAT checkpoint
 **UI hint**: yes
 
 ### Phase 74: Staff Attendance
@@ -336,7 +342,7 @@ Plans:
   7. Customer name, phone, and address (when BigSeller provides them) are persisted on `bigsellerOrders`; admin can opt-in link to `customers` table
   8. Daily cron re-syncs the last 7 days of BigSeller data so same-day `--` rows auto-backfill when Shopee finalizes SKU data
   9. UI shows "Pending SKU from Shopee" (not bare `--`) for sub-48-hour rows with empty `skuVoList`
-**Plans:** TBD (run /gsd-plan-phase 79 to break down)
+**Plans:** 7/7 plans complete
 **UI hint**: yes
 
 ### Phase 80: Unit Economics Analytics Dashboard
@@ -381,7 +387,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
-| 79. Shopee Item-Level Revenue | v2.0 | 0/TBD | Not started | - |
+| 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 0/3 | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
