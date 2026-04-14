@@ -1,8 +1,10 @@
 # Phase 80: Unit Economics Analytics Dashboard — Context
 
 **Gathered:** 2026-04-13
-**Status:** Ready for execution (spec + plan + addendum + staff review all complete)
+**Revised:** 2026-04-14 — Added cross-channel unification (Task 4b) after discovering Shopee/TikTok/Tokopedia/consignment sales bypass orders/orderItems.
+**Status:** Ready for execution AFTER Phase 79 merges to main (hard dependency — Task 4b blocks without it).
 **Milestone:** v2.0 Financial Management & Data Quality (last phase)
+**Depends on:** Phase 79 (Shopee Item-Level Revenue) — populates `externalRevenueItems.linkedMenuProductId` which Task 4b reads.
 
 ## Source Artifacts
 
@@ -53,7 +55,7 @@ Schema already stores `lineTotal = quantity * unitPrice - discountAmount` (post-
 - Convex `by_order` index on orderItems reused for per-order fetches
 
 ### Channel Taxonomy
-Raw `orders.channel` literals collapse into 8 display channels:
+Raw `orders.channel` literals (11 total) collapse into 8 display channels:
 - `shopee` → Shopee
 - `tokopedia` → Tokopedia
 - `grabfood` → GoFood
@@ -62,6 +64,21 @@ Raw `orders.channel` literals collapse into 8 display channels:
 - `legato_tamtem`, `legato_goldfinch`, `bazaar` → Consignment
 - `tiktok` → TikTok
 - `other`/unknown → Other
+
+**Parallel mapping for external sources** (Task 4b — `externalRevenueItems.source`): 8 `externalSource` literals (`k3mart | gobiz | internal | grabfood | bigseller | consignment | shopee | tiktok`) collapse into the same 8 display channels via `externalSourceToDisplayChannel`. `gobiz`/`internal` sources are skipped at the loader layer — those rows already have `orders` twins and would double-count (R5).
+
+### Cross-Channel Unification (Task 4b — added 2026-04-14)
+**Discovery:** Shopee/TikTok/Tokopedia/consignment sales write to `externalRevenue` + `externalRevenueItems`, NOT to `orders`/`orderItems`. Without this unification, 7 of 13 widgets (KPI units, SKU Pareto, SKU×Channel, channel rev/unit, AOV per channel, take-rate, units stacked) are broken for marketplace channels.
+
+**Solution:** `loadFilteredData` (Task 4b) merges both sources into a single `UnifiedItem` stream:
+- Internal items from `orderItems` (existing path)
+- External items from `externalRevenueItems` (joined to `externalRevenue` for date + channel)
+- `UnifiedItem.menuProductId` = `externalRevenueItems.linkedMenuProductId` (populated by Phase 79)
+- Unmatched external items (no `linkedMenuProductId`) counted in `unmatchedExternalItems` diagnostic
+- Returns excluded (`externalRevenue.transactionType === "return"`)
+- External rows carry `discountAmount = 0` (marketplace fees deferred to v2 contribution-margin lens per D-C4)
+
+**Handshake with Phase 999.4:** Phase 80 shares `externalRevenueItems.linkedMenuProductId` with the future unified inventory deduction phase (999.4). Phase 80's `channelTaxonomy.ts` and `productionUnitHelpers.ts` are reusable primitives for 999.4.
 
 ### Deferred to v2 (Explicitly Out of Scope)
 - Customer lens (new/returning, cohort retention, LTV)
@@ -107,6 +124,8 @@ Raw `orders.channel` literals collapse into 8 display channels:
 8. Nav link present in BOTH `Header.tsx` and `MobileBottomNav.tsx`
 9. Route protected by `canAccessDashboard` permission (manager + admin only)
 10. `npm run type-check` + `npm run build` + `npm run test` all pass
+11. **Shopee/TikTok/Tokopedia sales show up in every widget** (regression-guarded by integration test — a Shopee `externalRevenueItems` row flows into `kpiSummary`, `skuPareto`, `channelEconomics`, `volumeByType`) — closes the cross-channel gap discovered 2026-04-14
+12. **No double-counting** — an `externalRevenue` row with `source === "gobiz"` does NOT contribute units when its `orders` twin is already counted (regression-guarded by integration test)
 
 </success-criteria>
 
@@ -126,6 +145,13 @@ Raw `orders.channel` literals collapse into 8 display channels:
 
 ### Backend regression test (`tests/convex/dispatchPlanner.test.ts`)
 10. `getProductionRequirements` — returns `unitsByType.HAZELNUT_REGULAR` when Hazelnut orders present
+
+### Cross-channel unification tests (Task 4b additions — `tests/convex/unitEconomicsCrossChannel.test.ts`)
+11. `kpiSummary` — a Shopee `externalRevenueItems` row (source=shopee, linkedMenuProductId set) contributes to `current.units` AND `current.netRevenue`
+12. `kpiSummary` — a `gobiz` source external row is skipped when its `orders` twin already exists (no double-count — R5)
+13. `skuPareto` — Shopee item with matched `linkedMenuProductId` appears in the top-N list
+14. `channelEconomics` — Shopee externalRevenueItems contribute to the "Shopee" display channel row (NOT to bigseller/Other)
+15. `loadFilteredData` — returns `unmatchedExternalItems > 0` when a Shopee item lacks `linkedMenuProductId` (diagnostic check)
 
 ### Frontend smoke tests (`tests/frontend/analytics/`)
 1. `KpiRow` — loading state + render with mock data + null-delta handling

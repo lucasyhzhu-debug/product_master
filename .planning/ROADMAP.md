@@ -341,7 +341,7 @@ Plans:
 
 ### Phase 80: Unit Economics Analytics Dashboard
 **Goal**: New `/analytics` page with 13 widgets answering CFO/CEO unit-economics questions: where revenue comes from, how much per unit (BOM-resolved), and momentum — filterable by date, channel, and product
-**Depends on**: Nothing (read-only over existing orders/orderItems/menuProducts/componentTypes data)
+**Depends on**: Phase 79 (Shopee Item-Level Revenue) — Task 4b merges `externalRevenueItems` (populated by 79) into the analytics loader so Shopee/TikTok/Tokopedia/consignment sales appear in every widget. Discovered 2026-04-14.
 **Requirements**: AOV per channel, units sold (BOM-resolved across Big Ball + Mid Ball + Hazelnut + future production types), units per transaction by channel, weekday seasonality, day×hour heatmap, channel rev/unit + take-rate, product-type mix over time, SKU Pareto, SKU×channel heatmap, per-channel momentum sparklines, rolling 7d/28d trend
 **Success Criteria** (what must be TRUE):
   1. Manager/admin opens `/analytics` and sees 6 KPI tiles (Revenue net, Units, AOV, Rev/Unit, Orders, Units/Txn) with WoW deltas
@@ -351,6 +351,8 @@ Plans:
   5. Existing hardcoded `BIG_BALL`/`MID_BALL` accumulator in `convex/dispatchPlanner/queries.ts` is migrated to the same dynamic helper (regression-guarded by test)
   6. New `by_completed_at` index on orders bounds all date-range scans (no full-table scans)
   7. `npm run type-check` + `npm run build` + `npm run test` all pass
+  8. Shopee/TikTok/Tokopedia/consignment sales (written to `externalRevenueItems` by Phase 79) flow into every widget via the unified `loadFilteredData` loader — regression-guarded by 5 cross-channel integration tests
+  9. No double-count: `externalRevenue` rows whose source has an `orders` twin (gobiz/internal) are skipped at loader layer (R5)
 **Plans:** 3 plans
 Plans:
 - [ ] 80-01-PLAN.md -- Wave 1 Backend: helpers (production-unit BOM, revenue, channel taxonomy, platformColors), schema indexes (T1.5), dispatchPlanner migration (T1.6), 11 unitEconomics queries (T2-T7)
@@ -439,7 +441,10 @@ Plans:
 
 ---
 
-### Phase 999.4: Unified Cross-Channel Inventory Deduction (BACKLOG, URGENT — promote after 79)
+### Phase 999.4: Unified Cross-Channel Inventory Deduction (BACKLOG, URGENT — promote after 80)
+
+**Cross-reference (added 2026-04-14):** Phase 80 Task 4b establishes the READ side of cross-channel unification (reads from `externalRevenueItems` via `externalSourceToDisplayChannel` in `convex/reports/channelTaxonomy.ts`). This phase is the WRITE side — it deducts inventory when those same external sales happen. **Reuse, do not reinvent**: import `externalSourceToDisplayChannel` from `convex/reports/channelTaxonomy.ts`, import `getProductionUnitsByTypePerProduct` from `convex/reports/productionUnitHelpers.ts` (Phase 80) when resolving BOM components to deduct. The `externalRevenueItems.linkedMenuProductId` field is the shared integration pivot — Phase 79 populates it, Phase 80 reads from it, this phase writes inventory transactions from it.
+
 
 **Goal:** Replace the current per-channel inventory deduction pattern (`processGofoodSales` outlet-keyed; order-fulfillment flow for direct GoJek; K3Mart custom path; Shopee/TikTok absent) with **one centralised mutation** that accepts `{ source, menuProductId, quantity, externalOrderRef }` and resolves the correct `storageLocationId` via a per-source routing table configurable by admin.
 
