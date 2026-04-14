@@ -594,7 +594,14 @@ export const rollingTrend = query({
       const key = bucketKey(ts, "day");
       daily.set(key, (daily.get(key) ?? 0) + itemNetRevenue(it));
     }
-    const sortedDates = Array.from(daily.keys()).sort();
+    // Build a contiguous list of WIB calendar days spanning [fromTs, toTs) so
+    // zero-revenue days are preserved. Averaging over data-point days only
+    // would overstate rolling means during slow periods (see WR-02).
+    const allDates: string[] = [];
+    for (let ts = args.fromTs; ts < args.toTs; ts += 86400000) {
+      allDates.push(bucketKey(ts, "day"));
+    }
+    const sortedDates = Array.from(new Set(allDates)).sort();
     const dailyValues = sortedDates.map((d) => daily.get(d) ?? 0);
 
     function rolling(window: number): number[] {
