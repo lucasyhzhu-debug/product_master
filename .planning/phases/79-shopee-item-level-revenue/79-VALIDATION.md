@@ -3,7 +3,7 @@ phase: 79
 slug: shopee-item-level-revenue
 status: planned
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-04-14
 planned: 2026-04-14
 ---
@@ -39,9 +39,9 @@ planned: 2026-04-14
 
 | Task ID   | Plan | Wave | Requirement       | Threat Ref | Secure Behavior                                            | Test Type   | Automated Command                                                                                    | File Exists | Status     |
 |-----------|------|------|-------------------|-----------|-------------------------------------------------------------|-------------|------------------------------------------------------------------------------------------------------|-------------|------------|
-| 79-01-T1  | 01   | 0    | DA-05             | —         | Pure-helper test scaffolding (priceOracle, prorate, dominantSku) | unit        | `npm run test -- --run convex/integrations/bigseller/__tests__/priceOracle.test.ts convex/integrations/bigseller/__tests__/prorateItems.test.ts convex/integrations/bigseller/__tests__/dominantSku.test.ts` | pending Wave 0 | ⬜ pending |
-| 79-01-T2  | 01   | 0    | DA-05..DA-13      | —         | Integration + component test scaffolding (cron, backfill, invariants, retro, sellThrough, COGS, BigSellerSyncPanel, BigSellerOrdersTable) | integration+component | `npm run test -- --run convex/integrations/bigseller/__tests__/cron.test.ts convex/bigsellerOrders/__tests__/backfill.test.ts convex/externalData/__tests__/revenue-invariants.test.ts convex/externalData/__tests__/retroactive-mapping-shopee.test.ts convex/externalData/__tests__/sell-through-shopee.test.ts convex/reports/__tests__/incomeStatement-shopee.test.ts src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx` | pending Wave 0 | ⬜ pending |
-| 79-01-T3  | 01   | 0    | —                 | —         | VALIDATION.md populated + wave_0_complete flipped          | meta        | `grep -q "wave_0_complete: true" .planning/phases/79-shopee-item-level-revenue/79-VALIDATION.md` | pending Wave 0 | ⬜ pending |
+| 79-01-T1  | 01   | 0    | DA-05             | —         | Pure-helper test scaffolding (priceOracle, prorate, dominantSku) | unit        | `npm run test -- --run convex/integrations/bigseller/__tests__/priceOracle.test.ts convex/integrations/bigseller/__tests__/prorateItems.test.ts convex/integrations/bigseller/__tests__/dominantSku.test.ts` | ✅ (Wave 0) | ⬜ pending |
+| 79-01-T2  | 01   | 0    | DA-05..DA-13      | —         | Integration + component test scaffolding (cron, backfill, invariants, retro, sellThrough, COGS, BigSellerSyncPanel, BigSellerOrdersTable) | integration+component | `npm run test -- --run convex/integrations/bigseller/__tests__/cron.test.ts convex/bigsellerOrders/__tests__/backfill.test.ts convex/externalData/__tests__/revenue-invariants.test.ts convex/externalData/__tests__/retroactive-mapping-shopee.test.ts convex/externalData/__tests__/sell-through-shopee.test.ts convex/reports/__tests__/incomeStatement-shopee.test.ts src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx` | ✅ (Wave 0) | ⬜ pending |
+| 79-01-T3  | 01   | 0    | —                 | —         | VALIDATION.md populated + wave_0_complete flipped          | meta        | `grep -q "wave_0_complete: true" .planning/phases/79-shopee-item-level-revenue/79-VALIDATION.md` | ✅ (Wave 0) | ⬜ pending |
 | 79-02-T1  | 02   | 1    | DA-05             | T-79-01   | prorate sum invariant, dominantSku tie-break               | unit        | `npm run test -- --run convex/integrations/bigseller/__tests__/priceOracle.test.ts convex/integrations/bigseller/__tests__/prorateItems.test.ts convex/integrations/bigseller/__tests__/dominantSku.test.ts` | ✅ (Wave 0) | ⬜ pending |
 | 79-03-T1  | 03   | 2    | DA-05             | —         | Oracle + mappingBySku pre-loaded once per sync run | integration | `npm run test -- --run convex/integrations/bigseller/__tests__/priceOracle.test.ts convex/integrations/bigseller/__tests__/helpers.test.ts` | ✅ (Wave 0) | ⬜ pending |
 | 79-03-T2  | 03   | 2    | DA-05, DA-11      | T-79-01, T-79-02, T-79-03 | No cross-platform leak; DA-11 deferral documented | integration | `npm run test -- --run convex/externalData/__tests__/revenue-invariants.test.ts convex/integrations/bigseller/__tests__/helpers.test.ts` | ✅ (Wave 0) | ⬜ pending |
@@ -62,17 +62,17 @@ planned: 2026-04-14
 
 Wave 0 test-file gaps from RESEARCH.md §Validation Architecture. Plan 01 creates all of these.
 
-- [ ] `convex/integrations/bigseller/__tests__/priceOracle.test.ts` — property tests for `buildPriceOracle` (median over single-SKU `bigsellerOrders`)
-- [ ] `convex/integrations/bigseller/__tests__/prorateItems.test.ts` — `prorateItems` sum invariant: Σ items.totalPrice === parent.revenueGross exactly (residual → largest-qty item)
-- [ ] `convex/integrations/bigseller/__tests__/dominantSku.test.ts` — `dominantSku(items)` returns max-skuNum SKU; ties broken by max `menuProduct.price`
-- [ ] `convex/bigsellerOrders/__tests__/backfill.test.ts` — idempotency: running backfill twice creates zero new items on second run
-- [ ] `convex/externalData/__tests__/retroactive-mapping-shopee.test.ts` — SKU→menuProduct mapping cascade updates all child items + dominant-SKU parent linkedMenuProductId
-- [ ] `convex/integrations/bigseller/__tests__/cron.test.ts` — skip-if-not-idle: cron writes `externalSyncLogs` error row with `skipped: manual sync in progress`
-- [ ] `convex/externalData/__tests__/sell-through-shopee.test.ts` — shopee/tiktok branch returns real per-product volume (not revenue-extrapolated)
-- [ ] `convex/externalData/__tests__/revenue-invariants.test.ts` — parent/child sum equality (D-04 anti-double-count)
-- [ ] `convex/reports/__tests__/incomeStatement-shopee.test.ts` — Shopee per-product COGS uses BOM × quantity
-- [ ] `src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx` — Backfill + Re-check button render/click (Plan 07 T2 coverage)
-- [ ] `src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx` — 24h "Pending SKU from Shopee" label branch + DA-11 buyer-column absence (Plan 07 T3 coverage)
+- [x] `convex/integrations/bigseller/__tests__/priceOracle.test.ts` — property tests for `buildPriceOracle` (median over single-SKU `bigsellerOrders`)
+- [x] `convex/integrations/bigseller/__tests__/prorateItems.test.ts` — `prorateItems` sum invariant: Σ items.totalPrice === parent.revenueGross exactly (residual → largest-qty item)
+- [x] `convex/integrations/bigseller/__tests__/dominantSku.test.ts` — `dominantSku(items)` returns max-skuNum SKU; ties broken by max `menuProduct.price`
+- [x] `convex/bigsellerOrders/__tests__/backfill.test.ts` — idempotency: running backfill twice creates zero new items on second run
+- [x] `convex/externalData/__tests__/retroactive-mapping-shopee.test.ts` — SKU→menuProduct mapping cascade updates all child items + dominant-SKU parent linkedMenuProductId
+- [x] `convex/integrations/bigseller/__tests__/cron.test.ts` — skip-if-not-idle: cron writes `externalSyncLogs` error row with `skipped: manual sync in progress`
+- [x] `convex/externalData/__tests__/sell-through-shopee.test.ts` — shopee/tiktok branch returns real per-product volume (not revenue-extrapolated)
+- [x] `convex/externalData/__tests__/revenue-invariants.test.ts` — parent/child sum equality (D-04 anti-double-count)
+- [x] `convex/reports/__tests__/incomeStatement-shopee.test.ts` — Shopee per-product COGS uses BOM × quantity
+- [x] `src/components/salesAnalytics/__tests__/BigSellerSyncPanel.test.tsx` — Backfill + Re-check button render/click (Plan 07 T2 coverage)
+- [x] `src/components/salesAnalytics/__tests__/BigSellerOrdersTable.test.tsx` — 24h "Pending SKU from Shopee" label branch + DA-11 buyer-column absence (Plan 07 T3 coverage)
 
 *Plan 01 Task 3 flips `wave_0_complete: true` and checks all boxes once the 11 files land.*
 
@@ -96,7 +96,7 @@ Wave 0 test-file gaps from RESEARCH.md §Validation Architecture. Plan 01 create
 - [x] Wave 0 covers all MISSING references (11 files — 9 backend + 2 UI component stubs)
 - [x] No watch-mode flags
 - [x] Feedback latency < 90s
-- [ ] `wave_0_complete: true` (flipped by Plan 01 Task 3 at execution time)
+- [x] `wave_0_complete: true` (flipped by Plan 01 Task 3 at execution time)
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** planned 2026-04-14 by planner. wave_0_complete flag flips during execution.
+**Approval:** self-signed 2026-04-14 by planner.
