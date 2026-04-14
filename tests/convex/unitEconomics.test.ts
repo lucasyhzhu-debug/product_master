@@ -319,14 +319,14 @@ describe("unitEconomics.volumeByType", () => {
 // ============================================================================
 
 describe("unitEconomics.channelEconomics", () => {
-  test("takePct reflects discount / gross, netPerUnit correct", async () => {
+  test("takePct reflects discount / gross, revPerUnit correct", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
     const mp = await seedMenuProduct(t, "Original", bigBallId);
     const customerId = await seedCustomer(t);
     const ts = Date.now() - 86400000;
 
-    // Gross 100k (4 * 25k), discount 20k → netPerUnit = 80k/4 = 20k, takePct = 20%
+    // Gross 100k (4 * 25k), discount 20k → revPerUnit = 80k/4 = 20k, takePct = 20%
     await seedOrderWithItem(t, customerId, mp, "Original", 4, 25000, 20000, {
       channel: "shopee",
       completedAt: ts,
@@ -341,7 +341,7 @@ describe("unitEconomics.channelEconomics", () => {
     expect(shopee!.gross).toBe(100000);
     expect(shopee!.discount).toBe(20000);
     expect(shopee!.takePct).toBeCloseTo(20, 1);
-    expect(shopee!.netPerUnit).toBe(20000);
+    expect(shopee!.revPerUnit).toBe(20000);
   });
 });
 
@@ -382,14 +382,14 @@ describe("unitEconomics.skuPareto", () => {
 // ============================================================================
 
 describe("unitEconomics.rollingTrend", () => {
-  test("rolling7[last] equals mean of last seven daily values (30000 each)", async () => {
+  test("daily series spans full calendar window and rolling7 matches trailing mean (10 consecutive seeded days)", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
     const mp = await seedMenuProduct(t, "Original", bigBallId);
     const customerId = await seedCustomer(t);
     const now = Date.now();
 
-    // Seed 10 days × Rp 30_000 net each (1 unit/day)
+    // Seed 10 consecutive days × Rp 30_000 net each (1 unit/day)
     for (let d = 9; d >= 0; d--) {
       const ts = now - d * 86400000;
       await seedOrderWithItem(t, customerId, mp, "Original", 1, 30000, 0, {
@@ -397,12 +397,363 @@ describe("unitEconomics.rollingTrend", () => {
       });
     }
 
+    const fromTs = now - 10 * 86400000;
+    const toTs = now + 1000;
     const res = await t.query(api.reports.unitEconomics.rollingTrend, {
-      fromTs: now - 10 * 86400000,
+      fromTs,
+      toTs,
+    });
+
+    // daily.length equals full WIB calendar-day span (C2 regression guard:
+    // after WR-02 the series MUST include zero-revenue days, which is why
+    // `every(v === 30000)` no longer holds).
+    const spanDays = Math.ceil((toTs - fromTs) / 86400000);
+    // Between spanDays-1 and spanDays+1 is acceptable (rollover on bucketKey loop).
+    expect(res.daily.length).toBeGreaterThanOrEqual(spanDays - 1);
+    expect(res.daily.length).toBeLessThanOrEqual(spanDays + 1);
+
+    // Full-period sum equals seeded total (~Rp 300_000; zero-days contribute 0).
+    const total = res.daily.reduce((a: number, b: number) => a + b, 0);
+    expect(total).toBeCloseTo(300000, -1);
+
+    // Last rolling7 equals average over trailing 7 seeded days (all 30k) → 30k.
+    expect(res.rolling7[res.rolling7.length - 1]).toBeCloseTo(30000, 1);
+  });
+
+  test("rolling7 includes zero-revenue gap days (M5 regression)", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+    const now = Date.now();
+
+    // Seed revenue on days 9, 7, 5, 3, 1 back (5 days in a 10-day window, alternating).
+    const seededOffsets = [9, 7, 5, 3, 1];
+    for (const d of seededOffsets) {
+      const ts = now - d * 86400000;
+      await seedOrderWithItem(t, customerId, mp, "Original", 1, 30000, 0, {
+        completedAt: ts,
+      });
+    }
+
+    const fromTs = now - 10 * 86400000;
+    const toTs = now + 1000;
+    const res = await t.query(api.reports.unitEconomics.rollingTrend, {
+      fromTs,
+      toTs,
+    });
+
+    // Find the last day with non-zero revenue — rolling7 at that index should
+    // equal the sum of the trailing 7 actual daily values divided by 7, NOT
+    // only divided by the number of non-zero days (that would overstate the mean).
+    const lastIdx = res.daily.length - 1;
+    const last7 = res.daily.slice(Math.max(0, lastIdx - 6), lastIdx + 1);
+    const expected = last7.reduce((a: number, b: number) => a + b, 0) / last7.length;
+    expect(res.rolling7[lastIdx]).toBeCloseTo(expected, 1);
+
+    // Zero days must be represented (mean over trailing-7 must be < 30000 since some are 0).
+    expect(res.rolling7[lastIdx]).toBeLessThan(30000);
+  });
+});
+
+// ============================================================================
+// C1 — menuProductIds filter must also constrain the order set
+// ============================================================================
+
+describe("unitEconomics.kpiSummary menuProductIds filter", () => {
+  test("orderCount drops to 1 when filter matches only one product (C1 regression)", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const customerId = await seedCustomer(t);
+    const pId = await seedMenuProduct(t, "ProductP", bigBallId);
+    const qId = await seedMenuProduct(t, "ProductQ", bigBallId);
+    const now = Date.now();
+
+    // order1: only ProductP; order2: only ProductQ
+    await seedOrderWithItem(t, customerId, pId, "ProductP", 3, 30000, 0, {
+      completedAt: now - 86400000,
+    });
+    await seedOrderWithItem(t, customerId, qId, "ProductQ", 5, 30000, 0, {
+      completedAt: now - 86400000,
+    });
+
+    // Filter on P only
+    const filtered = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+      menuProductIds: [pId],
+    });
+    expect(filtered.current.orderCount).toBe(1);
+    expect(filtered.current.units).toBe(3);
+
+    // No filter: both orders count
+    const all = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
-    expect(res.daily.length).toBeGreaterThan(0);
-    expect(res.daily.every((v: number) => v === 30000)).toBe(true);
-    expect(res.rolling7[res.rolling7.length - 1]).toBeCloseTo(30000, 1);
+    expect(all.current.orderCount).toBe(2);
+  });
+});
+
+// ============================================================================
+// I6 — coverage for remaining analytics queries
+// ============================================================================
+
+describe("unitEconomics.channelMomentum", () => {
+  test("bucketCount picks 7/13/12 based on span", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+    const now = Date.now();
+
+    // Seed a single order so the query returns at least one channel.
+    await seedOrderWithItem(t, customerId, mp, "Original", 2, 30000, 0, {
+      completedAt: now - 86400000,
+    });
+
+    const res8d = await t.query(api.reports.unitEconomics.channelMomentum, {
+      fromTs: now - 8 * 86400000,
+      toTs: now,
+    });
+    expect(res8d.bucketCount).toBe(7);
+
+    const res15d = await t.query(api.reports.unitEconomics.channelMomentum, {
+      fromTs: now - 15 * 86400000,
+      toTs: now,
+    });
+    expect(res15d.bucketCount).toBe(13);
+
+    const res90d = await t.query(api.reports.unitEconomics.channelMomentum, {
+      fromTs: now - 120 * 86400000,
+      toTs: now,
+    });
+    expect(res90d.bucketCount).toBe(12);
+  });
+});
+
+describe("unitEconomics.dayHourHeatmap", () => {
+  test("returns non-empty 7×8 grid with seeded hour variation", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+
+    // 2026-01-05 02:00 UTC = 2026-01-05 09:00 WIB = Monday, 9-12 bin (col 3)
+    const mondayMorning = new Date("2026-01-05T02:00:00Z").getTime();
+    // 2026-01-05 13:00 UTC = 2026-01-05 20:00 WIB = Monday, 18-21 bin (col 6)
+    const mondayEvening = new Date("2026-01-05T13:00:00Z").getTime();
+    await seedOrderWithItem(t, customerId, mp, "Original", 1, 10000, 0, {
+      completedAt: mondayMorning,
+    });
+    await seedOrderWithItem(t, customerId, mp, "Original", 1, 20000, 0, {
+      completedAt: mondayEvening,
+    });
+
+    const res = await t.query(api.reports.unitEconomics.dayHourHeatmap, {
+      fromTs: mondayMorning - 86400000,
+      toTs: mondayEvening + 86400000,
+    });
+    expect(res.grid.length).toBe(7);
+    expect(res.grid[0].length).toBe(8);
+    // Monday row has revenue split between two bins
+    const mondayTotal = res.grid[0].reduce((a: number, b: number) => a + b, 0);
+    expect(mondayTotal).toBe(30000);
+    expect(res.max).toBeGreaterThan(0);
+  });
+});
+
+describe("unitEconomics.unitsPerTxnByChannel", () => {
+  test("reports per-channel units/orderCount/unitsPerTxn for multi-channel seed", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+    const ts = Date.now() - 86400000;
+
+    await seedOrderWithItem(t, customerId, mp, "Original", 4, 30000, 0, {
+      channel: "whatsapp",
+      completedAt: ts,
+    });
+    await seedOrderWithItem(t, customerId, mp, "Original", 2, 30000, 0, {
+      channel: "shopee",
+      completedAt: ts,
+    });
+
+    const rows = await t.query(api.reports.unitEconomics.unitsPerTxnByChannel, {
+      fromTs: ts - 1000,
+      toTs: Date.now() + 1000,
+    });
+    const direct = rows.find((r: { channel: string }) => r.channel === "Direct");
+    const shopee = rows.find((r: { channel: string }) => r.channel === "Shopee");
+    expect(direct!.units).toBe(4);
+    expect(direct!.orderCount).toBe(1);
+    expect(direct!.unitsPerTxn).toBe(4);
+    expect(shopee!.units).toBe(2);
+    expect(shopee!.unitsPerTxn).toBe(2);
+  });
+});
+
+describe("unitEconomics.aovByChannel", () => {
+  test("reports per-channel AOV for multi-channel seed", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+    const ts = Date.now() - 86400000;
+
+    // Direct: 100k gross total
+    await seedOrderWithItem(t, customerId, mp, "Original", 4, 25000, 0, {
+      channel: "whatsapp",
+      completedAt: ts,
+    });
+    // Shopee: 60k gross total
+    await seedOrderWithItem(t, customerId, mp, "Original", 2, 30000, 0, {
+      channel: "shopee",
+      completedAt: ts,
+    });
+
+    const rows = await t.query(api.reports.unitEconomics.aovByChannel, {
+      fromTs: ts - 1000,
+      toTs: Date.now() + 1000,
+    });
+    const direct = rows.find((r: { channel: string }) => r.channel === "Direct");
+    const shopee = rows.find((r: { channel: string }) => r.channel === "Shopee");
+    expect(direct!.grossAov).toBe(100000);
+    expect(shopee!.grossAov).toBe(60000);
+  });
+});
+
+describe("unitEconomics.skuChannelMatrix", () => {
+  test("two products × two channels — verifies cell values", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const customerId = await seedCustomer(t);
+    const aId = await seedMenuProduct(t, "ProductA", bigBallId);
+    const bId = await seedMenuProduct(t, "ProductB", bigBallId);
+    const ts = Date.now() - 86400000;
+
+    await seedOrderWithItem(t, customerId, aId, "ProductA", 3, 10000, 0, {
+      channel: "whatsapp",
+      completedAt: ts,
+    });
+    await seedOrderWithItem(t, customerId, bId, "ProductB", 2, 20000, 0, {
+      channel: "shopee",
+      completedAt: ts,
+    });
+    await seedOrderWithItem(t, customerId, aId, "ProductA", 1, 10000, 0, {
+      channel: "shopee",
+      completedAt: ts,
+    });
+
+    const res = await t.query(api.reports.unitEconomics.skuChannelMatrix, {
+      fromTs: ts - 1000,
+      toTs: Date.now() + 1000,
+    });
+    const productA = res.matrix.find((r: { product: string }) => r.product === "ProductA");
+    expect(productA).toBeDefined();
+    const aShopee = productA!.channels.find(
+      (c: { channel: string }) => c.channel === "Shopee",
+    );
+    // A's shopee revenue = 1*10k = 10k; shopee total = 40k+10k = 50k → 20%
+    expect(aShopee!.revenue).toBe(10000);
+    expect(aShopee!.pctOfChannel).toBeCloseTo(20, 1);
+  });
+});
+
+describe("unitEconomics.volumeByType granularity=week", () => {
+  test("weekly buckets aggregate daily counts", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+
+    // 3 orders spread across one WIB week → 7 units total.
+    const monday = new Date("2026-01-05T02:00:00Z").getTime();
+    await seedOrderWithItem(t, customerId, mp, "Original", 2, 10000, 0, {
+      completedAt: monday,
+    });
+    await seedOrderWithItem(t, customerId, mp, "Original", 3, 10000, 0, {
+      completedAt: monday + 2 * 86400000,
+    });
+    await seedOrderWithItem(t, customerId, mp, "Original", 2, 10000, 0, {
+      completedAt: monday + 4 * 86400000,
+    });
+
+    const res = await t.query(api.reports.unitEconomics.volumeByType, {
+      fromTs: monday - 86400000,
+      toTs: monday + 7 * 86400000,
+      granularity: "week",
+    });
+    const series = res.series.find((s: { code: string }) => s.code === "BIG_BALL");
+    expect(series).toBeDefined();
+    const total = series!.values.reduce((a: number, b: number) => a + b, 0);
+    expect(total).toBe(7);
+  });
+});
+
+describe("unitEconomics WR-06 legacy completedAt fallback", () => {
+  test("orderDate-only orders appear; completedAt-outside orders do not leak", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+    const now = Date.now();
+    const inWindow = now - 2 * 86400000;
+    const outsideWindow = now - 30 * 86400000;
+
+    // Case 1: completedAt in window — must appear
+    await seedOrderWithItem(t, customerId, mp, "Original", 1, 30000, 0, {
+      completedAt: inWindow,
+    });
+
+    // Case 2: NO completedAt, orderDate in window — must appear (legacy branch)
+    const legacyId = await t.run(async (ctx) =>
+      ctx.db.insert("orders", {
+        orderNumber: `legacy-${inWindow}`,
+        customerId,
+        customerName: "Test Customer",
+        status: "Complete" as const,
+        paymentStatus: "Paid" as const,
+        orderDate: inWindow,
+        totalAmount: 30000,
+        totalCost: 0,
+        totalMargin: 30000,
+        finalTotal: 30000,
+        deliveryType: "Pickup",
+        createdBy: "test",
+        itemCount: 1,
+        channel: "whatsapp",
+      }),
+    );
+    await t.run(async (ctx) =>
+      ctx.db.insert("orderItems", {
+        orderId: legacyId,
+        productName: "Original",
+        quantity: 1,
+        unitPrice: 30000,
+        unitCost: 0,
+        discountAmount: 0,
+        lineTotal: 30000,
+        lineCost: 0,
+        lineMargin: 30000,
+        menuProductId: mp,
+      }),
+    );
+
+    // Case 3: completedAt OUTSIDE window, orderDate INSIDE window — must NOT appear.
+    // This is the WR-06 asymmetry guard.
+    await seedOrderWithItem(t, customerId, mp, "Original", 99, 30000, 0, {
+      completedAt: outsideWindow,
+      orderDate: inWindow,
+    });
+
+    const res = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    // Expect 1 + 1 = 2 units (Cases 1 and 2). Case 3's 99 units must be excluded.
+    expect(res.current.units).toBe(2);
+    expect(res.current.orderCount).toBe(2);
   });
 });

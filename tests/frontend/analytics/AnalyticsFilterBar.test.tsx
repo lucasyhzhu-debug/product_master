@@ -1,6 +1,14 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useSearchParams } from "react-router-dom";
+
+// AnalyticsFilterBar now reads menuProducts.queries.list via useQuery (I1).
+// Mock convex/react.useQuery to return a fixed empty list so the component can
+// render outside a ConvexProvider. Other convex/react exports aren't used here.
+vi.mock("convex/react", () => ({
+  useQuery: () => [],
+}));
+
 import { AnalyticsFilterProvider } from "@/contexts/AnalyticsFilterContext";
 import { AnalyticsFilterBar } from "@/components/analytics/AnalyticsFilterBar";
 
