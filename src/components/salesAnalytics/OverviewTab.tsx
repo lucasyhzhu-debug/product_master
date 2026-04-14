@@ -168,11 +168,12 @@ export function OverviewTab() {
 
       {/* BigSeller COGS Caveat */}
       {bigSellerStats?.allCostFeeZero && bigSellerStats.totalOrders > 0 && (
-        <div className="flex items-center gap-2 text-xs text-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] border border-[var(--color-status-warning)]/30 rounded-md px-3 py-2.5">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+        <div className="flex items-start gap-2 text-xs text-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] border border-[var(--color-status-warning)]/30 rounded-md px-3 py-2.5">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           <span>
-            BigSeller profit margins not available &mdash; COGS not configured in BigSeller.
-            Shopee and Tokopedia revenue shown as gross only.
+            Shopee and TikTok margins unavailable &mdash; BigSeller has no per-SKU COGS configured.
+            Enter COGS per SKU in the BigSeller dashboard, or map each SKU to a Frollie product in
+            the Synced Orders table so BOM-based COGS can be computed here.
           </span>
         </div>
       )}

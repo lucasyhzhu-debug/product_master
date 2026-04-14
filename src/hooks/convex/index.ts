@@ -216,6 +216,7 @@ export {
   // Product mapping hooks
   useCountMappingImpact,
   useUpdateProductMapping,
+  useSetMenuProductForSku,
   // Chart / analytics hooks
   useRevenueTimeSeries,
   useRevenueByOutlet,

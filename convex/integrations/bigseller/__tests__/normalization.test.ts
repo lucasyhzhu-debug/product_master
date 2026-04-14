@@ -354,3 +354,68 @@ describe("Normalization cases", () => {
     expect(result.orderAmount).toBe(285000);
   });
 });
+
+// ============================================
+// BUYER-SHIPPING: Shopee buyerShippingFee <- buyerPaidShippingFee
+// Phase 54 research listed this mapping (line 351 of 54-RESEARCH.md) but
+// execution missed adding the field to BigSellerOrderRow and the Shopee
+// branch. See docs/BIGSELLER_PROFIT_API.md field-availability matrix line
+// 1456 (MISSING on shopee endpoint) and line 1472 (equivalent =
+// buyerPaidShippingFee). HAR-verified Shopee orders show buyerPaidShippingFee
+// with values like 8900 / 15000 IDR.
+// ============================================
+describe("BUYER-SHIPPING: Shopee buyerShippingFee normalization", () => {
+  it("Shopee: populates buyerShippingFee from buyerPaidShippingFee when buyerShippingFee is undefined", () => {
+    const order = makeOrder({
+      buyerShippingFee: undefined as unknown as number,
+      buyerPaidShippingFee: 8900,
+    });
+    const result = normalizePlatformFees(order, "shopee");
+    expect(result.buyerShippingFee).toBe(8900);
+  });
+
+  it("Shopee: populates buyerShippingFee from buyerPaidShippingFee when existing is 0 (common endpoint artifact)", () => {
+    const order = makeOrder({
+      buyerShippingFee: 0,
+      buyerPaidShippingFee: 15000,
+    });
+    const result = normalizePlatformFees(order, "shopee");
+    expect(result.buyerShippingFee).toBe(15000);
+  });
+
+  it("Shopee: normalizes negative buyerPaidShippingFee to positive via Math.abs (defensive)", () => {
+    const order = makeOrder({
+      buyerShippingFee: undefined as unknown as number,
+      buyerPaidShippingFee: -8900,
+    });
+    const result = normalizePlatformFees(order, "shopee");
+    expect(result.buyerShippingFee).toBe(8900);
+  });
+
+  it("Shopee: leaves buyerShippingFee at 0 when neither field is populated", () => {
+    const order = makeOrder({
+      buyerShippingFee: undefined as unknown as number,
+    });
+    const result = normalizePlatformFees(order, "shopee");
+    expect(result.buyerShippingFee).toBe(0);
+  });
+
+  it("Shopee: does not overwrite existing non-zero buyerShippingFee (idempotent)", () => {
+    const order = makeOrder({
+      buyerShippingFee: 12000,
+      buyerPaidShippingFee: 8900,
+    });
+    const result = normalizePlatformFees(order, "shopee");
+    expect(result.buyerShippingFee).toBe(12000);
+  });
+
+  it("TikTok: buyerShippingFee mapping stays driven by customerPaidShippingFeeAmount (not buyerPaidShippingFee)", () => {
+    const order = makeOrder({
+      buyerShippingFee: undefined as unknown as number,
+      customerPaidShippingFeeAmount: 6500,
+      buyerPaidShippingFee: 99999, // should be ignored on tiktok
+    });
+    const result = normalizePlatformFees(order, "tiktok");
+    expect(result.buyerShippingFee).toBe(6500);
+  });
+});
