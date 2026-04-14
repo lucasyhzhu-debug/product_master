@@ -32,6 +32,8 @@ import {
   mapOrderToRevenue,
   mapOrderToStorage,
   normalizePlatformFees,
+  buildPriceOracle,
+  prorateItems,
   type BigSellerOrderRow,
 } from "./helpers";
 
@@ -571,6 +573,58 @@ export const fetchOrders = internalAction({
       startDate: args.startDate,
       endDate: args.endDate,
     });
+
+    // ── Phase 79: Build price oracle + mapping lookups ONCE per sync run ──
+    // The oracle sources per-SKU median prices from historical single-SKU
+    // bigsellerOrders. The mapping tables resolve SKU → menuProduct for
+    // item naming + auto-match attribution.
+    //
+    // Both are consumed in the per-platform loop below by `prorateItems`
+    // and the `saveRevenueItems` emit branch (Shopee/TikTok only).
+    //
+    // DA-11 deferral: BigSeller pageList does NOT expose buyerName/buyerPhone/
+    // buyerAddress. Only financial buyer* fields (buyerShippingFee,
+    // buyerTotalAmount) are returned. Per D-07, customer data capture is
+    // deferred entirely this phase.
+    // See: .planning/phases/79-shopee-item-level-revenue/79-RESEARCH.md
+    //      §Critical finding (BigSeller buyer-field availability).
+    const singleSkuOrders: Array<{
+      orderAmount?: number;
+      saleAmount: number;
+      skuVoList: Array<{ sku: string; skuNum: number }>;
+    }> = await ctx.runQuery(
+      internal.bigsellerOrders.queries.getSingleSkuOrdersForOracle,
+      {}
+    );
+    const priceOracle = buildPriceOracle(singleSkuOrders);
+
+    const allMappings: Array<{
+      externalProductCode: string;
+      source: string;
+      menuProductId: string | null;
+      menuProductName: string | null;
+      menuProductPrice: number | null;
+    }> = await ctx.runQuery(
+      internal.integrations.bigseller.queries.getShopeeAndTikTokMappingsWithProducts,
+      {}
+    );
+    const mappingBySku = new Map<
+      string,
+      { menuProductId?: string; menuProductPrice?: number }
+    >();
+    const menuProductById = new Map<string, { name: string; price: number }>();
+    for (const m of allMappings) {
+      mappingBySku.set(m.externalProductCode, {
+        menuProductId: m.menuProductId ?? undefined,
+        menuProductPrice: m.menuProductPrice ?? undefined,
+      });
+      if (m.menuProductId && m.menuProductName !== null && m.menuProductPrice !== null) {
+        menuProductById.set(m.menuProductId, {
+          name: m.menuProductName,
+          price: m.menuProductPrice,
+        });
+      }
+    }
 
     // Group shop IDs by platform for platform-specific API calls.
     // The common pageList.json returns 0 for Shopee commission/shipping/other fees.
