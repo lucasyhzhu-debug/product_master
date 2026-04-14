@@ -1,12 +1,10 @@
 /**
- * Phase 79 Wave 0 — Plan 01 Task 2
+ * Phase 79 Wave 0 — Plan 01 Task 2 (updated in Plan 07 Task 2 to match
+ * the hooks barrel surface that Wave 3 actually ships).
  *
- * Failing component tests for BigSellerSyncPanel's new admin actions.
- *
- * Wave 3 (Plan 07 Task 2) will add two buttons ("Backfill historical items",
- * "Re-check empty rows") wired to useBackfillBigsellerItems /
- * useRescanEmptyRows hooks. Until then these tests fail red because the
- * strings don't exist in the component.
+ * Verifies the two new admin action buttons ("Backfill historical items",
+ * "Re-check empty rows") are rendered and wired to the useBackfill /
+ * useRescan hooks.
  *
  * Anchor: DA-10 (backfill) + DA-13 (re-check).
  */
@@ -14,21 +12,27 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BigSellerSyncPanel } from "../BigSellerSyncPanel";
 
-// Mock Convex hooks — these are what Plan 07 Task 2 will add/use.
+// Mock Convex hooks — match the real import path used by the component.
 const backfillMock = vi.fn();
 const rescanMock = vi.fn();
+const startSyncMock = vi.fn();
 
-vi.mock("../../../hooks/convex/useBigSellerSync", () => ({
-  useBigSellerSync: () => ({
-    triggerSync: vi.fn(),
-    syncState: { stage: "idle" },
-    isRunning: false,
+vi.mock("@/hooks/convex", () => ({
+  useBigSellerSyncState: () => ({ data: { stage: "idle" }, isLoading: false }),
+  useBigSellerOrderStats: () => ({
+    data: { totalOrders: 0, ordersByPlatform: {}, totalRevenue: 0, dateRange: null, allCostFeeZero: false },
+    isLoading: false,
   }),
-  // Hooks that Plan 07 Task 2 will add — red until wired.
+  useStartBigSellerSync: () => startSyncMock,
   useBackfillBigsellerItems: () => backfillMock,
   useRescanEmptyRows: () => rescanMock,
+}));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: { _id: "user1", name: "Admin", role: "admin", token: "admin-token" },
+  }),
 }));
 
 vi.mock("sonner", () => ({
@@ -36,14 +40,24 @@ vi.mock("sonner", () => ({
     loading: vi.fn(() => "toast-id"),
     success: vi.fn(),
     error: vi.fn(),
+    info: vi.fn(),
     dismiss: vi.fn(),
   },
 }));
+
+// Stub actionToast (uses react-dom portals).
+vi.mock("@/lib/actionToast", () => ({
+  actionToast: vi.fn(),
+}));
+
+// Import AFTER mocks.
+import { BigSellerSyncPanel } from "../BigSellerSyncPanel";
 
 describe("BigSellerSyncPanel — Phase 79 Plan 07 T2", () => {
   beforeEach(() => {
     backfillMock.mockReset();
     rescanMock.mockReset();
+    startSyncMock.mockReset();
   });
 
   it("renders the 'Backfill historical items' button", () => {
@@ -58,12 +72,22 @@ describe("BigSellerSyncPanel — Phase 79 Plan 07 T2", () => {
 
   it("calls useBackfillBigsellerItems when 'Backfill historical items' is clicked", async () => {
     const user = userEvent.setup();
-    backfillMock.mockResolvedValue({ created: 10, skipped: 0 });
+    backfillMock.mockResolvedValue({
+      created: 10,
+      skipped: 0,
+      processedOrders: 5,
+      hasMore: false,
+    });
 
     render(<BigSellerSyncPanel />);
-    await user.click(screen.getByRole("button", { name: /Backfill historical items/i }));
+    await user.click(
+      screen.getByRole("button", { name: /Backfill historical items/i }),
+    );
 
     expect(backfillMock).toHaveBeenCalledTimes(1);
+    expect(backfillMock).toHaveBeenCalledWith(
+      expect.objectContaining({ token: "admin-token", limit: 500 }),
+    );
   });
 
   it("disables the backfill button while the mutation is in flight", async () => {

@@ -211,6 +211,41 @@ export const diagnoseSkuState = internalQuery({
 });
 
 /**
+ * Phase 79 Plan 07 (DA-13): List bigsellerOrders that have an empty
+ * `skuVoList` (BigSeller did not return SKU breakdown). Used by the
+ * `rescanEmptyRows` action to compute a date span for re-sync.
+ *
+ * Internal-only — no auth gate (only callable from action context).
+ */
+export const listEmptyRows = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("bigsellerOrders").collect();
+    return all
+      .filter((o) => !Array.isArray(o.skuVoList) || o.skuVoList.length === 0)
+      .map((o) => ({
+        platformOrderId: o.platformOrderId,
+        orderTimeMs: o.orderTimeMs,
+        platform: o.platform,
+        allSkuNum: o.allSkuNum,
+      }));
+  },
+});
+
+/**
+ * Phase 79 Plan 07: Auth gate wrapper for action callers. Actions cannot
+ * touch ctx.db directly, so they call this internalQuery to validate the
+ * session token belongs to an admin. Throws on unauthorized.
+ */
+export const requireAdminByToken = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    return { ok: true };
+  },
+});
+
+/**
  * Get unmapped SKU codes for reconciliation UI.
  * Cross-references bigsellerOrders.skuVoList with externalProductMappings.
  */

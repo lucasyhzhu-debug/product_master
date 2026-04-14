@@ -34,6 +34,12 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const PAGE_SIZE = 20;
 
+// Phase 79 Plan 07 (D-14, D-15): window during which a Shopee/TikTok order
+// with an empty skuVoList still shows the friendly "Pending SKU from Shopee"
+// label. After this window elapses, the cell reverts to bare "--" because
+// the daily 03:00 WIB re-sync should have populated SKUs by then.
+const PENDING_SKU_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
 // Platform badge config
 const PLATFORM_BADGES: Record<string, { label: string; className: string }> = {
   shopee: {
@@ -301,6 +307,10 @@ export function BigSellerOrdersTable() {
                   }));
                 const hasAllSkuNum =
                   (order.allSkuNum ?? 0) > 0 && resolved.length === 0;
+                // Phase 79 Plan 07 T3 (D-14, D-15): 24h window for "Pending
+                // SKU from Shopee" — after that, show bare "--".
+                const ageMs = Date.now() - (order.orderTimeMs ?? 0);
+                const withinPendingWindow = ageMs < PENDING_SKU_THRESHOLD_MS;
 
                 return (
                   <TableRow key={order._id}>
@@ -321,12 +331,12 @@ export function BigSellerOrdersTable() {
                     {/* BigSeller SKU column */}
                     <TableCell className="text-xs max-w-[160px] align-top">
                       {resolved.length === 0 ? (
-                        hasAllSkuNum ? (
+                        hasAllSkuNum && withinPendingWindow ? (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="cursor-help italic text-muted-foreground">
-                                  Pending SKU
+                                  Pending SKU from Shopee
                                 </span>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -334,8 +344,9 @@ export function BigSellerOrdersTable() {
                                   BigSeller reports {order.allSkuNum} unit
                                   {order.allSkuNum === 1 ? "" : "s"} on this
                                   order but has not yet returned the SKU
-                                  breakdown. A later re-sync should populate
-                                  this.
+                                  breakdown. The daily 03:00 WIB re-sync
+                                  should populate this within 24h of order
+                                  time.
                                 </p>
                               </TooltipContent>
                             </Tooltip>
