@@ -983,7 +983,14 @@ export const getSyncHealthAlert = query({
  */
 export const getChannelSellThrough = query({
   args: {
-    channel: v.union(v.literal("k3mart"), v.literal("gobiz"), v.literal("internal")),
+    channel: v.union(
+      v.literal("k3mart"),
+      v.literal("gobiz"),
+      v.literal("internal"),
+      // Phase 79 DA-07: Shopee/TikTok now have per-item data via externalRevenueItems.
+      v.literal("shopee"),
+      v.literal("tiktok"),
+    ),
     outletId: v.optional(v.id("externalOutlets")),
   },
   handler: async (ctx, args) => {
@@ -1128,6 +1135,47 @@ export const getChannelSellThrough = query({
           entry.transactionCount += 1;
         }
       }
+    } else if (args.channel === "shopee" || args.channel === "tiktok") {
+      // Phase 79 DA-07: Shopee/TikTok now have per-item data via externalRevenueItems.
+      // Per-product volume = Σ item.quantity (NOT revenue / avgPrice). D-04 invariant:
+      // do NOT also add r.revenueGross to any qty counter — items carry the attribution.
+      const channel = args.channel;
+      const revenue = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", channel).gte("periodStart", thirtyDaysAgo)
+        )
+        .collect();
+
+      for (const r of revenue) {
+        const items = await ctx.db
+          .query("externalRevenueItems")
+          .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
+          .collect();
+
+        const txnDate = r.transactionDate ?? r.periodStart;
+
+        for (const item of items) {
+          const entry = getOrCreate(
+            item.productName,
+            item.productName,
+            item.linkedMenuProductId as string | undefined
+          );
+          if (isWeekend(txnDate)) {
+            entry.weekendSalesTotal += item.quantity;
+          } else {
+            entry.weekdaySalesTotal += item.quantity;
+          }
+
+          if (txnDate >= sevenDaysAgo) {
+            entry.last7dSales += item.quantity;
+          } else if (txnDate >= fourteenDaysAgo) {
+            entry.prev7dSales += item.quantity;
+          }
+
+          entry.transactionCount += 1;
+        }
+      }
     } else {
       // Internal: look up actual order items for product-level data
       const revenue = await ctx.db
@@ -1212,6 +1260,156 @@ export const getChannelSellThrough = query({
       },
       products,
     };
+  },
+});
+
+/**
+ * Phase 79 DA-07: lightweight per-product sell-through query that returns an
+ * array of rows (instead of the richer stock/target-annotated shape used by
+ * getChannelSellThrough). Used by analytics consumers and the Wave 0 invariant
+ * tests to verify:
+ *   - Shopee/TikTok per-product volume == Σ item.quantity (NOT revenue / avgPrice)
+ *   - D-04: parent.revenueGross is NOT double-counted alongside items.totalPrice
+ *
+ * Implementation mirrors the gobiz/internal branches in getChannelSellThrough
+ * but projects to a compact row shape. The full restock/target pipeline lives
+ * in getChannelSellThrough; this query is read-only analytics.
+ */
+export const sellThroughQuery = query({
+  args: {
+    channel: v.union(
+      v.literal("k3mart"),
+      v.literal("gobiz"),
+      v.literal("internal"),
+      v.literal("shopee"),
+      v.literal("tiktok"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+    type Row = {
+      productKey: string;
+      name: string;
+      menuProductId: string | undefined;
+      quantity: number;
+      weekdayQuantity: number;
+      weekendQuantity: number;
+      revenue: number;
+      transactionCount: number;
+    };
+    const rows = new Map<string, Row>();
+    function getOrCreate(key: string, name: string, menuProductId?: string): Row {
+      let r = rows.get(key);
+      if (!r) {
+        r = {
+          productKey: key,
+          name,
+          menuProductId,
+          quantity: 0,
+          weekdayQuantity: 0,
+          weekendQuantity: 0,
+          revenue: 0,
+          transactionCount: 0,
+        };
+        rows.set(key, r);
+      }
+      return r;
+    }
+
+    if (args.channel === "shopee" || args.channel === "tiktok" || args.channel === "gobiz") {
+      // Phase 79 DA-07 + D-04: per-product volume from externalRevenueItems ONLY.
+      // DO NOT add r.revenueGross to qty counters — items carry attribution.
+      const channel = args.channel;
+      const revenue = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", channel).gte("periodStart", thirtyDaysAgo)
+        )
+        .collect();
+
+      for (const r of revenue) {
+        const items = await ctx.db
+          .query("externalRevenueItems")
+          .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
+          .collect();
+
+        const txnDate = r.transactionDate ?? r.periodStart;
+        const weekend = isWeekend(txnDate);
+
+        for (const item of items) {
+          const entry = getOrCreate(
+            item.productName,
+            item.productName,
+            item.linkedMenuProductId as string | undefined,
+          );
+          entry.quantity += item.quantity;
+          if (weekend) entry.weekendQuantity += item.quantity;
+          else entry.weekdayQuantity += item.quantity;
+          entry.revenue += item.totalPrice;
+          entry.transactionCount += 1;
+        }
+      }
+    } else if (args.channel === "k3mart") {
+      const revenue = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", "k3mart").gte("periodStart", thirtyDaysAgo)
+        )
+        .collect();
+
+      for (const r of revenue) {
+        const key = r.externalProductCode ?? r.productName ?? "unknown";
+        const entry = getOrCreate(key, r.productName ?? key);
+        const qty = r.quantitySold ?? 0;
+        const txnDate = r.transactionDate ?? r.periodStart;
+        entry.quantity += qty;
+        if (isWeekend(txnDate)) entry.weekendQuantity += qty;
+        else entry.weekdayQuantity += qty;
+        entry.revenue += r.revenueGross ?? 0;
+        entry.transactionCount += r.transactionCount ?? 1;
+      }
+    } else {
+      // internal
+      const revenue = await ctx.db
+        .query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", "internal").gte("periodStart", thirtyDaysAgo)
+        )
+        .collect();
+
+      for (const r of revenue) {
+        const orderNumber = r.externalTransactionId;
+        if (!orderNumber) continue;
+        const txnDate = r.transactionDate ?? r.periodStart;
+        const weekend = isWeekend(txnDate);
+        const order = await ctx.db
+          .query("orders")
+          .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+          .first();
+        if (!order) continue;
+        const items = await ctx.db
+          .query("orderItems")
+          .withIndex("by_order", (q) => q.eq("orderId", order._id))
+          .collect();
+        for (const item of items) {
+          if (item.isCancelled) continue;
+          const entry = getOrCreate(
+            item.productName,
+            item.productName,
+            item.menuProductId as string | undefined,
+          );
+          entry.quantity += item.quantity;
+          if (weekend) entry.weekendQuantity += item.quantity;
+          else entry.weekdayQuantity += item.quantity;
+          entry.revenue += (item.unitPrice ?? 0) * item.quantity;
+          entry.transactionCount += 1;
+        }
+      }
+    }
+
+    return Array.from(rows.values()).sort((a, b) => b.quantity - a.quantity);
   },
 });
 

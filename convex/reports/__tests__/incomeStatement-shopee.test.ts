@@ -26,14 +26,31 @@ async function seedMenuProduct(
 ): Promise<Id<"menuProducts">> {
   return await t.run(async (ctx) =>
     ctx.db.insert("menuProducts", {
+      code: name.toUpperCase().replace(/[^A-Z0-9]/g, "_"),
       name,
-      price,
+      grams: 80,
+      defaultPrice: price,
       isActive: true,
-      displayOrder: 0,
-      createdAt: Date.now(),
-      ...(bomCostOverride !== undefined ? { cogsOverride: bomCostOverride } : {}),
+      // buildProductCOGSMap uses cogsOverrideIdr (override) or BOM component sum.
+      // Plain unitCost is NOT read by the resolver.
+      unitCost: 0,
+      cachedProductionSummary: "",
+      ...(bomCostOverride !== undefined ? { cogsOverrideIdr: bomCostOverride } : {}),
     } as never),
   );
+}
+
+// Pull the Shopee channel's COGS total from the actual getIncomeStatement shape.
+// getIncomeStatement returns { current: { channels: [{ source, cogs: {...} }] } }.
+// Original Wave 0 assertions targeted idealised `cogsByChannel.shopee`, which
+// has never existed on the return type — plan 06 is forbidden from editing
+// incomeStatement.ts, so the assertion is rewritten to match production shape.
+function shopeeCogsTotal(stmt: any): number {
+  const channels = stmt?.current?.channels ?? [];
+  const shopee = Array.isArray(channels)
+    ? channels.find((c: any) => c.source === "shopee")
+    : null;
+  return shopee?.cogs?.total ?? 0;
 }
 
 async function seedRevenueWithItems(
@@ -79,73 +96,64 @@ describe("incomeStatement — Shopee per-product COGS (DA-09)", () => {
     // menuProduct with a COGS override of 10_000 IDR/unit (Phase 70 feature).
     const mp = await seedMenuProduct(t, "Jumbo", 50000, 10000);
 
-    const ts = Date.UTC(2026, 2, 4, 5, 0, 0);
+    const ts = Date.now() - 5 * 24 * 60 * 60 * 1000;
     await seedRevenueWithItems(t, "shopee", ts, [
       { sku: "JUMBO", qty: 5, unitPrice: 50000, menuProductId: mp, productName: "Jumbo" },
     ]);
 
-    // @ts-expect-error — Wave 1 will ensure shopee COGS is resolved from items.
     const stmt = await t.query(api.reports.incomeStatement.getIncomeStatement, {
       periodStart: ts - 1000,
       periodEnd: ts + 1000,
     });
 
-    // Pick the shopee COGS breakdown. Shape TBD in Wave 1 — we target a field
-    // whose value must equal 5 × 10_000 = 50_000 if the branch is wired correctly.
-    const shopeeCogs =
-      (stmt?.current?.cogsByChannel?.shopee as number | undefined) ??
-      (stmt?.current?.cogsByPlatform?.shopee as number | undefined) ??
-      0;
-    expect(shopeeCogs).toBe(50000);
+    // Shopee channel's COGS total = 5 × 10_000 = 50_000 via cogsOverrideIdr.
+    expect(shopeeCogsTotal(stmt)).toBe(50000);
   });
 
-  it("uses menuProduct.cogsOverride when present (Phase 70 feature)", async () => {
+  it("uses menuProduct.cogsOverrideIdr when present (Phase 70 feature)", async () => {
     const t = convexTest(schema);
     // Override is 15_000 even though BOM might say something else.
     const mp = await seedMenuProduct(t, "Original", 40000, 15000);
 
-    const ts = Date.UTC(2026, 2, 4, 5, 0, 0);
+    const ts = Date.now() - 5 * 24 * 60 * 60 * 1000;
     await seedRevenueWithItems(t, "shopee", ts, [
       { sku: "ORI", qty: 2, unitPrice: 40000, menuProductId: mp, productName: "Original" },
     ]);
 
-    // @ts-expect-error — Wave 1 will ensure shopee COGS path is active.
     const stmt = await t.query(api.reports.incomeStatement.getIncomeStatement, {
       periodStart: ts - 1000,
       periodEnd: ts + 1000,
     });
-    const shopeeCogs =
-      (stmt?.current?.cogsByChannel?.shopee as number | undefined) ??
-      (stmt?.current?.cogsByPlatform?.shopee as number | undefined) ??
-      0;
-    expect(shopeeCogs).toBe(30000); // 2 × 15_000
+    expect(shopeeCogsTotal(stmt)).toBe(30000); // 2 × 15_000
   });
 
-  it("unmapped items contribute to unmappedProductsMap with zero COGS", async () => {
+  it("unmapped items contribute to gapAnalysis.unmappedProducts with zero COGS", async () => {
     const t = convexTest(schema);
 
-    const ts = Date.UTC(2026, 2, 4, 5, 0, 0);
+    const ts = Date.now() - 5 * 24 * 60 * 60 * 1000;
     await seedRevenueWithItems(t, "shopee", ts, [
       // No menuProductId — unmapped.
       { sku: "UNKNOWN", qty: 3, unitPrice: 25000, productName: "Mystery" },
     ]);
 
-    // @ts-expect-error — Wave 1 will ensure unmapped items flow through.
     const stmt = await t.query(api.reports.incomeStatement.getIncomeStatement, {
       periodStart: ts - 1000,
       periodEnd: ts + 1000,
     });
 
-    const unmapped = stmt?.current?.unmappedProducts ?? [];
-    const mystery = Array.isArray(unmapped) ? unmapped.find((u: any) => u.name === "Mystery") : null;
+    // Actual shape: current.gapAnalysis.unmappedProducts: Array<{name, count, revenue}>.
+    // Unmapped items carry no cogs field (they never resolve to a BOM entry); the
+    // invariant being proven is that they surface in the gap report AND do not
+    // contribute any cogs to the shopee channel total.
+    const unmapped = stmt?.current?.gapAnalysis?.unmappedProducts ?? [];
+    const mystery = Array.isArray(unmapped)
+      ? unmapped.find((u: any) => u.name === "Mystery")
+      : null;
     expect(mystery).toBeDefined();
-    expect(mystery!.cogs ?? 0).toBe(0);
+    expect(mystery!.count).toBe(3);
+    expect(mystery!.revenue).toBe(75000);
 
     // Shopee channel COGS for mapped products does NOT include the unmapped line.
-    const shopeeCogs =
-      (stmt?.current?.cogsByChannel?.shopee as number | undefined) ??
-      (stmt?.current?.cogsByPlatform?.shopee as number | undefined) ??
-      0;
-    expect(shopeeCogs).toBe(0);
+    expect(shopeeCogsTotal(stmt)).toBe(0);
   });
 });
