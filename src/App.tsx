@@ -455,6 +455,15 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  {/* Phase 73 D-21: /asset-register/new alias for CapEx round-trip */}
+                  <Route
+                    path="asset-register/new"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessAssets">
+                        <AssetRegister />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* Staff Performance Report (manager + admin) */}
                   <Route

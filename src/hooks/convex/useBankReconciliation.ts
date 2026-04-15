@@ -39,6 +39,15 @@ export function useBankStatement(id: Id<"bankStatements"> | null) {
   );
 }
 
+/** Single bank line by id (Phase 73 Plan 04 — AssetRegister CapEx round-trip). */
+export function useBankLine(lineId: Id<"bankStatementLines"> | null | undefined) {
+  const { user } = useAuth();
+  return useQuery(
+    api.bankStatements.queries.getLine,
+    lineId && user?.token ? { token: user.token, lineId } : "skip",
+  );
+}
+
 /** All lines for a statement, optionally filtered by status. */
 export function useBankStatementLines(
   statementId: Id<"bankStatements"> | null,

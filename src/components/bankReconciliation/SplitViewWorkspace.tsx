@@ -44,6 +44,13 @@ import { BankLinesPane } from "./BankLinesPane";
 import { CandidatesPane } from "./CandidatesPane";
 import { ReconciliationActionBar } from "./ReconciliationActionBar";
 import type { MatchedType } from "./CandidateRow";
+// Phase 73 Plan 04 dialogs
+import { BatchConfirmDialog } from "./BatchConfirmDialog";
+import { LearnFromOverrideDialog } from "./LearnFromOverrideDialog";
+import { InlineExpenseDialog } from "./InlineExpenseDialog";
+import { InlineRevenueDialog } from "./InlineRevenueDialog";
+import { InlineReimbursementDialog } from "./InlineReimbursementDialog";
+import { SearchAllRecordsDialog } from "./SearchAllRecordsDialog";
 
 interface Props {
   statementId: Id<"bankStatements"> | null;
@@ -157,42 +164,39 @@ export function SplitViewWorkspace({ statementId, onPickStatement }: Props) {
   function handleRouteToAssetRegister() {
     if (!selectedLine) return;
     toast.info("Opening Asset Register…");
-    navigate(`/assets?fromBankLine=${selectedLine._id}`);
+    navigate(`/asset-register/new?fromBankLine=${selectedLine._id}`);
   }
 
-  // Plan 04 stub callbacks — these flip the dialog-open state hooks.
+  // Plan 04 dialog open handlers.
   function handleBatchConfirm() {
     setBatchConfirmOpen(true);
-    // Plan 04 renders <BatchConfirmDialog open={batchConfirmOpen} ... />
-    toast.info("Batch confirm dialog wired in Plan 04");
   }
   function handleSearchAll() {
     setSearchAllOpen(true);
-    toast.info("Search all records dialog wired in Plan 04");
   }
   function handleInlineCreateExpense() {
     setInlineExpenseOpen(true);
-    toast.info("Inline expense dialog wired in Plan 04");
   }
   function handleInlineCreateRevenue() {
     setInlineRevenueOpen(true);
-    toast.info("Inline revenue dialog wired in Plan 04");
   }
   function handleInlineCreateReimbursement() {
     setInlineReimbursementOpen(true);
-    toast.info("Inline reimbursement dialog wired in Plan 04");
   }
 
-  // Reference Plan 04 hooks so TypeScript doesn't strip them and so they are
-  // discoverable by Plan 04. Setter is the contract surface; reader is unused
-  // until Plan 04 wires the dialog.
-  void overrideDialogState;
-  void setOverrideDialogState;
-  void batchConfirmOpen;
-  void inlineExpenseOpen;
-  void inlineRevenueOpen;
-  void inlineReimbursementOpen;
-  void searchAllOpen;
+  // Batch-confirm preview needs the list of exact-tier lines eligible for
+  // posting. We compute it from the full lines query client-side.
+  const exactTierLines = useMemo(
+    () =>
+      (lines ?? []).filter(
+        (l) =>
+          (l.status === "auto_matched" || l.status === "suggested") &&
+          l.confidence === "exact" &&
+          !!l.jeDebitAccountId &&
+          !!l.jeCreditAccountId,
+      ),
+    [lines],
+  );
 
   // --- Render --------------------------------------------------------------
   if (!statementId) {
@@ -264,6 +268,49 @@ export function SplitViewWorkspace({ statementId, onPickStatement }: Props) {
           onInlineCreateReimbursement={handleInlineCreateReimbursement}
         />
       </div>
+
+      {/* Phase 73 Plan 04 dialogs */}
+      <BatchConfirmDialog
+        open={batchConfirmOpen}
+        onOpenChange={setBatchConfirmOpen}
+        statementId={statementId}
+        exactTierLines={exactTierLines}
+      />
+
+      <LearnFromOverrideDialog
+        open={overrideDialogState !== null}
+        onOpenChange={(v) => !v && setOverrideDialogState(null)}
+        line={overrideDialogState?.line ?? null}
+        overrideAccountId={overrideDialogState?.overrideAccountId ?? null}
+      />
+
+      <InlineExpenseDialog
+        open={inlineExpenseOpen}
+        onOpenChange={setInlineExpenseOpen}
+        line={selectedLine}
+      />
+
+      <InlineRevenueDialog
+        open={inlineRevenueOpen}
+        onOpenChange={setInlineRevenueOpen}
+        line={selectedLine}
+      />
+
+      <InlineReimbursementDialog
+        open={inlineReimbursementOpen}
+        onOpenChange={setInlineReimbursementOpen}
+        line={selectedLine}
+      />
+
+      <SearchAllRecordsDialog
+        open={searchAllOpen}
+        onOpenChange={setSearchAllOpen}
+        line={selectedLine}
+        onCandidateSelected={(type, id) => {
+          setSelectedCandidate({ type, id });
+          setSearchAllOpen(false);
+        }}
+      />
 
       <AlertDialog open={showUnmatchConfirm} onOpenChange={setShowUnmatchConfirm}>
         <AlertDialogContent>

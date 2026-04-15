@@ -16,3 +16,26 @@ commit 0bff182d and same failures reproduced). Out of scope for this plan.
 
 None of these files were modified by Phase 73 Plan 01 or Plan 02. They
 should be addressed by the owning phase/subsystem.
+
+## Pre-existing `npm run build` failures (discovered during Plan 04)
+
+`npm run build` fails with ~35 TypeScript errors in analytics files:
+
+- `src/components/analytics/*.tsx` — `Parameter 'x' implicitly has an 'any' type` (TS7006)
+- `src/hooks/convex/useAnalytics.ts` — `Property 'unitEconomics' does not exist on type ...` (TS2339)
+
+**Root cause:** These files are **untracked** in the base commit `7270b827` (73-03
+tip). They are leftover artifacts from a previous worktree's Phase 80 execution
+that weren't cleaned up. The supporting backend files (`convex/reports/unitEconomics.ts`,
+`productionUnitHelpers.ts`, `channelTaxonomy.ts`, `revenueHelpers.ts`) are also
+untracked.
+
+**Out of scope for Plan 04** — per SCOPE BOUNDARY rule, Plan 04 only auto-fixes
+issues DIRECTLY caused by its own changes. `npm run type-check` (tsc --noEmit)
+passes cleanly against all Plan 04 work. `npm run build` (tsc -b + vite build)
+fails because of the pre-existing stray files. Verified by stashing Plan 04
+changes and re-running build — same errors reproduce at the base commit.
+
+**Resolution:** The orchestrator should clean the worktree (remove untracked
+analytics files) OR regenerate Convex `_generated/api.d.ts` from a clean
+checkout before merging Phase 73.
