@@ -5,6 +5,7 @@ import {
   useAnalyticsFilters,
   DISPLAY_CHANNELS,
   type DisplayChannel,
+  type AnalyticsFilters,
 } from "@/contexts/AnalyticsFilterContext";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -15,6 +16,21 @@ import { Label } from "@/components/ui/label";
 function presetRange(days: number) {
   const now = Date.now();
   return { fromTs: now - days * 86400000, toTs: now };
+}
+
+/**
+ * Checks whether the current filter range matches a preset (7d / 30d / 90d).
+ * Uses a 60s tolerance because `toTs` is captured as `Date.now()` at click time
+ * but the render may happen seconds later, so exact equality would never hold.
+ */
+function isPresetActive(days: number, filters: AnalyticsFilters): boolean {
+  const now = Date.now();
+  const expectedFrom = now - days * 86400000;
+  const TOLERANCE = 60_000;
+  return (
+    Math.abs(filters.fromTs - expectedFrom) < TOLERANCE &&
+    Math.abs(filters.toTs - now) < TOLERANCE
+  );
 }
 
 // C3: WIB-aware formatter that round-trips with fromDateInput (both UTC+7 aligned).
@@ -91,51 +107,73 @@ export function AnalyticsFilterBar() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-semibold text-muted-foreground">Filters:</span>
-      <Button size="sm" variant="outline" onClick={() => setFilters(presetRange(7))}>
-        7d
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => setFilters(presetRange(30))}>
-        30d
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => setFilters(presetRange(90))}>
-        90d
-      </Button>
+      {(() => {
+        const active7 = isPresetActive(7, filters);
+        const active30 = isPresetActive(30, filters);
+        const active90 = isPresetActive(90, filters);
+        const activeCustom = !active7 && !active30 && !active90;
+        return (
+          <>
+            <Button
+              size="sm"
+              variant={active7 ? "default" : "outline"}
+              onClick={() => setFilters(presetRange(7))}
+            >
+              7d
+            </Button>
+            <Button
+              size="sm"
+              variant={active30 ? "default" : "outline"}
+              onClick={() => setFilters(presetRange(30))}
+            >
+              30d
+            </Button>
+            <Button
+              size="sm"
+              variant={active90 ? "default" : "outline"}
+              onClick={() => setFilters(presetRange(90))}
+            >
+              90d
+            </Button>
 
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button size="sm" variant="outline">
-            Custom range
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-64 space-y-2">
-          <div className="space-y-1">
-            <Label htmlFor="filter-from" className="text-xs">
-              From
-            </Label>
-            <Input
-              id="filter-from"
-              type="date"
-              value={toDateInput(filters.fromTs)}
-              onChange={(e) =>
-                setFilters({ fromTs: fromDateInput(e.target.value, false) })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="filter-to" className="text-xs">
-              To
-            </Label>
-            <Input
-              id="filter-to"
-              type="date"
-              value={toDateInput(filters.toTs)}
-              onChange={(e) =>
-                setFilters({ toTs: fromDateInput(e.target.value, true) })
-              }
-            />
-          </div>
-        </PopoverContent>
-      </Popover>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant={activeCustom ? "default" : "outline"}>
+                  Custom range
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 space-y-2">
+                <div className="space-y-1">
+                  <Label htmlFor="filter-from" className="text-xs">
+                    From
+                  </Label>
+                  <Input
+                    id="filter-from"
+                    type="date"
+                    value={toDateInput(filters.fromTs)}
+                    onChange={(e) =>
+                      setFilters({ fromTs: fromDateInput(e.target.value, false) })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="filter-to" className="text-xs">
+                    To
+                  </Label>
+                  <Input
+                    id="filter-to"
+                    type="date"
+                    value={toDateInput(filters.toTs)}
+                    onChange={(e) =>
+                      setFilters({ toTs: fromDateInput(e.target.value, true) })
+                    }
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+          </>
+        );
+      })()}
 
       <Popover>
         <PopoverTrigger asChild>
