@@ -426,11 +426,11 @@ function App() {
                     }
                   />
 
-                  {/* Bank Reconciliation — /bank-reconciliation (admin-only, Phase 72) */}
+                  {/* Bank Reconciliation — /bank-reconciliation (manager + admin, Phase 73 D-23) */}
                   <Route
                     path="bank-reconciliation"
                     element={
-                      <ProtectedRoute allowedRoles={["admin"]}>
+                      <ProtectedRoute allowedRoles={["manager", "admin"]}>
                         <BankReconciliationPage />
                       </ProtectedRoute>
                     }
