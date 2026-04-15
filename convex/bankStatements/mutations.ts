@@ -33,6 +33,7 @@ import { mutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { getWibComponents } from "../lib/periodRange";
+import { externalSource } from "../schema";
 import {
   buildCreditLine,
   buildDebitLine,
@@ -44,6 +45,7 @@ import {
   computeConfidence,
   findLinkedRecord,
 } from "./matchEngine";
+import { getNextNumber } from "../lib/counter";
 
 const MAX_LINES = 5000;
 
@@ -548,5 +550,255 @@ export const batchConfirmExactTier = mutation({
     }
 
     return { posted: postable.length, skipped, totalAmountIdr };
+  },
+});
+
+// ===========================================================================
+// Phase 73 Plan 02 — Inline record-creation wrappers + markAssetLinked
+// Permission: manager + admin (D-23). Standard submission paths only —
+// D-17 invariant: inline-created expenses MUST have status="submitted",
+// never "approved". Expense still needs manager/admin approval via the
+// existing ExpenseApproval queue.
+// ===========================================================================
+
+/**
+ * Inline-create expense from an unmatched bank line (D-17).
+ *
+ * CRITICAL: status is hard-coded to "submitted", NEVER "approved". The reviewer
+ * matching the bank statement is often not the person who incurred the expense,
+ * so the expense must still route through the standard approval queue — even
+ * though the money has already left the bank.
+ *
+ * On save: patches the bank line with matchedType="expense", matchedId=new,
+ * matchMethod="linked_to_record", status="suggested" (NOT confirmed — waits
+ * for approval AND explicit Confirm per D-17), createdExpenseId=new.
+ */
+export const inlineCreateExpense = mutation({
+  args: {
+    token: v.string(),
+    bankLineId: v.id("bankStatementLines"),
+    submittedBy: v.id("users"),
+    receiptStorageId: v.id("_storage"),
+    accountId: v.id("accounts"),
+    expenseDate: v.number(),
+    amountIdr: v.number(),
+    vendorName: v.string(),
+    description: v.string(),
+    paymentMethod: v.union(
+      v.literal("employee_paid"),
+      v.literal("company_paid"),
+      v.literal("payment_request"),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    const line = await ctx.db.get(args.bankLineId);
+    if (!line) throw new ConvexError("Bank line not found");
+    if (line.status === "confirmed") {
+      throw new ConvexError("Line already confirmed — unmatch first");
+    }
+
+    const expenseNumber = await getNextNumber(ctx, "EXP");
+    const now = Date.now();
+
+    const expenseId = await ctx.db.insert("expenses", {
+      expenseNumber,
+      submittedBy: args.submittedBy,
+      amount: args.amountIdr,
+      accountId: args.accountId,
+      expenseDate: args.expenseDate,
+      description: args.description,
+      vendorName: args.vendorName,
+      paymentMethod: args.paymentMethod,
+      receiptFileId: args.receiptStorageId,
+      // D-17 INVARIANT: status MUST be "submitted" — NEVER "approved".
+      status: "submitted",
+      lateSubmission: false,
+      submittedAt: now,
+      createdAt: now,
+    });
+
+    await ctx.db.patch(args.bankLineId, {
+      matchedType: "expense",
+      matchedId: expenseId,
+      matchMethod: "linked_to_record",
+      status: "suggested",
+      isAutoMatched: false,
+      createdExpenseId: expenseId,
+    });
+
+    return { expenseId, lineId: args.bankLineId };
+  },
+});
+
+/**
+ * Inline-create externalRevenue from an unmatched credit bank line (D-18, C2).
+ *
+ * C2: `source` uses the strict externalSource 8-literal union, NOT v.string().
+ * A free-form string would fail the Convex validator at runtime since
+ * externalRevenue.source is strictly typed in schema.
+ *
+ * Client pre-selects via mapChannelToSource(line.linkedChannel) when possible;
+ * if null, user picks from the 8 literals in the dialog.
+ */
+export const inlineCreateRevenue = mutation({
+  args: {
+    token: v.string(),
+    bankLineId: v.id("bankStatementLines"),
+    transactionDate: v.number(),
+    revenueGross: v.number(),
+    source: externalSource, // C2 — strict union, NOT v.string()
+    periodStart: v.optional(v.number()),
+    periodEnd: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    const line = await ctx.db.get(args.bankLineId);
+    if (!line) throw new ConvexError("Bank line not found");
+    if (line.status === "confirmed") {
+      throw new ConvexError("Line already confirmed — unmatch first");
+    }
+
+    const revenueId = await ctx.db.insert("externalRevenue", {
+      source: args.source,
+      transactionDate: args.transactionDate,
+      revenueGross: args.revenueGross,
+      periodStart: args.periodStart ?? args.transactionDate,
+      periodEnd: args.periodEnd ?? args.transactionDate,
+      dataOrigin: "manual_entry",
+      confidence: "manual",
+    });
+
+    await ctx.db.patch(args.bankLineId, {
+      matchedType: "revenue",
+      matchedId: revenueId,
+      matchMethod: "linked_to_record",
+      status: "suggested",
+      isAutoMatched: false,
+      createdRevenueId: revenueId,
+    });
+
+    return { revenueId, lineId: args.bankLineId };
+  },
+});
+
+/**
+ * Inline-create reimbursement batch from an unmatched debit bank line (D-19).
+ *
+ * Creates a pending batch tied to a single employee with the supplied
+ * expenseIds (must be awaiting_payment, belong to employee, not already
+ * in another pending batch). Patches bank line with createdReimbursementId.
+ */
+export const inlineCreateReimbursement = mutation({
+  args: {
+    token: v.string(),
+    bankLineId: v.id("bankStatementLines"),
+    employeeUserId: v.id("users"),
+    expenseIds: v.array(v.id("expenses")),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    const line = await ctx.db.get(args.bankLineId);
+    if (!line) throw new ConvexError("Bank line not found");
+    if (line.status === "confirmed") {
+      throw new ConvexError("Line already confirmed — unmatch first");
+    }
+
+    if (args.expenseIds.length === 0) {
+      throw new ConvexError("At least one expense is required");
+    }
+
+    const uniqueExpenseIds = [...new Set(args.expenseIds)];
+    const employee = await ctx.db.get(args.employeeUserId);
+    if (!employee) throw new ConvexError("Employee not found");
+
+    let totalAmount = 0;
+    for (const expenseId of uniqueExpenseIds) {
+      const expense = await ctx.db.get(expenseId);
+      if (!expense) throw new ConvexError("Expense not found");
+      if (expense.status !== "awaiting_payment") {
+        throw new ConvexError(
+          `Expense ${expense.expenseNumber} is not awaiting payment`,
+        );
+      }
+      if (expense.submittedBy !== args.employeeUserId) {
+        throw new ConvexError(
+          `Expense ${expense.expenseNumber} does not belong to this employee`,
+        );
+      }
+      totalAmount += expense.amount;
+    }
+
+    const batchNumber = await getNextNumber(ctx, "RMB");
+    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    const batchId = await ctx.db.insert("reimbursementBatches", {
+      batchNumber,
+      employeeUserId: args.employeeUserId,
+      totalAmount,
+      status: "pending",
+      createdBy: user._id,
+      createdAt: Date.now(),
+    });
+    for (const expenseId of uniqueExpenseIds) {
+      await ctx.db.insert("reimbursementBatchItems", { batchId, expenseId });
+    }
+
+    await ctx.db.patch(args.bankLineId, {
+      matchedType: "reimbursement",
+      matchedId: batchId,
+      matchMethod: "linked_to_record",
+      status: "suggested",
+      isAutoMatched: false,
+      createdReimbursementId: batchId,
+    });
+
+    return { batchId, batchNumber, totalAmount, lineId: args.bankLineId };
+  },
+});
+
+/**
+ * Mark a bank line as linked to an expense created via the Asset Register
+ * CapEx flow (D-21, I1 idempotency).
+ *
+ * I1 guards:
+ *  (a) `line.createdExpenseId === args.expenseId` → no-op (handles retries).
+ *  (b) `line.createdExpenseId !== undefined && !== args.expenseId` → throws
+ *      `Line already linked to different expense` (prevents cross-linking).
+ *  (c) Otherwise patches line with matchedType="expense", matchedId=expenseId,
+ *      matchMethod="linked_to_record", status="suggested",
+ *      createdExpenseId=expenseId.
+ */
+export const markAssetLinked = mutation({
+  args: {
+    token: v.string(),
+    bankLineId: v.id("bankStatementLines"),
+    expenseId: v.id("expenses"),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const line = await ctx.db.get(args.bankLineId);
+    if (!line) throw new ConvexError("Bank line not found");
+
+    // I1 idempotency/conflict checks.
+    if (line.createdExpenseId === args.expenseId) {
+      return null; // No-op — already linked to this exact expense.
+    }
+    if (line.createdExpenseId && line.createdExpenseId !== args.expenseId) {
+      throw new ConvexError("Line already linked to different expense");
+    }
+
+    await ctx.db.patch(args.bankLineId, {
+      matchedType: "expense",
+      matchedId: args.expenseId,
+      matchMethod: "linked_to_record",
+      status: "suggested",
+      isAutoMatched: false,
+      createdExpenseId: args.expenseId,
+    });
+    return null;
   },
 });
