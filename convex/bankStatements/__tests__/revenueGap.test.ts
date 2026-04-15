@@ -135,11 +135,15 @@ describe("revenueGapByPeriod", () => {
       periodEnd,
     });
 
-    // rows: gopay (mapped), grabfood (mapped), (unallocated) — ovo is in unmappedRows
-    const rowChannels = result.rows.map((r: { channel: string }) => r.channel);
-    expect(rowChannels).toContain("gopay");
-    expect(rowChannels).toContain("grabfood");
-    expect(rowChannels).toContain("(unallocated)");
+    // rows: gopay (mapped), grabfood (mapped), unallocated — ovo is in unmappedRows
+    const mappedChannels = result.rows.flatMap(
+      (r: { channels: string[] }) => r.channels,
+    );
+    expect(mappedChannels).toContain("gopay");
+    expect(mappedChannels).toContain("grabfood");
+    expect(
+      result.rows.find((r: { unallocated?: boolean }) => r.unallocated === true),
+    ).toBeDefined();
   });
 
   it("bankCr sums credit lines only in period window per channel", async () => {
@@ -152,10 +156,14 @@ describe("revenueGapByPeriod", () => {
       periodStart,
       periodEnd,
     });
-    const gopay = result.rows.find((r: { channel: string }) => r.channel === "gopay");
+    const gopay = result.rows.find((r: { channels: string[] }) =>
+      r.channels.includes("gopay"),
+    );
     expect(gopay).toBeDefined();
     expect(gopay.bankCr).toBe(1_000_000); // Debit line for gopay must be ignored
-    const grabfood = result.rows.find((r: { channel: string }) => r.channel === "grabfood");
+    const grabfood = result.rows.find((r: { channels: string[] }) =>
+      r.channels.includes("grabfood"),
+    );
     expect(grabfood.bankCr).toBe(500_000);
   });
 
@@ -170,13 +178,17 @@ describe("revenueGapByPeriod", () => {
       periodEnd,
     });
 
-    const gopay = result.rows.find((r: { channel: string }) => r.channel === "gopay");
+    const gopay = result.rows.find((r: { channels: string[] }) =>
+      r.channels.includes("gopay"),
+    );
     expect(gopay.source).toBe("gobiz");
     expect(gopay.extRev).toBe(900_000);
     expect(gopay.diff).toBe(100_000);
     expect(gopay.diffPct).toBeCloseTo(100_000 / 900_000 * 100, 2);
 
-    const grabfood = result.rows.find((r: { channel: string }) => r.channel === "grabfood");
+    const grabfood = result.rows.find((r: { channels: string[] }) =>
+      r.channels.includes("grabfood"),
+    );
     expect(grabfood.source).toBe("grabfood");
     expect(grabfood.extRev).toBe(500_000);
     expect(grabfood.diff).toBe(0);
@@ -194,7 +206,7 @@ describe("revenueGapByPeriod", () => {
     });
 
     const unallocated = result.rows.find(
-      (r: { channel: string }) => r.channel === "(unallocated)",
+      (r: { unallocated?: boolean }) => r.unallocated === true,
     );
     expect(unallocated.extRev).toBeNull();
     expect(unallocated.diffPct).toBeNull();
@@ -235,11 +247,13 @@ describe("revenueGapByPeriod", () => {
       periodEnd,
     });
     const unallocated = result.rows.find(
-      (r: { channel: string }) => r.channel === "(unallocated)",
+      (r: { unallocated?: boolean }) => r.unallocated === true,
     );
     expect(unallocated).toBeDefined();
     expect(unallocated.extRev).toBeNull();
-    expect(result.unmappedRows.find((r: { channel: string }) => r.channel === "(unallocated)")).toBeUndefined();
+    expect(
+      result.unmappedRows.find((r: { channel: string }) => r.channel === "(unallocated)"),
+    ).toBeUndefined();
   });
 
   it("kitchen role rejected", async () => {
