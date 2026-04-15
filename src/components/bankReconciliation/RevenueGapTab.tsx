@@ -52,7 +52,7 @@ import { getPlatformPalette } from "@/lib/platformColors";
 import {
   getCurrentWibMonth,
   strictWibDateStrToUtcMs,
-  wibMidnightToUtc,
+  wibMonthBoundsMs,
 } from "@/lib/dateUtils";
 import { useRevenueGap } from "@/hooks/convex/useBankReconciliation";
 
@@ -76,13 +76,6 @@ type Period = {
   custom: boolean;
 };
 
-function wibMonthBounds(year: number, month: number): { start: number; end: number } {
-  // WIB midnight on 1st of month → end is WIB midnight on 1st of next month minus 1ms.
-  const start = wibMidnightToUtc(year, month, 1);
-  const end = wibMidnightToUtc(year, month + 1, 1) - 1;
-  return { start, end };
-}
-
 function monthKey(year: number, month: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
@@ -93,7 +86,7 @@ function monthLabel(year: number, month: number): string {
 
 function currentWibMonthPeriod(): Period {
   const { year, month } = getCurrentWibMonth();
-  const { start, end } = wibMonthBounds(year, month);
+  const { start, end } = wibMonthBoundsMs(year, month);
   return {
     start,
     end,
@@ -109,7 +102,7 @@ function periodFromKey(key: string): Period | null {
   const year = parseInt(m[1], 10);
   const month = parseInt(m[2], 10) - 1;
   if (month < 0 || month > 11) return null;
-  const { start, end } = wibMonthBounds(year, month);
+  const { start, end } = wibMonthBoundsMs(year, month);
   return {
     start,
     end,
@@ -126,7 +119,7 @@ function last12Months(): Period[] {
     const total = year * 12 + month - i;
     const y = Math.floor(total / 12);
     const m = ((total % 12) + 12) % 12;
-    const { start, end } = wibMonthBounds(y, m);
+    const { start, end } = wibMonthBoundsMs(y, m);
     out.push({
       start,
       end,

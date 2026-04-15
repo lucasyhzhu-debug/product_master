@@ -2,12 +2,8 @@
  * InlineRevenueDialog — Phase 73 D-18.
  *
  * Inline-creates an externalRevenue row from an unmatched CREDIT bank line.
- *
- * C2 critical: `source` is rendered as a <Select> over the 8-literal
- * `EXTERNAL_SOURCES` union. Pre-selects via `mapChannelToSource(linkedChannel)`
- * if that returns a mapped source; otherwise the reviewer must pick manually.
- * Submitting with empty source surfaces a client-side validation error —
- * never sends an invalid source to the strict Convex validator.
+ * `source` is a <Select> over the 8-literal `EXTERNAL_SOURCES` union, pre-
+ * selected via mapChannelToSource when possible.
  */
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -41,36 +37,13 @@ import { useInlineCreateRevenue } from "@/hooks/convex/useBankReconciliation";
 import {
   utcToWibDateStr,
   wibDateStrToUtcMs,
-  wibMidnightToUtc,
-  WIB_OFFSET_MS,
+  wibMonthBoundsFromUtcMs,
 } from "@/lib/dateUtils";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   line: Doc<"bankStatementLines"> | null;
-}
-
-/**
- * I8 — WIB-aware period bounds. Derives the month from the transaction's
- * WIB date (not the browser's local date), then returns WIB midnight on the
- * 1st and the WIB last-day of that month as YYYY-MM-DD strings.
- *
- * Was: `new Date(y, m, 1)` used browser local TZ, producing the wrong month
- * for users in TZs other than WIB (e.g., a 2026-04-01 01:00 WIB transaction
- * viewed from UTC becomes 2026-03-31, bucketing it into March).
- */
-function wibMonthBoundsFromUtcMs(utcMs: number): { start: string; end: string } {
-  const wib = new Date(utcMs + WIB_OFFSET_MS);
-  const year = wib.getUTCFullYear();
-  const month = wib.getUTCMonth();
-  const startMs = wibMidnightToUtc(year, month, 1);
-  // Last-day: WIB midnight of the next month minus 1ms, still within the month.
-  const endMs = wibMidnightToUtc(year, month + 1, 1) - 1;
-  return {
-    start: utcToWibDateStr(startMs),
-    end: utcToWibDateStr(endMs),
-  };
 }
 
 export function InlineRevenueDialog({ open, onOpenChange, line }: Props) {
@@ -88,11 +61,11 @@ export function InlineRevenueDialog({ open, onOpenChange, line }: Props) {
     const txDateStr = utcToWibDateStr(line.date);
     setTransactionDate(txDateStr);
     setRevenueGross(String(line.amountIdr));
-    // I8 — derive month bounds from the WIB date, not browser-local.
+    // Derive month bounds from the WIB date (not browser-local).
     const { start, end } = wibMonthBoundsFromUtcMs(line.date);
-    setPeriodStart(start);
-    setPeriodEnd(end);
-    // C2: pre-select via mapChannelToSource when possible.
+    setPeriodStart(utcToWibDateStr(start));
+    setPeriodEnd(utcToWibDateStr(end));
+    // Pre-select source via channel mapping when possible.
     const mapped = mapChannelToSource(line.linkedChannel);
     setSource(mapped ?? "");
   }, [open, line]);
@@ -144,7 +117,7 @@ export function InlineRevenueDialog({ open, onOpenChange, line }: Props) {
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Source picker (C2 — 8 literals) */}
+          {/* Source picker — 8-literal union */}
           <div className="space-y-1.5">
             <Label htmlFor="revenue-source">Source *</Label>
             <Select

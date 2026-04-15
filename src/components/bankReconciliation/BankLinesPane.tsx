@@ -20,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBankStatementLines } from "@/hooks/convex/useBankReconciliation";
-import { wibMidnightToUtc } from "@/lib/dateUtils";
+import { wibMonthBoundsFromKey } from "@/lib/dateUtils";
 import { BankLineRow } from "./BankLineRow";
 
 interface Props {
@@ -30,24 +30,6 @@ interface Props {
 }
 
 type DirFilter = "all" | "debit" | "credit";
-
-/**
- * Parse a YYYY-MM period key into WIB month bounds (UTC epoch ms).
- * I7 — uses the shared `wibMidnightToUtc` helper so this function produces
- * the exact same epoch values as `RevenueGapTab.wibMonthBounds`. Both call
- * sites must agree on WIB offset semantics for drill-down to line up.
- */
-function periodBoundsFromKey(key: string | null): { start: number; end: number } | null {
-  if (!key) return null;
-  const m = key.match(/^(\d{4})-(\d{2})$/);
-  if (!m) return null;
-  const year = parseInt(m[1], 10);
-  const month = parseInt(m[2], 10) - 1;
-  if (month < 0 || month > 11) return null;
-  const start = wibMidnightToUtc(year, month, 1);
-  const end = wibMidnightToUtc(year, month + 1, 1) - 1;
-  return { start, end };
-}
 
 /**
  * Parse explicit periodStart/periodEnd query params (UTC epoch ms strings)
@@ -87,7 +69,7 @@ export function BankLinesPane({ statementId, selectedLineId, onSelect }: Props) 
   const periodBounds = useMemo(
     () =>
       periodBoundsFromExplicit(periodStartRaw, periodEndRaw) ??
-      periodBoundsFromKey(periodKey),
+      (periodKey ? wibMonthBoundsFromKey(periodKey) : null),
     [periodStartRaw, periodEndRaw, periodKey],
   );
 
