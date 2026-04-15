@@ -215,9 +215,13 @@ export function RevenueGapTab() {
 
   function handleRowClick(channel: string) {
     // Drill-down (D-15): hand off to Review tab with channelFilter + period.
-    // Custom ranges can't pack into a single YYYY-MM, so fall back to omitting
-    // the period param (Review tab will simply ignore channelFilter date).
-    const periodParam = period.custom ? "" : `&period=${period.key}`;
+    // WR-06 fix: preserve custom date range by passing periodStart/periodEnd
+    // (UTC epoch ms) when the period can't pack into a YYYY-MM key. BankLinesPane
+    // honors either periodStart+periodEnd (preferred when present) or period
+    // (YYYY-MM fallback for preset months).
+    const periodParam = period.custom
+      ? `&periodStart=${period.start}&periodEnd=${period.end}`
+      : `&period=${period.key}`;
     const channelParam = encodeURIComponent(channel);
     navigate(
       `/bank-reconciliation?tab=review&channelFilter=${channelParam}${periodParam}`,

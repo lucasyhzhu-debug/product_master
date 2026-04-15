@@ -43,6 +43,29 @@ function periodBoundsFromKey(key: string | null): { start: number; end: number }
   return { start, end };
 }
 
+/**
+ * Parse explicit periodStart/periodEnd query params (UTC epoch ms strings)
+ * into numeric bounds. WR-06: preferred over `period` when present because
+ * it carries custom-range drill-downs that don't fit a YYYY-MM key.
+ */
+function periodBoundsFromExplicit(
+  start: string | null,
+  end: string | null,
+): { start: number; end: number } | null {
+  if (!start || !end) return null;
+  const s = Number(start);
+  const e = Number(end);
+  if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
+  if (e < s) return null;
+  return { start: s, end: e };
+}
+
+/** Format a UTC epoch ms as WIB YYYY-MM-DD for chip display. */
+function formatWibDateShort(utcMs: number): string {
+  const d = new Date(utcMs + 7 * 60 * 60 * 1000);
+  return d.toISOString().split("T")[0];
+}
+
 export function BankLinesPane({ statementId, selectedLineId, onSelect }: Props) {
   const [dirFilter, setDirFilter] = useState<DirFilter>("all");
   const [showConfirmed, setShowConfirmed] = useState(false);
@@ -50,7 +73,17 @@ export function BankLinesPane({ statementId, selectedLineId, onSelect }: Props) 
   const [searchParams, setSearchParams] = useSearchParams();
   const channelFilter = searchParams.get("channelFilter");
   const periodKey = searchParams.get("period");
-  const periodBounds = useMemo(() => periodBoundsFromKey(periodKey), [periodKey]);
+  const periodStartRaw = searchParams.get("periodStart");
+  const periodEndRaw = searchParams.get("periodEnd");
+  // WR-06: explicit periodStart/periodEnd (custom ranges) take precedence
+  // over the YYYY-MM `period` key so RevenueGapTab custom drill-downs
+  // preserve their scope.
+  const periodBounds = useMemo(
+    () =>
+      periodBoundsFromExplicit(periodStartRaw, periodEndRaw) ??
+      periodBoundsFromKey(periodKey),
+    [periodStartRaw, periodEndRaw, periodKey],
+  );
 
   // listLines is a single-shot query over all lines for this statement;
   // confirmed-line hiding + direction filter are client-side. Avoids the
@@ -87,14 +120,24 @@ export function BankLinesPane({ statementId, selectedLineId, onSelect }: Props) 
         const np = new URLSearchParams(prev);
         np.delete("channelFilter");
         np.delete("period");
+        np.delete("periodStart");
+        np.delete("periodEnd");
         return np;
       },
       { replace: true },
     );
   }
 
-  // Periodkey is only displayed when we actually parsed bounds from it.
-  const periodLabel = periodBounds && periodKey ? periodKey : null;
+  // Period chip label: show YYYY-MM when preset; show "YYYY-MM-DD → YYYY-MM-DD"
+  // when custom (WR-06 — surface the range so the reviewer isn't surprised).
+  let periodLabel: string | null = null;
+  if (periodBounds) {
+    if (periodStartRaw && periodEndRaw) {
+      periodLabel = `${formatWibDateShort(periodBounds.start)} → ${formatWibDateShort(periodBounds.end)}`;
+    } else if (periodKey) {
+      periodLabel = periodKey;
+    }
+  }
 
   return (
     <section
