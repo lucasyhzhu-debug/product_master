@@ -80,6 +80,16 @@ export type NormalizedItem = {
   lineTotal: number;
   discountAmount?: number;
   isCancelled?: boolean;
+  /**
+   * Phase 80 UAT round-2: for externalRevenue rows ingested WITHOUT
+   * item-level breakdown (e.g. K3Mart stock_delta / api_revenue rolled
+   * up by product), and WITHOUT a parent `linkedMenuProductId`, we
+   * cannot resolve BOM units. Instead we carry `quantitySold` directly
+   * here so unitsSold totals are non-zero. When BOM resolution IS
+   * possible (menuProductId set), this field is ignored — BOM path
+   * wins. Rendered as the "(Unlinked)" bucket in SKU Pareto.
+   */
+  bomUnresolvedUnits?: number;
 };
 
 /**
@@ -166,13 +176,18 @@ async function loadExternalStream(
         kept++;
       }
     } else {
-      // No item-level detail — synthesize a single item from the parent row
-      // so revenue totals are not lost. Unit counting requires item-level
-      // linkedMenuProductId, so these contribute 0 units (Unlinked bucket).
+      // No item-level detail — synthesize a single item from the parent row.
+      // This is the K3Mart path (api_revenue rows product-rolled-up without
+      // child externalRevenueItems) and any other source without item-level
+      // breakdown. UAT round-2 fix: ensure units are counted even when the
+      // parent has no linkedMenuProductId by carrying quantitySold through
+      // `bomUnresolvedUnits`. If linkedMenuProductId IS set, BOM resolution
+      // wins at the call site (itemUnits helper).
       const gross = r.revenueGross ?? r.revenueNet ?? 0;
-      if (gross > 0) {
-        // Respect product filter: if parent has linkedMenuProductId match, include; else if filter active, skip.
+      const qty = r.quantitySold ?? 0;
+      if (gross > 0 || qty > 0) {
         const parentLinked = r.linkedMenuProductId;
+        // Respect product filter: if parent has linkedMenuProductId match, include; else if filter active, skip.
         if (
           !productSet ||
           (parentLinked && productSet.has(parentLinked as string))
@@ -181,9 +196,13 @@ async function loadExternalStream(
             orderId: syntheticKey,
             menuProductId: parentLinked ?? undefined,
             productName: r.productName ?? `(${r.source})`,
-            quantity: r.quantitySold ?? 1,
+            quantity: qty > 0 ? qty : 1,
             lineTotal: gross,
             discountAmount: 0,
+            // When BOM cannot be resolved (no parent link), fall back to
+            // raw quantitySold as the unit count. If parentLinked IS set,
+            // BOM wins and this field is ignored by itemUnits().
+            bomUnresolvedUnits: parentLinked ? undefined : qty,
           });
           kept++;
         }
@@ -342,6 +361,22 @@ async function loadFilteredData(
   return { orders, items, orderById, unitsPerProduct };
 }
 
+/**
+ * Resolve units for a normalized item with fallback for BOM-unresolved
+ * external rows (K3Mart, etc). If the item has a menuProductId, BOM wins.
+ * Otherwise fall back to `bomUnresolvedUnits` (set on parent-synthesized
+ * external rows that lack `linkedMenuProductId`).
+ */
+function itemUnits(
+  it: NormalizedItem,
+  unitsPerProduct: Map<Id<"menuProducts">, number>,
+): number {
+  if (it.menuProductId) {
+    return unitsForOrderItem(it, unitsPerProduct);
+  }
+  return it.bomUnresolvedUnits ?? 0;
+}
+
 function priorPeriod(args: FilterArgs): FilterArgs {
   const span = args.toTs - args.fromTs;
   return { ...args, fromTs: args.fromTs - span, toTs: args.fromTs };
@@ -369,7 +404,7 @@ function computeKpis(
     grossRevenue += itemGrossRevenue(it);
     netRevenue += itemNetRevenue(it);
     discount += itemDiscount(it);
-    units += unitsForOrderItem(it, unitsPerProduct);
+    units += itemUnits(it, unitsPerProduct);
   }
   // Order-equivalent count: native orders = 1, externalRevenue rows = transactionCount.
   let orderCount = 0;
@@ -466,7 +501,7 @@ export const byWeekday = query({
         const key = bucketKey(o.completedAt, "day");
         unitCountByDay.set(
           key,
-          (unitCountByDay.get(key) ?? 0) + unitsForOrderItem(it, unitsPerProduct),
+          (unitCountByDay.get(key) ?? 0) + itemUnits(it, unitsPerProduct),
         );
       }
       // Build a continuous date range from fromTs..toTs to include zero-days.
@@ -505,7 +540,7 @@ export const byWeekday = query({
       const o = orderById.get(it.orderId);
       if (!o) continue;
       const ts = o.completedAt;
-      unitCountByDow[jakartaMondayIndex(ts)] += unitsForOrderItem(it, unitsPerProduct);
+      unitCountByDow[jakartaMondayIndex(ts)] += itemUnits(it, unitsPerProduct);
     }
     return {
       labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -575,7 +610,7 @@ export const channelEconomics = query({
       const b = bucket(o.channel);
       b.gross += itemGrossRevenue(it);
       b.discount += itemDiscount(it);
-      b.units += unitsForOrderItem(it, unitsPerProduct);
+      b.units += itemUnits(it, unitsPerProduct);
     }
 
     const rows = Array.from(byChannel.entries()).map(([channel, b]) => {
@@ -651,7 +686,7 @@ export const unitsPerTxnByChannel = query({
       if (!o) continue;
       const ch = o.channel;
       if (!byChannel.has(ch)) byChannel.set(ch, { units: 0, orderCount: 0 });
-      byChannel.get(ch)!.units += unitsForOrderItem(it, unitsPerProduct);
+      byChannel.get(ch)!.units += itemUnits(it, unitsPerProduct);
     }
     return Array.from(byChannel.entries())
       .map(([channel, b]) => ({
@@ -897,7 +932,7 @@ export const channelMomentum = query({
       const ts = o.completedAt;
       const idx = Math.min(bucketCount - 1, Math.floor((ts - args.fromTs) / bucketSpan));
       b.revenue[idx] += itemNetRevenue(it);
-      b.units[idx] += unitsForOrderItem(it, unitsPerProduct);
+      b.units[idx] += itemUnits(it, unitsPerProduct);
     }
     for (const it of priorData.items) {
       const o = priorData.orderById.get(it.orderId);

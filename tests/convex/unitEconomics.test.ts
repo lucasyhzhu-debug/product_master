@@ -961,4 +961,100 @@ describe("unitEconomics.externalRevenue integration", () => {
     expect(kpi.current.netRevenue).toBe(75000);
     expect(kpi.current.units).toBe(0);
   });
+
+  test("K3Mart externalRevenue without child items: BOM-linked parent contributes BOM-resolved units", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId, 1);
+    const now = Date.now();
+    const ts = now - 86400000;
+
+    // K3Mart parent with linkedMenuProductId set, NO child externalRevenueItems.
+    await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenue", {
+        source: "k3mart" as const,
+        periodStart: ts,
+        periodEnd: ts,
+        transactionDate: ts,
+        transactionType: "sales" as const,
+        revenueGross: 250000,
+        revenueNet: 200000,
+        quantitySold: 5,
+        transactionCount: 1,
+        dataOrigin: "api_revenue" as const,
+        confidence: "exact" as const,
+        externalTransactionId: "k3-test-linked-1",
+        linkedMenuProductId: mp,
+        productName: "Original K3Mart",
+      }),
+    );
+
+    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    // BOM: 1 BIG_BALL per product × 5 = 5 units.
+    expect(kpi.current.units).toBeGreaterThanOrEqual(5);
+    expect(kpi.current.netRevenue).toBeGreaterThanOrEqual(200000);
+
+    const channels = await t.query(api.reports.unitEconomics.channelEconomics, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    const k3 = channels.find((r) => r.channel === "K3Mart");
+    expect(k3).toBeDefined();
+    expect(k3!.units).toBeGreaterThanOrEqual(5);
+    expect(k3!.gross).toBe(250000);
+  });
+
+  test("K3Mart externalRevenue without child items AND without linkedMenuProductId: quantitySold contributes to unitsSold (BOM-unresolved)", async () => {
+    const t = convexTest(schema, modules);
+    await seedBaseFixtures(t);
+    const now = Date.now();
+    const ts = now - 86400000;
+
+    // K3Mart parent with NO linkedMenuProductId, NO child externalRevenueItems.
+    // This is the classic K3Mart api_revenue roll-up case that previously
+    // contributed 0 units. UAT round-2 fix: count quantitySold directly.
+    await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenue", {
+        source: "k3mart" as const,
+        periodStart: ts,
+        periodEnd: ts,
+        transactionDate: ts,
+        transactionType: "sales" as const,
+        revenueGross: 100000,
+        revenueNet: 80000,
+        quantitySold: 7,
+        transactionCount: 1,
+        dataOrigin: "api_revenue" as const,
+        confidence: "exact" as const,
+        externalTransactionId: "k3-test-unlinked-1",
+        productName: "Frollie Original 80g K3Mart",
+      }),
+    );
+
+    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    // BOM-unresolved: quantitySold counts as units directly (7).
+    expect(kpi.current.units).toBe(7);
+    // Synthesized parent-fallback items carry revenueGross as lineTotal with
+    // discountAmount=0 (mirrors child-item convention where commission is
+    // not apportioned at item level). So net == gross at item level.
+    expect(kpi.current.netRevenue).toBe(100000);
+    expect(kpi.current.grossRevenue).toBe(100000);
+    expect(kpi.current.orderCount).toBe(1);
+
+    const channels = await t.query(api.reports.unitEconomics.channelEconomics, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    const k3 = channels.find((r) => r.channel === "K3Mart");
+    expect(k3).toBeDefined();
+    expect(k3!.units).toBe(7);
+    expect(k3!.gross).toBe(100000);
+    expect(k3!.orderCount).toBe(1);
+  });
 });
