@@ -33,6 +33,20 @@ function fromDateInput(value: string, endOfDay = false): number {
   return endOfDay ? base + 86400000 - 1 : base;
 }
 
+/** Human-readable short date ("Apr 15"). WIB-aligned. */
+function toShortLabel(ts: number): string {
+  const d = new Date(ts + 7 * 60 * 60 * 1000);
+  const month = d.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+  return `${month} ${d.getUTCDate()}`;
+}
+
+/** Truncate a list of names to 3 max + "+N more" overflow label. */
+function summarizeList(names: string[], allLabel: string): string {
+  if (names.length === 0) return allLabel;
+  if (names.length <= 3) return names.join(", ");
+  return `${names.slice(0, 3).join(", ")} +${names.length - 3} more`;
+}
+
 export function AnalyticsFilterBar() {
   const { filters, setFilters } = useAnalyticsFilters();
   // I1: populate product multi-select. `activeOnly: true` keeps the menu short.
@@ -52,8 +66,30 @@ export function AnalyticsFilterBar() {
     setFilters({ menuProductIds: Array.from(set) as Id<"menuProducts">[] });
   };
 
+  // Build readable summary of active filters (Issue 2).
+  const fromLabel = toShortLabel(filters.fromTs);
+  const toLabel = toShortLabel(filters.toTs);
+  const channelSummary = summarizeList(filters.channels, "All channels");
+  const selectedProductNames =
+    menuProducts === undefined
+      ? []
+      : (menuProducts as Array<{ _id: string; name: string }>)
+          .filter((p) =>
+            (filters.menuProductIds as string[]).includes(p._id as string),
+          )
+          .map((p) => p.name);
+  const productSummary = summarizeList(selectedProductNames, "All products");
+
   return (
-    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 shadow-sm">
+    <div className="sticky top-0 z-10 space-y-2 rounded-lg border bg-card p-3 shadow-sm">
+      <div className="text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Showing</span> {fromLabel} – {toLabel}
+        {" · "}
+        {channelSummary}
+        {" · "}
+        {productSummary}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-semibold text-muted-foreground">Filters:</span>
       <Button size="sm" variant="outline" onClick={() => setFilters(presetRange(7))}>
         7d
@@ -172,6 +208,7 @@ export function AnalyticsFilterBar() {
           )}
         </PopoverContent>
       </Popover>
+      </div>
     </div>
   );
 }
