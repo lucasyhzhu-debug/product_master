@@ -448,8 +448,9 @@ export const unmatch = mutation({
     });
 
     // Mark the line's reversal audit fields
+    const now = Date.now();
     await ctx.db.patch(args.lineId, {
-      reversedAt: Date.now(),
+      reversedAt: now,
       reversedBy: user._id,
       reversalJournalEntryId: reversalId,
     });
@@ -497,9 +498,10 @@ export const confirmLine = mutation({
       ],
     });
 
+    const now = Date.now();
     await ctx.db.patch(args.lineId, {
       status: "confirmed",
-      confirmedAt: Date.now(),
+      confirmedAt: now,
       confirmedBy: user._id,
       confirmedJournalEntryId: jeId,
     });
@@ -545,6 +547,10 @@ export const batchConfirmExactTier = mutation({
     );
     const skipped = exactCandidates.length - postable.length;
 
+    // C2 — capture once per mutation so every line in this batch gets the
+    // same confirmedAt timestamp. Makes the batch operation semantically
+    // atomic from an auditing standpoint and simplifies tests.
+    const now = Date.now();
     let totalAmountIdr = 0;
     for (const line of postable) {
       const jeId = await createJournalEntryWithLines(ctx, {
@@ -560,7 +566,7 @@ export const batchConfirmExactTier = mutation({
       });
       await ctx.db.patch(line._id, {
         status: "confirmed",
-        confirmedAt: Date.now(),
+        confirmedAt: now,
         confirmedBy: user._id,
         confirmedJournalEntryId: jeId,
       });
