@@ -365,7 +365,7 @@ export function useMarkAssetLinked() {
   const { user } = useAuth();
   return useCallback(
     async (args: {
-      lineId: Id<"bankStatementLines">;
+      bankLineId: Id<"bankStatementLines">;
       expenseId: Id<"expenses">;
     }) => {
       if (!user?.token) throw new Error("Not authenticated");
