@@ -46,6 +46,18 @@ export const getStatement = query({
   },
 });
 
+/** Single bank line by id (Phase 73 — used by AssetRegister CapEx round-trip). */
+export const getLine = query({
+  args: {
+    token: v.string(),
+    lineId: v.id("bankStatementLines"),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    return await ctx.db.get(args.lineId);
+  },
+});
+
 /**
  * Dedup probe — fire after the client computes the file hash, BEFORE showing
  * the review step. Lets the UI surface "already imported on ..." upfront

@@ -138,6 +138,8 @@ export function LearnFromOverrideDialog({
         jeCreditAccountId: jeCreditAccountId as Id<"accounts">,
         confidence,
         priority,
+        isCatchAll: false,
+        isActive: true,
       });
       toast.success("Rule saved — future lines will auto-classify");
       onSaved?.();

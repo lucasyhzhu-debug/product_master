@@ -11,7 +11,7 @@
  */
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import type { Doc } from "../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import {
   Dialog,
   DialogContent,
@@ -82,7 +82,7 @@ export function InlineExpenseDialog({ open, onOpenChange, line }: Props) {
       return;
     }
 
-    if (!user?._id) {
+    if (!user?.userId) {
       toast.error("Not authenticated");
       return;
     }
@@ -91,7 +91,7 @@ export function InlineExpenseDialog({ open, onOpenChange, line }: Props) {
     try {
       await submit({
         bankLineId: line!._id,
-        submittedBy: user._id,
+        submittedBy: user.userId as Id<"users">,
         // D-17 requires a receipt — form validate() enforces it in dialog mode.
         receiptStorageId: build.args.receiptFileId!,
         accountId: build.args.accountId,
