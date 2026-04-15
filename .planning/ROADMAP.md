@@ -180,7 +180,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 70: Data Accuracy Foundation** - Fix revenue recognition, add COGS override, extend employee profiles (completed 2026-04-10)
 - [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
 - [x] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07) (completed 2026-04-13)
-- [ ] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking
+- [x] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking (completed 2026-04-15)
 - [ ] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
@@ -257,7 +257,7 @@ Plans:
   1. User can view a split-screen interface showing unmatched bank lines on one side and candidate system records on the other
   2. User can manually match a bank line to a system record, or unmatch an auto-matched pair
   3. Each uploaded statement shows matched/unmatched/suggested counts with a reconciliation progress indicator
-**Plans:** 3/6 plans executed
+**Plans:** 6/6 plans complete
 Plans:
 - [ ] 73-PLAN-1.md — Schema + backend mutations/queries + Wave 0 scaffolds
 - [ ] 73-PLAN-2.md — Split-view workspace + tab shell + batch confirm modal
@@ -381,7 +381,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
-| 73. Bank Reconciliation UI & Workflow | v2.0 | 3/6 | In Progress|  |
+| 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
 | 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
