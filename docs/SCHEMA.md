@@ -1575,7 +1575,7 @@ Fixed 10 query sites that applied the upper period bound as a post-scan `.filter
 | `entryNumber` | `string` | Sequential JE number (JE-YYYYMM-NNN) |
 | `date` | `number` | Epoch ms of business date |
 | `description` | `string` | Entry description |
-| `sourceType` | `union` | `"expense_approval"` \| `"expense_void"` \| `"reimbursement"` \| `"reimbursement_void"` \| `"payroll"` \| `"payroll_void"` \| `"manual"` \| `"depreciation"` \| `"depreciation_void"` |
+| `sourceType` | `union` | `"expense_approval"` \| `"expense_void"` \| `"reimbursement"` \| `"reimbursement_void"` \| `"payroll"` \| `"payroll_void"` \| `"manual"` \| `"depreciation"` \| `"depreciation_void"` \| `"asset_acquisition"` \| `"asset_disposal"` \| `"bank_statement"` \| `"bank_statement_reversal"` (Phase 73 D-26) |
 | `sourceId` | `optional string` | Reference to source record |
 | `isReversed` | `boolean` | Whether entry has been reversed |
 | `reversedByEntryId` | `optional id("journalEntries")` | Reversal entry reference |
@@ -1718,6 +1718,30 @@ One row per transaction in the statement. Polymorphic `matchedType`+`matchedId` 
 | `flags` | `array<string>` | Rule-level flags (e.g., `"related_party"`, `"needs_review"`). |
 
 **Indexes:** `by_statement` (statementId), `by_statement_status` ([statementId, status]), `by_matched` ([matchedType, matchedId]), `by_date` (date).
+
+#### Phase 73 audit fields (D-25)
+
+All optional. Populated when a reviewer confirms, unmatches, or inline-creates a record from a bank line. Kept `optional` so existing P72 rows backfill for free.
+
+| Field | Type | Set when |
+|-------|------|----------|
+| `confirmedAt` | `optional number` | Reviewer clicked Confirm on this line. |
+| `confirmedBy` | `optional id("users")` | Reviewer clicked Confirm on this line. |
+| `confirmedJournalEntryId` | `optional id("journalEntries")` | JE posted by Confirm. |
+| `reversedAt` | `optional number` | Reviewer Unmatched a previously-confirmed line. |
+| `reversedBy` | `optional id("users")` | Same. |
+| `reversalJournalEntryId` | `optional id("journalEntries")` | Reversal JE posted on Unmatch of a confirmed line. |
+| `createdExpenseId` | `optional id("expenses")` | `inlineCreateExpense` or `markAssetLinked` (CapEx round-trip). |
+| `createdRevenueId` | `optional id("externalRevenue")` | `inlineCreateRevenue`. |
+| `createdReimbursementId` | `optional id("reimbursementBatches")` | `inlineCreateReimbursement`. |
+
+#### Phase 73 `sourceType` extension (D-26)
+
+`journalEntries.sourceType` gained `"bank_statement_reversal"` (12th union member). Used ONLY by the `unmatch` mutation to post the reversal JE via a direct `createJournalEntryWithLines` call.
+
+- `"bank_statement"` stays in `NON_REVERSIBLE_TYPES` in `convex/lib/journalEngine.ts` — generic void path still refuses to reverse a bank-statement JE from other flows.
+- `"bank_statement_reversal"` is NOT in `VALID_VOID_PAIRS` — the reversal is a fresh JE (new `entryNumber`), not routed through the void-pair mechanism.
+- Reversal JE preserves the original JE's `date` (JE-03) so the accounting period stays intact.
 
 ### `bankKeywordRules` -- Admin-Editable Auto-Classification Rules
 

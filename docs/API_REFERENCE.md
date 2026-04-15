@@ -814,9 +814,9 @@ inventory.expireBatch({                    // Mark expired (blocked if reserved)
 
 ---
 
-## Bank Reconciliation (Phase 72)
+## Bank Reconciliation (Phases 72 + 73)
 
-Admin-only. All functions require an admin session token. Queries gated via `requireRole(ctx, token, ["admin"])`; CRUD mutations use `protectedMutation({ roles: ["admin"] })`. `seedDefaults` is dashboard-callable with an optional token (falls back to first admin user when invoked from the Convex dashboard Functions tab).
+Phase 72 shipped admin-only statement ingestion + auto-classification. Phase 73 added the reviewer workspace and widened the read surface + reconciliation mutations from admin-only to **manager + admin** per D-23. Rule CRUD (`bankKeywordRules.{create,update,deactivate}`) stays admin-only. `seedDefaults` is dashboard-callable with an optional token (falls back to first admin user when invoked from the Convex dashboard Functions tab).
 
 ### Queries (Read Operations)
 
@@ -895,6 +895,176 @@ ParsedLine
 
 **Proposal-only JE fields (NOT posted in Phase 72):**
 `jeDebitAccountId`, `jeCreditAccountId` on `bankStatementLines` are written from the matching rule's account references. Phase 73 reads these values to post real `journalEntries` after user confirmation.
+
+### Phase 73 — Reconciliation Workspace (manager + admin)
+
+All functions below require `requireRole(ctx, token, ["manager", "admin"])`. The 4 Phase 72 queries (`listStatements`, `getStatement`, `findByFileHash`, `listLines`) are ALSO widened to manager+admin at Plan 01 (per D-23). Rule CRUD stays admin-only.
+
+#### New Queries
+
+```typescript
+// Aggregate counters for a single statement (progress bar + chips)
+// Returns: { total, unmatched, autoMatched, suggested, confirmed, matched, reconciledPct }
+// Powered by 4 indexed prefix scans on by_statement_status (Pattern 5).
+bankStatements.getStatementProgress({
+  token,
+  statementId: Id<"bankStatements">
+}): StatementProgress
+
+// Bulk progress for the history list (1 query for N rows — T-73-19 mitigation)
+// Throws when statementIds.length > 50 (RESEARCH Pitfall 7).
+bankStatements.getStatementProgressBulk({
+  token,
+  statementIds: Id<"bankStatements">[]
+}): Record<string, StatementProgress>
+
+// Right-pane candidates for a selected bank line:
+// 4 groups (expense / revenue / reimbursement / payroll), filtered by
+// amountIdr === line.amountIdr AND date within ±3 days. Each row annotated
+// with optional `alreadyLinkedToLineId` when another line already links to
+// that record (D-04 1:1 cardinality surface).
+bankStatements.listCandidatesForLine({
+  token,
+  lineId: Id<"bankStatementLines">
+}): { expense: Candidate[], revenue: Candidate[], reimbursement: Candidate[], payroll: Candidate[] }
+
+// Escape-hatch whole-table search (widens beyond default ±3-day window).
+// Caps at 50 rows. Ranks by similarityScore when searchTerm present.
+bankStatements.searchExpenses({
+  token,
+  amountIdr?, dateStart?, dateEnd?, searchTerm?
+}): ExpenseCandidate[]
+
+bankStatements.searchRevenue({ token, ...filters }): RevenueCandidate[]
+bankStatements.searchReimbursements({ token, ...filters }): ReimbursementCandidate[]
+bankStatements.searchPayroll({ token, ...filters }): PayrollCandidate[]
+
+// Revenue Gap dashboard (D-13/D-14/C1): returns { rows, unmappedRows }.
+// Mapped rows: { channel, source, bankCr, extRev, diff, diffPct }.
+// Unmapped rows: { channel, bankCr, extRev: null, diff: bankCr, diffPct: null, unmapped: true }.
+// Legacy (unallocated) row stays in `rows` with source=null + extRev=null.
+bankStatements.revenueGapByPeriod({
+  token,
+  periodStart: number,  // epoch ms, WIB-bucketed upstream
+  periodEnd: number
+}): { rows: GapRow[], unmappedRows: GapRow[] }
+
+// Single-line fetch (used by AssetRegister CapEx round-trip to resolve
+// ?fromBankLine=... URL param).
+bankStatements.getLine({
+  token,
+  lineId: Id<"bankStatementLines">
+}): BankStatementLine | null
+```
+
+#### New Mutations
+
+```typescript
+// Link a bank line to an existing record. Guards:
+//  - line exists, not already confirmed
+//  - target record exists
+//  - pre-write cross-link guard via by_matched index (D-04 1:1)
+//  - C3 TOCTOU defense: post-write re-query; throws
+//    `Concurrent match detected; retry` if >1 row linked
+// Throws on kitchen/order_staff tokens.
+bankStatements.manualMatch({
+  token,
+  lineId: Id<"bankStatementLines">,
+  matchedType: "expense" | "externalRevenue" | "reimbursement" | "payroll",
+  matchedId: string
+}): null
+
+// Clear match. For a previously-confirmed line:
+//  - loads original JE + lines
+//  - builds reversed lines (swaps DR/CR)
+//  - posts new JE via createJournalEntryWithLines with
+//    sourceType: "bank_statement_reversal", date: original.date (JE-03)
+//  - patches reversal audit fields on line + marks original JE isReversed=true
+// Rejects double-unmatch via reversalJournalEntryId guard.
+bankStatements.unmatch({
+  token,
+  lineId: Id<"bankStatementLines">
+}): null
+
+// Post a balanced 2-line JE with sourceType: "bank_statement",
+// sourceId: lineId. Guards: missing JE accounts, already-confirmed.
+// Records confirmedAt/By/JournalEntryId (D-25).
+bankStatements.confirmLine({
+  token,
+  lineId: Id<"bankStatementLines">
+}): Id<"journalEntries">
+
+// Scan by_statement_status for ('auto_matched' | 'suggested'),
+// filter confidence === "exact" with both JE accounts present.
+// Posts N journal entries all-or-nothing via Convex mutation atomicity.
+bankStatements.batchConfirmExactTier({
+  token,
+  statementId: Id<"bankStatements">
+}): { posted: number, skipped: number, totalAmountIdr: number }
+
+// Inline-create: money already left bank, but no existing expense record.
+// D-17 CRITICAL: status hard-coded "submitted", NEVER "approved". Reviewer
+// is often not the person who incurred the expense.
+bankStatements.inlineCreateExpense({
+  token,
+  lineId,
+  categoryAccountId, amountIdr, expenseDate,
+  description, submittedBy,
+  receiptStorageId
+}): Id<"expenses">
+
+// Inline-create: untracked bank credit, no externalRevenue row.
+// D-18 / C2: source uses strict 8-literal externalSource validator.
+bankStatements.inlineCreateRevenue({
+  token,
+  lineId,
+  source: ExternalSource,   // strict 8-literal union
+  amountIdr, transactionDate,
+  channel?, description?
+}): Id<"externalRevenue">
+
+// Inline-create: creates pending reimbursement batch shell (awaiting_payment)
+// + items. Validates employee ownership + non-zero total.
+bankStatements.inlineCreateReimbursement({
+  token,
+  lineId,
+  employeeUserId: Id<"users">,
+  expenseIds: Id<"expenses">[]
+}): Id<"reimbursementBatches">
+
+// CapEx round-trip: mark a bank line as linked to an asset's companion
+// expense (set by fixedAssets.create(sourceBankLineId=...)). Idempotent:
+// no-op when createdExpenseId === args.expenseId; throws
+// "Line already linked to different expense" when called with a different id.
+bankStatements.markAssetLinked({
+  token,
+  bankLineId: Id<"bankStatementLines">,
+  expenseId: Id<"expenses">
+}): null
+```
+
+```typescript
+// bankKeywordRules — manager + admin gated (the ONLY widened rule mutation).
+// Save a keyword rule from a reviewer's category override.
+// Validates /^[A-Z]\d{2}$/ ruleCode, rejects duplicate ruleCode, enforces
+// catch-all uniqueness guard, populates createdBy from session user.
+// Plain create / update / deactivate stay admin-only (D-23 / P72 D-19).
+bankKeywordRules.createFromOverride({
+  token,
+  ruleCode, description, priority, isActive, isCatchAll,
+  direction, matchType, counterpartyPatterns,
+  descriptionPatterns, descriptionPatternsMode,
+  originalCategory, subCategory?, plSection,
+  categoryAccountName, jeDebitAccountName?, jeCreditAccountName?,
+  linkedChannel?, confidence, flags?
+}): Id<"bankKeywordRules">
+```
+
+**Companion backend change — `convex/fixedAssets/mutations.ts::create` (D-21):**
+- Accepts optional `sourceBankLineId: Id<"bankStatementLines">` arg.
+- When present, after creating the asset + acquisition JE, the mutation also creates a companion expense (status="recorded", approvedBy=creator) and patches the bank line (`matchedType="expense"`, `status="suggested"`, `createdExpenseId=expense`) in the same transaction.
+- Return shape extended: `{ assetId, expenseId }` (previously bare `assetId`) when `sourceBankLineId` supplied.
+- Idempotent on re-invocation with the same line (returns existing expenseId).
 
 ---
 
