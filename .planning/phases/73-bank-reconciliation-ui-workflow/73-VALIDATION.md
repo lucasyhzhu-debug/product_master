@@ -51,14 +51,36 @@ Populated by planner from task IDs. Each task must have either:
 
 ## Wave 0 Requirements
 
-Backend test stubs required before implementation:
+Test stubs required before implementation. Paths below match actual plan outputs.
 
-- [ ] `convex/bankStatements/__tests__/manualMatch.test.ts` — stubs for BANK-03 (manual match + unmatch)
-- [ ] `convex/bankStatements/__tests__/statementProgress.test.ts` — stubs for BANK-04 (progress aggregation)
-- [ ] `convex/bankStatements/__tests__/reconciliationReversal.test.ts` — stubs for bank_statement_reversal sourceType (unmatch-reverses-JE flow)
-- [ ] `tests/e2e/bank-reconciliation-workflow.spec.ts` — Playwright stubs for split-view match/unmatch and progress indicator
+### Backend (Plan 73-01 Wave 1a — Task 2)
+- [ ] `convex/bankStatements/__tests__/manualMatch.test.ts` — manualMatch role matrix + cross-link guard
+- [ ] `convex/bankStatements/__tests__/unmatch.test.ts` — unmatch reversal JE flow (bank_statement_reversal sourceType)
+- [ ] `convex/bankStatements/__tests__/confirmLine.test.ts` — 2-line balanced JE posting
+- [ ] `convex/bankStatements/__tests__/batchConfirm.test.ts` — batch confirm atomicity + skipped count
 
-*Extend as planner decomposes tasks. Use existing `convex-test` patterns from `convex/bankStatements/__tests__/*.test.ts` (Phase 72).*
+### Backend (Plan 73-02 Wave 1b — Task 1)
+- [ ] `convex/bankStatements/__tests__/progress.test.ts` — getStatementProgress aggregate + getStatementProgressBulk (Tests 1–8, including 50-id cap + mixed statuses)
+- [ ] `convex/bankStatements/__tests__/listCandidates.test.ts` — ±3 day window + alreadyLinkedToLineId annotations + 4 search* queries
+- [ ] `convex/bankStatements/__tests__/revenueGap.test.ts` — revenueGapByPeriod aggregation + (unallocated) row + diff arithmetic
+- [ ] `convex/bankKeywordRules/__tests__/createFromOverride.test.ts` — manager+admin gate (D-12) + regex + uniqueness
+
+### Frontend component tests (Plan 73-03 Wave 2a — Task 1)
+- [ ] `src/components/bankReconciliation/__tests__/StatementHistoryList.test.tsx` — progress column rendering via useStatementProgressBulk
+- [ ] `src/components/bankReconciliation/__tests__/StatementProgressHeader.test.tsx` — progress bar + 4 chips via useStatementProgress
+- [ ] `src/components/bankReconciliation/__tests__/ReconciliationActionBar.test.tsx` — button states + capex variant swap + inline-create visibility
+
+### Playwright E2E stubs (Plan 73-04 Wave 2b — Task 1)
+- [ ] `tests/e2e/bank-reconciliation-inline-expense.spec.ts` — D-17 invariant (Submit for approval only, status="submitted", receipt required, line → suggested)
+- [ ] `tests/e2e/bank-reconciliation-batch-confirm.spec.ts` — D-08 balance gate (preview groups, DR/CR totals, Ledger imbalance disables Post)
+- [ ] `tests/e2e/bank-reconciliation-capex-roundtrip.spec.ts` — D-21/D-22 (capex flag button swap, AssetRegister prefills, duplicate detection, markAssetLinked + navigate back)
+
+### Playwright E2E completion (Plan 73-06 Wave 3 — Task 1)
+- [ ] `tests/e2e/bank-reconciliation-split-view.spec.ts` — select-line → see-candidates → match/unmatch/confirm happy path (Plan 03 surface)
+- [ ] `tests/e2e/bank-rules-learn-from-override.spec.ts` — LearnFromOverride dialog → createFromOverride (D-10/D-11/D-12)
+- [ ] `tests/e2e/bank-rules-perms.spec.ts` — D-23 role matrix (kitchen/order_staff blocked, manager allowed on /bank-reconciliation but blocked from /bank-rules, admin allowed everywhere)
+
+*All stub files use existing `convex-test` + Testing Library + Playwright patterns from Phase 72 and earlier phases.*
 
 ---
 
