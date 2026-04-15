@@ -2,13 +2,13 @@
  * PackagingMixEditor
  *
  * Redesigned packaging mix editor for the unified Manager Settings form.
- * Shows products grouped by ball type (Original / Jumbo) with BOM info:
- *   - BOM food component tags (badges)
- *   - Balls-per-unit count
- *   - Quantity input
- *   - Subtotal balls consumed
- *   - Running allocation counters
- *   - Soft warning when mix total doesn't match ball targets
+ * Products grouped DYNAMICALLY by tier-1 production componentType code so
+ * any ball type (e.g. HAZELNUT_REGULAR) gets its own section instead of
+ * being swallowed into "Other (no BOM data)".
+ *
+ * Round-2 follow-up: dropped hardcoded BIG_BALL/MID_BALL grouping. The
+ * section list is now derived from `productionComponents` (active + enabled)
+ * passed in from ManagerTargetSettings.
  *
  * Gap 5: Product dropdown only shows Food POS products
  *         (isActive + posSlot defined + productType=food)
@@ -40,56 +40,71 @@ export interface PackagingMixRow {
   quantity: number;
 }
 
+/**
+ * One production tier-1 `pcs` ball code that gets a section in the mix editor.
+ * Typically: BIG_BALL, MID_BALL, HAZELNUT_REGULAR, ...
+ */
+export interface BallGroupDef {
+  code: string;
+  /** Section title, e.g. "Original Products (45g)" */
+  title: string;
+  /** Current target for this ball code (for allocation counter) */
+  target: number;
+}
+
 interface PackagingMixEditorProps {
   rows: PackagingMixRow[];
   onChange: (rows: PackagingMixRow[]) => void;
-  originalBallTarget: number; // Current original ball target (midBallTarget)
-  jumboBallTarget: number;    // Current jumbo ball target (bigBallTarget)
-  enabledComponents: string[]; // ["BIG_BALL", "MID_BALL"] — from config
+  enabledComponents: string[]; // e.g. ["BIG_BALL", "MID_BALL", "HAZELNUT_REGULAR"]
+  /**
+   * One section per production code, in render order. Built in
+   * ManagerTargetSettings from the active+enabled tier-1 pcs components.
+   */
+  ballGroups: BallGroupDef[];
 }
 
 // -------------------------------------------------------
-// Helper: determine ball info per product from BOM components
+// BOM info per product: balls-per-unit for each production code
 // -------------------------------------------------------
 
+type ComponentRow = {
+  componentTypeId: Id<"componentTypes">;
+  quantity: number;
+  componentType: {
+    _id: Id<"componentTypes">;
+    code: string;
+    name: string;
+    category: string;
+  } | null;
+};
+
 interface BomInfo {
-  bigBallsPerUnit: number; // BIG_BALL = Jumbo 80g
-  midBallsPerUnit: number; // MID_BALL = Original 45g
-  tags: string[];           // display labels from componentType names
+  /** code -> balls-per-unit (only codes with qty > 0) */
+  ballsByCode: Record<string, number>;
+  /** display labels (componentType names, preserving insertion order) */
+  tags: string[];
 }
 
 function getBomInfo(
   menuProductId: string,
-  allComponents: Record<string, Array<{
-    componentTypeId: Id<"componentTypes">;
-    quantity: number;
-    componentType: {
-      _id: Id<"componentTypes">;
-      code: string;
-      name: string;
-      category: string;
-    } | null;
-  }>>
+  allComponents: Record<string, ComponentRow[]>
 ): BomInfo {
   const components = allComponents[menuProductId] ?? [];
-  let bigBallsPerUnit = 0;
-  let midBallsPerUnit = 0;
+  const ballsByCode: Record<string, number> = {};
   const tags: string[] = [];
+  const seenTags = new Set<string>();
 
   for (const comp of components) {
     const ct = comp.componentType;
     if (!ct || ct.category !== "production") continue;
-
-    if (ct.code === "BIG_BALL") {
-      bigBallsPerUnit += comp.quantity;
-      tags.push(ct.name);
-    } else if (ct.code === "MID_BALL") {
-      midBallsPerUnit += comp.quantity;
+    ballsByCode[ct.code] = (ballsByCode[ct.code] ?? 0) + comp.quantity;
+    if (!seenTags.has(ct.name)) {
+      seenTags.add(ct.name);
       tags.push(ct.name);
     }
   }
 
-  return { bigBallsPerUnit, midBallsPerUnit, tags };
+  return { ballsByCode, tags };
 }
 
 // -------------------------------------------------------
@@ -172,7 +187,7 @@ function ProductRow({
 
 interface BallGroupSectionProps {
   title: string;
-  componentCode: string; // "BIG_BALL" | "MID_BALL"
+  componentCode: string;
   enabledComponents: string[];
   ballTarget: number;
   ballsUsed: number;
@@ -262,9 +277,8 @@ function BallGroupSection({
 export function PackagingMixEditor({
   rows,
   onChange,
-  originalBallTarget,
-  jumboBallTarget,
   enabledComponents,
+  ballGroups,
 }: PackagingMixEditorProps) {
   // -- Fetch food POS products (posSlot defined, non-packaging) --
   const menuProducts = useQuery(api.menuProducts.queries.listPosProducts);
@@ -286,7 +300,7 @@ export function PackagingMixEditor({
   );
 
   // -- Add row state: which ball group is adding --
-  const [addingGroup, setAddingGroup] = useState<"BIG_BALL" | "MID_BALL" | null>(null);
+  const [addingGroup, setAddingGroup] = useState<string | null>(null);
 
   // -- Filter to only food POS products (Gap 5) --
   const foodPosProducts = (menuProducts ?? [])
@@ -305,45 +319,43 @@ export function PackagingMixEditor({
   const bomInfoMap = new Map<string, BomInfo>();
   if (allComponentsMap) {
     for (const mp of foodPosProducts) {
-      bomInfoMap.set(mp._id, getBomInfo(mp._id, allComponentsMap as Record<string, Array<{
-        componentTypeId: Id<"componentTypes">;
-        quantity: number;
-        componentType: {
-          _id: Id<"componentTypes">;
-          code: string;
-          name: string;
-          category: string;
-        } | null;
-      }>>));
+      bomInfoMap.set(mp._id, getBomInfo(mp._id, allComponentsMap as Record<string, ComponentRow[]>));
     }
   }
 
-  // -- Classify rows by ball type --
-  const originalRows = rows.filter((row) => {
+  // -- Classify rows by their PRIMARY ball code --
+  // A product belongs to the first ballGroup code that its BOM includes with qty > 0.
+  // This keeps any given row in exactly one section even if its BOM uses multiple
+  // production codes (rare — most products use one).
+  const groupOrder = ballGroups.map((g) => g.code);
+  function primaryCodeForRow(row: PackagingMixRow): string | null {
     const bom = bomInfoMap.get(row.menuProductId);
-    return bom ? bom.midBallsPerUnit > 0 && bom.bigBallsPerUnit === 0 : false;
-  });
+    if (!bom) return null;
+    for (const code of groupOrder) {
+      if ((bom.ballsByCode[code] ?? 0) > 0) return code;
+    }
+    return null;
+  }
 
-  const jumboRows = rows.filter((row) => {
-    const bom = bomInfoMap.get(row.menuProductId);
-    return bom ? bom.bigBallsPerUnit > 0 : false;
-  });
+  const rowsByCode: Record<string, PackagingMixRow[]> = {};
+  const unclassifiedRows: PackagingMixRow[] = [];
+  for (const row of rows) {
+    const code = primaryCodeForRow(row);
+    if (code) {
+      (rowsByCode[code] ||= []).push(row);
+    } else {
+      unclassifiedRows.push(row);
+    }
+  }
 
-  // Rows that don't match either (no BOM data yet or mixed) — show in both or unclassified
-  const unclassifiedRows = rows.filter((row) => {
-    const bom = bomInfoMap.get(row.menuProductId);
-    return !bom || (bom.midBallsPerUnit === 0 && bom.bigBallsPerUnit === 0);
-  });
-
-  // -- Calculate ball totals --
-  let originalBallsUsed = 0;
-  let jumboBallsUsed = 0;
-
+  // -- Ball totals per code --
+  const ballsUsedByCode: Record<string, number> = {};
   for (const row of rows) {
     const bom = bomInfoMap.get(row.menuProductId);
     if (!bom) continue;
-    originalBallsUsed += row.quantity * bom.midBallsPerUnit;
-    jumboBallsUsed += row.quantity * bom.bigBallsPerUnit;
+    for (const [code, perUnit] of Object.entries(bom.ballsByCode)) {
+      ballsUsedByCode[code] = (ballsUsedByCode[code] ?? 0) + row.quantity * perUnit;
+    }
   }
 
   // -- Row manipulation helpers --
@@ -363,18 +375,26 @@ export function PackagingMixEditor({
   // -- Products not yet in the mix, filtered by ball group --
   const currentIds = new Set(rows.map((r) => r.menuProductId));
 
-  function getAvailableForGroup(ballCode: "BIG_BALL" | "MID_BALL") {
+  function getAvailableForGroup(ballCode: string) {
     return foodPosProducts.filter((mp) => {
       if (currentIds.has(mp._id)) return false;
       const bom = bomInfoMap.get(mp._id);
       if (!bom) return false;
-      if (ballCode === "BIG_BALL") return bom.bigBallsPerUnit > 0;
-      return bom.midBallsPerUnit > 0 && bom.bigBallsPerUnit === 0;
+      // Must have this ball code in its BOM
+      if ((bom.ballsByCode[ballCode] ?? 0) <= 0) return false;
+      // Must be PRIMARY for this code per the groupOrder rule — otherwise the
+      // product would be shown in both its primary group AND this one, which
+      // double-counts when the user adds it. Enforce uniqueness.
+      for (const c of groupOrder) {
+        if (c === ballCode) return true;
+        if ((bom.ballsByCode[c] ?? 0) > 0) return false;
+      }
+      return false;
     });
   }
 
   // -- Render rows for a group --
-  function renderRows(groupRows: PackagingMixRow[], getBallsPerUnit: (bom: BomInfo) => number) {
+  function renderRows(groupRows: PackagingMixRow[], code: string) {
     if (groupRows.length === 0) {
       return (
         <p className="text-xs text-muted-foreground py-2 text-center">
@@ -386,7 +406,7 @@ export function PackagingMixEditor({
     return groupRows.map((row) => {
       const globalIndex = rows.indexOf(row);
       const bom = bomInfoMap.get(row.menuProductId);
-      const ballsPerUnit = bom ? getBallsPerUnit(bom) : 0;
+      const ballsPerUnit = bom ? (bom.ballsByCode[code] ?? 0) : 0;
       const productName = productNameMap.get(row.menuProductId) ?? "Unknown product";
 
       return (
@@ -405,8 +425,8 @@ export function PackagingMixEditor({
   }
 
   // -- Add product inline selector --
-  function AddProductSelector({ group }: { group: "BIG_BALL" | "MID_BALL" }) {
-    const available = getAvailableForGroup(group);
+  function AddProductSelector({ code }: { code: string }) {
+    const available = getAvailableForGroup(code);
 
     if (available.length === 0) {
       return (
@@ -444,41 +464,29 @@ export function PackagingMixEditor({
 
   return (
     <div className="space-y-3">
-      {/* Original Products (45g / MID_BALL) */}
-      <BallGroupSection
-        title="Original Products (45g)"
-        componentCode="MID_BALL"
-        enabledComponents={enabledComponents}
-        ballTarget={originalBallTarget}
-        ballsUsed={originalBallsUsed}
-        onAddProduct={() => setAddingGroup(addingGroup === "MID_BALL" ? null : "MID_BALL")}
-        canAddMore={getAvailableForGroup("MID_BALL").length > 0}
-      >
-        {renderRows(originalRows, (bom) => bom.midBallsPerUnit)}
-        {addingGroup === "MID_BALL" && <AddProductSelector group="MID_BALL" />}
-      </BallGroupSection>
+      {ballGroups.map((group) => (
+        <BallGroupSection
+          key={group.code}
+          title={group.title}
+          componentCode={group.code}
+          enabledComponents={enabledComponents}
+          ballTarget={group.target}
+          ballsUsed={ballsUsedByCode[group.code] ?? 0}
+          onAddProduct={() => setAddingGroup(addingGroup === group.code ? null : group.code)}
+          canAddMore={getAvailableForGroup(group.code).length > 0}
+        >
+          {renderRows(rowsByCode[group.code] ?? [], group.code)}
+          {addingGroup === group.code && <AddProductSelector code={group.code} />}
+        </BallGroupSection>
+      ))}
 
-      {/* Jumbo Products (80g / BIG_BALL) */}
-      <BallGroupSection
-        title="Jumbo Products (80g)"
-        componentCode="BIG_BALL"
-        enabledComponents={enabledComponents}
-        ballTarget={jumboBallTarget}
-        ballsUsed={jumboBallsUsed}
-        onAddProduct={() => setAddingGroup(addingGroup === "BIG_BALL" ? null : "BIG_BALL")}
-        canAddMore={getAvailableForGroup("BIG_BALL").length > 0}
-      >
-        {renderRows(jumboRows, (bom) => bom.bigBallsPerUnit)}
-        {addingGroup === "BIG_BALL" && <AddProductSelector group="BIG_BALL" />}
-      </BallGroupSection>
-
-      {/* Unclassified rows (no BOM data or mixed — show for awareness) */}
+      {/* Unclassified rows (no BOM data or BOM uses a code not in any ballGroup) */}
       {unclassifiedRows.length > 0 && (
         <div className="rounded-lg border border-dashed p-3 space-y-2">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Other (no BOM data)
           </h4>
-          {renderRows(unclassifiedRows, () => 0)}
+          {renderRows(unclassifiedRows, "")}
         </div>
       )}
     </div>

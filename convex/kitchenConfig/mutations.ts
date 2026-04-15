@@ -28,6 +28,12 @@ export const updateConfig = mutation({
     enabledProductionComponents: v.optional(v.array(v.string())),
     // Phase 69: Kitchen component visibility toggles
     enabledKitchenComponents: v.optional(v.array(v.string())),
+    // Round-2 follow-up: Targets for production `pcs` ball codes other than
+    // BIG_BALL / MID_BALL (e.g. HAZELNUT_REGULAR).
+    otherBallTargets: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
@@ -38,6 +44,13 @@ export const updateConfig = mutation({
     }
     if (args.bigBallTarget < 0 || args.midBallTarget < 0) {
       throw new ConvexError("Ball targets cannot be negative");
+    }
+    if (args.otherBallTargets) {
+      for (const entry of args.otherBallTargets) {
+        if (entry.target < 0) {
+          throw new ConvexError(`Ball target for ${entry.code} cannot be negative`);
+        }
+      }
     }
 
     // Phase 21-08: When enabledProductionComponents is provided, sync legacy showJumbo
@@ -59,6 +72,9 @@ export const updateConfig = mutation({
       ...(derivedShowJumbo !== undefined && { showJumbo: derivedShowJumbo }),
       ...(args.enabledKitchenComponents !== undefined && {
         enabledKitchenComponents: args.enabledKitchenComponents,
+      }),
+      ...(args.otherBallTargets !== undefined && {
+        otherBallTargets: args.otherBallTargets,
       }),
       updatedAt: Date.now(),
       updatedBy: user.name,

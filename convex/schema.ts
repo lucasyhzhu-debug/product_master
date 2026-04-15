@@ -1360,6 +1360,15 @@ export default defineSchema({
     // Array of kitchenComponent codes that are enabled in shift form
     // When unset, defaults to all active kitchen components (all enabled)
     enabledKitchenComponents: v.optional(v.array(v.string())),
+    // Round-2 follow-up: Targets for production `pcs` ball codes other than
+    // the legacy BIG_BALL/MID_BALL (e.g. HAZELNUT_REGULAR). Additive — BIG/MID
+    // still live on bigBallTarget/midBallTarget for backward compat.
+    // One entry per enabled non-BIG/MID production code; rendered as its own
+    // input in ManagerTargetSettings and own StatCard in ProductionTargetsBar.
+    otherBallTargets: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),

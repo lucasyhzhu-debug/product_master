@@ -2,7 +2,7 @@
 status: awaiting_human_verify
 trigger: "Kitchen view still shows duplicated components, toggles tied together, grammage recorded twice, Nutella-Regular missing from BALLS PRODUCED."
 created: 2026-04-16T00:00:00Z
-updated: 2026-04-16T00:30:00Z
+updated: 2026-04-16T02:00:00Z
 ---
 
 ## Current Focus
@@ -147,6 +147,53 @@ started: After round-1 dedupe fix (branch `fix/kitchen-components-dup-report`)
     the 2026-04-14 "Pistachio Spread 7528g + Pistachio Spread 7528g"
     shift record.
 
+## Bug 5 — Ball Targets editor hardcoded to BIG_BALL/MID_BALL
+<!-- New symptom surfaced during human-verify for round-2 (screenshot 14). -->
+
+- timestamp: 2026-04-16T01:30:00Z
+  checked: src/components/kitchen/ManagerTargetSettings.tsx lines 264-293 (pre-fix)
+  found: Ball Targets renders only two inputs — "Original (45g)" bound to
+    `midBallTarget` and "Jumbo (80g)" bound to `bigBallTarget`. Nutella-Regular
+    (HAZELNUT_REGULAR) and any other active+enabled tier-1 pcs code gets no
+    input, so the user cannot set a default target for it.
+  implication: Classic "hardcoded to two codes" pattern. Must iterate
+    `productionComponents.filter(unit=='pcs')` and render one input per code.
+    Needs a schema field to persist non-BIG/MID targets.
+
+- timestamp: 2026-04-16T01:35:00Z
+  checked: convex/schema.ts kitchenConfig table (pre-fix)
+  found: Schema has `bigBallTarget: v.number()` + `midBallTarget: v.number()`
+    as fixed-shape fields. No variable-key storage for other codes.
+  implication: Added an additive `otherBallTargets: v.optional(v.array({code, target}))`
+    alongside the legacy fields — no breaking schema change.
+
+- timestamp: 2026-04-16T01:40:00Z
+  checked: convex/kitchenConfig/queries.ts getKitchenTargetsForDate
+    (Priority 3 defaults branch)
+  found: Pre-fix returned `otherBalls: []` for the defaults branch. Dispatch-plan
+    branch already surfaces otherBalls via BOM traversal.
+  implication: Defaults branch now reads `config.otherBallTargets`, looks up
+    componentType name by code, and returns one otherBalls entry per non-zero
+    target — ProductionTargetsBar already renders StatCards for these.
+
+## Bug 6 — Dispatch plan dropdown filters products to BIG_BALL/MID_BALL only
+<!-- New symptom surfaced during human-verify for round-2 (screenshot 13). -->
+
+- timestamp: 2026-04-16T01:45:00Z
+  checked: src/components/kitchen/PackagingMixEditor.tsx lines 61-93 + 322-373 (pre-fix)
+  found: `getBomInfo` hardcoded to track only `bigBallsPerUnit` (BIG_BALL) and
+    `midBallsPerUnit` (MID_BALL). Sections hardcoded to two groups. Dropdown
+    `getAvailableForGroup` checked only these two codes. Any menu product whose
+    BOM uses HAZELNUT_REGULAR got zero balls tracked, didn't match either
+    section, and fell into "Other (no BOM data)" — but could not be added via
+    any dropdown because no section for its code exists.
+  implication: Rewrote `BomInfo` to `ballsByCode: Record<string, number>`.
+    Added `ballGroups: BallGroupDef[]` prop so ManagerTargetSettings drives
+    sections dynamically from the active+enabled tier-1 pcs components. Each
+    code gets one section, one dropdown, one target counter. Products are
+    placed into exactly one section (primary code = first ballGroup code their
+    BOM includes with qty>0) to prevent double-counting.
+
 ## Resolution
 
 root_cause:
@@ -181,10 +228,46 @@ fix:
     only the first wins in the UI.
 
 verification:
-  - `npm run type-check` passes (no errors)
-  - `npm run build` passes (built in 20.00s)
+  - `npm run type-check` passes (no errors, post Bug-5/6 fixes)
+  - `npm run build` passes (built in 19.38s, post Bug-5/6 fixes)
   - Manual browser verification pending user
-files_changed:
-  - src/hooks/convex/useKitchenTargets.ts
-  - src/components/kitchen/ManagerTargetSettings.tsx
-  - src/pages/KitchenViewV2.tsx
+
+fix (Bug 5 — Ball Targets editor):
+  - Schema: added additive `otherBallTargets: v.optional(v.array({code, target}))`
+    to `kitchenConfig` alongside existing bigBallTarget/midBallTarget.
+  - Backend getConfig: returns `otherBallTargets` (default []).
+  - Backend updateConfig: accepts + validates + persists `otherBallTargets`.
+  - Backend getKitchenTargetsForDate (defaults branch): reads
+    `config.otherBallTargets`, resolves componentType names via `by_code`
+    index, emits `otherBalls` entries so ProductionTargetsBar StatCards render.
+  - Frontend ManagerTargetSettings: replaced the two hardcoded Input rows with
+    a memoized `ballTargetRows` list derived from
+    `productionComponents.filter(unit=='pcs')`. Grid auto-adjusts for 1/2/3+
+    inputs. BIG_BALL/MID_BALL keep dedicated state for backward compat; every
+    other code reads/writes `otherBallTargets[code]`. Disabled codes still
+    surface (dimmed) so users can enable + target in one save action.
+  - Override validation: checks any non-zero ball target (not just BIG/MID).
+  - maxProductionTarget legacy field now counts totalBalls across all codes.
+
+fix (Bug 6 — Dispatch plan dropdown):
+  - Frontend PackagingMixEditor: rewrote `BomInfo` to
+    `ballsByCode: Record<string, number>` (was bigBallsPerUnit/midBallsPerUnit).
+  - Replaced hardcoded two sections with `ballGroups: BallGroupDef[]` prop.
+    Each group = { code, title, target }. Rendered in order.
+  - Products assigned to exactly one section via `primaryCodeForRow` (first
+    ballGroup code their BOM has qty>0 for) to prevent double-count when a
+    product's BOM uses multiple codes.
+  - `getAvailableForGroup(code)` only lists products whose primary code matches
+    and who aren't already in the mix.
+  - ManagerTargetSettings builds `ballGroups` from `ballTargetRows` with
+    title format "{Name} Products ({gramsPerUnit}g)" when grams are known,
+    else "{Name} Products".
+
+files_changed (cumulative across rounds):
+  - convex/schema.ts                                      # +otherBallTargets field
+  - convex/kitchenConfig/queries.ts                       # surface otherBallTargets in getConfig + defaults branch
+  - convex/kitchenConfig/mutations.ts                     # accept + validate + persist otherBallTargets
+  - src/hooks/convex/useKitchenTargets.ts                 # [round-2 primary] isActive filter
+  - src/components/kitchen/ManagerTargetSettings.tsx      # [round-2 + Bug 5] dynamic ball target rows, otherBallTargets state, ballGroups for editor
+  - src/components/kitchen/PackagingMixEditor.tsx         # [Bug 6] dynamic ballGroups, BomInfo.ballsByCode
+  - src/pages/KitchenViewV2.tsx                           # [round-2] enabledComponents derivation, codeMap isActive filter

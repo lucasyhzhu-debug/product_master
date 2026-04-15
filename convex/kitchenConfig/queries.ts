@@ -33,6 +33,8 @@ export const getConfig = query({
         enabledProductionComponents: null as string[] | null,
         // Phase 69: null = all kitchen components enabled
         enabledKitchenComponents: null as string[] | null,
+        // Round-2 follow-up: no targets for non-BIG/MID ball codes yet
+        otherBallTargets: [] as Array<{ code: string; target: number }>,
         showJumbo: true,  // backward-compat default: show Jumbo
         updatedAt: null,
         updatedBy: null,
@@ -58,6 +60,8 @@ export const getConfig = query({
         config.enabledKitchenComponents && config.enabledKitchenComponents.length > 0
           ? config.enabledKitchenComponents
           : null,
+      // Round-2 follow-up: targets for non-BIG/MID ball codes
+      otherBallTargets: config.otherBallTargets ?? [],
       showJumbo: derivedShowJumbo,
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,
@@ -231,10 +235,27 @@ export const getKitchenTargetsForDate = query({
       packagingBreakdown = await resolvePackagingBreakdown(ctx, config.defaultPackagingMix);
     }
 
+    // Round-2 follow-up: Surface targets for non-BIG/MID ball codes saved in
+    // kitchenConfig.otherBallTargets. Look up componentType names per code so
+    // the ProductionTargetsBar StatCard shows a human-readable label.
+    const otherBalls: Array<{ code: string; name: string; quantity: number }> = [];
+    if (config?.otherBallTargets && config.otherBallTargets.length > 0) {
+      for (const entry of config.otherBallTargets) {
+        if (!entry.target || entry.target <= 0) continue;
+        // Look up componentType by code to get display name
+        const ct = await ctx.db
+          .query("componentTypes")
+          .withIndex("by_code", (q) => q.eq("code", entry.code))
+          .first();
+        if (!ct || !ct.isActive || ct.category !== "production") continue;
+        otherBalls.push({ code: entry.code, name: ct.name, quantity: entry.target });
+      }
+    }
+
     return {
       bigBalls,
       midBalls,
-      otherBalls: [] as Array<{ code: string; name: string; quantity: number }>,
+      otherBalls,
       packagingBreakdown,
       source: "defaults" as const,
     };

@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PackagingMixEditor, type PackagingMixRow } from "./PackagingMixEditor";
+import { PackagingMixEditor, type PackagingMixRow, type BallGroupDef } from "./PackagingMixEditor";
 import type { KitchenTargets } from "./ProductionTargetsBar";
 
 // -------------------------------------------------------
@@ -47,6 +47,7 @@ interface KitchenConfig {
   showJumbo: boolean;
   enabledProductionComponents: string[] | null;
   enabledKitchenComponents: string[] | null;
+  otherBallTargets?: Array<{ code: string; target: number }>;
   updatedAt: number | null;
   updatedBy: string | null;
 }
@@ -103,6 +104,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // -- Unified form state --
   const [bigBallTarget, setBigBallTarget] = useState(0);   // Jumbo (80g)
   const [midBallTarget, setMidBallTarget] = useState(0);   // Original (45g)
+  // Round-2 follow-up: targets for non-BIG/MID production codes (e.g. HAZELNUT_REGULAR)
+  const [otherBallTargets, setOtherBallTargets] = useState<Record<string, number>>({});
   const [packagingMix, setPackagingMix] = useState<PackagingMixRow[]>([]);
   const [enabledComponents, setEnabledComponents] = useState<string[]>(["BIG_BALL", "MID_BALL"]);
   // Phase 69: Enabled kitchen component codes (null = all enabled)
@@ -121,6 +124,11 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     if (config) {
       setBigBallTarget(config.bigBallTarget);
       setMidBallTarget(config.midBallTarget);
+      const nextOther: Record<string, number> = {};
+      for (const entry of config.otherBallTargets ?? []) {
+        nextOther[entry.code] = entry.target;
+      }
+      setOtherBallTargets(nextOther);
       setPackagingMix(
         (config.defaultPackagingMix ?? []).map((row) => ({
           menuProductId: String(row.menuProductId),
@@ -133,6 +141,65 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       setEnabledKitchenComponents(config.enabledKitchenComponents);
     }
   }, [config]);
+
+  // -------------------------------------------------------
+  // Derive the ordered list of ball target rows to render.
+  // Each active + enabled tier-1 production `pcs` componentType gets one row.
+  // BIG_BALL / MID_BALL keep their dedicated state for backward compat; every
+  // other code reads/writes via `otherBallTargets[code]`.
+  // -------------------------------------------------------
+
+  const ballTargetRows = useMemo(() => {
+    // Filter productionComponents to tier-1 pcs ball types that are enabled.
+    // Non-enabled codes still surface (so the user can enable + set a target
+    // in one save action), but rendered disabled.
+    const rows = productionComponents
+      .filter((c) => c.unit === "pcs")
+      .map((c) => {
+        const isEnabled = enabledComponents.includes(c.code);
+        // Build label — use gramsPerUnit if present for consistency with
+        // the legacy "Original (45g)" / "Jumbo (80g)" labels.
+        const grams = c.gramsPerUnit;
+        const label = grams ? `${c.name} (${grams}g)` : c.name;
+        const value =
+          c.code === "BIG_BALL"
+            ? bigBallTarget
+            : c.code === "MID_BALL"
+              ? midBallTarget
+              : (otherBallTargets[c.code] ?? 0);
+        const setValue = (n: number) => {
+          const v = Math.max(0, n);
+          if (c.code === "BIG_BALL") setBigBallTarget(v);
+          else if (c.code === "MID_BALL") setMidBallTarget(v);
+          else setOtherBallTargets((prev) => ({ ...prev, [c.code]: v }));
+        };
+        return { code: c.code, label, value, setValue, isEnabled };
+      });
+    // Stable order: BIG_BALL / MID_BALL first (if present), then others alphabetical.
+    rows.sort((a, b) => {
+      const order = (code: string) =>
+        code === "MID_BALL" ? 0 : code === "BIG_BALL" ? 1 : 2;
+      const da = order(a.code);
+      const db = order(b.code);
+      if (da !== db) return da - db;
+      return a.label.localeCompare(b.label);
+    });
+    return rows;
+  }, [productionComponents, enabledComponents, bigBallTarget, midBallTarget, otherBallTargets]);
+
+  // Ball groups for the PackagingMixEditor — one section per tier-1 pcs code
+  // in the same order as the target inputs above.
+  // Title format: "{Name} Products (Ng)" when gramsPerUnit is set, else "{Name} Products".
+  const ballGroups = useMemo<BallGroupDef[]>(() => {
+    const byCode = new Map(productionComponents.map((c) => [c.code, c]));
+    return ballTargetRows.map((r) => {
+      const ct = byCode.get(r.code);
+      const grams = ct?.gramsPerUnit;
+      const name = ct?.name ?? r.code;
+      const title = grams ? `${name} Products (${grams}g)` : `${name} Products`;
+      return { code: r.code, title, target: r.value };
+    });
+  }, [ballTargetRows, productionComponents]);
 
   // -------------------------------------------------------
   // Per-component toggle handler
@@ -165,10 +232,29 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   async function handleSaveDefaults() {
     const validMix = packagingMix.filter((row) => row.menuProductId && row.quantity > 0);
 
+    // Round-2 follow-up: Build otherBallTargets payload (non-BIG/MID codes).
+    // Only include codes present in productionComponents to avoid persisting
+    // stale codes from earlier sessions.
+    const validOtherCodes = new Set(
+      productionComponents
+        .filter((c) => c.unit === "pcs" && c.code !== "BIG_BALL" && c.code !== "MID_BALL")
+        .map((c) => c.code)
+    );
+    const otherBallTargetsPayload = Object.entries(otherBallTargets)
+      .filter(([code]) => validOtherCodes.has(code))
+      .map(([code, target]) => ({ code, target }));
+
+    // Total balls across ALL codes (not just BIG+MID) so legacy
+    // maxProductionTarget stays > 0 when a user only uses non-BIG/MID codes.
+    const totalBalls =
+      bigBallTarget +
+      midBallTarget +
+      otherBallTargetsPayload.reduce((sum, e) => sum + e.target, 0);
+
     setIsSavingDefaults(true);
     try {
       await updateConfig({
-        maxProductionTarget: bigBallTarget + midBallTarget || 1, // keep legacy field > 0
+        maxProductionTarget: totalBalls || 1, // keep legacy field > 0
         bigBallTarget,
         midBallTarget,
         enabledProductionComponents: enabledComponents,
@@ -178,6 +264,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           enabledKitchenComponents && enabledKitchenComponents.length > 0
             ? enabledKitchenComponents
             : undefined,
+        otherBallTargets: otherBallTargetsPayload,
         defaultPackagingMix:
           validMix.length > 0
             ? validMix.map((row) => ({
@@ -200,7 +287,11 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // -------------------------------------------------------
 
   async function handleApplyOverride() {
-    if (bigBallTarget === 0 && midBallTarget === 0) {
+    const hasAnyTarget =
+      bigBallTarget > 0 ||
+      midBallTarget > 0 ||
+      Object.values(otherBallTargets).some((t) => t > 0);
+    if (!hasAnyTarget) {
       toast.error("Enter at least one ball target before applying override");
       return;
     }
@@ -261,35 +352,50 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {/* Ball Targets */}
+        {/* Ball Targets — one input per active+enabled tier-1 pcs componentType
+            (e.g. Original/MID_BALL, Jumbo/BIG_BALL, Nutella-Regular/HAZELNUT_REGULAR).
+            Disabled codes render dimmed — toggle them on via Production Components. */}
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
             Ball Targets
           </Label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Original (45g)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={midBallTarget === 0 ? "" : midBallTarget}
-                placeholder="0"
-                onChange={(e) => setMidBallTarget(Math.max(0, Number(e.target.value)))}
-                className="text-right tabular-nums"
-              />
+          {ballTargetRows.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">
+              No production ball types found. Add a tier-1 production component or run seedLeafKitchenComponents.
+            </p>
+          ) : (
+            <div
+              className={[
+                "grid gap-3",
+                ballTargetRows.length === 1
+                  ? "grid-cols-1"
+                  : ballTargetRows.length === 2
+                    ? "grid-cols-2"
+                    : "grid-cols-2 sm:grid-cols-3",
+              ].join(" ")}
+            >
+              {ballTargetRows.map((row) => (
+                <div
+                  key={row.code}
+                  className={["space-y-1.5", !row.isEnabled ? "opacity-50" : ""].join(" ")}
+                >
+                  <Label className="text-xs text-muted-foreground">
+                    {row.label}
+                    {!row.isEnabled && <span className="ml-1 italic">(off)</span>}
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={row.value === 0 ? "" : row.value}
+                    placeholder="0"
+                    disabled={!row.isEnabled}
+                    onChange={(e) => row.setValue(Number(e.target.value))}
+                    className="text-right tabular-nums"
+                  />
+                </div>
+              ))}
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Jumbo (80g)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={bigBallTarget === 0 ? "" : bigBallTarget}
-                placeholder="0"
-                onChange={(e) => setBigBallTarget(Math.max(0, Number(e.target.value)))}
-                className="text-right tabular-nums"
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Per-Component Production Toggles */}
@@ -389,9 +495,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           <PackagingMixEditor
             rows={packagingMix}
             onChange={setPackagingMix}
-            originalBallTarget={midBallTarget}
-            jumboBallTarget={bigBallTarget}
             enabledComponents={enabledComponents}
+            ballGroups={ballGroups}
           />
         </div>
 
