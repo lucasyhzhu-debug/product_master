@@ -290,9 +290,16 @@ export const listCandidatesForLine = query({
 
 // ===========================================================================
 // Phase 73 Plan 02 — Search escape hatches (D-06)
+//
+// Raw-scan cap (I1): each search* query widens to a whole-table scan, capped
+// at RAW_SCAN_CAP rows before filtering. If any of these tables grows past
+// the cap, replace the raw `.take(RAW_SCAN_CAP)` with a Convex search index
+// (per-table) that lets users narrow by description/counterparty/batchNumber
+// at the index level. See follow-up backlog.
 // ===========================================================================
 
 const SEARCH_LIMIT = 50;
+const RAW_SCAN_CAP = 2000;
 
 function matchesSearch(haystack: string[], term: string): boolean {
   const t = term.trim().toLowerCase();
@@ -318,7 +325,8 @@ export const searchExpenses = query({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
     // Widen to whole-table scan — escape hatch for out-of-window hunts.
-    const all = await ctx.db.query("expenses").collect();
+    // Capped at RAW_SCAN_CAP (I1). Replace with search index past the cap.
+    const all = await ctx.db.query("expenses").take(RAW_SCAN_CAP);
     const filtered = all.filter((e) => {
       if (args.amountIdr !== undefined && e.amount !== args.amountIdr) return false;
       if (args.dateStart !== undefined && e.expenseDate < args.dateStart) return false;
@@ -342,7 +350,8 @@ export const searchRevenue = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    const all = await ctx.db.query("externalRevenue").collect();
+    // I1 — capped raw scan; replace with search index past RAW_SCAN_CAP.
+    const all = await ctx.db.query("externalRevenue").take(RAW_SCAN_CAP);
     const filtered = all.filter((r) => {
       if (args.amountIdr !== undefined && r.revenueGross !== args.amountIdr) return false;
       const txDate = r.transactionDate ?? r.periodStart;
@@ -368,7 +377,8 @@ export const searchReimbursements = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    const all = await ctx.db.query("reimbursementBatches").collect();
+    // I1 — capped raw scan; replace with search index past RAW_SCAN_CAP.
+    const all = await ctx.db.query("reimbursementBatches").take(RAW_SCAN_CAP);
     const filtered = all.filter((r) => {
       if (args.amountIdr !== undefined && r.totalAmount !== args.amountIdr) return false;
       if (args.dateStart !== undefined && r.createdAt < args.dateStart) return false;
@@ -393,7 +403,8 @@ export const searchPayroll = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    const all = await ctx.db.query("payrollEntries").collect();
+    // I1 — capped raw scan; replace with search index past RAW_SCAN_CAP.
+    const all = await ctx.db.query("payrollEntries").take(RAW_SCAN_CAP);
     const filtered = all.filter((r) => {
       if (args.amountIdr !== undefined && r.amount !== args.amountIdr) return false;
       if (args.dateStart !== undefined && r.periodStart < args.dateStart) return false;
