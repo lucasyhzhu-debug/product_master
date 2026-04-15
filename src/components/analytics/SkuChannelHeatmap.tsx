@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { useSkuChannelMatrix } from "@/hooks/convex/useAnalytics";
+import { formatCurrency } from "@/lib/utils";
 
 function intensityClass(pct: number): string {
   if (pct < 5) return "bg-purple-500/10";
@@ -30,11 +31,17 @@ export function SkuChannelHeatmap() {
           <tbody>
             {data.matrix.map((row) => (
               <tr key={row.productKey}>
-                <td className="py-1">{row.product}</td>
+                <td
+                  className="max-w-[12rem] truncate py-1 pr-2"
+                  title={row.product}
+                >
+                  {row.product}
+                </td>
                 {row.channels.map((c) => (
                   <td
                     key={c.channel}
                     className={`px-1 py-1 text-center ${intensityClass(c.pctOfChannel)}`}
+                    title={`${row.product} · ${c.channel} · ${formatCurrency(c.revenue)} · ${c.pctOfChannel.toFixed(1)}% of channel`}
                   >
                     {c.pctOfChannel.toFixed(0)}%
                   </td>

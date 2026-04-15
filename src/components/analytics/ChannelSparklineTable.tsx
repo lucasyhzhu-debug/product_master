@@ -36,7 +36,12 @@ export function ChannelSparklineTable() {
           <tbody>
             {data.channels.map((r) => (
               <tr key={r.channel} className="border-b last:border-0">
-                <td className="py-1">{r.channel}</td>
+                <td
+                  className="max-w-[8rem] truncate py-1 pr-2"
+                  title={r.channel}
+                >
+                  {r.channel}
+                </td>
                 <td className="min-w-[60px]">
                   <Spark values={r.revenueSpark} color="#10b981" />
                 </td>

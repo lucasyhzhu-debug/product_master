@@ -30,7 +30,24 @@ export function RollingTrendChart() {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
           <YAxis tickFormatter={(v) => formatCurrency(v)} />
-          <Tooltip formatter={(v) => formatCurrency(typeof v === "number" ? v : 0)} />
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (!active || !payload || payload.length === 0) return null;
+              const p = payload[0]?.payload as
+                | { date: string; daily: number; r7: number; r28: number }
+                | undefined;
+              if (!p) return null;
+              return (
+                <div className="rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm">
+                  <div className="font-medium">{String(label ?? p.date)}</div>
+                  <div className="text-muted-foreground">
+                    {formatCurrency(p.daily)} · 7d avg {formatCurrency(p.r7)} · 28d avg{" "}
+                    {formatCurrency(p.r28)}
+                  </div>
+                </div>
+              );
+            }}
+          />
           <Legend />
           <Bar dataKey="daily" fill="#f9731644" name="Daily" />
           <Line dataKey="r7" stroke="#10b981" dot={false} name="7d rolling" />

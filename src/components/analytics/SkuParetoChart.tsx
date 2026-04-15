@@ -28,14 +28,14 @@ export function SkuParetoChart() {
   return (
     <Card className="p-4">
       <h4 className="mb-2 text-sm font-semibold">SKU Pareto (top products by revenue)</h4>
-      <ResponsiveContainer width="100%" height={340}>
-        <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+      <ResponsiveContainer width="100%" height={360}>
+        <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis
             dataKey="label"
             angle={-45}
             textAnchor="end"
-            height={110}
+            height={120}
             interval={0}
             tick={{ fontSize: 11 }}
           />
