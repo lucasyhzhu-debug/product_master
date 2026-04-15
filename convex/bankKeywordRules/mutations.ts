@@ -33,7 +33,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { protectedMutation } from "../lib/functions";
-import { resolveSeederUserId } from "../lib/auth";
+import { requireRole, resolveSeederUserId } from "../lib/auth";
 import type { Id } from "../_generated/dataModel";
 import { DEFAULT_ACCOUNT_REFS, DEFAULT_RULES } from "./defaultRules";
 
@@ -250,5 +250,85 @@ export const deactivate = protectedMutation({
       updatedBy: ctx.user._id,
     });
     return null;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// createFromOverride — Phase 73 D-10/D-11/D-12
+//
+// Widens rule creation to manager+admin when invoked from the inline
+// learn-from-override dialog (reviewer overrides a bank line's category; UI
+// offers to save as a new rule). Plain CRUD (create/update/deactivate) stays
+// admin-only per D-23 + P72 D-19.
+//
+// Uses requireRole(ctx, args.token, ...) rather than protectedMutation because
+// the dialog path passes a session token directly from the reconciliation UI
+// (same shape as other P73 mutations in convex/bankStatements/mutations.ts).
+// ---------------------------------------------------------------------------
+
+export const createFromOverride = mutation({
+  args: {
+    token: v.string(),
+    ruleCode: v.string(),
+    plSection: PL_SECTION_VALIDATOR,
+    direction: DIRECTION_VALIDATOR,
+    matchType: MATCH_TYPE_VALIDATOR,
+    counterpartyPatterns: v.optional(v.array(v.string())),
+    descriptionPatterns: v.optional(v.array(v.string())),
+    descriptionPatternsMode: MODE_VALIDATOR,
+    isCatchAll: v.boolean(),
+    categoryAccountId: v.id("accounts"),
+    subCategoryTemplate: v.optional(v.string()),
+    jeDebitAccountId: v.id("accounts"),
+    jeCreditAccountId: v.id("accounts"),
+    linkedChannel: v.optional(v.string()),
+    confidence: CONFIDENCE_VALIDATOR,
+    priority: v.number(),
+    flags: v.optional(v.array(v.string())),
+    isActive: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    if (!RULE_CODE_REGEX.test(args.ruleCode)) {
+      throw new ConvexError(
+        `Invalid ruleCode "${args.ruleCode}": must match /^[A-Z]\\d{2}$/ (e.g. R01, C03, O09, B02)`,
+      );
+    }
+
+    const existing = await ctx.db
+      .query("bankKeywordRules")
+      .withIndex("by_ruleCode", (q) => q.eq("ruleCode", args.ruleCode))
+      .first();
+    if (existing) {
+      throw new ConvexError(`Rule code ${args.ruleCode} already exists`);
+    }
+
+    // Catch-all uniqueness guard — mirrors plain create.
+    if (args.isCatchAll && args.isActive) {
+      const conflicts = await ctx.db
+        .query("bankKeywordRules")
+        .withIndex("by_isCatchAll", (q) => q.eq("isCatchAll", true))
+        .collect();
+      const overlap = conflicts.find(
+        (r) =>
+          r.isActive &&
+          (r.direction === "any" ||
+            args.direction === "any" ||
+            r.direction === args.direction),
+      );
+      if (overlap) {
+        throw new ConvexError(
+          `Active catch-all rule ${overlap.ruleCode} (direction=${overlap.direction}) already matches direction=${args.direction}. Deactivate it or scope one of the two to a narrower direction first.`,
+        );
+      }
+    }
+
+    const { token: _token, ...payload } = args;
+    return await ctx.db.insert("bankKeywordRules", {
+      ...payload,
+      createdBy: user._id,
+      createdAt: Date.now(),
+    });
   },
 });

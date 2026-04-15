@@ -321,6 +321,8 @@ export {
   useBigSellerUnmappedSkus,
   useBigSellerOrderStats,
   useStartBigSellerSync,
+  useBackfillBigsellerItems,
+  useRescanEmptyRows,
 } from "./useBigSeller";
 
 // GrabFood Integration (Phase 27)

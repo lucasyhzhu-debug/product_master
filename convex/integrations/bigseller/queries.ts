@@ -74,6 +74,53 @@ export const checkProductMapping = internalQuery({
 });
 
 /**
+ * Phase 79: Load all Shopee+TikTok externalProductMappings hydrated with
+ * the linked menuProduct's name + price. Used by fetchOrders to build the
+ * `mappingBySku` and `menuProductById` lookup maps once per sync run before
+ * iterating per-order to emit externalRevenueItems.
+ */
+export const getShopeeAndTikTokMappingsWithProducts = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const shopee = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "shopee"))
+      .collect();
+    const tiktok = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "tiktok"))
+      .collect();
+    const all = [...shopee, ...tiktok];
+    const out: Array<{
+      externalProductCode: string;
+      source: string;
+      menuProductId: string | null;
+      menuProductName: string | null;
+      menuProductPrice: number | null;
+    }> = [];
+    for (const m of all) {
+      let name: string | null = null;
+      let price: number | null = null;
+      if (m.menuProductId) {
+        const mp = await ctx.db.get(m.menuProductId);
+        if (mp) {
+          name = mp.name;
+          price = mp.defaultPrice;
+        }
+      }
+      out.push({
+        externalProductCode: m.externalProductCode,
+        source: m.source,
+        menuProductId: m.menuProductId ? String(m.menuProductId) : null,
+        menuProductName: name,
+        menuProductPrice: price,
+      });
+    }
+    return out;
+  },
+});
+
+/**
  * Get an externalRevenue document by ID.
  * Used by fetchOrders to extract externalTransactionId for revenue-to-order linking.
  */

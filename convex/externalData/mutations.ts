@@ -3,6 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import { mutation, internalMutation, type MutationCtx } from "../_generated/server";
 import { requireRole } from "../lib/auth";
 import { externalSource, syncType } from "../schema";
+import { dominantSku } from "../integrations/bigseller/helpers";
 
 type ExternalSource = Infer<typeof externalSource>;
 
@@ -442,8 +443,19 @@ export const linkProductMapping = mutation({
 /**
  * Update a product mapping and retroactively update all revenue items
  * with the matching external product name.
+ *
+ * Phase 79 Plan 04 (D-08, D-09, D-10):
+ *   - For Shopee/TikTok: ALSO cascades to externalRevenueItems where
+ *     externalItemId === args.externalProductCode (SKU), since Plan 03's
+ *     emit path sets productName = linked menuProduct.name after mapping
+ *     (so the by_product_name lookup misses post-mapping stragglers).
+ *   - Parent `externalRevenue.linkedMenuProductId` is set via the dominant-SKU
+ *     rule (max qty across skuVoList, price tie-break) — mapping a minor SKU
+ *     leaves the parent alone.
+ *   - Idempotent: rerunning with the same args produces zero observable change.
+ *   - No `isManuallyMapped` flag introduced (D-10).
  */
-async function applyRetroactiveProductMapping(
+async function applyRetroactiveProductMappingImpl(
   ctx: MutationCtx,
   args: {
     source: ExternalSource;
@@ -452,47 +464,172 @@ async function applyRetroactiveProductMapping(
     menuProductId: Id<"menuProducts"> | undefined;
   }
 ): Promise<{ updatedItems: number; bigsellerUpdated: number }> {
-  const items = await ctx.db
+  // 1) Legacy by-name cascade (non-Shopee sources rely on this; also catches
+  //    pre-Plan-03 Shopee rows where productName was set to the SKU code).
+  const itemsByName = await ctx.db
     .query("externalRevenueItems")
     .withIndex("by_product_name", (q) =>
       q.eq("source", args.source).eq("productName", args.externalProductName)
     )
     .collect();
 
-  for (const item of items) {
+  const patchedItemIds = new Set<string>();
+  const targetName = args.externalProductName;
+  for (const item of itemsByName) {
     await ctx.db.patch(item._id, {
       linkedMenuProductId: args.menuProductId,
-      isAutoMatched: false,
+      isAutoMatched: true,
       matchConfidence: "exact",
+      productName: targetName,
     });
+    patchedItemIds.add(item._id as unknown as string);
   }
 
+  // 2) Shopee/TikTok extra cascade by externalItemId (SKU) and parent
+  //    dominant-SKU update. Other sources (gobiz/gofood/gofood_depot/grabfood/
+  //    tokopedia/lazada/internal) retain legacy behavior.
   let bigsellerUpdated = 0;
-  if (
-    (args.source === "shopee" || args.source === "tiktok") &&
-    args.menuProductId
-  ) {
-    const bsOrders = await ctx.db
-      .query("bigsellerOrders")
-      .withIndex("by_platform", (q) => q.eq("platform", args.source))
+  if (args.source === "shopee" || args.source === "tiktok") {
+    // 2a) Cascade items by externalItemId === SKU.
+    const itemsBySku = await ctx.db
+      .query("externalRevenueItems")
+      .withIndex("by_source_external_item", (q) =>
+        q.eq("source", args.source).eq("externalItemId", args.externalProductCode)
+      )
       .collect();
 
-    for (const order of bsOrders) {
-      const hasSku = order.skuVoList?.some(
-        (item) => item.sku === args.externalProductCode
+    // Staff-review Improvement 2: fail-fast before exceeding Convex mutation
+    // write limit. Frollie Shopee volume (~6K total orders across all SKUs)
+    // keeps per-SKU cascade well under this, but hot SKUs that ever exceed it
+    // should be paginated via a scheduled action rather than silently truncated.
+    if (itemsBySku.length > 4000) {
+      throw new Error(
+        `Cascade batch size ${itemsBySku.length} exceeds Convex mutation limit (4000). ` +
+          `Schedule a paginated action instead. SKU: ${args.externalProductCode}`
       );
-      if (!hasSku) continue;
-      if (order.linkedRevenueId) {
-        await ctx.db.patch(order.linkedRevenueId, {
-          linkedMenuProductId: args.menuProductId,
+    }
+
+    for (const item of itemsBySku) {
+      if (patchedItemIds.has(item._id as unknown as string)) continue; // already patched by name branch
+      await ctx.db.patch(item._id, {
+        linkedMenuProductId: args.menuProductId,
+        isAutoMatched: true,
+        matchConfidence: "exact",
+        productName: targetName,
+      });
+      patchedItemIds.add(item._id as unknown as string);
+    }
+
+    // 2b) Parent dominant-SKU update (D-09). For every distinct parent
+    //     revenueId touched by the by-SKU cascade, recompute the dominant SKU
+    //     across ALL children items of that parent and update the parent's
+    //     linkedMenuProductId when the just-mapped SKU wins.
+    //
+    //     We derive dominance from the persisted externalRevenueItems (not
+    //     bigsellerOrders.skuVoList) so that the cascade is correct whether
+    //     or not a bigsellerOrders row exists. bigsellerOrders is the emit
+    //     source for Plan 03, but tests + legacy data may contain revenue
+    //     rows without a paired bigsellerOrders row.
+    if (args.menuProductId) {
+      // Build mapping snapshot ONCE per cascade run — reused across every
+      // parent. Hydrates menuProduct.defaultPrice for D-09 tie-break.
+      const platformMappings = await ctx.db
+        .query("externalProductMappings")
+        .collect();
+      const mappingBySku = new Map<
+        string,
+        { menuProductId?: string; menuProductPrice?: number }
+      >();
+      for (const m of platformMappings) {
+        if (m.source !== args.source) continue;
+        if (!m.menuProductId) continue;
+        const mp = await ctx.db.get(m.menuProductId);
+        mappingBySku.set(m.externalProductCode, {
+          menuProductId: m.menuProductId as unknown as string,
+          menuProductPrice: mp?.defaultPrice,
+        });
+      }
+      // Overlay the just-applied mapping (handles callers that pass
+      // menuProductId WITHOUT first patching externalProductMappings —
+      // e.g. the public applyRetroactiveProductMapping mutation exposed
+      // for tests and batch tooling).
+      {
+        const mp = await ctx.db.get(args.menuProductId);
+        mappingBySku.set(args.externalProductCode, {
+          menuProductId: args.menuProductId as unknown as string,
+          menuProductPrice: mp?.defaultPrice,
+        });
+      }
+
+      // Collect distinct parent revenueIds from the cascaded items.
+      const parentIds = new Set<Id<"externalRevenue">>();
+      for (const it of itemsBySku) parentIds.add(it.revenueId);
+
+      for (const revenueId of parentIds) {
+        const siblings = await ctx.db
+          .query("externalRevenueItems")
+          .withIndex("by_revenue", (q) => q.eq("revenueId", revenueId))
+          .collect();
+
+        // Reconstruct skuVoList-shape input for dominantSku() from items.
+        const skuVoList = siblings
+          .filter((s) => !!s.externalItemId)
+          .map((s) => ({
+            sku: s.externalItemId as string,
+            skuNum: s.quantity,
+          }));
+        if (skuVoList.length === 0) continue;
+
+        const dominant = dominantSku(skuVoList, mappingBySku);
+        if (dominant.sku !== args.externalProductCode) continue; // not winning
+        if (dominant.menuProductId == null) continue;
+
+        await ctx.db.patch(revenueId, {
+          linkedMenuProductId: dominant.menuProductId as unknown as Id<"menuProducts">,
         });
         bigsellerUpdated++;
       }
     }
   }
 
-  return { updatedItems: items.length, bigsellerUpdated };
+  return { updatedItems: patchedItemIds.size, bigsellerUpdated };
 }
+
+/**
+ * Public-facing version of applyRetroactiveProductMapping.
+ *
+ * Used by admin tooling (and the Phase 79 retroactive cascade test) to
+ * re-run the cascade without going through updateProductMapping /
+ * setMenuProductForSku. Derives `externalProductName` from the existing
+ * externalProductMappings row when available; falls back to the SKU code.
+ */
+export const applyRetroactiveProductMapping = mutation({
+  args: {
+    token: v.string(),
+    source: sourceValidator,
+    externalProductCode: v.string(),
+    menuProductId: v.optional(v.id("menuProducts")),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin", "manager"]);
+
+    const mapping = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) =>
+        q.eq("source", args.source).eq("externalProductCode", args.externalProductCode)
+      )
+      .unique();
+    const externalProductName =
+      mapping?.externalProductName ?? args.externalProductCode;
+
+    return await applyRetroactiveProductMappingImpl(ctx, {
+      source: args.source,
+      externalProductCode: args.externalProductCode,
+      externalProductName,
+      menuProductId: args.menuProductId,
+    });
+  },
+});
 
 export const updateProductMapping = mutation({
   args: {
@@ -511,7 +648,7 @@ export const updateProductMapping = mutation({
       createdAt: Date.now(),
     });
 
-    return await applyRetroactiveProductMapping(ctx, {
+    return await applyRetroactiveProductMappingImpl(ctx, {
       source: mapping.source,
       externalProductCode: mapping.externalProductCode,
       externalProductName: mapping.externalProductName,
@@ -571,7 +708,7 @@ export const setMenuProductForSku = mutation({
       externalProductName = mapping.externalProductName;
     }
 
-    const retro = await applyRetroactiveProductMapping(ctx, {
+    const retro = await applyRetroactiveProductMappingImpl(ctx, {
       source: args.source,
       externalProductCode: args.externalProductCode,
       externalProductName,

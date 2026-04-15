@@ -39,6 +39,45 @@ After merging any code change, add a new entry with:
 
 **Migration:** None. Read-only additive changes. Route protected by `canAccessDashboard` (manager + admin).
 
+---
+
+### Feat: Phase 73 -- Bank Reconciliation UI & Workflow -- 2026-04-16
+
+**For the team:** The bank reconciliation module graduates from "imported statements + auto-classified lines" to a full reviewer workspace. Managers (not just admins) can now open `/bank-reconciliation`, pick a statement, review every line in a two-pane split view, link each to the right expense/revenue/reimbursement/payroll record, and confirm with a single click — which posts a balanced journal entry. Unmatch of a confirmed line automatically posts a reversal JE so the books stay in sync. Batch confirm handles all exact-tier matches in one preview + post. When no existing record fits, reviewers can inline-create an expense, revenue entry, or reimbursement shell without leaving the page. A new Revenue Gap dashboard tab surfaces bank credits vs external-platform revenue side-by-side so discrepancies become visible per channel per period.
+
+**What shipped:**
+- Split-view workspace at `/bank-reconciliation` (Review tab): bank lines pane (left) with direction + confirmed filters, candidates pane (right) with 4 typed groups (expense / revenue / reimbursement / payroll), sticky action bar with Match / Unmatch / Confirm / Confirm-all-exact-tier / inline-create / search-all-records / route-to-asset-register CTAs.
+- Live per-statement reconciliation progress: Progress bar + 4 badge chips (matched / suggested / unmatched / confirmed), per-row live progress column on the Statements tab history list (single bulk query, no per-row `useQuery` storm).
+- Batch Confirm preview modal: groups by (DR, CR), grand-total row, `Ledger imbalance` destructive alert when DR ≠ CR, Post button disabled on imbalance, surfaces skipped count when lines lack JE accounts.
+- Learn-from-Override dialog: pre-fills a keyword-rule form from the line's parsed counterparty + description + chosen category. Saving calls the new manager+admin `createFromOverride` mutation (admin-only CRUD stays admin-only on the dedicated /bank-rules page).
+- Inline record creation from unmatched bank lines:
+  - Expense (D-17 critical: status hard-coded `submitted`, NEVER `approved`; receipt required; reviewer is often not the person who incurred the expense).
+  - Revenue (strict 8-literal `externalSource` validator, not `v.string()`).
+  - Reimbursement (batch shell + deep-link to /reimbursements/{batchId} for multi-item picker).
+- Search-all-records dialog: 4 tabs widening the default ±3-day / exact-amount candidate window.
+- CapEx round-trip: bank lines flagged `capex_needs_asset_register` show [Route to Asset Register]. AssetRegister intake auto-opens CreateAssetDialog with URL prefill, surfaces duplicate detection (vendor + cost + ±3 day acquisition date), and on save the backend creates the asset + acquisition JE + companion expense + patches the bank line in one transaction.
+- Revenue Gap dashboard tab: per-period table of channel × bank credits × external revenue × diff × diff%. Period picker (last-12 WIB months or custom range, capped at 366 days). Mapped channels render with colored dot; unmapped channels surface in a separate "Channels not tracked" group; row click drills into Review tab with channel + period filter applied.
+- Unmatch with reversal: destructive AlertDialog precedes reversal; reversal JE posted via direct `createJournalEntryWithLines` call with new `journalEntries.sourceType = "bank_statement_reversal"` literal (bypasses NON_REVERSIBLE_TYPES guard). Reversal JE date preserved from original JE (JE-03 — keeps accounting period intact).
+- Permission widening (D-23): `/bank-reconciliation` route + sidebar entry + all `bankStatements.*` queries and mutations now manager + admin. `/bank-rules` + `bankKeywordRules.{create,update,deactivate}` stay admin-only.
+
+**Schema (D-25 / D-26):**
+- `bankStatementLines` gains 9 optional audit fields: `confirmedAt / confirmedBy / confirmedJournalEntryId`, `reversedAt / reversedBy / reversalJournalEntryId`, `createdExpenseId / createdRevenueId / createdReimbursementId`.
+- `journalEntries.sourceType` union gains `"bank_statement_reversal"` literal. `"bank_statement"` stays in `NON_REVERSIBLE_TYPES` — reversal is a fresh JE through the bank-specific direct call, not the generic void path.
+
+**Backend:** 12 new exports across `convex/bankStatements/*` and `convex/bankKeywordRules/mutations.ts`:
+- Mutations (manager + admin): `manualMatch`, `unmatch`, `confirmLine`, `batchConfirmExactTier`, `inlineCreateExpense`, `inlineCreateRevenue`, `inlineCreateReimbursement`, `markAssetLinked`, `createFromOverride`.
+- Queries (manager + admin): `getStatementProgress`, `getStatementProgressBulk`, `listCandidatesForLine`, `searchExpenses`, `searchRevenue`, `searchReimbursements`, `searchPayroll`, `revenueGapByPeriod`, `getLine`.
+- Existing P72 queries widened manager+admin: `listStatements`, `getStatement`, `findByFileHash`, `listLines`.
+- `convex/fixedAssets/mutations.ts::create` extended with optional `sourceBankLineId` — creates companion expense + patches bank line in the same transaction when supplied.
+
+**Frontend:** 17 new components under `src/components/bankReconciliation/` (split-view panes, dialogs, progress header, revenue gap tab, etc.), 16 new hooks in `src/hooks/convex/useBankReconciliation.ts`, refactored `src/pages/ExpenseSubmit.tsx` with extracted shared `src/components/expense/ExpenseSubmitForm.tsx` so the page and the inline dialog share the exact same field/validation/receipt-upload logic (I4 mandate).
+
+**Tests:** 79+ new tests across 3 surfaces. 8 backend vitest files (Plan 01: manualMatch / unmatch / confirmLine / batchConfirm — 24 tests; Plan 02: channelMapping / progress / revenueGap / listCandidates / createFromOverride — 55 tests). 3 frontend component tests (StatementHistoryList / StatementProgressHeader / ReconciliationActionBar — 11 tests). 6 Playwright E2E specs covering inline-expense / batch-confirm / capex-roundtrip / split-view / learn-from-override / role-gating.
+
+**Files modified:** Dozens. Canonical source-of-truth files: `convex/schema.ts`, `convex/lib/journalEngine.ts`, `convex/bankStatements/{mutations,queries}.ts`, `convex/bankKeywordRules/mutations.ts`, `convex/fixedAssets/mutations.ts`, `src/pages/BankReconciliationPage.tsx`, `src/pages/AssetRegister.tsx`, `src/App.tsx`, `src/components/layout/Header.tsx`, `src/hooks/convex/useBankReconciliation.ts`, 17 new components under `src/components/bankReconciliation/`.
+
+---
+
 ### Fix: Shopee SKU Preserve + Query-time Mapping + Per-Platform Fees -- 2026-04-14
 
 **For the team:** The BigSeller sync table on Sales Analytics had three issues: (1) recent Shopee orders showed `--` in the SKUs column and all previously-known SKU mappings appeared to vanish after re-sync; (2) there was no way to see which Frollie product each BigSeller SKU maps to, or to fix an unmapped SKU without leaving the page; (3) the Buyer Shipping column was stuck at Rp 0 for Shopee rows despite BigSeller's API returning the fee. All three are now fixed and mappings are preserved across re-syncs.

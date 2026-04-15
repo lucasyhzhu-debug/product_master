@@ -32,6 +32,8 @@ import {
   mapOrderToRevenue,
   mapOrderToStorage,
   normalizePlatformFees,
+  buildPriceOracle,
+  prorateItems,
   type BigSellerOrderRow,
 } from "./helpers";
 
@@ -572,6 +574,58 @@ export const fetchOrders = internalAction({
       endDate: args.endDate,
     });
 
+    // ── Phase 79: Build price oracle + mapping lookups ONCE per sync run ──
+    // The oracle sources per-SKU median prices from historical single-SKU
+    // bigsellerOrders. The mapping tables resolve SKU → menuProduct for
+    // item naming + auto-match attribution.
+    //
+    // Both are consumed in the per-platform loop below by `prorateItems`
+    // and the `saveRevenueItems` emit branch (Shopee/TikTok only).
+    //
+    // DA-11 deferral: BigSeller pageList does NOT expose buyerName/buyerPhone/
+    // buyerAddress. Only financial buyer* fields (buyerShippingFee,
+    // buyerTotalAmount) are returned. Per D-07, customer data capture is
+    // deferred entirely this phase.
+    // See: .planning/phases/79-shopee-item-level-revenue/79-RESEARCH.md
+    //      §Critical finding (BigSeller buyer-field availability).
+    const singleSkuOrders: Array<{
+      orderAmount?: number;
+      saleAmount: number;
+      skuVoList: Array<{ sku: string; skuNum: number }>;
+    }> = await ctx.runQuery(
+      internal.bigsellerOrders.queries.getSingleSkuOrdersForOracle,
+      {}
+    );
+    const priceOracle = buildPriceOracle(singleSkuOrders);
+
+    const allMappings: Array<{
+      externalProductCode: string;
+      source: string;
+      menuProductId: string | null;
+      menuProductName: string | null;
+      menuProductPrice: number | null;
+    }> = await ctx.runQuery(
+      internal.integrations.bigseller.queries.getShopeeAndTikTokMappingsWithProducts,
+      {}
+    );
+    const mappingBySku = new Map<
+      string,
+      { menuProductId?: string; menuProductPrice?: number }
+    >();
+    const menuProductById = new Map<string, { name: string; price: number }>();
+    for (const m of allMappings) {
+      mappingBySku.set(m.externalProductCode, {
+        menuProductId: m.menuProductId ?? undefined,
+        menuProductPrice: m.menuProductPrice ?? undefined,
+      });
+      if (m.menuProductId && m.menuProductName !== null && m.menuProductPrice !== null) {
+        menuProductById.set(m.menuProductId, {
+          name: m.menuProductName,
+          price: m.menuProductPrice,
+        });
+      }
+    }
+
     // Group shop IDs by platform for platform-specific API calls.
     // The common pageList.json returns 0 for Shopee commission/shipping/other fees.
     // Platform-specific endpoints return the real fee breakdown.
@@ -739,6 +793,75 @@ export const fetchOrders = internalAction({
               internal.bigsellerOrders.mutations.linkRevenueToOrders,
               { links }
             );
+          }
+        }
+
+        // ── Phase 79: Emit externalRevenueItems per Shopee/TikTok order ──
+        // Branch only for shopee/tiktok where skuVoList is populated. The per-
+        // platform loop guarantees `platform` is the canonical source for every
+        // row in this batch — defensive assertion below catches future
+        // refactors that might break that invariant (T-79-02).
+        if (platform === "shopee" || platform === "tiktok") {
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const result = revenueResults[i];
+            if (!result?.id) continue;
+            if (!row.skuVoList || row.skuVoList.length === 0) continue;
+            const revenueId = result.id as Id<"externalRevenue">;
+
+            // Cross-platform leak guard (T-79-02): the per-platform loop
+            // groups shops by BIGSELLER_SHOP_PLATFORM_MAP[shopId], and
+            // mapOrderToRevenue stamps `source = platform.toLowerCase()`,
+            // so revenueResults[i] MUST belong to `platform`. If a future
+            // refactor breaks that contract, fail loudly rather than emit
+            // items against the wrong platform's revenueId.
+            const revDoc = await ctx.runQuery(
+              internal.integrations.bigseller.queries.getRevenueById,
+              { revenueId }
+            );
+            if (revDoc && revDoc.source !== platform) {
+              throw new Error(
+                `Cross-platform leak guard: revenueSource=${revDoc.source} !== order.platform=${platform} (revenueId=${revenueId})`
+              );
+            }
+
+            const prorated = prorateItems(
+              {
+                orderAmount: row.orderAmount,
+                saleAmount: row.saleAmount,
+                skuVoList: row.skuVoList,
+              },
+              priceOracle,
+              mappingBySku
+            );
+            const items = prorated.map((p) => {
+              const mapping = mappingBySku.get(p.sku);
+              const menuProductIdStr = mapping?.menuProductId;
+              const menuProduct = menuProductIdStr
+                ? menuProductById.get(menuProductIdStr)
+                : null;
+              const productName = menuProduct?.name ?? p.sku; // fallback: raw SKU code
+              return {
+                externalItemId: p.sku, // D-18 dedup key (revenueId, externalItemId)
+                productName,
+                unitPrice: p.unitPrice,
+                quantity: p.skuNum,
+                totalPrice: p.totalPrice,
+                linkedMenuProductId: menuProductIdStr
+                  ? (menuProductIdStr as Id<"menuProducts">)
+                  : undefined,
+                isAutoMatched: Boolean(menuProductIdStr),
+                matchConfidence: (menuProductIdStr ? "exact" : "none") as
+                  | "exact"
+                  | "none",
+              };
+            });
+            if (items.length > 0) {
+              await ctx.runMutation(
+                internal.externalData.mutations.saveRevenueItems,
+                { revenueId, items }
+              );
+            }
           }
         }
 

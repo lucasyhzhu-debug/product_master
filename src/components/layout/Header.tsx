@@ -116,7 +116,7 @@ const accountingItems: NavItem[] = [
   { path: '/journal', label: 'Journal Entry', icon: BookMarked, permission: 'canManageReimbursements' },
   { path: '/accounts', label: 'Chart of Accounts', icon: Landmark, permission: 'canManageReimbursements' },
   { path: '/bank-accounts', label: 'Bank Accounts', icon: Landmark, permission: 'canManageReimbursements' },
-  { path: '/bank-reconciliation', label: 'Bank Reconciliation', icon: Landmark, rolesAllowed: ['admin'] },
+  { path: '/bank-reconciliation', label: 'Bank Reconciliation', icon: Landmark, rolesAllowed: ['manager', 'admin'] },
   { path: '/bank-rules', label: 'Bank Rules', icon: BookMarked, rolesAllowed: ['admin'] },
   { path: '/import', label: 'Historical Import', icon: FileUp, permission: 'canManageReimbursements' },
   { path: '/assets', label: 'Asset Register', icon: Building2, permission: 'canAccessAssets' },

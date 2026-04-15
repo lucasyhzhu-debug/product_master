@@ -41,7 +41,8 @@ export type JournalSourceType =
   | "depreciation" // Auto-generated monthly depreciation entries (Phase 60)
   | "depreciation_void" // Reversal of depreciation entries (Phase 60)
   | "asset_acquisition" // Equipment purchase JE from expense-to-CapEx conversion
-  | "bank_statement"; // Bank statement reconciliation suggestion (Phase 72+). Suggestion only in P72; posted via P73.
+  | "bank_statement" // Bank statement reconciliation suggestion (Phase 72+). Suggestion only in P72; posted via P73.
+  | "bank_statement_reversal"; // Phase 73 — reversal posted when a confirmed bank line is unmatched. NOT routed through createReversalEntry; created directly via createJournalEntryWithLines to bypass NON_REVERSIBLE_TYPES guard on "bank_statement".
 
 /** Void source types that reverse an original entry */
 export type VoidSourceType = "expense_void" | "reimbursement_void" | "payroll_void" | "depreciation_void";

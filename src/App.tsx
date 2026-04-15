@@ -429,11 +429,11 @@ function App() {
                     }
                   />
 
-                  {/* Bank Reconciliation — /bank-reconciliation (admin-only, Phase 72) */}
+                  {/* Bank Reconciliation — /bank-reconciliation (manager + admin, Phase 73 D-23) */}
                   <Route
                     path="bank-reconciliation"
                     element={
-                      <ProtectedRoute allowedRoles={["admin"]}>
+                      <ProtectedRoute allowedRoles={["manager", "admin"]}>
                         <BankReconciliationPage />
                       </ProtectedRoute>
                     }
@@ -452,6 +452,15 @@ function App() {
                   {/* Asset Register (manager + admin, Phase 60) */}
                   <Route
                     path="assets"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessAssets">
+                        <AssetRegister />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase 73 D-21: /asset-register/new alias for CapEx round-trip */}
+                  <Route
+                    path="asset-register/new"
                     element={
                       <ProtectedRoute requiredPermission="canAccessAssets">
                         <AssetRegister />

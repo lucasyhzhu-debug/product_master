@@ -12,7 +12,7 @@
 - [x] **v1.7 Expense & Accounting** - Phases 41-54 (shipped 2026-03-16)
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
-- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-78 (in progress)
+- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80 (in progress)
 
 ## Phases
 
@@ -180,12 +180,13 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 70: Data Accuracy Foundation** - Fix revenue recognition, add COGS override, extend employee profiles (completed 2026-04-10)
 - [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
 - [x] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07) (completed 2026-04-13)
-- [ ] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking
+- [x] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking (completed 2026-04-15)
 - [ ] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
 - [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
+- [x] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron (completed 2026-04-14)
 
 ## Phase Details
 
@@ -256,7 +257,13 @@ Plans:
   1. User can view a split-screen interface showing unmatched bank lines on one side and candidate system records on the other
   2. User can manually match a bank line to a system record, or unmatch an auto-matched pair
   3. Each uploaded statement shows matched/unmatched/suggested counts with a reconciliation progress indicator
-**Plans**: TBD
+**Plans:** 6/6 plans complete
+Plans:
+- [ ] 73-PLAN-1.md — Schema + backend mutations/queries + Wave 0 scaffolds
+- [ ] 73-PLAN-2.md — Split-view workspace + tab shell + batch confirm modal
+- [ ] 73-PLAN-3.md — Revenue Gap tab + history list progress + learn-from-override + Rules tab
+- [ ] 73-PLAN-4.md — Inline create dialogs + CapEx handoff to Asset Register
+- [ ] 73-PLAN-5.md — E2E smoke + docs + manual UAT checkpoint
 **UI hint**: yes
 
 ### Phase 74: Staff Attendance
@@ -321,9 +328,26 @@ Plans:
 - [ ] 78-02-PLAN.md -- Frontend: ProductForm section, AvailabilityPanel sub-rows, toast enhancement
 **UI hint**: yes
 
+### Phase 79: Shopee Item-Level Revenue
+**Goal**: Shopee and TikTok channels support the same product-level analytics as GoJek/GoFood by capturing full per-item transaction data (SKU, quantity, unit price, customer name/details) into `externalRevenueItems` at sync time — enabling BOM-driven ball counts, per-product COGS, sell-through per product, and customer-level insights.
+**Depends on**: Phase 70 (externalRevenueItems pipeline established)
+**Requirements**: DA-05, DA-06, DA-07, DA-08, DA-09, DA-10, DA-11, DA-12, DA-13
+**Success Criteria** (what must be TRUE):
+  1. New BigSeller syncs write one `externalRevenueItems` row per `skuVoList` entry (quantity = `skuNum`, unit price pro-rated from `orderAmount` unless platform-reported), without double-counting revenue vs the parent `externalRevenue` row
+  2. Retroactive SKU→menuProduct mapping updates items' `linkedMenuProductId` alongside the parent `linkedMenuProductId`
+  3. Sell-through query has `shopee` and `tiktok` branches returning real per-product volume (not revenue-extrapolated estimates)
+  4. Lifetime ball counts include Shopee/TikTok via actual `item.quantity × ballsPerProduct` from BOM, not via `avgRevenuePerBall` division
+  5. Income statement per-product COGS reflects actual BOM cost × quantity for Shopee/TikTok
+  6. Backfill migration converts all existing `bigsellerOrders` into `externalRevenueItems` idempotently with no double-counted revenue
+  7. Customer name, phone, and address (when BigSeller provides them) are persisted on `bigsellerOrders`; admin can opt-in link to `customers` table
+  8. Daily cron re-syncs the last 7 days of BigSeller data so same-day `--` rows auto-backfill when Shopee finalizes SKU data
+  9. UI shows "Pending SKU from Shopee" (not bare `--`) for sub-48-hour rows with empty `skuVoList`
+**Plans:** 7/7 plans complete
+**UI hint**: yes
+
 ### Phase 80: Unit Economics Analytics Dashboard
 **Goal**: New `/analytics` page with 13 widgets answering CFO/CEO unit-economics questions: where revenue comes from, how much per unit (BOM-resolved), and momentum — filterable by date, channel, and product
-**Depends on**: Nothing (read-only over existing orders/orderItems/menuProducts/componentTypes data)
+**Depends on**: Phase 79 (Shopee Item-Level Revenue) — Task 4b merges `externalRevenueItems` (populated by 79) into the analytics loader so Shopee/TikTok/Tokopedia/consignment sales appear in every widget. Discovered 2026-04-14.
 **Requirements**: AOV per channel, units sold (BOM-resolved across Big Ball + Mid Ball + Hazelnut + future production types), units per transaction by channel, weekday seasonality, day×hour heatmap, channel rev/unit + take-rate, product-type mix over time, SKU Pareto, SKU×channel heatmap, per-channel momentum sparklines, rolling 7d/28d trend
 **Success Criteria** (what must be TRUE):
   1. Manager/admin opens `/analytics` and sees 6 KPI tiles (Revenue net, Units, AOV, Rev/Unit, Orders, Units/Txn) with WoW deltas
@@ -333,10 +357,13 @@ Plans:
   5. Existing hardcoded `BIG_BALL`/`MID_BALL` accumulator in `convex/dispatchPlanner/queries.ts` is migrated to the same dynamic helper (regression-guarded by test)
   6. New `by_completed_at` index on orders bounds all date-range scans (no full-table scans)
   7. `npm run type-check` + `npm run build` + `npm run test` all pass
-**Plans:** 2/2 plans complete
+  8. Shopee/TikTok/Tokopedia/consignment sales (written to `externalRevenueItems` by Phase 79) flow into every widget via the unified `loadFilteredData` loader — regression-guarded by 5 cross-channel integration tests
+  9. No double-count: `externalRevenue` rows whose source has an `orders` twin (gobiz/internal) are skipped at loader layer (R5)
+**Plans:** 3 plans
 Plans:
-- [ ] PLAN.md -- 16 tasks across 3 waves: backend helpers/queries (T1-T7), frontend widgets (T8-T13), verification (T14-T16)
-- [ ] PLAN-ADDENDUM.md -- Staff-review patches: T1.5 (index), T1.6 (dispatchPlanner migration), T14.5 (frontend tests), use lineTotal helpers + platformColors + periodRange
+- [x] 80-01-PLAN.md -- Wave 1 Backend: helpers (production-unit BOM, revenue, channel taxonomy, platformColors), schema indexes (T1.5), dispatchPlanner migration (T1.6), 11 unitEconomics queries (T2-T7)
+- [x] 80-02-PLAN.md -- Wave 2 Frontend: filter context + URL sync, 11 typed hooks, 13 widgets across 6 lenses, AnalyticsDashboard page, /analytics route, nav entries in Header + MobileBottomNav (absorbed into 80-01 per addendum)
+- [x] 80-03-PLAN.md -- Wave 3 Verification: 10 backend tests (T14), 3 frontend smoke tests (T14.5 — creates tests/frontend/), quality gate, docs (CHANGELOG/API_REFERENCE/ROADMAP/CLAUDE.md), squash-merge PR (absorbed inline; merged via PR #138 / ecd42b8f)
 **UI hint**: yes
 **Source artifacts**:
 - Spec: `docs/superpowers/specs/2026-04-13-unit-economics-analytics-dashboard-design.md`
@@ -347,20 +374,21 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 80
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
-| 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
+| 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
 | 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
-| 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
-| 80. Unit Economics Analytics Dashboard | v2.0 | 2/2 | Complete    | 2026-04-15 |
+| 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
+| 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
+| 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -374,7 +402,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-78, 80 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
@@ -416,3 +444,31 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+---
+
+### Phase 999.4: Unified Cross-Channel Inventory Deduction (BACKLOG, URGENT — promote after 80)
+
+**Cross-reference (added 2026-04-14):** Phase 80 Task 4b establishes the READ side of cross-channel unification (reads from `externalRevenueItems` via `externalSourceToDisplayChannel` in `convex/reports/channelTaxonomy.ts`). This phase is the WRITE side — it deducts inventory when those same external sales happen. **Reuse, do not reinvent**: import `externalSourceToDisplayChannel` from `convex/reports/channelTaxonomy.ts`, import `getProductionUnitsByTypePerProduct` from `convex/reports/productionUnitHelpers.ts` (Phase 80) when resolving BOM components to deduct. The `externalRevenueItems.linkedMenuProductId` field is the shared integration pivot — Phase 79 populates it, Phase 80 reads from it, this phase writes inventory transactions from it.
+
+
+**Goal:** Replace the current per-channel inventory deduction pattern (`processGofoodSales` outlet-keyed; order-fulfillment flow for direct GoJek; K3Mart custom path; Shopee/TikTok absent) with **one centralised mutation** that accepts `{ source, menuProductId, quantity, externalOrderRef }` and resolves the correct `storageLocationId` via a per-source routing table configurable by admin.
+
+**Why:** Raised during Phase 79 discussion (2026-04-14). User wants to choose where inventory pulls from for each channel (Shopee → HQ, GoFood Outlet-X → Depot-X, etc.) without needing a new function per channel. Today Shopee/TikTok sales deduct nothing from inventory — stock drifts from reality every day. Adding a Shopee-specific `processBigsellerSales` would entrench the anti-pattern.
+
+**Requirements (proposed):**
+1. New `productInventory/channelRouting` table: `{ source, menuProductId?, storageLocationId }` — with optional per-product override (e.g., frozen products always pull from cold storage regardless of channel)
+2. Admin UI on Inventory Settings: matrix of source × (default location | product overrides)
+3. New internal mutation `processChannelSale({ source, menuProductId, quantity, externalOrderRef })` using stockTracker + Phase 78 substitution
+4. Refactor `processGofoodSales` to call the new mutation per item (or replace entirely, migrating the outlet → location resolution into the routing table as per-outlet overrides)
+5. Add BigSeller sync call site: after `saveRevenueItems`, call `processChannelSale` per item
+6. Add GoBiz direct-order path, K3Mart path
+7. Negative-stock-allowed preserved
+8. Transaction type field gains generic `channel_sale` (or keep per-source `gofood_sale`, `shopee_sale`, etc. for ledger readability — design decision)
+
+**Depends on:** Phase 79 (Shopee item pipeline must exist to deduct from)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd-review-backlog when ready — user-tagged URGENT)

@@ -17,6 +17,36 @@ export function wibMidnightToUtc(year: number, month: number, day: number): numb
 }
 
 /**
+ * WIB month bounds as UTC epoch ms: start = WIB midnight on 1st, end = WIB
+ * midnight of the following 1st minus 1ms (last instant of the month in WIB).
+ * `month` is 0-indexed to match Date conventions.
+ */
+export function wibMonthBoundsMs(year: number, month: number): { start: number; end: number } {
+  const start = wibMidnightToUtc(year, month, 1);
+  const end = wibMidnightToUtc(year, month + 1, 1) - 1;
+  return { start, end };
+}
+
+/**
+ * Parse a "YYYY-MM" key into WIB month bounds. Returns null on malformed
+ * input or out-of-range month.
+ */
+export function wibMonthBoundsFromKey(key: string): { start: number; end: number } | null {
+  const m = key.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  const year = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10) - 1;
+  if (month < 0 || month > 11) return null;
+  return wibMonthBoundsMs(year, month);
+}
+
+/** WIB month bounds derived from a UTC epoch ms (uses the tx's WIB date). */
+export function wibMonthBoundsFromUtcMs(utcMs: number): { start: number; end: number } {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  return wibMonthBoundsMs(wib.getUTCFullYear(), wib.getUTCMonth());
+}
+
+/**
  * Get current WIB month as { year, month } where month is 0-indexed.
  * Accepts optional `now` (epoch ms) for testability.
  */

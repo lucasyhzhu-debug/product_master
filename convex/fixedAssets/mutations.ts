@@ -89,6 +89,8 @@ export const create = protectedMutation({
     characteristics: v.array(v.object({ key: v.string(), value: v.string() })),
     attachmentIds: v.array(v.id("_storage")),
     paymentMethod: v.optional(v.union(v.literal("company_paid"), v.literal("employee_paid"))),
+    // Phase 73 D-21 CapEx round-trip — optional bank line to link back to.
+    sourceBankLineId: v.optional(v.id("bankStatementLines")),
   },
   handler: async (ctx, args) => {
     // Validate category
@@ -177,7 +179,53 @@ export const create = protectedMutation({
     // Store JE reference on asset
     await ctx.db.patch(assetId, { acquisitionJeId });
 
-    return assetId;
+    // Phase 73 D-21: CapEx round-trip — when coming from a bank line, also
+    // create a companion expense linked to the acquisition JE and mark the
+    // bank line as linked.
+    //
+    // WR-01 fix: align with D-17 invariant (inline-created expenses from a
+    // bank line MUST have status="submitted", NEVER pre-approved). The
+    // acquisition JE is already posted above so the asset is usable
+    // immediately; the companion expense stays in the approval queue as a
+    // tracking record and preserves second-reviewer separation for CapEx.
+    let linkedExpenseId: Id<"expenses"> | undefined;
+    if (args.sourceBankLineId) {
+      const line = await ctx.db.get(args.sourceBankLineId);
+      if (!line) {
+        throw new ConvexError("Bank line not found for CapEx round-trip");
+      }
+      if (line.createdExpenseId) {
+        // Idempotency: already linked — reuse existing expense id.
+        linkedExpenseId = line.createdExpenseId;
+      } else {
+        const expenseNumber = await getNextNumber(ctx, "EXP");
+        linkedExpenseId = await ctx.db.insert("expenses", {
+          expenseNumber,
+          submittedBy: ctx.user._id,
+          amount: args.cost,
+          accountId: assetAccount._id,
+          expenseDate: args.acquisitionDate,
+          description: `Fixed asset acquisition: ${args.name} (${assetNumber})`,
+          vendorName: args.name,
+          paymentMethod: payment,
+          status: "submitted" as const,
+          lateSubmission: false,
+          submittedAt: Date.now(),
+          convertedToAssetId: assetId,
+          createdAt: Date.now(),
+        });
+        await ctx.db.patch(args.sourceBankLineId, {
+          matchedType: "expense" as const,
+          matchedId: linkedExpenseId,
+          matchMethod: "linked_to_record" as const,
+          status: "suggested" as const,
+          isAutoMatched: false,
+          createdExpenseId: linkedExpenseId,
+        });
+      }
+    }
+
+    return { assetId, expenseId: linkedExpenseId };
   },
 });
 

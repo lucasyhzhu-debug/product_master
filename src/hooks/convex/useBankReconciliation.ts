@@ -39,6 +39,15 @@ export function useBankStatement(id: Id<"bankStatements"> | null) {
   );
 }
 
+/** Single bank line by id (Phase 73 Plan 04 — AssetRegister CapEx round-trip). */
+export function useBankLine(lineId: Id<"bankStatementLines"> | null | undefined) {
+  const { user } = useAuth();
+  return useQuery(
+    api.bankStatements.queries.getLine,
+    lineId && user?.token ? { token: user.token, lineId } : "skip",
+  );
+}
+
 /** All lines for a statement, optionally filtered by status. */
 export function useBankStatementLines(
   statementId: Id<"bankStatements"> | null,
@@ -156,4 +165,234 @@ export function useUpdateBankRule() {
 /** Soft-delete (deactivate) a bank keyword rule (admin-only). */
 export function useDeactivateBankRule() {
   return useSessionMutation(api.bankKeywordRules.mutations.deactivate);
+}
+
+// ---------------------------------------------------------------------------
+// Phase 73 — Reconciliation queries (manager + admin per D-23)
+// ---------------------------------------------------------------------------
+
+/** Live progress aggregate for a single statement. Returns undefined while loading. */
+export function useStatementProgress(statementId: Id<"bankStatements"> | undefined | null) {
+  const { user } = useAuth();
+  return useQuery(
+    api.bankStatements.queries.getStatementProgress,
+    statementId && user?.token ? { token: user.token, statementId } : "skip",
+  );
+}
+
+/**
+ * Bulk progress aggregate keyed by statementId. Backend caps at 50 ids
+ * per call (RESEARCH Pitfall 7).
+ */
+export function useStatementProgressBulk(statementIds: Id<"bankStatements">[] | undefined) {
+  const { user } = useAuth();
+  return useQuery(
+    api.bankStatements.queries.getStatementProgressBulk,
+    statementIds && user?.token
+      ? { token: user.token, statementIds }
+      : "skip",
+  );
+}
+
+/** Candidate records (4 grouped lists) for a selected bank line. */
+export function useCandidatesForLine(lineId: Id<"bankStatementLines"> | undefined | null) {
+  const { user } = useAuth();
+  return useQuery(
+    api.bankStatements.queries.listCandidatesForLine,
+    lineId && user?.token ? { token: user.token, lineId } : "skip",
+  );
+}
+
+// Search hook arg shape — mirrors backend optional filters.
+// Each search hook is a thin useQuery wrapper. NO factory / NO hooks-in-hooks.
+export type BankSearchArgs = {
+  amountIdr?: number;
+  dateStart?: number;
+  dateEnd?: number;
+  searchTerm?: string;
+  /** When true, the underlying useQuery is skipped (returns undefined). */
+  skip?: boolean;
+};
+
+export function useSearchExpenses(args: BankSearchArgs) {
+  const { user } = useAuth();
+  const { skip, ...filters } = args;
+  return useQuery(
+    api.bankStatements.queries.searchExpenses,
+    skip || !user?.token ? "skip" : { token: user.token, ...filters },
+  );
+}
+
+export function useSearchRevenue(args: BankSearchArgs) {
+  const { user } = useAuth();
+  const { skip, ...filters } = args;
+  return useQuery(
+    api.bankStatements.queries.searchRevenue,
+    skip || !user?.token ? "skip" : { token: user.token, ...filters },
+  );
+}
+
+export function useSearchReimbursements(args: BankSearchArgs) {
+  const { user } = useAuth();
+  const { skip, ...filters } = args;
+  return useQuery(
+    api.bankStatements.queries.searchReimbursements,
+    skip || !user?.token ? "skip" : { token: user.token, ...filters },
+  );
+}
+
+export function useSearchPayroll(args: BankSearchArgs) {
+  const { user } = useAuth();
+  const { skip, ...filters } = args;
+  return useQuery(
+    api.bankStatements.queries.searchPayroll,
+    skip || !user?.token ? "skip" : { token: user.token, ...filters },
+  );
+}
+
+/** Revenue gap dashboard rows for a WIB period (Plan 05 consumes). */
+export function useRevenueGap(
+  periodStart: number | undefined,
+  periodEnd: number | undefined,
+) {
+  const { user } = useAuth();
+  return useQuery(
+    api.bankStatements.queries.revenueGapByPeriod,
+    periodStart !== undefined && periodEnd !== undefined && user?.token
+      ? { token: user.token, periodStart, periodEnd }
+      : "skip",
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 73 — Reconciliation mutations (manager + admin per D-23)
+// ---------------------------------------------------------------------------
+
+export type MatchedType = "expense" | "revenue" | "reimbursement" | "payroll";
+
+/** Link a bank line to an expense / revenue / reimbursement / payroll record. */
+export function useManualMatch() {
+  const fn = useMutation(api.bankStatements.mutations.manualMatch);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: {
+      lineId: Id<"bankStatementLines">;
+      matchedType: MatchedType;
+      matchedId: string;
+    }) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/** Clear match link; if confirmed, posts a reversal JE (D-25 + JE-03). */
+export function useUnmatch() {
+  const fn = useMutation(api.bankStatements.mutations.unmatch);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: { lineId: Id<"bankStatementLines"> }) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/** Post the per-line journal entry; transitions the line to "confirmed". */
+export function useConfirmLine() {
+  const fn = useMutation(api.bankStatements.mutations.confirmLine);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: { lineId: Id<"bankStatementLines"> }) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/** Batch-post all exact-tier matched lines for a statement (atomic). */
+export function useBatchConfirmExactTier() {
+  const fn = useMutation(api.bankStatements.mutations.batchConfirmExactTier);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: { statementId: Id<"bankStatements"> }) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/**
+ * Inline-create a submitted (NOT approved) expense from a bank line and
+ * link it back. D-17 — never posts approval automatically.
+ */
+export function useInlineCreateExpense() {
+  const fn = useMutation(api.bankStatements.mutations.inlineCreateExpense);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: Omit<Parameters<typeof fn>[0], "token">) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/** Inline-create an externalRevenue row and link it back to the bank line. */
+export function useInlineCreateRevenue() {
+  const fn = useMutation(api.bankStatements.mutations.inlineCreateRevenue);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: Omit<Parameters<typeof fn>[0], "token">) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/** Inline-create a reimbursement batch and link it back to the bank line. */
+export function useInlineCreateReimbursement() {
+  const fn = useMutation(api.bankStatements.mutations.inlineCreateReimbursement);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: Omit<Parameters<typeof fn>[0], "token">) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/** Mark a bank line as linked to a freshly-created fixed asset expense (D-21 / I1). */
+export function useMarkAssetLinked() {
+  const fn = useMutation(api.bankStatements.mutations.markAssetLinked);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: {
+      bankLineId: Id<"bankStatementLines">;
+      expenseId: Id<"expenses">;
+    }) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
+}
+
+/** Manager-or-admin learn-from-override path. Plain create stays admin-only. */
+export function useCreateRuleFromOverride() {
+  const fn = useMutation(api.bankKeywordRules.mutations.createFromOverride);
+  const { user } = useAuth();
+  return useCallback(
+    async (args: Omit<Parameters<typeof fn>[0], "token">) => {
+      if (!user?.token) throw new Error("Not authenticated");
+      return await fn({ token: user.token, ...args });
+    },
+    [fn, user?.token],
+  );
 }

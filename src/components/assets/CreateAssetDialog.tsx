@@ -5,7 +5,8 @@
  * cost, payment method, useful life, salvage value, location, characteristics,
  * and attachments. Shows JE preview and atomically creates acquisition JE.
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { X, Plus, Upload, ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -50,9 +51,29 @@ const INTANGIBLE_CATEGORIES = ASSET_CATEGORIES.filter((c) => c.type === "intangi
 interface CreateAssetDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Phase 73 D-21: pre-fill + link to bank line on create. */
+  prefill?: {
+    name?: string;
+    cost?: string;
+    acquisitionDate?: string;
+    location?: string;
+  };
+  /** Phase 73 D-21: when supplied, backend also creates companion expense + marks line. */
+  sourceBankLineId?: Id<"bankStatementLines">;
+  /** Phase 73 D-21: callback after successful create (receives assetId + expenseId). */
+  onCreated?: (result: {
+    assetId: Id<"fixedAssets">;
+    expenseId?: Id<"expenses">;
+  }) => void;
 }
 
-export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
+export function CreateAssetDialog({
+  open,
+  onClose,
+  prefill,
+  sourceBankLineId,
+  onCreated,
+}: CreateAssetDialogProps) {
   const { mutate: createAsset } = useCreateAsset();
   const generateUploadUrl = useGenerateAssetUploadUrl();
 
@@ -73,6 +94,19 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Apply prefill on open (Phase 73 D-21).
+  useEffect(() => {
+    if (!open || !prefill) return;
+    if (prefill.name) setName(prefill.name);
+    if (prefill.cost) setCost(prefill.cost);
+    if (prefill.acquisitionDate) setAcquisitionDate(prefill.acquisitionDate);
+    if (prefill.location) setLocation(prefill.location);
+    // When coming from a bank line the money has already been debited, so the
+    // default payment method is company_paid (direct debit / linked bank).
+    if (sourceBankLineId) setPaymentMethod("company_paid");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, prefill, sourceBankLineId]);
 
   // When category changes, auto-populate PSAK defaults
   const handleCategoryChange = useCallback((value: string) => {
@@ -182,7 +216,7 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
       // Convert date string to epoch ms (midnight WIB)
       const dateMs = new Date(acquisitionDate + "T00:00:00+07:00").getTime();
 
-      await createAsset({
+      const result = await createAsset({
         name: name.trim(),
         category,
         acquisitionDate: dateMs,
@@ -193,7 +227,21 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
         characteristics,
         attachmentIds: attachmentIds as any, // eslint-disable-line @typescript-eslint/no-explicit-any -- Convex Id<"_storage"> branded type from upload flow
         paymentMethod,
+        ...(sourceBankLineId ? { sourceBankLineId } : {}),
       });
+
+      // Phase 73 D-21 round-trip callback.
+      if (onCreated && result) {
+        // Backend returns either a raw assetId (legacy callers) or { assetId, expenseId }.
+        if (typeof result === "object" && "assetId" in result) {
+          onCreated({
+            assetId: (result as { assetId: Id<"fixedAssets"> }).assetId,
+            expenseId: (result as { expenseId?: Id<"expenses"> }).expenseId,
+          });
+        } else {
+          onCreated({ assetId: result as Id<"fixedAssets"> });
+        }
+      }
 
       // Reset form
       setName("");
@@ -212,7 +260,7 @@ export function CreateAssetDialog({ open, onClose }: CreateAssetDialogProps) {
     } finally {
       setSubmitting(false);
     }
-  }, [name, category, acquisitionDate, cost, salvageValue, usefulLifeYears, location, paymentMethod, characteristics, attachmentIds, createAsset, onClose]);
+  }, [name, category, acquisitionDate, cost, salvageValue, usefulLifeYears, location, paymentMethod, characteristics, attachmentIds, createAsset, onClose, sourceBankLineId, onCreated]);
 
   const selectedCategory = ASSET_CATEGORIES.find((c) => c.key === category);
   const costNum = parseInt(cost, 10);

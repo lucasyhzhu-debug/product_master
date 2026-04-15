@@ -1,0 +1,289 @@
+---
+phase: 79
+plan: 03
+type: execute
+wave: 2
+depends_on: [79-01, 79-02]
+files_modified:
+  - convex/integrations/bigseller/sync.ts
+  - convex/integrations/bigseller/helpers.ts
+  - convex/bigsellerOrders/queries.ts
+autonomous: true
+requirements: [DA-05, DA-11]
+tags: [bigseller, shopee, sync, item-emit]
+must_haves:
+  truths:
+    - "Every BigSeller sync run that creates/updates an externalRevenue for a Shopee or TikTok order with skuVoList.length > 0 also emits externalRevenueItems (one per skuVoList entry)"
+    - "Σ items.totalPrice === externalRevenue.revenueGross (integer equality, enforced by prorateItems)"
+    - "Platform (shopee/tiktok) is correctly attributed — no cross-platform leakage"
+    - "Buyer fields: DA-11 explicitly deferred — RESEARCH.md confirms BigSeller pageList does NOT expose buyerName/phone/address. Documented in code comment; no schema change."
+    - "saveRevenueItems dedup on (revenueId, externalItemId=sku) prevents duplicate inserts on re-sync"
+  artifacts:
+    - path: convex/integrations/bigseller/sync.ts
+      provides: Per-order saveRevenueItems call inside fetchOrders stage, using prorateItems + buildPriceOracle
+      contains: "internal.externalData.mutations.saveRevenueItems"
+  key_links:
+    - from: convex/integrations/bigseller/sync.ts
+      to: convex/externalData/mutations.ts saveRevenueItems
+      via: "ctx.runMutation(internal.externalData.mutations.saveRevenueItems, ...)"
+      pattern: "saveRevenueItems"
+    - from: convex/integrations/bigseller/sync.ts
+      to: convex/integrations/bigseller/helpers.ts (buildPriceOracle, prorateItems, dominantSku)
+      via: direct import
+      pattern: "import.*buildPriceOracle.*prorateItems.*dominantSku"
+---
+
+<objective>
+Wire the three Plan-02 helpers into the BigSeller sync `fetchOrders` stage. After the existing `saveRevenue` + `linkRevenueToOrders` block, iterate each order and emit `externalRevenueItems` rows via `internal.externalData.mutations.saveRevenueItems`.
+
+Purpose: DA-05 goes live — new syncs start populating item-level rows. Downstream queries (lifetime, sell-through, COGS) automatically pick them up with no further changes.
+
+Output: sync.ts emits items per order; revenue-invariants test green; new syncs produce item rows visible in Convex dashboard.
+</objective>
+
+<execution_context>
+@D:/Claude/Product Manager/product_master/.claude/get-shit-done/workflows/execute-plan.md
+@D:/Claude/Product Manager/product_master/.claude/get-shit-done/templates/summary.md
+</execution_context>
+
+<context>
+@.planning/phases/79-shopee-item-level-revenue/79-CONTEXT.md
+@.planning/phases/79-shopee-item-level-revenue/79-RESEARCH.md §Pattern 1 + §Pattern 2
+@convex/integrations/bigseller/sync.ts
+@convex/integrations/bigseller/helpers.ts
+@convex/integrations/gobiz/adapter.ts (canonical pattern — lines 450-490)
+@convex/externalData/mutations.ts (saveRevenueItems line 587-644)
+@convex/externalData/__tests__/revenue-invariants.test.ts
+@convex/integrations/bigseller/__tests__/helpers.test.ts
+
+<interfaces>
+From convex/externalData/mutations.ts:
+```typescript
+export const saveRevenueItems = internalMutation({
+  args: { revenueId: v.id("externalRevenue"), items: v.array(v.object({
+    externalItemId: v.optional(v.string()),
+    productName: v.string(),
+    unitPrice: v.number(),
+    quantity: v.number(),
+    totalPrice: v.number(),
+    linkedMenuProductId: v.optional(v.id("menuProducts")),
+    isAutoMatched: v.boolean(),
+    matchConfidence: v.union(v.literal("exact"), v.literal("strong"), v.literal("suggested"), v.literal("none")),
+  })) },
+  // Dedup on (revenueId, externalItemId) via by_revenue index
+});
+```
+
+From convex/integrations/bigseller/helpers.ts (Plan 02):
+```typescript
+export function buildPriceOracle(orders): Map<string, number>;
+export function prorateItems(order, oracle, mappingBySku): Array<{sku, skuNum, unitPrice, totalPrice}>;
+```
+</interfaces>
+</context>
+
+<tasks>
+
+<task type="auto">
+  <name>Task 1: Load priceOracle + mappingBySku (oracle/mapping preparation)</name>
+  <read_first>
+    - convex/integrations/bigseller/sync.ts (find `fetchOrders` stage)
+    - convex/bigsellerOrders/queries.ts (check for an existing "single-SKU" query; add `getSingleSkuOrdersForOracle` if absent)
+    - convex/integrations/bigseller/helpers.ts (buildPriceOracle signature from Plan 02)
+  </read_first>
+  <action>
+**Step 1 — Add `getSingleSkuOrdersForOracle` internalQuery to `convex/bigsellerOrders/queries.ts` (if absent):**
+
+```typescript
+export const getSingleSkuOrdersForOracle = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Scope: all bigsellerOrders where skuVoList.length === 1.
+    // .collect() — max ~6K rows per RESEARCH.md assumption A1.
+    const all = await ctx.db.query("bigsellerOrders").collect();
+    return all.filter(o => Array.isArray(o.skuVoList) && o.skuVoList.length === 1);
+  },
+});
+```
+
+**Step 2 — In the `fetchOrders` stage, BEFORE the per-order loop, build priceOracle once per sync run:**
+
+```typescript
+const singleSkuOrders = await ctx.runQuery(internal.bigsellerOrders.queries.getSingleSkuOrdersForOracle, {});
+const priceOracle = buildPriceOracle(singleSkuOrders);
+```
+
+**Step 3 — Build mappingBySku + menuProductById (same scope, before per-order loop):**
+
+```typescript
+const shopeeMappings = await ctx.db.query("externalProductMappings")
+  .withIndex("by_source", q => q.eq("source", "shopee")).collect();
+const tiktokMappings = await ctx.db.query("externalProductMappings")
+  .withIndex("by_source", q => q.eq("source", "tiktok")).collect();
+const allMappings = [...shopeeMappings, ...tiktokMappings];
+
+const menuProductById = new Map<string, {name: string; price: number}>();
+const mappingBySku = new Map<string, {menuProductId?: string; menuProductPrice?: number}>();
+for (const m of allMappings) {
+  const mp = m.menuProductId ? await ctx.db.get(m.menuProductId) : null;
+  if (mp) menuProductById.set(String(m.menuProductId), { name: mp.name, price: mp.price });
+  mappingBySku.set(m.externalSku, {
+    menuProductId: m.menuProductId ? String(m.menuProductId) : undefined,
+    menuProductPrice: mp?.price,
+  });
+}
+```
+
+Produces `{ priceOracle, mappingBySku, menuProductById }` locals that Task 2 consumes inside the per-platform loop. Do NOT modify existing mapOrderToRevenue logic.
+  </action>
+  <verify>
+    <automated>npm run test -- --run convex/integrations/bigseller/__tests__/priceOracle.test.ts convex/integrations/bigseller/__tests__/helpers.test.ts</automated>
+  </verify>
+  <acceptance_criteria>
+    - `grep -n "getSingleSkuOrdersForOracle" convex/bigsellerOrders/queries.ts` returns match
+    - `grep -n "buildPriceOracle" convex/integrations/bigseller/sync.ts` returns match (imported + called once before per-order loop)
+    - `grep -n "mappingBySku" convex/integrations/bigseller/sync.ts` returns match
+    - priceOracle test GREEN (Plan 02 Task 1 test file)
+    - `npm run type-check` + `npm run build` pass
+  </acceptance_criteria>
+  <done>Oracle and mapping pre-loaded once per sync run; locals available for Task 2 to consume.</done>
+</task>
+
+<task type="auto">
+  <name>Task 2: Emit externalRevenueItems per order in BigSeller sync per-platform loop</name>
+  <read_first>
+    - convex/integrations/bigseller/sync.ts (Task 1 added oracle/mapping locals at top of fetchOrders stage)
+    - convex/integrations/gobiz/adapter.ts lines 450-490 (canonical mirror pattern)
+    - convex/externalData/mutations.ts lines 587-644 (saveRevenueItems signature + dedup)
+    - convex/integrations/bigseller/helpers.ts (prorateItems signature from Plan 02)
+  </read_first>
+  <action>
+**Step 1 — Emit items per order inside the per-platform loop:**
+
+After `saveRevenue` creates/updates the parent revenueId and `linkRevenueToOrders` links it to the bigsellerOrder, branch for Shopee/TikTok platforms:
+
+```typescript
+if ((order.platform === "shopee" || order.platform === "tiktok") && order.skuVoList && order.skuVoList.length > 0) {
+  const prorated = prorateItems(
+    { orderAmount: order.orderAmount, saleAmount: order.saleAmount, skuVoList: order.skuVoList },
+    priceOracle,
+    mappingBySku,
+  );
+  const items = prorated.map(p => {
+    const mapping = mappingBySku.get(p.sku);
+    const menuProductId = mapping?.menuProductId as Id<"menuProducts"> | undefined;
+    const menuProduct = menuProductId ? menuProductById.get(String(menuProductId)) : null;
+    const productName = menuProduct?.name ?? p.sku;  // fallback: raw SKU code
+    return {
+      externalItemId: p.sku,                        // D-18 dedup key
+      productName,
+      unitPrice: p.unitPrice,
+      quantity: p.skuNum,
+      totalPrice: p.totalPrice,
+      linkedMenuProductId: menuProductId,
+      isAutoMatched: Boolean(menuProductId),
+      matchConfidence: menuProductId ? "exact" as const : "none" as const,
+    };
+  });
+  await ctx.runMutation(internal.externalData.mutations.saveRevenueItems, {
+    revenueId,
+    items,
+  });
+}
+```
+
+**Step 2 — Document DA-11 deferral in code (place comment near the item-emit branch):**
+
+```typescript
+// DA-11 deferral: BigSeller pageList does NOT expose buyerName/buyerPhone/buyerAddress.
+// Only financial buyer* fields (buyerShippingFee, buyerTotalAmount) are returned.
+// Per D-07, customer data capture is deferred entirely this phase.
+// See: .planning/phases/79-shopee-item-level-revenue/79-RESEARCH.md Section Summary + Critical finding.
+```
+
+**Step 3 — Cross-platform guard (avoid Pitfall 1):**
+
+Add a defensive assertion before the `saveRevenueItems` call:
+
+```typescript
+if (revenueSource !== order.platform) {
+  throw new Error(`Cross-platform leak guard: revenueSource=${revenueSource} !== order.platform=${order.platform}`);
+}
+```
+
+The grep below confirms GoFood/Gojek/Kitchen code paths are untouched (this branch is additive inside a shopee/tiktok conditional).
+
+**Do NOT:**
+- Delete & recreate items (rely on `saveRevenueItems` dedup).
+- Add a parallel `processBigsellerSales` inventory deduction (D-22).
+- Fetch per-order BigSeller detail endpoint (D-07).
+- Modify the GoFood/Gojek/Kitchen emit branches (out of scope).
+  </action>
+  <verify>
+    <automated>npm run test -- --run convex/externalData/__tests__/revenue-invariants.test.ts convex/integrations/bigseller/__tests__/helpers.test.ts</automated>
+  </verify>
+  <acceptance_criteria>
+    - `grep -n "saveRevenueItems" convex/integrations/bigseller/sync.ts` returns at least one match
+    - `grep -n "prorateItems" convex/integrations/bigseller/sync.ts` returns match (call site inside per-platform loop)
+    - `grep -n "DA-11 deferral" convex/integrations/bigseller/sync.ts` returns match (code comment present)
+    - `grep -n "Cross-platform leak guard" convex/integrations/bigseller/sync.ts` returns match
+    - revenue-invariants test passes: Σ items.totalPrice === parent.revenueGross for new Shopee rows
+    - No `processBigsellerSales` symbol introduced (`grep -r "processBigsellerSales" convex/` returns no match — guards D-22)
+    - Cross-platform guard: `git diff origin/main -- convex/integrations/gobiz/ convex/integrations/gojek/ convex/orders/` reports ZERO lines changed (sibling integrations untouched)
+    - `npm run type-check` passes
+    - `npm run build` passes
+  </acceptance_criteria>
+  <done>BigSeller sync emits items; revenue invariant test green; sibling integrations untouched; no inventory-deduction side-effect added.</done>
+</task>
+
+</tasks>
+
+<threat_model>
+## Trust Boundaries
+| Boundary | Description |
+|----------|-------------|
+| BigSeller API → Convex sync | Untrusted external data; must validate types via existing `mapOrderToRevenue` schema |
+| Sync caller → saveRevenueItems | Internal mutation; caller is trusted Convex action |
+
+## STRIDE Threat Register
+| Threat ID | Category | Component | Disposition | Mitigation Plan |
+|-----------|----------|-----------|-------------|-----------------|
+| T-79-01 | Tampering | sync.ts item emit | mitigate | prorateItems enforces Σ === orderAmount exactly; revenue-invariants test guards regression |
+| T-79-02 | Tampering | Cross-platform item leakage (Shopee items attached to TikTok revenueId) | mitigate | Defensive assertion `revenueSource === order.platform` before saveRevenueItems call |
+| T-79-03 | Information Disclosure | BigSeller pageList buyer fields | accept | Research confirms no PII returned by pageList — no capture, no leak |
+| T-79-04 | DoS | buildPriceOracle scans all historical orders per sync run | accept | ~6K rows max (assumption A1); add composite index in follow-up if volume grows |
+</threat_model>
+
+<verification>
+New sync runs create item rows. Existing sync rows unchanged (backfill handled in Plan 07). Revenue conservation invariant enforced.
+</verification>
+
+<success_criteria>
+- [ ] revenue-invariants test green
+- [ ] `npm run type-check` + `npm run build` + `npm run test` all pass
+- [ ] Manual dev sync shows `externalRevenueItems.source="shopee"` or `"tiktok"` rows after next sync
+- [ ] No `processBigsellerSales` added (D-22 honored)
+- [ ] DA-11 deferral comment present in sync.ts
+</success_criteria>
+
+## Git Workflow
+**Branch:** `feature/79-shopee-item-level-revenue`
+
+## Implementation Waves
+### Wave 2: Sync emit [SEQUENTIAL after Plan 02]
+| Agent | Task | Files |
+|-------|------|-------|
+| convex-backend | T1: Load oracle + mapping pre-loop | convex/integrations/bigseller/sync.ts, convex/bigsellerOrders/queries.ts |
+| convex-backend | T2: Emit items inside per-platform loop | convex/integrations/bigseller/sync.ts |
+
+## Documentation Updates
+- [ ] Code comment: DA-11 deferral rationale + RESEARCH.md link
+
+## Success Criteria (this plan)
+- [ ] revenue-invariants.test green
+- [ ] helpers test suite green
+- [ ] Build + type-check pass
+
+<output>
+Create `.planning/phases/79-shopee-item-level-revenue/79-03-SUMMARY.md`
+</output>

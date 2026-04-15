@@ -146,6 +146,25 @@ export const listOrders = query({
 });
 
 /**
+ * Phase 79: Return all bigsellerOrders where skuVoList has exactly one entry.
+ * Used by BigSeller sync to build the per-SKU price oracle (D-03) at the
+ * start of each fetchOrders run.
+ *
+ * Scope assumption (RESEARCH.md A1): ~6K rows max — full scan is acceptable
+ * at current Frollie volume. Add a composite index in a follow-up phase if
+ * volume grows.
+ */
+export const getSingleSkuOrdersForOracle = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("bigsellerOrders").collect();
+    return all.filter(
+      (o) => Array.isArray(o.skuVoList) && o.skuVoList.length === 1
+    );
+  },
+});
+
+/**
  * Diagnostic: return raw skuVoList / allSkuNum / orderState for every order
  * in a date range. Run from Convex dashboard to confirm whether empty SKUs
  * are in storage vs. a frontend rendering bug.
@@ -188,6 +207,41 @@ export const diagnoseSkuState = internalQuery({
         syncLogId: o.syncLogId,
         createdAt: o.createdAt,
       }));
+  },
+});
+
+/**
+ * Phase 79 Plan 07 (DA-13): List bigsellerOrders that have an empty
+ * `skuVoList` (BigSeller did not return SKU breakdown). Used by the
+ * `rescanEmptyRows` action to compute a date span for re-sync.
+ *
+ * Internal-only — no auth gate (only callable from action context).
+ */
+export const listEmptyRows = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("bigsellerOrders").collect();
+    return all
+      .filter((o) => !Array.isArray(o.skuVoList) || o.skuVoList.length === 0)
+      .map((o) => ({
+        platformOrderId: o.platformOrderId,
+        orderTimeMs: o.orderTimeMs,
+        platform: o.platform,
+        allSkuNum: o.allSkuNum,
+      }));
+  },
+});
+
+/**
+ * Phase 79 Plan 07: Auth gate wrapper for action callers. Actions cannot
+ * touch ctx.db directly, so they call this internalQuery to validate the
+ * session token belongs to an admin. Throws on unauthorized.
+ */
+export const requireAdminByToken = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    return { ok: true };
   },
 });
 
