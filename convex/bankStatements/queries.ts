@@ -181,9 +181,18 @@ export const getStatementProgressBulk = query({
     if (args.statementIds.length > 50) {
       throw new ConvexError("Bulk progress limited to 50 statements per call");
     }
+    // C3 — parallelize per-statement progress scans. Each computeProgress
+    // itself runs 4 prefix scans in parallel, but a serial outer loop would
+    // force N sequential round-trips for N statements. Promise.all lets the
+    // Convex runtime overlap them.
+    const entries = await Promise.all(
+      args.statementIds.map(
+        async (id) => [id, await computeProgress(ctx, id)] as const,
+      ),
+    );
     const out: Record<string, ProgressResult> = {};
-    for (const id of args.statementIds) {
-      out[id] = await computeProgress(ctx, id);
+    for (const [id, result] of entries) {
+      out[id] = result;
     }
     return out;
   },
