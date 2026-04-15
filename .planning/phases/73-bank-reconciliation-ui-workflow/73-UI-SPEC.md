@@ -277,6 +277,7 @@ Footer: `[Don't save]` ghost · `[Save rule]` primary.
 - `Diff %` infinity case (D-14): render as `—` with inline `<AlertTriangle>` icon + tooltip "No external revenue recorded — bank shows money we haven't captured."
 - Row click: navigates to Review tab with `?tab=review&statementId={current}&channelFilter={channel}&period={YYYY-MM}` (D-15). Hover: `bg-muted/50 cursor-pointer`.
 - `(unalloc)` row: italic label, warning badge "Needs channel mapping".
+- **Unmapped channels note:** The mock above shows "gopay" and "tokopedia" as separate channel rows. In the actual implementation, "gopay" maps to the "gobiz" externalSource via `mapChannelToSource` and appears in the main rows group with an ExtRevenue join against `source="gobiz"`. "tokopedia", "ovo", "dana" and similar payment-wallet channels do NOT map to any externalSource literal and appear in a collapsible "(unmapped channels)" group at the bottom of the table, rendered with ExtRevenue="—", Diff=bankCr, and a note "channel not tracked in externalRevenue" (no ⚠ infinity — the gap is expected/known, not alarming). Do NOT compute or display Diff% for unmapped rows.
 
 ### 6.7 Inline create dialogs
 

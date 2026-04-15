@@ -59,10 +59,13 @@ Test stubs required before implementation. Paths below match actual plan outputs
 - [ ] `convex/bankStatements/__tests__/confirmLine.test.ts` — 2-line balanced JE posting
 - [ ] `convex/bankStatements/__tests__/batchConfirm.test.ts` — batch confirm atomicity + skipped count
 
+### Backend (Plan 73-02 Wave 0 — Task 0)
+- [ ] `convex/bankStatements/__tests__/channelMapping.test.ts` — mapChannelToSource pure-function tests (11 mapping assertions + unknown/null/case-insensitive) (C1 from staff review)
+
 ### Backend (Plan 73-02 Wave 1b — Task 1)
 - [ ] `convex/bankStatements/__tests__/progress.test.ts` — getStatementProgress aggregate + getStatementProgressBulk (Tests 1–8, including 50-id cap + mixed statuses)
-- [ ] `convex/bankStatements/__tests__/listCandidates.test.ts` — ±3 day window + alreadyLinkedToLineId annotations + 4 search* queries
-- [ ] `convex/bankStatements/__tests__/revenueGap.test.ts` — revenueGapByPeriod aggregation + (unallocated) row + diff arithmetic
+- [ ] `convex/bankStatements/__tests__/listCandidates.test.ts` — ±3 day window + alreadyLinkedToLineId annotations + 4 search* queries + markAssetLinked idempotency (I1 Tests 6/7)
+- [ ] `convex/bankStatements/__tests__/revenueGap.test.ts` — revenueGapByPeriod aggregation + (unallocated) row + diff arithmetic + unmapped channels group (C1 Tests 3/5)
 - [ ] `convex/bankKeywordRules/__tests__/createFromOverride.test.ts` — manager+admin gate (D-12) + regex + uniqueness
 
 ### Frontend component tests (Plan 73-03 Wave 2a — Task 1)
