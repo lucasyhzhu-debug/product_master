@@ -472,11 +472,42 @@ export const revenueGapByPeriod = query({
       )
       .collect();
 
-    // 3) Group bank credits by linkedChannel (null → (unallocated)).
-    const bankByChannel = new Map<string, number>();
+    // 3) Bucket bank credits. CHANNEL_TO_SOURCE is N:1 (e.g. gopay + gofood
+    //    both map to gobiz); previously we grouped by raw linkedChannel and
+    //    then looked up extBySource per row, which double-counted the same
+    //    externalRevenue total against each raw channel sharing a source.
+    //
+    //    Fix: bucket bank credits by *mapped source* for channels that map,
+    //    track a joined-channel list for the row label, and keep unmapped
+    //    channels + the (unallocated) bucket as their own rows.
+    const bankBySource = new Map<
+      ExternalSource,
+      { bankCr: number; channels: Set<string> }
+    >();
+    const bankByUnmappedChannel = new Map<string, number>();
+    let unallocatedBankCr = 0;
+
     for (const l of credits) {
-      const key = l.linkedChannel ?? UNALLOCATED_LABEL;
-      bankByChannel.set(key, (bankByChannel.get(key) ?? 0) + l.amountIdr);
+      const raw = l.linkedChannel;
+      if (!raw) {
+        unallocatedBankCr += l.amountIdr;
+        continue;
+      }
+      const mapped = mapChannelToSource(raw);
+      if (!mapped) {
+        bankByUnmappedChannel.set(
+          raw,
+          (bankByUnmappedChannel.get(raw) ?? 0) + l.amountIdr,
+        );
+        continue;
+      }
+      const bucket = bankBySource.get(mapped) ?? {
+        bankCr: 0,
+        channels: new Set<string>(),
+      };
+      bucket.bankCr += l.amountIdr;
+      bucket.channels.add(raw);
+      bankBySource.set(mapped, bucket);
     }
 
     // 4) Group externalRevenue by source.
@@ -489,40 +520,46 @@ export const revenueGapByPeriod = query({
     const rows: RevenueGapMappedRow[] = [];
     const unmappedRows: RevenueGapUnmappedRow[] = [];
 
-    for (const [channel, bankCr] of bankByChannel.entries()) {
-      if (channel === UNALLOCATED_LABEL) {
-        rows.push({
-          channel,
-          source: null,
-          bankCr,
-          extRev: null,
-          diff: bankCr,
-          diffPct: null,
-        });
-        continue;
-      }
-      const mapped = mapChannelToSource(channel);
-      if (!mapped) {
-        unmappedRows.push({
-          channel,
-          bankCr,
-          extRev: null,
-          diff: bankCr,
-          diffPct: null,
-          unmapped: true,
-        });
-        continue;
-      }
-      const extRev = extBySource.get(mapped) ?? 0;
+    // Mapped rows: one per source, channel label consolidates raw channels.
+    for (const [source, { bankCr, channels }] of bankBySource.entries()) {
+      const channelLabel =
+        channels.size === 1
+          ? [...channels][0]
+          : [...channels].sort().join(" + ");
+      const extRev = extBySource.get(source) ?? 0;
       const diff = bankCr - extRev;
       const diffPct = extRev > 0 ? (diff / extRev) * 100 : null;
       rows.push({
-        channel,
-        source: mapped,
+        channel: channelLabel,
+        source,
         bankCr,
         extRev: extRev === 0 ? null : extRev,
         diff,
         diffPct,
+      });
+    }
+
+    // Unallocated bucket.
+    if (unallocatedBankCr > 0) {
+      rows.push({
+        channel: UNALLOCATED_LABEL,
+        source: null,
+        bankCr: unallocatedBankCr,
+        extRev: null,
+        diff: unallocatedBankCr,
+        diffPct: null,
+      });
+    }
+
+    // Unmapped channels (tokopedia, ovo, dana, unknown strings).
+    for (const [channel, bankCr] of bankByUnmappedChannel.entries()) {
+      unmappedRows.push({
+        channel,
+        bankCr,
+        extRev: null,
+        diff: bankCr,
+        diffPct: null,
+        unmapped: true,
       });
     }
 
