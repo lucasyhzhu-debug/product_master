@@ -19,32 +19,49 @@ export function DayHourHeatmap() {
   if (data === undefined) {
     return <Card className="h-64 animate-pulse p-4" />;
   }
+  // Backend returns grid[dayIdx][hourBinIdx]. We render transposed:
+  // rows = hour bins (data.colLabels), columns = days (data.rowLabels).
+  const dayLabels = data.rowLabels; // ["Mon" .. "Sun"]
+  const hourLabels = data.colLabels; // ["0-3" .. "21-24"]
+  const numDays = dayLabels.length;
   return (
     <Card className="p-4">
       <h4 className="mb-2 text-sm font-semibold">Day × Hour heatmap (revenue)</h4>
-      <div className="grid grid-cols-[40px_repeat(8,1fr)] gap-1 text-xs">
+      <div
+        className="grid gap-1 text-xs"
+        style={{ gridTemplateColumns: `48px repeat(${numDays}, 1fr)` }}
+      >
+        {/* Top-row day labels */}
         <div />
-        {data.colLabels.map((c) => (
-          <div key={"top-" + c} className="text-center text-muted-foreground">
-            {c}
+        {dayLabels.map((d) => (
+          <div key={"top-" + d} className="text-center text-muted-foreground">
+            {d}
           </div>
         ))}
-        {data.rowLabels.map((row, ri) => (
-          <Fragment key={row}>
-            <div className="flex items-center justify-end pr-1 text-muted-foreground">{row}</div>
-            {data.grid[ri].map((val, ci) => (
-              <div
-                key={`${ri}-${ci}`}
-                className={`aspect-square rounded ${intensityClass(val, data.max)}`}
-                title={`${row} ${data.colLabels[ci]}: ${formatCurrency(val)}`}
-              />
-            ))}
+        {/* Body: one row per hour bin */}
+        {hourLabels.map((hourLabel, hi) => (
+          <Fragment key={hourLabel}>
+            <div className="flex items-center justify-end pr-1 text-muted-foreground">
+              {hourLabel}
+            </div>
+            {Array.from({ length: numDays }).map((_, di) => {
+              const val = data.grid[di][hi];
+              return (
+                <div
+                  key={`${hi}-${di}`}
+                  className={`aspect-square rounded ${intensityClass(val, data.max)}`}
+                  title={`${dayLabels[di]} ${hourLabel}: ${formatCurrency(val)}`}
+                  aria-label={`${dayLabels[di]} ${hourLabel}: ${formatCurrency(val)}`}
+                />
+              );
+            })}
           </Fragment>
         ))}
+        {/* Bottom-row day labels */}
         <div />
-        {data.colLabels.map((c) => (
-          <div key={"bot-" + c} className="text-center text-muted-foreground">
-            {c}
+        {dayLabels.map((d) => (
+          <div key={"bot-" + d} className="text-center text-muted-foreground">
+            {d}
           </div>
         ))}
       </div>
