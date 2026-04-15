@@ -5,7 +5,7 @@
  * submission flow as /expenses/new. Renders <ExpenseSubmitForm mode="dialog">
  * so no form-body duplication (I4 mandate).
  *
- * D-17 INVARIANT: this dialog NEVER surfaces an "Approve now" button. The
+ * D-17 INVARIANT: this dialog NEVER surfaces an auto-approve button. The
  * backend `inlineCreateExpense` mutation hard-codes status="submitted". The
  * expense still goes through the standard Expense Approval queue.
  */
