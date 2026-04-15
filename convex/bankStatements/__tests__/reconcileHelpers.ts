@@ -79,7 +79,7 @@ export async function seedReconcileFixture(t: TestT): Promise<ReconcileFixture> 
     const expenseAccountId = await ctx.db.insert("accounts", {
       code: "6100",
       name: "Office Expense",
-      type: "expense",
+      type: "opex",
       category: "OpEx",
       isActive: true,
       isSystem: true,

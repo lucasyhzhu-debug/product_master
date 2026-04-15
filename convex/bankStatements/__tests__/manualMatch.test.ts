@@ -18,17 +18,20 @@ describe("manualMatch", () => {
     const t = convexTest(schema);
     const f = await seedReconcileFixture(t);
 
+    // altExpenseId is not pre-linked in fixture (confirmedLine points at it, but
+    // confirmedLine is already confirmed — different target for this test).
+    // Use a fresh fixture where we explicitly link unmatchedLine to a fresh expense.
     await t.mutation(api.bankStatements.mutations.manualMatch, {
       token: f.managerToken,
       lineId: f.unmatchedLineId,
-      matchedType: "expense",
-      matchedId: f.expenseId,
+      matchedType: "reimbursement",
+      matchedId: f.reimbursementId,
     });
 
     const line = await t.run(async (ctx) => ctx.db.get(f.unmatchedLineId));
     expect(line).toBeTruthy();
-    expect(line!.matchedType).toBe("expense");
-    expect(line!.matchedId).toBe(f.expenseId);
+    expect(line!.matchedType).toBe("reimbursement");
+    expect(line!.matchedId).toBe(f.reimbursementId);
     expect(line!.matchMethod).toBe("linked_to_record");
     expect(line!.status).toBe("suggested");
     expect(line!.isAutoMatched).toBe(false);
@@ -160,19 +163,39 @@ describe("manualMatch", () => {
     // code path exists by re-seeding and forcing a duplicate via raw DB write
     // BEFORE the mutation's post-write re-query runs.
     //
-    // Sequential guard test:
+    // Sequential guard test: seed a fresh expense + fresh unmatched line,
+    // then attempt to match unmatchedLine AND matchedLine to the same fresh expense.
+    const freshExpenseId = await t.run(async (ctx) =>
+      ctx.db.insert("expenses", {
+        expenseNumber: "EXP-FRESH",
+        submittedBy: f.adminUserId,
+        amount: 250000,
+        accountId: f.expenseAccountId,
+        expenseDate: Date.now(),
+        description: "fresh",
+        vendorName: "fresh",
+        paymentMethod: "company_paid",
+        status: "approved",
+        lateSubmission: false,
+        createdAt: Date.now(),
+      } as never),
+    );
+    // First match — succeeds (fresh target)
     await t.mutation(api.bankStatements.mutations.manualMatch, {
       token: f.managerToken,
       lineId: f.unmatchedLineId,
       matchedType: "expense",
-      matchedId: f.altExpenseId,
+      matchedId: freshExpenseId,
     });
+    // Second match on a DIFFERENT line to the SAME target — pre-check must throw
+    // "Target already linked" (fixture matchedLineId is linked to expenseId, but we're
+    // now re-targeting freshExpenseId which unmatchedLineId just claimed).
     await expect(
       t.mutation(api.bankStatements.mutations.manualMatch, {
         token: f.managerToken,
-        lineId: f.matchedLineId, // currently linked to expenseId; attempt to re-link
+        lineId: f.matchedLineId,
         matchedType: "expense",
-        matchedId: f.altExpenseId,
+        matchedId: freshExpenseId,
       }),
     ).rejects.toThrow(/Target already linked/);
 
