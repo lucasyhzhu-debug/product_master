@@ -76,11 +76,18 @@ export function BatchConfirmDialog({
   }, [accounts]);
 
   // Group postable lines by (debit, credit) account pair.
+  // CR-01 fix: aggregate DR/CR via per-account net position so the balance
+  // gate reflects real double-entry asymmetry. Each line contributes +amount
+  // to its debit account and -amount to its credit account. After summing,
+  // positive nets = aggregate DR, |negative nets| = aggregate CR. If all
+  // line debit/credit accounts are distinct pairs, DR == CR trivially; but
+  // if a group's credit account equals another group's debit account with
+  // opposite sign, the nets reveal the true imbalance (which the old code
+  // masked by double-counting every line into both sums).
   const { groups, skipped, totalDR, totalCR, totalLines } = useMemo(() => {
     const map = new Map<GroupKey, GroupRow>();
+    const netByAccount = new Map<string, number>();
     let skippedCount = 0;
-    let drSum = 0;
-    let crSum = 0;
 
     for (const line of exactTierLines) {
       if (!line.jeDebitAccountId || !line.jeCreditAccountId) {
@@ -101,11 +108,17 @@ export function BatchConfirmDialog({
           total: line.amountIdr,
         });
       }
-      // For balance gate: DR and CR equal per line (amountIdr each) — but
-      // aggregate may still diverge if accounts overlap by contra sign.
-      // For Phase 73 simple balance: sum all debits vs credits.
-      drSum += line.amountIdr;
-      crSum += line.amountIdr;
+      const drKey = String(line.jeDebitAccountId);
+      const crKey = String(line.jeCreditAccountId);
+      netByAccount.set(drKey, (netByAccount.get(drKey) ?? 0) + line.amountIdr);
+      netByAccount.set(crKey, (netByAccount.get(crKey) ?? 0) - line.amountIdr);
+    }
+
+    let drSum = 0;
+    let crSum = 0;
+    for (const net of netByAccount.values()) {
+      if (net > 0) drSum += net;
+      else if (net < 0) crSum += -net;
     }
 
     return {
