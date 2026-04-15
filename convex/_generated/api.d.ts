@@ -214,8 +214,12 @@ import type * as productionUnitTypes_queries from "../productionUnitTypes/querie
 import type * as reimbursements_helpers from "../reimbursements/helpers.js";
 import type * as reimbursements_mutations from "../reimbursements/mutations.js";
 import type * as reimbursements_queries from "../reimbursements/queries.js";
+import type * as reports_channelTaxonomy from "../reports/channelTaxonomy.js";
 import type * as reports_dailySales from "../reports/dailySales.js";
 import type * as reports_incomeStatement from "../reports/incomeStatement.js";
+import type * as reports_productionUnitHelpers from "../reports/productionUnitHelpers.js";
+import type * as reports_revenueHelpers from "../reports/revenueHelpers.js";
+import type * as reports_unitEconomics from "../reports/unitEconomics.js";
 import type * as restock_mutations from "../restock/mutations.js";
 import type * as restock_queries from "../restock/queries.js";
 import type * as shipping_mutations from "../shipping/mutations.js";
@@ -440,8 +444,12 @@ declare const fullApi: ApiFromModules<{
   "reimbursements/helpers": typeof reimbursements_helpers;
   "reimbursements/mutations": typeof reimbursements_mutations;
   "reimbursements/queries": typeof reimbursements_queries;
+  "reports/channelTaxonomy": typeof reports_channelTaxonomy;
   "reports/dailySales": typeof reports_dailySales;
   "reports/incomeStatement": typeof reports_incomeStatement;
+  "reports/productionUnitHelpers": typeof reports_productionUnitHelpers;
+  "reports/revenueHelpers": typeof reports_revenueHelpers;
+  "reports/unitEconomics": typeof reports_unitEconomics;
   "restock/mutations": typeof restock_mutations;
   "restock/queries": typeof restock_queries;
   "shipping/mutations": typeof shipping_mutations;

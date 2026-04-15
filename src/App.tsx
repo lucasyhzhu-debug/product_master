@@ -141,6 +141,9 @@ const BankReconciliationPage = lazyWithPreload(() =>
 const BankRulesManager = lazyWithPreload(() =>
   import('./pages/BankRulesManager').then(m => ({ default: m.BankRulesManager }))
 );
+const AnalyticsDashboard = lazyWithPreload(() =>
+  import('./pages/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard }))
+);
 
 function App() {
   return (
@@ -511,6 +514,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessSalesAnalytics">
                         <SalesAnalytics />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Phase 80: Unit Economics Analytics Dashboard - Manager + Admin */}
+                  <Route
+                    path="analytics"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessDashboard">
+                        <AnalyticsDashboard />
                       </ProtectedRoute>
                     }
                   />

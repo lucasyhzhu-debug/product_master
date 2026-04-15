@@ -92,6 +92,7 @@ const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 // Main nav items - visible based on individual permissions
 const mainNavItems: NavItem[] = [
   { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'canAccessDashboard' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },

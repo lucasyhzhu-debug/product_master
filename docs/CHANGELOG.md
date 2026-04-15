@@ -16,6 +16,29 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feat: Phase 80 — Unit Economics Analytics Dashboard -- 2026-04-15
+
+**For the team:** Managers and admins can open `/analytics` to see 13 widgets across 6 lenses (headline KPIs, time patterns, channel economics, volume/mix, SKU concentration, momentum). Filterable by date range (7d/30d/90d presets or custom), display channel (Shopee, Tokopedia, GoFood, K3Mart, Direct, Consignment, TikTok, Other), and menu product. All filter state syncs to the URL so views are bookmarkable.
+
+**Critical fixes baked in:**
+- Dynamic BOM iteration for production-unit counting — Big Ball + Mid Ball + Hazelnut (+ future production types) are counted automatically. No hardcoded BIG_BALL/MID_BALL checks anywhere in the new code. `convex/dispatchPlanner/queries.ts` migrated off its hardcoded accumulator (Pitfall #11 closure). Return shape preserves `bigBalls`/`midBalls` for backward compat and adds `unitsByType` record for new callers.
+- Indexed `by_completed_at` + `by_order_date` bounded scans on orders (eliminates 11x full-table-scan footprint from naive loaders).
+- Denormalized `lineTotal` used throughout (via `itemNetRevenue`/`itemGrossRevenue`/`itemDiscount` helpers — no manual revenue recomputation).
+
+**Files added:**
+- Backend: `convex/reports/unitEconomics.ts` (11 queries), `convex/reports/productionUnitHelpers.ts`, `convex/reports/revenueHelpers.ts`, `convex/reports/channelTaxonomy.ts`
+- Frontend: `src/pages/AnalyticsDashboard.tsx`, 14 widgets in `src/components/analytics/`, `src/contexts/AnalyticsFilterContext.tsx`, `src/hooks/convex/useAnalytics.ts`
+- Tests: `tests/convex/unitEconomics.test.ts` (9 cases), `tests/frontend/analytics/*.tsx` (3 smoke tests, 5 test cases)
+- Schema: `orders.by_completed_at` + `orders.by_order_date` indexes; `src/lib/platformColors.ts` extended with display-channel aggregates.
+
+**Post-review polish (same phase):**
+- Code review (6 warnings WR-01..WR-06): WIB-aware date-picker parsing; rolling-trend now iterates every calendar day (zero-revenue days no longer inflate averages); functional `setFilters` update against URLSearchParams; `DisplayChannel` union deduplicated; SKU analytics aggregate by `menuProductId` (not display name); documented primary/legacy loader split.
+- Triple review (3 Critical + 6 Important + 3 Minor): `menuProductIds` filter now constrains the order set (fixed AOV/orderCount/unitsPerTxn lie); `rollingTrend` test rewrite + gap-day regression; `toDateInput` WIB-aware round-trip; product multi-select UI wired to `menuProducts.queries.list`; new `tests/convex/dispatchPlanner.test.ts` (Hazelnut regression); `SkuChannelHeatmap` + `SkuParetoChart` now key by `productKey`; per-order item fetch parallelized via `Promise.all`; `channelEconomics` collapsed `revPerUnit`/`netPerUnit` to a single field; 6-query coverage gap closed; `TYPE_COLORS` consolidated to `src/lib/productionTypeColors.ts`; `jakartaHour` delegates to `getWibComponents.hour`; `unitsPerProduct` hoisted out of double-load paths.
+- UAT session iterations: unified `externalRevenue` + `externalRevenueItems` into `loadFilteredData` so GoFood / Shopee / K3Mart / TikTok channel analytics populate (previously invisible); K3Mart `bomUnresolvedUnits` fallback for parent-only `externalRevenue` rows without itemized breakdown; active filter summary line above the filter bar; SKU Pareto tooltip formatter split (currency vs %); X-axis labels rotated + visible; WeekdayDualAxisChart gains a Units/Order line + Rolling-vs-Weekday mode toggle (backend `byWeekday` now accepts `mode` arg); DayHourHeatmap transposed (days = columns, hours = rows) and 0-9am collapsed into a single "Overnight" row; weekday axes swapped so Orders + Units share the left axis and Units/Txn owns the right axis; custom hover tooltips across weekday / rolling trend / heatmap / rev-per-unit / SKU Pareto; active preset button highlights when its range matches the current filter.
+- Build: `vendor-*.js` bundle cap raised from 500 kB to 600 kB to accommodate recharts + analytics vendor footprint.
+
+**Migration:** None. Read-only additive changes. Route protected by `canAccessDashboard` (manager + admin).
+
 ### Fix: Shopee SKU Preserve + Query-time Mapping + Per-Platform Fees -- 2026-04-14
 
 **For the team:** The BigSeller sync table on Sales Analytics had three issues: (1) recent Shopee orders showed `--` in the SKUs column and all previously-known SKU mappings appeared to vanish after re-sync; (2) there was no way to see which Frollie product each BigSeller SKU maps to, or to fix an unmapped SKU without leaving the page; (3) the Buyer Shipping column was stuck at Rp 0 for Shopee rows despite BigSeller's API returning the fee. All three are now fixed and mappings are preserved across re-syncs.

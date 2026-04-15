@@ -35,6 +35,7 @@ export function getWibComponents(utcMs: number) {
     month: d.getUTCMonth(), // 0-indexed
     day: d.getUTCDate(),
     dayOfWeek: d.getUTCDay(), // 0=Sunday
+    hour: d.getUTCHours(), // 0-23 WIB
   };
 }
 

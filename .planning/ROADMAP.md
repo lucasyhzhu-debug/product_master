@@ -321,10 +321,33 @@ Plans:
 - [ ] 78-02-PLAN.md -- Frontend: ProductForm section, AvailabilityPanel sub-rows, toast enhancement
 **UI hint**: yes
 
+### Phase 80: Unit Economics Analytics Dashboard
+**Goal**: New `/analytics` page with 13 widgets answering CFO/CEO unit-economics questions: where revenue comes from, how much per unit (BOM-resolved), and momentum — filterable by date, channel, and product
+**Depends on**: Nothing (read-only over existing orders/orderItems/menuProducts/componentTypes data)
+**Requirements**: AOV per channel, units sold (BOM-resolved across Big Ball + Mid Ball + Hazelnut + future production types), units per transaction by channel, weekday seasonality, day×hour heatmap, channel rev/unit + take-rate, product-type mix over time, SKU Pareto, SKU×channel heatmap, per-channel momentum sparklines, rolling 7d/28d trend
+**Success Criteria** (what must be TRUE):
+  1. Manager/admin opens `/analytics` and sees 6 KPI tiles (Revenue net, Units, AOV, Rev/Unit, Orders, Units/Txn) with WoW deltas
+  2. All "units sold" metrics dynamically iterate `componentTypes` where `category=production AND unit=pcs` — Hazelnut and any future production types are counted automatically without code changes
+  3. Date range, channel, and product filters reflect in every widget within 500ms (dev env)
+  4. Filter state is URL-synced — pasting a filtered URL into a new tab restores the same view
+  5. Existing hardcoded `BIG_BALL`/`MID_BALL` accumulator in `convex/dispatchPlanner/queries.ts` is migrated to the same dynamic helper (regression-guarded by test)
+  6. New `by_completed_at` index on orders bounds all date-range scans (no full-table scans)
+  7. `npm run type-check` + `npm run build` + `npm run test` all pass
+**Plans:** 2/2 plans complete
+Plans:
+- [ ] PLAN.md -- 16 tasks across 3 waves: backend helpers/queries (T1-T7), frontend widgets (T8-T13), verification (T14-T16)
+- [ ] PLAN-ADDENDUM.md -- Staff-review patches: T1.5 (index), T1.6 (dispatchPlanner migration), T14.5 (frontend tests), use lineTotal helpers + platformColors + periodRange
+**UI hint**: yes
+**Source artifacts**:
+- Spec: `docs/superpowers/specs/2026-04-13-unit-economics-analytics-dashboard-design.md`
+- Plan: `docs/superpowers/plans/2026-04-13-unit-economics-analytics-dashboard.md`
+- Plan addendum: `docs/superpowers/plans/2026-04-13-unit-economics-analytics-dashboard-ADDENDUM.md`
+- Staff review: `docs/reviews/staffreview-unit-economics-analytics-dashboard-2026-04-13.md`
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 80
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -337,6 +360,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
+| 80. Unit Economics Analytics Dashboard | v2.0 | 2/2 | Complete    | 2026-04-15 |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -350,7 +374,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-78 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-78, 80 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
