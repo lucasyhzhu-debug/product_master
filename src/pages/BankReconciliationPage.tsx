@@ -37,6 +37,7 @@ import { StatementReviewTable } from "@/components/bankReconciliation/StatementR
 import { StatementHistoryList } from "@/components/bankReconciliation/StatementHistoryList";
 import { BankReconciliationTabs } from "@/components/bankReconciliation/BankReconciliationTabs";
 import { SplitViewWorkspace } from "@/components/bankReconciliation/SplitViewWorkspace";
+import { RevenueGapTab } from "@/components/bankReconciliation/RevenueGapTab";
 import type {
   ParsedStatement,
   ReconciliationDiff,
@@ -341,12 +342,7 @@ export function BankReconciliationPage() {
     />
   );
 
-  // Plan 05 owns the Revenue Gap tab. Stub placeholder until then.
-  const revenueGapTabContent = (
-    <Card className="p-8 text-center text-sm text-muted-foreground">
-      Revenue Gap dashboard ships in Plan 05.
-    </Card>
-  );
+  const revenueGapTabContent = <RevenueGapTab />;
 
   return (
     <div className="space-y-6">
