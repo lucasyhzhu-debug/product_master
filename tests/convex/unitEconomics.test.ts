@@ -757,3 +757,172 @@ describe("unitEconomics WR-06 legacy completedAt fallback", () => {
     expect(res.current.orderCount).toBe(2);
   });
 });
+
+// ============================================================================
+// externalRevenue integration (Phase 80 UAT-01)
+// ============================================================================
+
+describe("unitEconomics.externalRevenue integration", () => {
+  test("GoFood externalRevenue row with items is counted in kpiSummary + channelEconomics", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const now = Date.now();
+    const ts = now - 86400000;
+
+    const revId = await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenue", {
+        source: "grabfood" as const,
+        periodStart: ts,
+        periodEnd: ts,
+        transactionDate: ts,
+        transactionType: "sales" as const,
+        revenueGross: 100000,
+        revenueNet: 85000,
+        commission: 15000,
+        quantitySold: 2,
+        transactionCount: 1,
+        dataOrigin: "api_revenue" as const,
+        confidence: "exact" as const,
+        externalTransactionId: "gf-test-1",
+      }),
+    );
+    await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenueItems", {
+        revenueId: revId,
+        source: "grabfood" as const,
+        productName: "Original GoFood",
+        unitPrice: 50000,
+        quantity: 2,
+        totalPrice: 100000,
+        linkedMenuProductId: mp,
+        isAutoMatched: true,
+        matchConfidence: "exact" as const,
+        createdAt: ts,
+      }),
+    );
+
+    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    expect(kpi.current.orderCount).toBeGreaterThanOrEqual(1);
+    expect(kpi.current.netRevenue).toBeGreaterThanOrEqual(100000);
+    expect(kpi.current.units).toBe(2); // BOM: 1 BIG_BALL per product × 2 units
+
+    const channels = await t.query(api.reports.unitEconomics.channelEconomics, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    const gofood = channels.find((r) => r.channel === "GoFood");
+    expect(gofood).toBeDefined();
+    expect(gofood!.gross).toBe(100000);
+    expect(gofood!.units).toBe(2);
+    expect(gofood!.orderCount).toBe(1);
+  });
+
+  test("transactionCount > 1 inflates orderCount correctly (no double-count)", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const now = Date.now();
+    const ts = now - 86400000;
+
+    const revId = await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenue", {
+        source: "shopee" as const,
+        periodStart: ts,
+        periodEnd: ts,
+        transactionDate: ts,
+        transactionType: "sales" as const,
+        revenueGross: 150000,
+        revenueNet: 150000,
+        transactionCount: 3, // 3 transactions rolled up
+        dataOrigin: "api_revenue" as const,
+        confidence: "exact" as const,
+      }),
+    );
+    await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenueItems", {
+        revenueId: revId,
+        source: "shopee" as const,
+        productName: "Original Shopee",
+        unitPrice: 50000,
+        quantity: 3,
+        totalPrice: 150000,
+        linkedMenuProductId: mp,
+        isAutoMatched: true,
+        createdAt: ts,
+      }),
+    );
+
+    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    // orderCount respects transactionCount=3, not 1.
+    expect(kpi.current.orderCount).toBe(3);
+
+    // Channel filter by Shopee must surface this row (UAT-04 regression guard).
+    const shopeeOnly = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+      channels: ["Shopee"],
+    });
+    expect(shopeeOnly.current.netRevenue).toBe(150000);
+    expect(shopeeOnly.current.units).toBe(3);
+  });
+
+  test("externalRevenueItems without linkedMenuProductId produce '(Unlinked)' SKU bucket", async () => {
+    const t = convexTest(schema, modules);
+    await seedBaseFixtures(t);
+    const now = Date.now();
+    const ts = now - 86400000;
+
+    const revId = await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenue", {
+        source: "tiktok" as const,
+        periodStart: ts,
+        periodEnd: ts,
+        transactionDate: ts,
+        transactionType: "sales" as const,
+        revenueGross: 75000,
+        revenueNet: 75000,
+        transactionCount: 1,
+        dataOrigin: "api_revenue" as const,
+        confidence: "exact" as const,
+      }),
+    );
+    await t.run(async (ctx) =>
+      ctx.db.insert("externalRevenueItems", {
+        revenueId: revId,
+        source: "tiktok" as const,
+        productName: "Unknown TikTok SKU",
+        unitPrice: 25000,
+        quantity: 3,
+        totalPrice: 75000,
+        // linkedMenuProductId deliberately omitted
+        isAutoMatched: false,
+        matchConfidence: "none" as const,
+        createdAt: ts,
+      }),
+    );
+
+    const pareto = await t.query(api.reports.unitEconomics.skuPareto, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+      topN: 10,
+    });
+    const unlinked = pareto.rows.find((r) => r.name === "(Unlinked)");
+    expect(unlinked).toBeDefined();
+    expect(unlinked!.revenue).toBe(75000);
+
+    // Unit count is 0 because no linkedMenuProductId → cannot resolve BOM.
+    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+      fromTs: now - 7 * 86400000,
+      toTs: now + 1000,
+    });
+    expect(kpi.current.netRevenue).toBe(75000);
+    expect(kpi.current.units).toBe(0);
+  });
+});
