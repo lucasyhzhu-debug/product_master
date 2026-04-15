@@ -206,18 +206,21 @@ export function RevenueGapTab() {
     setPickerOpen(false);
   }
 
-  function handleRowClick(channel: string) {
+  function handleRowClick(channel: string | null) {
     // Drill-down (D-15): hand off to Review tab with channelFilter + period.
-    // WR-06 fix: preserve custom date range by passing periodStart/periodEnd
-    // (UTC epoch ms) when the period can't pack into a YYYY-MM key. BankLinesPane
-    // honors either periodStart+periodEnd (preferred when present) or period
-    // (YYYY-MM fallback for preset months).
+    // Preserves custom date range via periodStart/periodEnd (UTC epoch ms)
+    // when the period can't pack into a YYYY-MM key; BankLinesPane prefers
+    // those over the YYYY-MM `period` key. A null channel (unallocated row)
+    // navigates without channelFilter so the reviewer sees all unassigned
+    // credits in the period.
     const periodParam = period.custom
       ? `&periodStart=${period.start}&periodEnd=${period.end}`
       : `&period=${period.key}`;
-    const channelParam = encodeURIComponent(channel);
+    const channelParam = channel
+      ? `&channelFilter=${encodeURIComponent(channel)}`
+      : "";
     navigate(
-      `/bank-reconciliation?tab=review&channelFilter=${channelParam}${periodParam}`,
+      `/bank-reconciliation?tab=review${channelParam}${periodParam}`,
     );
   }
 
@@ -363,17 +366,30 @@ export function RevenueGapTab() {
                 )}
 
                 {!isLoading &&
-                  rows.map((row) => (
-                    <RevenueGapRow
-                      key={`mapped-${row.channel}`}
-                      channel={row.channel}
-                      bankCr={row.bankCr}
-                      extRev={row.extRev}
-                      diff={row.diff}
-                      diffPct={row.diffPct}
-                      onClick={() => handleRowClick(row.channel)}
-                    />
-                  ))}
+                  rows.map((row, i) => {
+                    const isUnallocated = row.unallocated === true;
+                    const label = isUnallocated
+                      ? UNALLOC
+                      : row.channels.join(" + ");
+                    // Drill-down uses the first channel (BankLinesPane filters
+                    // on a single linkedChannel). Unallocated navigates
+                    // without a channel filter — see handleRowClick.
+                    const drillChannel = isUnallocated
+                      ? null
+                      : (row.channels[0] ?? null);
+                    return (
+                      <RevenueGapRow
+                        key={`mapped-${row.source ?? "unalloc"}-${i}`}
+                        channel={label}
+                        isUnallocated={isUnallocated}
+                        bankCr={row.bankCr}
+                        extRev={row.extRev}
+                        diff={row.diff}
+                        diffPct={row.diffPct}
+                        onClick={() => handleRowClick(drillChannel)}
+                      />
+                    );
+                  })}
 
                 {!isLoading && unmappedRows.length > 0 && (
                   <>
@@ -432,6 +448,8 @@ interface RowProps {
   extRev: number | null;
   diff: number;
   diffPct: number | null;
+  /** Explicit flag for the unallocated bucket (set by parent). */
+  isUnallocated?: boolean;
   /** Row belongs to the unmapped-channels group — suppress Diff% + infinity warning. */
   unmappedNote?: boolean;
   onClick: () => void;
@@ -443,10 +461,10 @@ function RevenueGapRow({
   extRev,
   diff,
   diffPct,
+  isUnallocated = false,
   unmappedNote,
   onClick,
 }: RowProps) {
-  const isUnallocated = channel === UNALLOC;
   const palette = isUnallocated ? null : getPlatformPalette(channel);
   // Infinity case: backend sets extRev=null AND diffPct=null for a MAPPED
   // channel that has bank credits but zero externalRevenue recorded.

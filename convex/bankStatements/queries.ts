@@ -424,7 +424,10 @@ export const searchPayroll = query({
 // ===========================================================================
 
 type RevenueGapMappedRow = {
-  channel: string;
+  /** Raw channels aggregated into this row (frontend joins for display). Empty = unallocated bucket. */
+  channels: string[];
+  /** True for the catch-all (no linkedChannel) bucket; false for mapped channels. */
+  unallocated?: boolean;
   source: ExternalSource | null;
   bankCr: number;
   extRev: number | null;
@@ -433,6 +436,7 @@ type RevenueGapMappedRow = {
 };
 
 type RevenueGapUnmappedRow = {
+  /** Single unmapped channel name (no aggregation on this side). */
   channel: string;
   bankCr: number;
   extRev: null;
@@ -440,8 +444,6 @@ type RevenueGapUnmappedRow = {
   diffPct: null;
   unmapped: true;
 };
-
-const UNALLOCATED_LABEL = "(unallocated)";
 
 export const revenueGapByPeriod = query({
   args: {
@@ -520,17 +522,13 @@ export const revenueGapByPeriod = query({
     const rows: RevenueGapMappedRow[] = [];
     const unmappedRows: RevenueGapUnmappedRow[] = [];
 
-    // Mapped rows: one per source, channel label consolidates raw channels.
+    // Mapped rows: one per source; channels[] lets the frontend format its own label.
     for (const [source, { bankCr, channels }] of bankBySource.entries()) {
-      const channelLabel =
-        channels.size === 1
-          ? [...channels][0]
-          : [...channels].sort().join(" + ");
       const extRev = extBySource.get(source) ?? 0;
       const diff = bankCr - extRev;
       const diffPct = extRev > 0 ? (diff / extRev) * 100 : null;
       rows.push({
-        channel: channelLabel,
+        channels: [...channels].sort(),
         source,
         bankCr,
         extRev: extRev === 0 ? null : extRev,
@@ -539,10 +537,11 @@ export const revenueGapByPeriod = query({
       });
     }
 
-    // Unallocated bucket.
+    // Unallocated bucket (no linkedChannel on the bank line).
     if (unallocatedBankCr > 0) {
       rows.push({
-        channel: UNALLOCATED_LABEL,
+        channels: [],
+        unallocated: true,
         source: null,
         bankCr: unallocatedBankCr,
         extRev: null,
