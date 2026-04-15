@@ -12,7 +12,7 @@
  * Phase 73 Plan 02 appends:
  *  - getStatementProgress / getStatementProgressBulk (BANK-04)
  *  - listCandidatesForLine + search* (D-05 / D-06)
- *  - revenueGapByPeriod (D-14, C1 mapped/unmapped split)
+ *  - revenueGapByPeriod (D-14, mapped/unmapped split)
  */
 
 import { ConvexError, v } from "convex/values";
@@ -181,10 +181,8 @@ export const getStatementProgressBulk = query({
     if (args.statementIds.length > 50) {
       throw new ConvexError("Bulk progress limited to 50 statements per call");
     }
-    // C3 — parallelize per-statement progress scans. Each computeProgress
-    // itself runs 4 prefix scans in parallel, but a serial outer loop would
-    // force N sequential round-trips for N statements. Promise.all lets the
-    // Convex runtime overlap them.
+    // Parallelize per-statement scans — a serial outer loop would force N
+    // sequential round-trips for N statements.
     const entries = await Promise.all(
       args.statementIds.map(
         async (id) => [id, await computeProgress(ctx, id)] as const,
@@ -290,15 +288,12 @@ export const listCandidatesForLine = query({
 
 // ===========================================================================
 // Phase 73 Plan 02 — Search escape hatches (D-06)
-//
-// Raw-scan cap (I1): each search* query widens to a whole-table scan, capped
-// at RAW_SCAN_CAP rows before filtering. If any of these tables grows past
-// the cap, replace the raw `.take(RAW_SCAN_CAP)` with a Convex search index
-// (per-table) that lets users narrow by description/counterparty/batchNumber
-// at the index level. See follow-up backlog.
 // ===========================================================================
 
 const SEARCH_LIMIT = 50;
+// Cap per search* query — each widens to a whole-table scan before filtering.
+// Replace `.take(RAW_SCAN_CAP)` with a per-table Convex search index if any of
+// these tables outgrows the cap; see follow-up backlog.
 const RAW_SCAN_CAP = 2000;
 
 function matchesSearch(haystack: string[], term: string): boolean {
@@ -324,8 +319,6 @@ export const searchExpenses = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    // Widen to whole-table scan — escape hatch for out-of-window hunts.
-    // Capped at RAW_SCAN_CAP (I1). Replace with search index past the cap.
     const all = await ctx.db.query("expenses").take(RAW_SCAN_CAP);
     const filtered = all.filter((e) => {
       if (args.amountIdr !== undefined && e.amount !== args.amountIdr) return false;
@@ -350,7 +343,6 @@ export const searchRevenue = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    // I1 — capped raw scan; replace with search index past RAW_SCAN_CAP.
     const all = await ctx.db.query("externalRevenue").take(RAW_SCAN_CAP);
     const filtered = all.filter((r) => {
       if (args.amountIdr !== undefined && r.revenueGross !== args.amountIdr) return false;
@@ -377,7 +369,6 @@ export const searchReimbursements = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    // I1 — capped raw scan; replace with search index past RAW_SCAN_CAP.
     const all = await ctx.db.query("reimbursementBatches").take(RAW_SCAN_CAP);
     const filtered = all.filter((r) => {
       if (args.amountIdr !== undefined && r.totalAmount !== args.amountIdr) return false;
@@ -403,7 +394,6 @@ export const searchPayroll = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    // I1 — capped raw scan; replace with search index past RAW_SCAN_CAP.
     const all = await ctx.db.query("payrollEntries").take(RAW_SCAN_CAP);
     const filtered = all.filter((r) => {
       if (args.amountIdr !== undefined && r.amount !== args.amountIdr) return false;
@@ -420,7 +410,7 @@ export const searchPayroll = query({
 });
 
 // ===========================================================================
-// Phase 73 Plan 02 — Revenue gap (D-14, C1 mapped/unmapped split)
+// Phase 73 Plan 02 — Revenue gap (D-14, mapped/unmapped split)
 // ===========================================================================
 
 type RevenueGapMappedRow = {
