@@ -637,6 +637,20 @@ export const inlineCreateExpense = mutation({
       createdAt: now,
     });
 
+    // C1 — D-04 1:1 cardinality pre-write guard. A freshly-inserted expense
+    // shouldn't have a prior link, but a concurrent manualMatch racing on the
+    // same id (astronomically unlikely) or a defensive path in future code
+    // means we mirror the manualMatch guard before patching.
+    const existingLink = await ctx.db
+      .query("bankStatementLines")
+      .withIndex("by_matched", (q) =>
+        q.eq("matchedType", "expense").eq("matchedId", expenseId),
+      )
+      .first();
+    if (existingLink && existingLink._id !== args.bankLineId) {
+      throw new ConvexError(`Target already linked to bank line ${existingLink._id}`);
+    }
+
     await ctx.db.patch(args.bankLineId, {
       matchedType: "expense",
       matchedId: expenseId,
@@ -688,6 +702,17 @@ export const inlineCreateRevenue = mutation({
       dataOrigin: "manual_entry",
       confidence: "manual",
     });
+
+    // C1 — D-04 1:1 cardinality pre-write guard. Mirrors manualMatch.
+    const existingLink = await ctx.db
+      .query("bankStatementLines")
+      .withIndex("by_matched", (q) =>
+        q.eq("matchedType", "revenue").eq("matchedId", revenueId),
+      )
+      .first();
+    if (existingLink && existingLink._id !== args.bankLineId) {
+      throw new ConvexError(`Target already linked to bank line ${existingLink._id}`);
+    }
 
     await ctx.db.patch(args.bankLineId, {
       matchedType: "revenue",
@@ -765,6 +790,18 @@ export const inlineCreateReimbursement = mutation({
     });
     for (const expenseId of uniqueExpenseIds) {
       await ctx.db.insert("reimbursementBatchItems", { batchId, expenseId });
+    }
+
+    // C1 — D-04 1:1 cardinality pre-write guard. Mirrors manualMatch. Uses
+    // matchedType="reimbursement" (schema literal), not "reimbursement_batch".
+    const existingLink = await ctx.db
+      .query("bankStatementLines")
+      .withIndex("by_matched", (q) =>
+        q.eq("matchedType", "reimbursement").eq("matchedId", batchId),
+      )
+      .first();
+    if (existingLink && existingLink._id !== args.bankLineId) {
+      throw new ConvexError(`Target already linked to bank line ${existingLink._id}`);
     }
 
     await ctx.db.patch(args.bankLineId, {
