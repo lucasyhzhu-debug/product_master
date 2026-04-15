@@ -7,11 +7,36 @@ import {
   unitsForOrderItem,
 } from "./productionUnitHelpers";
 import { itemGrossRevenue, itemNetRevenue, itemDiscount } from "./revenueHelpers";
-import { toDisplayChannel, type DisplayChannel } from "./channelTaxonomy";
+import {
+  toDisplayChannel,
+  sourceToDisplayChannel,
+  type DisplayChannel,
+} from "./channelTaxonomy";
 import { getWibComponents } from "../lib/periodRange";
 
 // ============================================================================
 // Shared filter validator + loader
+//
+// Phase 80 UAT-01 (MAJOR): the unit economics dashboard must cover BOTH
+// the `orders` table (manual/direct/WhatsApp orders) AND the
+// `externalRevenue` + `externalRevenueItems` tables (GoFood, Shopee,
+// Tokopedia, K3Mart, TikTok, consignment, etc). Without the external
+// stream the dashboard misses ~95% of revenue (e.g. GoFood alone is ~75%).
+//
+// Mapping notes for `externalRevenue` rows:
+//   - `transactionDate` is the canonical event timestamp; fall back to
+//     `periodStart` when absent.
+//   - `transactionCount` (when set) is respected as the "order equivalent"
+//     multiplier — a single externalRevenue row may represent multiple
+//     transactions (e.g. a daily K3Mart roll-up).
+//   - `externalRevenueItems.linkedMenuProductId` is used for BOM-based unit
+//     counting. Items without a link are included in revenue totals but
+//     contribute zero units (shown as "Unlinked" in SKU Pareto; skipped
+//     by units-based metrics).
+//   - Commission is a PARENT-level field. Item-level analytics do not
+//     apportion commission back to items; commission is only used for
+//     order-level reporting (AOV / take-rate). The take-rate test is
+//     approximate for this reason.
 // ============================================================================
 
 const filterArgs = {
@@ -29,8 +54,165 @@ type FilterArgs = {
 };
 
 /**
+ * Normalized shapes consumed by the 11 analytics queries. Both native
+ * `orders`/`orderItems` rows AND synthesized `externalRevenue`/
+ * `externalRevenueItems` rows are projected into these structures so the
+ * downstream reducers can iterate a single fused stream.
+ */
+export type NormalizedOrder = {
+  _id: string;
+  source: "orders" | "external";
+  channel: DisplayChannel;
+  completedAt: number; // always set (fallback already applied)
+  orderDate: number; // mirrors completedAt for external rows
+  // Weight for order-equivalent counts (AOV / unitsPerTxn / orderCount).
+  // `orders` rows use 1. `externalRevenue` rows use `transactionCount`
+  // (default 1) so rolled-up rows don't undercount.
+  orderWeight: number;
+  status?: string;
+};
+
+export type NormalizedItem = {
+  orderId: string;
+  menuProductId?: Id<"menuProducts">;
+  productName: string;
+  quantity: number;
+  lineTotal: number;
+  discountAmount?: number;
+  isCancelled?: boolean;
+};
+
+/**
+ * Load externalRevenue + externalRevenueItems in the filter window and project
+ * them into NormalizedOrder/NormalizedItem so downstream reducers can treat
+ * them identically to native orders. See header comment for semantics.
+ */
+async function loadExternalStream(
+  ctx: QueryCtx,
+  args: FilterArgs,
+): Promise<{ orders: NormalizedOrder[]; items: NormalizedItem[] }> {
+  const channelSet = args.channels?.length ? new Set(args.channels) : null;
+  const productSet = args.menuProductIds?.length
+    ? new Set(args.menuProductIds.map((id) => id as string))
+    : null;
+
+  // Fetch externalRevenue rows in-window. `transactionDate` is the canonical
+  // event timestamp for sales rows; roll-ups without transactionDate fall
+  // back to periodStart. We over-fetch (no index on transactionDate yet,
+  // would need schema change) and filter in memory — this mirrors the
+  // existing analytics pattern and avoids schema churn for UAT hotfix.
+  //
+  // Use the by_period index (periodStart) as an outer-bound to trim the
+  // scan to rows that _might_ fall in the window.
+  const scanFrom = args.fromTs - 31 * 86400000; // allow 31-day lookback for rows using transactionDate<<periodStart
+  const byPeriod = await ctx.db
+    .query("externalRevenue")
+    .withIndex("by_period", (q) => q.gte("periodStart", scanFrom))
+    .collect();
+
+  const revenueRows: Doc<"externalRevenue">[] = [];
+  for (const r of byPeriod) {
+    // Skip returns & delta_inferred; we only want realized sales.
+    if (r.transactionType && r.transactionType !== "sales") continue;
+    const ts = r.transactionDate ?? r.periodStart;
+    if (ts < args.fromTs || ts >= args.toTs) continue;
+    const ch = sourceToDisplayChannel(r.source);
+    if (channelSet && !channelSet.has(ch)) continue;
+    revenueRows.push(r);
+  }
+
+  // Fetch items for each revenue row in parallel (by_revenue index).
+  const itemsPerRevenue = await Promise.all(
+    revenueRows.map((r) =>
+      ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", r._id))
+        .collect(),
+    ),
+  );
+
+  const orders: NormalizedOrder[] = [];
+  const items: NormalizedItem[] = [];
+  const matchedRevenueIds = new Set<string>();
+
+  for (let i = 0; i < revenueRows.length; i++) {
+    const r = revenueRows[i];
+    const childItems = itemsPerRevenue[i];
+    const ts = r.transactionDate ?? r.periodStart;
+    const ch = sourceToDisplayChannel(r.source);
+    const revId = r._id as string;
+
+    const syntheticKey = revId;
+    let kept = 0;
+
+    if (childItems.length > 0) {
+      for (const eit of childItems) {
+        if (
+          productSet &&
+          (!eit.linkedMenuProductId ||
+            !productSet.has(eit.linkedMenuProductId as string))
+        ) {
+          continue;
+        }
+        const lineTotal = eit.totalPrice ?? eit.unitPrice * eit.quantity;
+        items.push({
+          orderId: syntheticKey,
+          menuProductId: eit.linkedMenuProductId ?? undefined,
+          productName: eit.productName,
+          quantity: eit.quantity,
+          lineTotal,
+          discountAmount: 0,
+        });
+        kept++;
+      }
+    } else {
+      // No item-level detail — synthesize a single item from the parent row
+      // so revenue totals are not lost. Unit counting requires item-level
+      // linkedMenuProductId, so these contribute 0 units (Unlinked bucket).
+      const gross = r.revenueGross ?? r.revenueNet ?? 0;
+      if (gross > 0) {
+        // Respect product filter: if parent has linkedMenuProductId match, include; else if filter active, skip.
+        const parentLinked = r.linkedMenuProductId;
+        if (
+          !productSet ||
+          (parentLinked && productSet.has(parentLinked as string))
+        ) {
+          items.push({
+            orderId: syntheticKey,
+            menuProductId: parentLinked ?? undefined,
+            productName: r.productName ?? `(${r.source})`,
+            quantity: r.quantitySold ?? 1,
+            lineTotal: gross,
+            discountAmount: 0,
+          });
+          kept++;
+        }
+      }
+    }
+
+    // Drop parent if productSet filtered out all items (mirrors native C1 guard).
+    if (productSet && kept === 0) continue;
+
+    matchedRevenueIds.add(revId);
+    const weight = Math.max(1, r.transactionCount ?? 1);
+    orders.push({
+      _id: syntheticKey,
+      source: "external",
+      channel: ch,
+      completedAt: ts,
+      orderDate: ts,
+      orderWeight: weight,
+      status: "Complete",
+    });
+  }
+
+  return { orders, items };
+}
+
+/**
  * Index-bounded shared loader: returns filtered orders + items + unit-per-product map.
  * Uses by_completed_at (primary) + by_order_date (legacy fallback) to avoid full-table scans.
+ * Also unions in externalRevenue + externalRevenueItems via loadExternalStream.
  *
  * `preloadedUnitsPerProduct` lets callers share a single units-per-product map across
  * multiple loadFilteredData() calls (e.g. current + prior period). Skips an internal
@@ -45,9 +227,9 @@ async function loadFilteredData(
     const unitsPerProduct =
       preloadedUnitsPerProduct ?? (await getProductionUnitsPerProduct(ctx));
     return {
-      orders: [] as Doc<"orders">[],
-      items: [] as Doc<"orderItems">[],
-      orderById: new Map<string, Doc<"orders">>(),
+      orders: [] as NormalizedOrder[],
+      items: [] as NormalizedItem[],
+      orderById: new Map<string, NormalizedOrder>(),
       unitsPerProduct,
     };
   }
@@ -73,14 +255,14 @@ async function loadFilteredData(
     )
     .collect();
 
-  let orders: Doc<"orders">[] = [];
+  let nativeOrders: Doc<"orders">[] = [];
   const seen = new Set<string>();
   // Primary: include every order whose completedAt falls in the window.
   // This is the "true" event date for reporting.
   for (const o of byCompleted) {
     if (o.status === "Draft" || o.status === "Cancelled") continue;
     if (channelSet && !channelSet.has(toDisplayChannel(o.channel))) continue;
-    orders.push(o);
+    nativeOrders.push(o);
     seen.add(o._id as string);
   }
   // Legacy fallback: ONLY include orders with NO completedAt (null-safe).
@@ -95,29 +277,37 @@ async function loadFilteredData(
     if (o.completedAt !== undefined) continue; // only orders MISSING completedAt
     if (o.status === "Draft" || o.status === "Cancelled") continue;
     if (channelSet && !channelSet.has(toDisplayChannel(o.channel))) continue;
-    orders.push(o);
+    nativeOrders.push(o);
   }
 
   // Fetch items per-order using by_order index (parallelized — no global orderItems scan).
   // I4: replace sequential for-loop await with Promise.all.
   const itemsPerOrder = await Promise.all(
-    orders.map((o) =>
+    nativeOrders.map((o) =>
       ctx.db
         .query("orderItems")
         .withIndex("by_order", (q) => q.eq("orderId", o._id))
         .collect(),
     ),
   );
-  const items: Doc<"orderItems">[] = [];
+  const nativeItems: NormalizedItem[] = [];
   const matchedOrderIds = new Set<string>();
-  for (let i = 0; i < orders.length; i++) {
-    const o = orders[i];
+  for (let i = 0; i < nativeOrders.length; i++) {
+    const o = nativeOrders[i];
     const orderItems = itemsPerOrder[i];
     let kept = 0;
     for (const it of orderItems) {
       if (it.isCancelled) continue;
       if (productSet && (!it.menuProductId || !productSet.has(it.menuProductId as string))) continue;
-      items.push(it);
+      nativeItems.push({
+        orderId: it.orderId as string,
+        menuProductId: it.menuProductId,
+        productName: it.productName,
+        quantity: it.quantity,
+        lineTotal: it.lineTotal,
+        discountAmount: it.discountAmount,
+        isCancelled: it.isCancelled,
+      });
       kept++;
     }
     if (kept > 0) matchedOrderIds.add(o._id as string);
@@ -126,11 +316,26 @@ async function loadFilteredData(
   // C1: if menuProductIds filter was applied, drop orders with zero surviving items.
   // Otherwise orderCount / AOV / unitsPerTxn / aovByChannel inflate with unrelated orders.
   if (productSet) {
-    orders = orders.filter((o) => matchedOrderIds.has(o._id as string));
+    nativeOrders = nativeOrders.filter((o) => matchedOrderIds.has(o._id as string));
   }
 
-  const orderById = new Map<string, Doc<"orders">>();
-  for (const o of orders) orderById.set(o._id as string, o);
+  const normalizedNative: NormalizedOrder[] = nativeOrders.map((o) => ({
+    _id: o._id as string,
+    source: "orders",
+    channel: toDisplayChannel(o.channel),
+    completedAt: o.completedAt ?? o.orderDate,
+    orderDate: o.orderDate,
+    orderWeight: 1,
+    status: o.status,
+  }));
+
+  // Union in external stream.
+  const external = await loadExternalStream(ctx, args);
+  const orders: NormalizedOrder[] = [...normalizedNative, ...external.orders];
+  const items: NormalizedItem[] = [...nativeItems, ...external.items];
+
+  const orderById = new Map<string, NormalizedOrder>();
+  for (const o of orders) orderById.set(o._id, o);
 
   const unitsPerProduct =
     preloadedUnitsPerProduct ?? (await getProductionUnitsPerProduct(ctx));
@@ -152,8 +357,8 @@ function deltaPct(current: number, prior: number): number | null {
 // ============================================================================
 
 function computeKpis(
-  orders: Doc<"orders">[],
-  items: Doc<"orderItems">[],
+  orders: NormalizedOrder[],
+  items: NormalizedItem[],
   unitsPerProduct: Map<Id<"menuProducts">, number>,
 ) {
   let grossRevenue = 0;
@@ -166,7 +371,9 @@ function computeKpis(
     discount += itemDiscount(it);
     units += unitsForOrderItem(it, unitsPerProduct);
   }
-  const orderCount = orders.length;
+  // Order-equivalent count: native orders = 1, externalRevenue rows = transactionCount.
+  let orderCount = 0;
+  for (const o of orders) orderCount += o.orderWeight;
   return {
     grossRevenue,
     netRevenue,
@@ -243,13 +450,13 @@ export const byWeekday = query({
     const orderCountByDow = new Array(7).fill(0);
     const unitCountByDow = new Array(7).fill(0);
     for (const o of orders) {
-      const ts = o.completedAt ?? o.orderDate;
-      orderCountByDow[jakartaMondayIndex(ts)] += 1;
+      const ts = o.completedAt;
+      orderCountByDow[jakartaMondayIndex(ts)] += o.orderWeight;
     }
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ts = o.completedAt ?? o.orderDate;
+      const ts = o.completedAt;
       unitCountByDow[jakartaMondayIndex(ts)] += unitsForOrderItem(it, unitsPerProduct);
     }
     return {
@@ -268,9 +475,9 @@ export const dayHourHeatmap = query({
     const grid: number[][] = Array.from({ length: 7 }, () => new Array(8).fill(0));
     const binIndex = (hour: number) => Math.min(7, Math.floor(hour / 3));
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ts = o.completedAt ?? o.orderDate;
+      const ts = o.completedAt;
       const row = jakartaMondayIndex(ts);
       const col = binIndex(jakartaHour(ts));
       grid[row][col] += itemNetRevenue(it);
@@ -293,31 +500,34 @@ export const dayHourHeatmap = query({
 export const channelEconomics = query({
   args: filterArgs,
   handler: async (ctx, args) => {
-    const { items, orderById, unitsPerProduct } = await loadFilteredData(ctx, args);
+    const { orders, items, orderById, unitsPerProduct } = await loadFilteredData(ctx, args);
 
     const byChannel = new Map<DisplayChannel, {
       gross: number;
       discount: number;
       units: number;
-      orders: Set<string>;
+      orderCount: number;
     }>();
 
     function bucket(ch: DisplayChannel) {
       if (!byChannel.has(ch)) {
-        byChannel.set(ch, { gross: 0, discount: 0, units: 0, orders: new Set() });
+        byChannel.set(ch, { gross: 0, discount: 0, units: 0, orderCount: 0 });
       }
       return byChannel.get(ch)!;
     }
 
+    // Order-level pass for orderCount (weighted by orderWeight).
+    for (const o of orders) {
+      bucket(o.channel).orderCount += o.orderWeight;
+    }
+
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ch = toDisplayChannel(o.channel);
-      const b = bucket(ch);
+      const b = bucket(o.channel);
       b.gross += itemGrossRevenue(it);
       b.discount += itemDiscount(it);
       b.units += unitsForOrderItem(it, unitsPerProduct);
-      b.orders.add(o._id as string);
     }
 
     const rows = Array.from(byChannel.entries()).map(([channel, b]) => {
@@ -332,7 +542,7 @@ export const channelEconomics = query({
         fees,
         net,
         units: b.units,
-        orderCount: b.orders.size,
+        orderCount: b.orderCount,
         takePct: b.gross === 0 ? 0 : ((b.discount + fees) / b.gross) * 100,
         revPerUnit: b.units === 0 ? 0 : net / b.units,
       };
@@ -355,9 +565,9 @@ export const volumeByType = query({
     const bucketMap = new Map<string, Map<string, number>>();
     for (const it of items) {
       if (!it.menuProductId) continue;
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ts = o.completedAt ?? o.orderDate;
+      const ts = o.completedAt;
       const key = bucketKey(ts, args.granularity);
       if (!bucketMap.has(key)) bucketMap.set(key, new Map());
       const b = bucketMap.get(key)!;
@@ -382,25 +592,25 @@ export const unitsPerTxnByChannel = query({
   args: filterArgs,
   handler: async (ctx, args) => {
     const { orders, items, orderById, unitsPerProduct } = await loadFilteredData(ctx, args);
-    const byChannel = new Map<DisplayChannel, { units: number; orders: Set<string> }>();
+    const byChannel = new Map<DisplayChannel, { units: number; orderCount: number }>();
     for (const o of orders) {
-      const ch = toDisplayChannel(o.channel);
-      if (!byChannel.has(ch)) byChannel.set(ch, { units: 0, orders: new Set() });
-      byChannel.get(ch)!.orders.add(o._id as string);
+      const ch = o.channel;
+      if (!byChannel.has(ch)) byChannel.set(ch, { units: 0, orderCount: 0 });
+      byChannel.get(ch)!.orderCount += o.orderWeight;
     }
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ch = toDisplayChannel(o.channel);
-      if (!byChannel.has(ch)) byChannel.set(ch, { units: 0, orders: new Set() });
+      const ch = o.channel;
+      if (!byChannel.has(ch)) byChannel.set(ch, { units: 0, orderCount: 0 });
       byChannel.get(ch)!.units += unitsForOrderItem(it, unitsPerProduct);
     }
     return Array.from(byChannel.entries())
       .map(([channel, b]) => ({
         channel,
         units: b.units,
-        orderCount: b.orders.size,
-        unitsPerTxn: b.orders.size === 0 ? 0 : b.units / b.orders.size,
+        orderCount: b.orderCount,
+        unitsPerTxn: b.orderCount === 0 ? 0 : b.units / b.orderCount,
       }))
       .sort((a, b) => b.unitsPerTxn - a.unitsPerTxn);
   },
@@ -412,18 +622,18 @@ export const aovByChannel = query({
     const { orders, items, orderById } = await loadFilteredData(ctx, args);
     const byChannel = new Map<
       DisplayChannel,
-      { gross: number; net: number; orders: Set<string> }
+      { gross: number; net: number; orderCount: number }
     >();
     for (const o of orders) {
-      const ch = toDisplayChannel(o.channel);
-      if (!byChannel.has(ch)) byChannel.set(ch, { gross: 0, net: 0, orders: new Set() });
-      byChannel.get(ch)!.orders.add(o._id as string);
+      const ch = o.channel;
+      if (!byChannel.has(ch)) byChannel.set(ch, { gross: 0, net: 0, orderCount: 0 });
+      byChannel.get(ch)!.orderCount += o.orderWeight;
     }
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ch = toDisplayChannel(o.channel);
-      if (!byChannel.has(ch)) byChannel.set(ch, { gross: 0, net: 0, orders: new Set() });
+      const ch = o.channel;
+      if (!byChannel.has(ch)) byChannel.set(ch, { gross: 0, net: 0, orderCount: 0 });
       const b = byChannel.get(ch)!;
       b.gross += itemGrossRevenue(it);
       b.net += itemNetRevenue(it);
@@ -431,9 +641,9 @@ export const aovByChannel = query({
     return Array.from(byChannel.entries())
       .map(([channel, b]) => ({
         channel,
-        orderCount: b.orders.size,
-        grossAov: b.orders.size === 0 ? 0 : b.gross / b.orders.size,
-        netAov: b.orders.size === 0 ? 0 : b.net / b.orders.size,
+        orderCount: b.orderCount,
+        grossAov: b.orderCount === 0 ? 0 : b.gross / b.orderCount,
+        netAov: b.orderCount === 0 ? 0 : b.net / b.orderCount,
       }))
       .sort((a, b) => b.grossAov - a.grossAov);
   },
@@ -448,18 +658,32 @@ export const skuPareto = query({
   handler: async (ctx, args) => {
     const { items, orderById } = await loadFilteredData(ctx, args);
     // Group by menuProductId (canonical identity). Fall back to a synthetic
-    // `manual:${productName}` key only for manual items with no menuProductId
+    // `manual:${productName}` key for native manual items with no menuProductId
     // so they still appear but do not merge with BOM-linked products of the
-    // same display name (see WR-05).
+    // same display name (see WR-05). External items without linkedMenuProductId
+    // roll up into a single "(Unlinked)" bucket since their productName is
+    // platform-specific and unit-resolution is impossible (UAT-01).
+    const UNLINKED_KEY = "__unlinked__";
     const byProduct = new Map<string, { key: string; name: string; revenue: number }>();
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const key = (it.menuProductId as string | undefined) ?? `manual:${it.productName}`;
+      let key: string;
+      let name: string;
+      if (it.menuProductId) {
+        key = it.menuProductId as string;
+        name = it.productName;
+      } else if (o.source === "external") {
+        key = UNLINKED_KEY;
+        name = "(Unlinked)";
+      } else {
+        key = `manual:${it.productName}`;
+        name = it.productName;
+      }
       const rev = itemNetRevenue(it);
       const prev = byProduct.get(key);
       if (prev) prev.revenue += rev;
-      else byProduct.set(key, { key, name: it.productName, revenue: rev });
+      else byProduct.set(key, { key, name, revenue: rev });
     }
     const sorted = Array.from(byProduct.values()).sort((a, b) => b.revenue - a.revenue);
     const totalRevenue = sorted.reduce((sum, p) => sum + p.revenue, 0);
@@ -508,14 +732,26 @@ export const skuChannelMatrix = query({
     const cell = new Map<string, Map<DisplayChannel, number>>();
     const channelTotals = new Map<DisplayChannel, number>();
 
+    const UNLINKED_KEY = "__unlinked__";
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const key = (it.menuProductId as string | undefined) ?? `manual:${it.productName}`;
-      const ch = toDisplayChannel(o.channel);
+      let key: string;
+      let displayName: string;
+      if (it.menuProductId) {
+        key = it.menuProductId as string;
+        displayName = it.productName;
+      } else if (o.source === "external") {
+        key = UNLINKED_KEY;
+        displayName = "(Unlinked)";
+      } else {
+        key = `manual:${it.productName}`;
+        displayName = it.productName;
+      }
+      const ch = o.channel;
       const rev = itemNetRevenue(it);
       productTotals.set(key, (productTotals.get(key) ?? 0) + rev);
-      if (!productNames.has(key)) productNames.set(key, it.productName);
+      if (!productNames.has(key)) productNames.set(key, displayName);
       channelTotals.set(ch, (channelTotals.get(ch) ?? 0) + rev);
       if (!cell.has(key)) cell.set(key, new Map());
       const m = cell.get(key)!;
@@ -599,26 +835,26 @@ export const channelMomentum = query({
     }
 
     for (const o of orders) {
-      const ch = toDisplayChannel(o.channel);
+      const ch = o.channel;
       const b = seed(ch);
-      const ts = o.completedAt ?? o.orderDate;
+      const ts = o.completedAt;
       const idx = Math.min(bucketCount - 1, Math.floor((ts - args.fromTs) / bucketSpan));
-      b.orders[idx] += 1;
+      b.orders[idx] += o.orderWeight;
     }
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ch = toDisplayChannel(o.channel);
+      const ch = o.channel;
       const b = seed(ch);
-      const ts = o.completedAt ?? o.orderDate;
+      const ts = o.completedAt;
       const idx = Math.min(bucketCount - 1, Math.floor((ts - args.fromTs) / bucketSpan));
       b.revenue[idx] += itemNetRevenue(it);
       b.units[idx] += unitsForOrderItem(it, unitsPerProduct);
     }
     for (const it of priorData.items) {
-      const o = priorData.orderById.get(it.orderId as string);
+      const o = priorData.orderById.get(it.orderId);
       if (!o) continue;
-      const ch = toDisplayChannel(o.channel);
+      const ch = o.channel;
       const b = seed(ch);
       b.priorRevenue += itemNetRevenue(it);
     }
@@ -653,9 +889,9 @@ export const rollingTrend = query({
     const { items, orderById } = await loadFilteredData(ctx, args);
     const daily = new Map<string, number>();
     for (const it of items) {
-      const o = orderById.get(it.orderId as string);
+      const o = orderById.get(it.orderId);
       if (!o) continue;
-      const ts = o.completedAt ?? o.orderDate;
+      const ts = o.completedAt;
       const key = bucketKey(ts, "day");
       daily.set(key, (daily.get(key) ?? 0) + itemNetRevenue(it));
     }
