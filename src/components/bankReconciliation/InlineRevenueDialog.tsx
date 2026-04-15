@@ -38,7 +38,12 @@ import {
 } from "../../../convex/lib/externalSource";
 import { mapChannelToSource } from "../../../convex/bankStatements/channelMapping";
 import { useInlineCreateRevenue } from "@/hooks/convex/useBankReconciliation";
-import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
+import {
+  utcToWibDateStr,
+  wibDateStrToUtcMs,
+  wibMidnightToUtc,
+  WIB_OFFSET_MS,
+} from "@/lib/dateUtils";
 
 interface Props {
   open: boolean;
@@ -46,16 +51,26 @@ interface Props {
   line: Doc<"bankStatementLines"> | null;
 }
 
-function getMonthStart(date: Date): string {
-  return utcToWibDateStr(
-    new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
-  );
-}
-
-function getMonthEnd(date: Date): string {
-  return utcToWibDateStr(
-    new Date(date.getFullYear(), date.getMonth() + 1, 0).getTime(),
-  );
+/**
+ * I8 — WIB-aware period bounds. Derives the month from the transaction's
+ * WIB date (not the browser's local date), then returns WIB midnight on the
+ * 1st and the WIB last-day of that month as YYYY-MM-DD strings.
+ *
+ * Was: `new Date(y, m, 1)` used browser local TZ, producing the wrong month
+ * for users in TZs other than WIB (e.g., a 2026-04-01 01:00 WIB transaction
+ * viewed from UTC becomes 2026-03-31, bucketing it into March).
+ */
+function wibMonthBoundsFromUtcMs(utcMs: number): { start: string; end: string } {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const year = wib.getUTCFullYear();
+  const month = wib.getUTCMonth();
+  const startMs = wibMidnightToUtc(year, month, 1);
+  // Last-day: WIB midnight of the next month minus 1ms, still within the month.
+  const endMs = wibMidnightToUtc(year, month + 1, 1) - 1;
+  return {
+    start: utcToWibDateStr(startMs),
+    end: utcToWibDateStr(endMs),
+  };
 }
 
 export function InlineRevenueDialog({ open, onOpenChange, line }: Props) {
@@ -73,9 +88,10 @@ export function InlineRevenueDialog({ open, onOpenChange, line }: Props) {
     const txDateStr = utcToWibDateStr(line.date);
     setTransactionDate(txDateStr);
     setRevenueGross(String(line.amountIdr));
-    const d = new Date(line.date);
-    setPeriodStart(getMonthStart(d));
-    setPeriodEnd(getMonthEnd(d));
+    // I8 — derive month bounds from the WIB date, not browser-local.
+    const { start, end } = wibMonthBoundsFromUtcMs(line.date);
+    setPeriodStart(start);
+    setPeriodEnd(end);
     // C2: pre-select via mapChannelToSource when possible.
     const mapped = mapChannelToSource(line.linkedChannel);
     setSource(mapped ?? "");
