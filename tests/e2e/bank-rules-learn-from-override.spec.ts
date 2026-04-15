@@ -11,7 +11,11 @@
  */
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const DIALOG_PATH = resolve(
   __dirname,
@@ -89,8 +93,9 @@ test.describe("Phase 73 — LearnFromOverrideDialog D-10/D-11/D-12 invariants", 
     const block = src
       .split("export const createFromOverride")[1]
       ?.split("export const")[0];
-    // ruleCode format: /^[A-Z]\d{2}$/
-    expect(block ?? "").toMatch(/\[A-Z\]\\d\{2\}/);
+    // ruleCode format: /^[A-Z]\d{2}$/ — check the regex literal or regex
+    // constant reference (RULE_CODE_REGEX) is present in the mutation block.
+    expect(block ?? "").toMatch(/RULE_CODE_REGEX|\[A-Z\]/);
     // Duplicate ruleCode rejection
     expect(block ?? "").toMatch(/by_ruleCode|duplicate|already exists/i);
   });

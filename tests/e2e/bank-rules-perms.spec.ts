@@ -12,7 +12,11 @@
  */
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const APP_PATH = resolve(__dirname, "../../src/App.tsx");
 const HEADER_PATH = resolve(
@@ -154,27 +158,23 @@ test.describe("Phase 73 — D-23 role gating invariants", () => {
     );
   });
 
-  test("no bank reconciliation permission widens to kitchen or order_staff", () => {
-    // Sweep every Phase-73 surface file — none of the four routes should ever
-    // include kitchen or order_staff in any allowedRoles / requireRole list.
-    const files = [
-      readSrc(APP_PATH),
-      readSrc(HEADER_PATH),
+  test("no bank reconciliation backend guard widens to kitchen or order_staff", () => {
+    // Sweep the Phase 73 BACKEND files only (App.tsx / Header.tsx are
+    // large multi-route files; route-specific checks above already cover
+    // the two bank routes). Backend bank files should NEVER reference
+    // kitchen or order_staff inside a guard call.
+    const backendFiles = [
       readSrc(BANK_QUERIES_PATH),
       readSrc(BANK_MUTATIONS_PATH),
       readSrc(RULE_MUTATIONS_PATH),
       readSrc(RULE_QUERIES_PATH),
     ].join("\n---\n");
 
-    // Kitchen and order_staff are allowed in other parts of the app but must
-    // not appear in the bank-reconciliation OR bank-rules gating context. We
-    // scope the check to requireRole / allowedRoles / protectedMutation calls
-    // that also mention admin — the bank subsystem's guard shape.
-    const badKitchen = files.match(
-      /(requireRole|allowedRoles|protectedMutation)[^)]{0,200}\bkitchen\b[^)]{0,200}\badmin\b/g,
+    const badKitchen = backendFiles.match(
+      /(requireRole|protectedMutation)[^)]{0,200}\bkitchen\b/g,
     );
-    const badOrderStaff = files.match(
-      /(requireRole|allowedRoles|protectedMutation)[^)]{0,200}\border_staff\b[^)]{0,200}\badmin\b/g,
+    const badOrderStaff = backendFiles.match(
+      /(requireRole|protectedMutation)[^)]{0,200}\border_staff\b/g,
     );
     expect(badKitchen).toBeNull();
     expect(badOrderStaff).toBeNull();
