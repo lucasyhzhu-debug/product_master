@@ -717,7 +717,10 @@ export const inlineCreateReimbursement = mutation({
     expenseIds: v.array(v.id("expenses")),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["manager", "admin"]);
+    // WR-03: single requireRole call — capture user here so the insert below
+    // doesn't re-run session lookup + role check. Also prevents a subtle
+    // drift bug if the role list is ever widened on only one of the calls.
+    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
 
     const line = await ctx.db.get(args.bankLineId);
     if (!line) throw new ConvexError("Bank line not found");
@@ -751,7 +754,6 @@ export const inlineCreateReimbursement = mutation({
     }
 
     const batchNumber = await getNextNumber(ctx, "RMB");
-    const user = await requireRole(ctx, args.token, ["manager", "admin"]);
 
     const batchId = await ctx.db.insert("reimbursementBatches", {
       batchNumber,
