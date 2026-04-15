@@ -12,6 +12,7 @@
 
 import { describe, it, expect } from "vitest";
 import { mapOrderToStorage, type BigSellerOrderRow } from "../../integrations/bigseller/helpers";
+import { resolveSkuVoListOnUpdate } from "../mutations";
 
 const mockOrder = (overrides: Partial<BigSellerOrderRow> = {}): BigSellerOrderRow => ({
   platformOrderId: "ORDER-001",
@@ -100,5 +101,51 @@ describe("mapOrderToStorage (pre-upsert transform)", () => {
     expect(result.platform).toBe("tiktok");
     expect(result.commissionFee).toBe(-3000);
     expect(result.otherFee).toBe(-500);
+  });
+});
+
+describe("resolveSkuVoListOnUpdate (preserve-non-empty guard)", () => {
+  const entry = (sku: string) => ({ sku, skuNum: 1, returnNum: 0, isAddition: 0 });
+
+  it("keeps existing list when incoming is empty and existing has entries", () => {
+    const existing = [entry("FRO-OubChe-Reg1")];
+    const incoming: ReturnType<typeof entry>[] = [];
+    const result = resolveSkuVoListOnUpdate(incoming, existing);
+    expect(result).toEqual(existing);
+  });
+
+  it("overwrites with incoming when incoming has entries", () => {
+    const existing = [entry("FRO-OLD")];
+    const incoming = [entry("FRO-NEW-A"), entry("FRO-NEW-B")];
+    const result = resolveSkuVoListOnUpdate(incoming, existing);
+    expect(result).toEqual(incoming);
+    expect(result.map((s) => s.sku)).toEqual(["FRO-NEW-A", "FRO-NEW-B"]);
+  });
+
+  it("returns empty when both incoming and existing are empty", () => {
+    const result = resolveSkuVoListOnUpdate([], []);
+    expect(result).toEqual([]);
+  });
+
+  it("keeps incoming empty when existing is also empty (first-time insert parity)", () => {
+    const result = resolveSkuVoListOnUpdate([], []);
+    expect(result).toHaveLength(0);
+  });
+
+  it("overwrites even if incoming is a SINGLE entry and existing had many", () => {
+    // Intentional: a legitimate reduction in SKUs (e.g. partial refund removing a line)
+    // must not be suppressed. Only *empty* incoming is treated as BigSeller dropout.
+    const existing = [entry("A"), entry("B"), entry("C")];
+    const incoming = [entry("A")];
+    const result = resolveSkuVoListOnUpdate(incoming, existing);
+    expect(result).toEqual(incoming);
+    expect(result).toHaveLength(1);
+  });
+
+  it("returns a copy, not the same array reference (defensive immutability)", () => {
+    const existing = [entry("FRO-X")];
+    const result = resolveSkuVoListOnUpdate([], existing);
+    expect(result).toEqual(existing);
+    expect(result).not.toBe(existing);
   });
 });

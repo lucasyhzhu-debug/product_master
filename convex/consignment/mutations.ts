@@ -14,6 +14,7 @@ import {
   shouldAutoArchive,
   assertSettlementEditable,
   validateSettlementInput,
+  collapseRevenuePeriod,
 } from "./helpers";
 
 // ============================================
@@ -184,15 +185,17 @@ export const createSettlement = mutation({
       outlet.revSharePercent
     );
 
-    // Create externalRevenue record (revenue bridge) — inline to preserve Convex types
+    // Create externalRevenue (revenue bridge). Pending recognition date = periodEnd;
+    // markAsPaid re-stamps to actual paidAt later. productName carries the outlet name
+    // so bank-recon fuzzy text matching (matchEngine.ts) has a descriptor.
     const revenueId = await ctx.db.insert("externalRevenue", {
       source: "consignment" as const,
       outletId: outlet.externalOutletId,
+      productName: outlet.name,
       revenueGross: args.totalRevenue,
       revenueNet: frolliePayment,
       transactionCount: 1,
-      periodStart: args.periodStart,
-      periodEnd: args.periodEnd,
+      ...collapseRevenuePeriod(args.periodEnd),
       dataOrigin: "manual_entry" as const,
       confidence: "manual" as const,
       transactionType: "sales" as const,
@@ -283,8 +286,11 @@ export const updateSettlement = mutation({
         revPatch.revenueGross = args.totalRevenue;
         revPatch.revenueNet = newFrolliePayment;
       }
-      if (args.periodStart !== undefined) revPatch.periodStart = args.periodStart;
-      if (args.periodEnd !== undefined) revPatch.periodEnd = args.periodEnd;
+      // updateSettlement only runs on pending settlements (assertSettlementEditable
+      // throws on paid above), so collapse to the new periodEnd on any period edit.
+      if (args.periodStart !== undefined || args.periodEnd !== undefined) {
+        Object.assign(revPatch, collapseRevenuePeriod(effectiveEnd));
+      }
       if (Object.keys(revPatch).length > 0) {
         await ctx.db.patch(settlement.linkedRevenueId, revPatch);
       }
@@ -306,12 +312,6 @@ export const markAsPaid = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["admin", "manager"]);
     const now = Date.now();
-    const paidAt = args.paidAt ?? now;
-
-    // Guard: reject invalid or future timestamps
-    if (!Number.isFinite(paidAt) || paidAt > now) {
-      throw new Error("Paid date must be a valid date not in the future");
-    }
 
     const settlement = await ctx.db.get(args.settlementId);
     if (!settlement) {
@@ -321,6 +321,20 @@ export const markAsPaid = mutation({
     // Guard: cannot mark already-paid settlement
     assertSettlementEditable(settlement.status);
 
+    // Recognition date defaults to consignment periodEnd; the frontend date picker
+    // (SettlementTimeline.tsx) supplies the actual cash-receipt date when known.
+    const paidAt = args.paidAt ?? settlement.periodEnd;
+
+    // Future-date guard applies only to caller-supplied paidAt — a settlement whose
+    // periodEnd is legitimately in the future must still be markable as paid.
+    if (args.paidAt !== undefined) {
+      if (!Number.isFinite(args.paidAt) || args.paidAt > now) {
+        throw new Error("Paid date must be a valid date not in the future");
+      }
+    } else if (!Number.isFinite(paidAt)) {
+      throw new Error("Settlement periodEnd is invalid");
+    }
+
     // Mark as paid
     await ctx.db.patch(args.settlementId, {
       status: "paid" as const,
@@ -328,6 +342,12 @@ export const markAsPaid = mutation({
       updatedBy: user.name,
       updatedAt: now,
     });
+
+    // Sync all three externalRevenue period fields to paidAt so the by_period index
+    // range filter, time-series bucket key, and bank-recon transactionDate agree.
+    if (settlement.linkedRevenueId) {
+      await ctx.db.patch(settlement.linkedRevenueId, collapseRevenuePeriod(paidAt));
+    }
 
     // Event auto-archive: deactivate event-type outlets after payment
     const outlet = await ctx.db.get(settlement.outletId);
