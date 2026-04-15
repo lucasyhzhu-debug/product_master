@@ -387,10 +387,16 @@ export const unmatch = mutation({
 
     // Clear link fields. Preserve originalCategory / plSection / etc. for
     // rule-driven re-classification on the recomputed status.
+    //
+    // D-09 — if the line was classified by Layer A (keyword rule), preserve
+    // matchMethod="keyword" so Layer A provenance survives the unmatch. Only
+    // clear when it was "linked_to_record" (Layer B record linkage).
+    const preservedMatchMethod =
+      line.matchMethod === "keyword" ? "keyword" : undefined;
     await ctx.db.patch(args.lineId, {
       matchedType: undefined,
       matchedId: undefined,
-      matchMethod: undefined,
+      matchMethod: preservedMatchMethod,
       status: newStatus,
       isAutoMatched: false,
     });
