@@ -819,6 +819,16 @@ export const markAssetLinked = mutation({
       isAutoMatched: false,
       createdExpenseId: args.expenseId,
     });
+
+    // WR-04: post-write consistency check (TOCTOU defense). Two concurrent
+    // markAssetLinked calls with different expenseIds can both observe
+    // createdExpenseId === undefined before patch and both fall through
+    // to the patch branch. Re-read after patch and throw on mismatch;
+    // Convex mutation atomicity rolls back the losing writer's patch.
+    const after = await ctx.db.get(args.bankLineId);
+    if (after?.createdExpenseId !== args.expenseId) {
+      throw new ConvexError("Concurrent asset-link detected; retry");
+    }
     return null;
   },
 });
