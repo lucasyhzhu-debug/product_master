@@ -34,11 +34,25 @@ export function useKitchenTargets() {
 
   // Tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types).
   // The unit guard prevents tier-1 pcs components from leaking in when links are missing.
-  const kitchenComponents = useMemo(
-    () =>
-      (productionComponentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
-    [productionComponentsWithTiers]
-  );
+  // Round-2 fix: filter `isActive` to exclude soft-deactivated dedupe shadows
+  // (convex/componentTypes/dedupe.ts line 757 sets isActive=false without deletion).
+  // Without this filter, duplicate shadow rows render twice in the kitchen form
+  // and the shift submit payload doubles componentProduced entries per code.
+  // Additional dedupe-by-code guard protects against any lingering active
+  // dupes the schema doesn't enforce unique.
+  const kitchenComponents = useMemo(() => {
+    const base = (productionComponentsWithTiers ?? []).filter(
+      (c) => c.tier === 0 && c.unit === "g" && c.isActive
+    );
+    const seen = new Set<string>();
+    const unique: typeof base = [];
+    for (const c of base) {
+      if (seen.has(c.code)) continue;
+      seen.add(c.code);
+      unique.push(c);
+    }
+    return unique;
+  }, [productionComponentsWithTiers]);
 
   const dailyComponentSummary = useQuery(
     api.kitchenShiftRecords.queries.getDailyComponentSummary,

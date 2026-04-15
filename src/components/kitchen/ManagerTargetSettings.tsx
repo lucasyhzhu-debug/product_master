@@ -64,16 +64,36 @@ interface ManagerTargetSettingsProps {
 export function ManagerTargetSettings({ config, targets, today }: ManagerTargetSettingsProps) {
   // -- Queries & mutations --
   // paq: Unified source for both toggle sections (tier-1+ = Production, tier-0 = Kitchen)
+  // Round-2 fix: filter `isActive` to exclude soft-deactivated dedupe shadows
+  // (convex/componentTypes/dedupe.ts soft-deactivates dups via isActive=false).
+  // Without this filter, each duplicate shadow renders a second toggle sharing
+  // the same `code`, so flipping one appears to flip both.
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
-  const productionComponents = useMemo(
-    () => (componentsWithTiers ?? []).filter((c) => c.tier > 0),
-    [componentsWithTiers]
-  );
+  const productionComponents = useMemo(() => {
+    const base = (componentsWithTiers ?? []).filter((c) => c.tier > 0 && c.isActive);
+    const seen = new Set<string>();
+    const unique: typeof base = [];
+    for (const c of base) {
+      if (seen.has(c.code)) continue;
+      seen.add(c.code);
+      unique.push(c);
+    }
+    return unique;
+  }, [componentsWithTiers]);
   // tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types)
-  const kitchenComponentsList = useMemo(
-    () => (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
-    [componentsWithTiers]
-  );
+  const kitchenComponentsList = useMemo(() => {
+    const base = (componentsWithTiers ?? []).filter(
+      (c) => c.tier === 0 && c.unit === "g" && c.isActive
+    );
+    const seen = new Set<string>();
+    const unique: typeof base = [];
+    for (const c of base) {
+      if (seen.has(c.code)) continue;
+      seen.add(c.code);
+      unique.push(c);
+    }
+    return unique;
+  }, [componentsWithTiers]);
   const allKitchenCodes = useMemo(() => kitchenComponentsList.map((c) => c.code), [kitchenComponentsList]);
 
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);

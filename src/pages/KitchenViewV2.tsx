@@ -96,7 +96,11 @@ export function KitchenViewV2() {
 
   const productBallTypes = useMemo(() => {
     if (!menuProductComps || !componentTypesList) return undefined;
-    const prodTypes = componentTypesList.filter((ct) => ct.category === 'production');
+    // Round-2 fix: exclude inactive rows so stale BOM links to dedupe shadows
+    // don't leak codes that fail to match any active `enabledComponents` entry.
+    const prodTypes = componentTypesList.filter(
+      (ct) => ct.category === 'production' && ct.isActive
+    );
     const codeMap = new Map(prodTypes.map((ct) => [String(ct._id), ct.code]));
 
     const result: Record<string, string[]> = {};
