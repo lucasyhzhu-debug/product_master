@@ -12,6 +12,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
@@ -34,6 +35,8 @@ import {
 import { StatementUploadStep } from "@/components/bankReconciliation/StatementUploadStep";
 import { StatementReviewTable } from "@/components/bankReconciliation/StatementReviewTable";
 import { StatementHistoryList } from "@/components/bankReconciliation/StatementHistoryList";
+import { BankReconciliationTabs } from "@/components/bankReconciliation/BankReconciliationTabs";
+import { SplitViewWorkspace } from "@/components/bankReconciliation/SplitViewWorkspace";
 import type {
   ParsedStatement,
   ReconciliationDiff,
@@ -100,9 +103,28 @@ export function BankReconciliationPage() {
 
   const statements = useBankStatements();
   const createStatement = useCreateStatement();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [wizard, setWizard] = useState<BankWizardState>({ step: "upload" });
-  const [selectedId, setSelectedId] = useState<Id<"bankStatements"> | null>(null);
+
+  // Selected statement is URL-driven so deep links into the Review tab work
+  // (D-15). selectedId is also synced to ?statementId when the user clicks
+  // a row in the history list.
+  const urlStatementId = searchParams.get("statementId") as Id<"bankStatements"> | null;
+  const [selectedId, setSelectedIdState] = useState<Id<"bankStatements"> | null>(urlStatementId);
+
+  function setSelectedId(id: Id<"bankStatements"> | null) {
+    setSelectedIdState(id);
+    setSearchParams(
+      (prev) => {
+        const np = new URLSearchParams(prev);
+        if (id) np.set("statementId", id);
+        else np.delete("statementId");
+        return np;
+      },
+      { replace: true },
+    );
+  }
 
   const selectedStatement = useBankStatement(selectedId);
   const selectedLines = useBankStatementLines(selectedId);
@@ -185,13 +207,8 @@ export function BankReconciliationPage() {
   // Render
   // -------------------------------------------------------------------------
 
-  return (
+  const statementsTabContent = (
     <div className="space-y-6">
-      <PageHeader
-        title="Bank Reconciliation"
-        description="Import BCA bank statements, classify transactions, and review auto-matches. Posting journal entries is handled in a separate workflow."
-      />
-
       {/* Wizard */}
       <Card>
         <CardHeader>
@@ -305,6 +322,43 @@ export function BankReconciliationPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+
+  const reviewTabContent = (
+    <SplitViewWorkspace
+      statementId={selectedId}
+      onPickStatement={() => {
+        setSearchParams(
+          (prev) => {
+            const np = new URLSearchParams(prev);
+            np.set("tab", "statements");
+            return np;
+          },
+          { replace: true },
+        );
+      }}
+    />
+  );
+
+  // Plan 05 owns the Revenue Gap tab. Stub placeholder until then.
+  const revenueGapTabContent = (
+    <Card className="p-8 text-center text-sm text-muted-foreground">
+      Revenue Gap dashboard ships in Plan 05.
+    </Card>
+  );
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Bank Reconciliation"
+        description="Import BCA bank statements, classify transactions, and review auto-matches. Posting journal entries is handled in a separate workflow."
+      />
+      <BankReconciliationTabs
+        statements={statementsTabContent}
+        review={reviewTabContent}
+        revenueGap={revenueGapTabContent}
+      />
     </div>
   );
 }

@@ -1,12 +1,14 @@
 /**
  * StatementHistoryList — previously-imported bank statements table.
  *
- * Columns: File | Period | Lines | Matched % | Uploaded.
- * Click a row to view its read-only review table.
+ * Columns: File | Account | Period | Imported | Live progress | Uploaded | Actions.
+ * Click a row to view its read-only review table OR open the split-view
+ * workspace (Phase 73).
  *
- * Security: account numbers shown as last-4 only in the period column context
- * per staffreview PII notes; full account info available only in the selected
- * statement's review view.
+ * Phase 73 BANK-04: live "Progress" column reads `useStatementProgressBulk`
+ * for accurate confirmed-vs-imported reconciliation. The legacy
+ * `matchedCount` snapshot from the import event is preserved as "Imported"
+ * for diagnostic clarity per RESEARCH Pitfall 7.
  */
 
 import { useMemo } from "react";
@@ -15,7 +17,10 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useStatementProgressBulk } from "@/hooks/convex/useBankReconciliation";
 
 type StatementDoc = {
   _id: Id<"bankStatements">;
@@ -58,6 +63,11 @@ export function StatementHistoryList({ statements, selectedId, onSelect }: Props
     [statements],
   );
 
+  // Bulk-fetch live progress for all visible statements (single query call,
+  // backend-capped at 50 ids — RESEARCH Pitfall 7 + T-73-19).
+  const statementIds = useMemo(() => sorted.map((s) => s._id), [sorted]);
+  const progressMap = useStatementProgressBulk(statementIds.length > 0 ? statementIds : undefined);
+
   return (
     <Card>
       <CardHeader>
@@ -82,14 +92,17 @@ export function StatementHistoryList({ statements, selectedId, onSelect }: Props
                   <TableHead className="text-xs">Account</TableHead>
                   <TableHead className="text-xs">Period</TableHead>
                   <TableHead className="text-xs text-right">Lines</TableHead>
-                  <TableHead className="text-xs text-right">Matched</TableHead>
+                  <TableHead className="text-xs text-right">Imported</TableHead>
+                  <TableHead className="text-xs">Live progress</TableHead>
                   <TableHead className="text-xs">Uploaded</TableHead>
                   <TableHead className="text-xs text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sorted.map((s) => {
-                  const pct = s.lineCount > 0 ? Math.round((s.matchedCount / s.lineCount) * 100) : 0;
+                  const importedPct =
+                    s.lineCount > 0 ? Math.round((s.matchedCount / s.lineCount) * 100) : 0;
+                  const live = progressMap?.[s._id];
                   const isSelected = selectedId === s._id;
                   return (
                     <TableRow
@@ -104,8 +117,33 @@ export function StatementHistoryList({ statements, selectedId, onSelect }: Props
                         {formatDate(s.reportedPeriodStart)} – {formatDate(s.reportedPeriodEnd)}
                       </TableCell>
                       <TableCell className="text-xs text-right tabular-nums">{s.lineCount}</TableCell>
-                      <TableCell className="text-xs text-right tabular-nums">
-                        {s.matchedCount}/{s.lineCount} ({pct}%)
+                      <TableCell className="text-xs text-right tabular-nums text-muted-foreground">
+                        {s.matchedCount}/{s.lineCount} ({importedPct}%)
+                      </TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {progressMap === undefined ? (
+                          <Skeleton
+                            className="h-2 w-24"
+                            data-testid="progress-skeleton"
+                          />
+                        ) : live ? (
+                          <div className="flex items-center gap-2">
+                            <Progress
+                              value={live.reconciledPct}
+                              max={100}
+                              className="h-1.5 w-24"
+                              aria-label={`${live.reconciledPct}% reconciled`}
+                              aria-valuenow={live.reconciledPct}
+                              aria-valuemin={0}
+                              aria-valuemax={100}
+                            />
+                            <span className="tabular-nums text-muted-foreground">
+                              {`${live.matched}/${live.total}`}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatDateTime(s.createdAt)}
