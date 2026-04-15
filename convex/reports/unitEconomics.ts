@@ -444,9 +444,57 @@ function bucketKey(ts: number, granularity: "day" | "week"): string {
 // ============================================================================
 
 export const byWeekday = query({
-  args: filterArgs,
+  args: {
+    ...filterArgs,
+    mode: v.optional(v.union(v.literal("weekday"), v.literal("rolling"))),
+  },
   handler: async (ctx, args) => {
     const { orders, items, orderById, unitsPerProduct } = await loadFilteredData(ctx, args);
+    const mode = args.mode ?? "weekday";
+
+    if (mode === "rolling") {
+      // Per-day buckets across the filter window (date strings).
+      const orderCountByDay = new Map<string, number>();
+      const unitCountByDay = new Map<string, number>();
+      for (const o of orders) {
+        const key = bucketKey(o.completedAt, "day");
+        orderCountByDay.set(key, (orderCountByDay.get(key) ?? 0) + o.orderWeight);
+      }
+      for (const it of items) {
+        const o = orderById.get(it.orderId);
+        if (!o) continue;
+        const key = bucketKey(o.completedAt, "day");
+        unitCountByDay.set(
+          key,
+          (unitCountByDay.get(key) ?? 0) + unitsForOrderItem(it, unitsPerProduct),
+        );
+      }
+      // Build a continuous date range from fromTs..toTs to include zero-days.
+      const labels: string[] = [];
+      const start = bucketKey(args.fromTs, "day");
+      const end = bucketKey(args.toTs, "day");
+      // Iterate one day at a time using UTC arithmetic on the WIB date strings.
+      const [sy, sm, sd] = start.split("-").map(Number);
+      const [ey, em, ed] = end.split("-").map(Number);
+      const cursor = new Date(Date.UTC(sy, sm - 1, sd));
+      const stop = new Date(Date.UTC(ey, em - 1, ed));
+      while (cursor.getTime() <= stop.getTime()) {
+        const y = cursor.getUTCFullYear();
+        const m = String(cursor.getUTCMonth() + 1).padStart(2, "0");
+        const d = String(cursor.getUTCDate()).padStart(2, "0");
+        labels.push(`${y}-${m}-${d}`);
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+      // Merge-in any keys from the data that fell outside the iterated range
+      // (defensive: shouldn't happen but avoid silent drops).
+      for (const k of orderCountByDay.keys()) if (!labels.includes(k)) labels.push(k);
+      for (const k of unitCountByDay.keys()) if (!labels.includes(k)) labels.push(k);
+      labels.sort();
+      const ordersArr = labels.map((k) => orderCountByDay.get(k) ?? 0);
+      const unitsArr = labels.map((k) => unitCountByDay.get(k) ?? 0);
+      return { labels, orders: ordersArr, units: unitsArr };
+    }
+
     const orderCountByDow = new Array(7).fill(0);
     const unitCountByDow = new Array(7).fill(0);
     for (const o of orders) {

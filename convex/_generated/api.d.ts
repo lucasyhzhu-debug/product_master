@@ -128,6 +128,7 @@ import type * as lib_costInvalidation from "../lib/costInvalidation.js";
 import type * as lib_counter from "../lib/counter.js";
 import type * as lib_externalSource from "../lib/externalSource.js";
 import type * as lib_functions from "../lib/functions.js";
+import type * as lib_fuzzyMatch from "../lib/fuzzyMatch.js";
 import type * as lib_hierarchyTraversal from "../lib/hierarchyTraversal.js";
 import type * as lib_indonesianDate from "../lib/indonesianDate.js";
 import type * as lib_journalEngine from "../lib/journalEngine.js";
@@ -356,6 +357,7 @@ declare const fullApi: ApiFromModules<{
   "lib/counter": typeof lib_counter;
   "lib/externalSource": typeof lib_externalSource;
   "lib/functions": typeof lib_functions;
+  "lib/fuzzyMatch": typeof lib_fuzzyMatch;
   "lib/hierarchyTraversal": typeof lib_hierarchyTraversal;
   "lib/indonesianDate": typeof lib_indonesianDate;
   "lib/journalEngine": typeof lib_journalEngine;

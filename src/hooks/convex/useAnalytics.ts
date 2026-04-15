@@ -16,9 +16,9 @@ export function useKpiSummary() {
   return useQuery(api.reports.unitEconomics.kpiSummary, buildArgs(filters));
 }
 
-export function useByWeekday() {
+export function useByWeekday(mode: "weekday" | "rolling" = "weekday") {
   const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.byWeekday, buildArgs(filters));
+  return useQuery(api.reports.unitEconomics.byWeekday, { ...buildArgs(filters), mode });
 }
 
 export function useDayHourHeatmap() {

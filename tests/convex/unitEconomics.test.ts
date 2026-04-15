@@ -285,6 +285,42 @@ describe("unitEconomics.byWeekday", () => {
     expect(result.units[0]).toBe(2);
     expect(result.orders.slice(1).every((n: number) => n === 0)).toBe(true);
   });
+
+  test("rolling mode returns per-day buckets keyed by date", async () => {
+    const t = convexTest(schema, modules);
+    const { bigBallId } = await seedBaseFixtures(t);
+    const mp = await seedMenuProduct(t, "Original", bigBallId);
+    const customerId = await seedCustomer(t);
+
+    // Three consecutive WIB days. 17:00 UTC = 00:00 next-day Jakarta.
+    const day1 = new Date("2026-01-05T01:00:00Z").getTime(); // 2026-01-05 WIB (Mon)
+    const day2 = new Date("2026-01-06T01:00:00Z").getTime(); // 2026-01-06 WIB (Tue)
+    const day3 = new Date("2026-01-07T01:00:00Z").getTime(); // 2026-01-07 WIB (Wed)
+    await seedOrderWithItem(t, customerId, mp, "Original", 2, 30000, 0, { completedAt: day1 });
+    await seedOrderWithItem(t, customerId, mp, "Original", 3, 30000, 0, { completedAt: day2 });
+    await seedOrderWithItem(t, customerId, mp, "Original", 5, 30000, 0, { completedAt: day3 });
+
+    const result = await t.query(api.reports.unitEconomics.byWeekday, {
+      fromTs: day1 - 3600 * 1000,
+      toTs: day3 + 3600 * 1000,
+      mode: "rolling",
+    });
+    // Should have at least 3 date-keyed buckets covering the seeded days.
+    expect(result.labels.length).toBeGreaterThanOrEqual(3);
+    expect(result.labels.every((l: string) => /^\d{4}-\d{2}-\d{2}$/.test(l))).toBe(true);
+    const idx1 = result.labels.indexOf("2026-01-05");
+    const idx2 = result.labels.indexOf("2026-01-06");
+    const idx3 = result.labels.indexOf("2026-01-07");
+    expect(idx1).toBeGreaterThanOrEqual(0);
+    expect(idx2).toBeGreaterThanOrEqual(0);
+    expect(idx3).toBeGreaterThanOrEqual(0);
+    expect(result.orders[idx1]).toBe(1);
+    expect(result.orders[idx2]).toBe(1);
+    expect(result.orders[idx3]).toBe(1);
+    expect(result.units[idx1]).toBe(2);
+    expect(result.units[idx2]).toBe(3);
+    expect(result.units[idx3]).toBe(5);
+  });
 });
 
 // ============================================================================
