@@ -41,6 +41,7 @@ import {
   createJournalEntryWithLines,
 } from "../lib/journalEngine";
 import {
+  assertTargetUnlinked,
   classifyLine,
   computeConfidence,
   findLinkedRecord,
@@ -270,7 +271,7 @@ export const createFromParsedStatement = mutation({
  *  - Line must exist and not be confirmed (unmatch first).
  *  - Target record must exist (`ctx.db.get`).
  *  - Pre-write cross-link guard: `by_matched` index returns 0 hits for this target.
- *  - Post-write consistency (C3 TOCTOU): re-query `by_matched` after patch; if
+ *  - Post-write TOCTOU consistency: re-query `by_matched` after patch; if
  *    >1 row is linked, throw `Concurrent match detected; retry`. Convex mutation
  *    atomicity rolls back the patch on throw.
  */
@@ -320,15 +321,7 @@ export const manualMatch = mutation({
     }
 
     // Pre-write cross-link guard: D-04 1:1 cardinality.
-    const existing = await ctx.db
-      .query("bankStatementLines")
-      .withIndex("by_matched", (q) =>
-        q.eq("matchedType", args.matchedType).eq("matchedId", args.matchedId),
-      )
-      .first();
-    if (existing && existing._id !== args.lineId) {
-      throw new ConvexError(`Target already linked to bank line ${existing._id}`);
-    }
+    await assertTargetUnlinked(ctx, args.matchedType, args.matchedId, args.lineId);
 
     await ctx.db.patch(args.lineId, {
       matchedType: args.matchedType,
@@ -338,10 +331,9 @@ export const manualMatch = mutation({
       isAutoMatched: false,
     });
 
-    // C3 — post-write consistency check (TOCTOU defense).
-    // Two concurrent manualMatch calls can both pass the pre-check above; re-query
-    // after patch to catch a duplicate and throw. Convex mutation atomicity
-    // rolls back the patch.
+    // Post-write consistency check (TOCTOU defense): two concurrent calls can
+    // both pass the pre-check above; re-query after patch to catch a duplicate
+    // and throw. Convex mutation atomicity rolls back the patch.
     const afterWrite = await ctx.db
       .query("bankStatementLines")
       .withIndex("by_matched", (q) =>
@@ -386,11 +378,9 @@ export const unmatch = mutation({
       : "unmatched";
 
     // Clear link fields. Preserve originalCategory / plSection / etc. for
-    // rule-driven re-classification on the recomputed status.
-    //
-    // D-09 — if the line was classified by Layer A (keyword rule), preserve
-    // matchMethod="keyword" so Layer A provenance survives the unmatch. Only
-    // clear when it was "linked_to_record" (Layer B record linkage).
+    // rule-driven re-classification on the recomputed status. If Layer A
+    // (keyword rule) classified the line, preserve matchMethod="keyword" so
+    // its provenance survives the unmatch; only clear "linked_to_record".
     const preservedMatchMethod =
       line.matchMethod === "keyword" ? "keyword" : undefined;
     await ctx.db.patch(args.lineId, {
@@ -553,9 +543,8 @@ export const batchConfirmExactTier = mutation({
     );
     const skipped = exactCandidates.length - postable.length;
 
-    // C2 — capture once per mutation so every line in this batch gets the
-    // same confirmedAt timestamp. Makes the batch operation semantically
-    // atomic from an auditing standpoint and simplifies tests.
+    // Capture once so every line in this batch gets the same confirmedAt
+    // timestamp — keeps the batch auditably atomic.
     const now = Date.now();
     let totalAmountIdr = 0;
     for (const line of postable) {
@@ -649,19 +638,9 @@ export const inlineCreateExpense = mutation({
       createdAt: now,
     });
 
-    // C1 — D-04 1:1 cardinality pre-write guard. A freshly-inserted expense
-    // shouldn't have a prior link, but a concurrent manualMatch racing on the
-    // same id (astronomically unlikely) or a defensive path in future code
-    // means we mirror the manualMatch guard before patching.
-    const existingLink = await ctx.db
-      .query("bankStatementLines")
-      .withIndex("by_matched", (q) =>
-        q.eq("matchedType", "expense").eq("matchedId", expenseId),
-      )
-      .first();
-    if (existingLink && existingLink._id !== args.bankLineId) {
-      throw new ConvexError(`Target already linked to bank line ${existingLink._id}`);
-    }
+    // D-04 1:1 cardinality pre-write guard (mirrors manualMatch) — defensive
+    // against a concurrent match racing on the freshly-inserted id.
+    await assertTargetUnlinked(ctx, "expense", expenseId, args.bankLineId);
 
     await ctx.db.patch(args.bankLineId, {
       matchedType: "expense",
@@ -677,10 +656,10 @@ export const inlineCreateExpense = mutation({
 });
 
 /**
- * Inline-create externalRevenue from an unmatched credit bank line (D-18, C2).
+ * Inline-create externalRevenue from an unmatched credit bank line (D-18).
  *
- * C2: `source` uses the strict externalSource 8-literal union, NOT v.string().
- * A free-form string would fail the Convex validator at runtime since
+ * `source` uses the strict externalSource 8-literal union (never v.string());
+ * a free-form string would fail the Convex validator at runtime since
  * externalRevenue.source is strictly typed in schema.
  *
  * Client pre-selects via mapChannelToSource(line.linkedChannel) when possible;
@@ -692,7 +671,7 @@ export const inlineCreateRevenue = mutation({
     bankLineId: v.id("bankStatementLines"),
     transactionDate: v.number(),
     revenueGross: v.number(),
-    source: externalSource, // C2 — strict union, NOT v.string()
+    source: externalSource, // strict 8-literal union (not v.string())
     periodStart: v.optional(v.number()),
     periodEnd: v.optional(v.number()),
   },
@@ -715,16 +694,8 @@ export const inlineCreateRevenue = mutation({
       confidence: "manual",
     });
 
-    // C1 — D-04 1:1 cardinality pre-write guard. Mirrors manualMatch.
-    const existingLink = await ctx.db
-      .query("bankStatementLines")
-      .withIndex("by_matched", (q) =>
-        q.eq("matchedType", "revenue").eq("matchedId", revenueId),
-      )
-      .first();
-    if (existingLink && existingLink._id !== args.bankLineId) {
-      throw new ConvexError(`Target already linked to bank line ${existingLink._id}`);
-    }
+    // D-04 1:1 cardinality pre-write guard (mirrors manualMatch).
+    await assertTargetUnlinked(ctx, "revenue", revenueId, args.bankLineId);
 
     await ctx.db.patch(args.bankLineId, {
       matchedType: "revenue",
@@ -804,17 +775,8 @@ export const inlineCreateReimbursement = mutation({
       await ctx.db.insert("reimbursementBatchItems", { batchId, expenseId });
     }
 
-    // C1 — D-04 1:1 cardinality pre-write guard. Mirrors manualMatch. Uses
-    // matchedType="reimbursement" (schema literal), not "reimbursement_batch".
-    const existingLink = await ctx.db
-      .query("bankStatementLines")
-      .withIndex("by_matched", (q) =>
-        q.eq("matchedType", "reimbursement").eq("matchedId", batchId),
-      )
-      .first();
-    if (existingLink && existingLink._id !== args.bankLineId) {
-      throw new ConvexError(`Target already linked to bank line ${existingLink._id}`);
-    }
+    // D-04 1:1 cardinality pre-write guard (mirrors manualMatch).
+    await assertTargetUnlinked(ctx, "reimbursement", batchId, args.bankLineId);
 
     await ctx.db.patch(args.bankLineId, {
       matchedType: "reimbursement",

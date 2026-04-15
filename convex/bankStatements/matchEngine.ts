@@ -19,11 +19,15 @@
  * See 72-CONTEXT.md D-11/D-12/D-13/D-14/D-15/D-17b and 72-RESEARCH.md §4.
  */
 
-import type { QueryCtx } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 import { similarityScore } from "../lib/fuzzyMatch";
 
 export type BankKeywordRule = Doc<"bankKeywordRules">;
+
+/** Polymorphic link target for bankStatementLines.matchedType (schema D-02). */
+export type BankMatchedType = "expense" | "revenue" | "reimbursement" | "payroll";
 
 export interface ClassifyContext {
   rawDescription: string;
@@ -38,10 +42,33 @@ export interface ClassifyResult {
 }
 
 export type LinkageResult = {
-  matchedType: "expense" | "revenue" | "reimbursement" | "payroll";
+  matchedType: BankMatchedType;
   matchedId: string;
   fuzzyScore: number;
 };
+
+/**
+ * D-04 1:1 cardinality guard: throw if (matchedType, matchedId) is already
+ * linked to a different bank line. Pre-write check shared by manualMatch and
+ * all inline-create flows; paired with a post-write re-read in manualMatch to
+ * close the TOCTOU window (Convex mutation atomicity rolls back on throw).
+ */
+export async function assertTargetUnlinked(
+  ctx: MutationCtx,
+  matchedType: BankMatchedType,
+  matchedId: string,
+  selfLineId: Id<"bankStatementLines">,
+): Promise<void> {
+  const existing = await ctx.db
+    .query("bankStatementLines")
+    .withIndex("by_matched", (q) =>
+      q.eq("matchedType", matchedType).eq("matchedId", matchedId),
+    )
+    .first();
+  if (existing && existing._id !== selfLineId) {
+    throw new ConvexError(`Target already linked to bank line ${existing._id}`);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Constants
