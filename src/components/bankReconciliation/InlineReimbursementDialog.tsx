@@ -70,6 +70,27 @@ export function InlineReimbursementDialog({ open, onOpenChange, line }: Props) {
       return;
     }
 
+    // WR-05 mitigation: validate pasted IDs before calling the mutation so
+    // fat-fingered input fails fast with a clear message instead of a
+    // cryptic server-side "not found" (or silent-null when an id from the
+    // wrong table happens to exist). Convex ids are opaque base32 strings,
+    // but the common fat-finger cases (empty prefix, wrong table prefix,
+    // leading/trailing quotes) are catchable with a minimal shape check.
+    const looksLikeConvexId = (s: string) => /^[a-z0-9]{20,}$/i.test(s);
+    if (!looksLikeConvexId(employeeUserId)) {
+      toast.error(
+        "Employee user id looks malformed. Paste the raw id from Users Manager.",
+      );
+      return;
+    }
+    const badExpenseId = expenseIds.find((id) => !looksLikeConvexId(id));
+    if (badExpenseId) {
+      toast.error(
+        `Expense id "${badExpenseId}" looks malformed. Paste raw ids separated by commas or whitespace.`,
+      );
+      return;
+    }
+
     setSubmitting(true);
     try {
       const result = await submit({
