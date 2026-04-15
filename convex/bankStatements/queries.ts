@@ -1,9 +1,10 @@
 /**
- * bankStatements queries — ALL admin-only per D-19.
+ * bankStatements queries — manager + admin per Phase 73 D-23 (widened from P72 D-19).
  *
  * Bank data is finance-sensitive (account numbers are PII; line details
  * reveal counterparties + amounts). Every query gates on
- * `requireRole(ctx, token, ["admin"])`.
+ * `requireRole(ctx, token, ["manager", "admin"])`. Rule CRUD (`bankKeywordRules`)
+ * stays admin-only; only statement/line reads widen for reconciliation UI access.
  *
  * `listStatements` returns the 50 most-recent uploads (by_createdAt desc) —
  * typical UI usage is a recent-uploads picker; a bigger page would paginate.
@@ -16,7 +17,7 @@ import { requireRole } from "../lib/auth";
 export const listStatements = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin"]);
+    await requireRole(ctx, args.token, ["manager", "admin"]);
     return await ctx.db
       .query("bankStatements")
       .withIndex("by_createdAt")
@@ -31,7 +32,7 @@ export const getStatement = query({
     id: v.id("bankStatements"),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin"]);
+    await requireRole(ctx, args.token, ["manager", "admin"]);
     return await ctx.db.get(args.id);
   },
 });
@@ -49,7 +50,7 @@ export const findByFileHash = query({
     fileHash: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin"]);
+    await requireRole(ctx, args.token, ["manager", "admin"]);
     const existing = await ctx.db
       .query("bankStatements")
       .withIndex("by_fileHash", (q) => q.eq("fileHash", args.fileHash))
@@ -73,7 +74,7 @@ export const listLines = query({
     ),
   },
   handler: async (ctx, args) => {
-    await requireRole(ctx, args.token, ["admin"]);
+    await requireRole(ctx, args.token, ["manager", "admin"]);
     const cursor = args.statusFilter
       ? ctx.db
           .query("bankStatementLines")

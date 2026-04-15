@@ -1853,7 +1853,8 @@ export default defineSchema({
       v.literal("depreciation"),
       v.literal("depreciation_void"),
       v.literal("asset_acquisition"),
-      v.literal("bank_statement")
+      v.literal("bank_statement"),
+      v.literal("bank_statement_reversal")
     ),
     sourceId: v.optional(v.string()),
     isReversed: v.boolean(),
@@ -1984,6 +1985,16 @@ export default defineSchema({
     ),
     isAutoMatched: v.boolean(),
     flags: v.optional(v.array(v.string())),            // rule.flags inherited
+    // D-25 audit fields (Phase 73 — populated by confirmLine / unmatch mutations)
+    confirmedAt: v.optional(v.number()),
+    confirmedBy: v.optional(v.id("users")),
+    confirmedJournalEntryId: v.optional(v.id("journalEntries")),
+    reversedAt: v.optional(v.number()),
+    reversedBy: v.optional(v.id("users")),
+    reversalJournalEntryId: v.optional(v.id("journalEntries")),
+    createdExpenseId: v.optional(v.id("expenses")),
+    createdRevenueId: v.optional(v.id("externalRevenue")),
+    createdReimbursementId: v.optional(v.id("reimbursementBatches")),
   })
     .index("by_statement", ["statementId"])
     .index("by_statement_status", ["statementId", "status"])
