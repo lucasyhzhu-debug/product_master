@@ -294,9 +294,27 @@ export const manualMatch = mutation({
       throw new ConvexError("Line already confirmed — unmatch first");
     }
 
-    // Verify target exists. `ctx.db.get` accepts any Convex Id at runtime
-    // (polymorphic FK per D-02) — cast is safe.
-    const target = await ctx.db.get(args.matchedId as Id<"expenses">);
+    // Verify target exists AND that its id belongs to the claimed table
+    // (WR-02). `ctx.db.get` with a casted id returns the doc regardless of
+    // which table the id originated from (polymorphic FK per D-02), so
+    // without this check a caller could pass matchedType="expense" with
+    // a reimbursementBatches id and the mutation would silently mislabel
+    // the link. `db.normalizeId(tableName, raw)` returns `null` when the
+    // id does not belong to `tableName`, which is the correct gate here.
+    const tableForType = {
+      expense: "expenses",
+      revenue: "externalRevenue",
+      reimbursement: "reimbursementBatches",
+      payroll: "payrollEntries",
+    } as const;
+    const tableName = tableForType[args.matchedType];
+    const normalizedId = ctx.db.normalizeId(tableName, args.matchedId);
+    if (!normalizedId) {
+      throw new ConvexError(
+        `matchedId does not belong to ${tableName} (matchedType=${args.matchedType})`,
+      );
+    }
+    const target = await ctx.db.get(normalizedId);
     if (!target) {
       throw new ConvexError(`Target ${args.matchedType} record not found`);
     }
