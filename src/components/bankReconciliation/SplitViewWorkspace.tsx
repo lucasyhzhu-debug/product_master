@@ -17,8 +17,9 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,9 @@ function humanError(err: unknown): string {
 export function SplitViewWorkspace({ statementId, onPickStatement }: Props) {
   // --- All hooks declared up-front (pitfall 9) -----------------------------
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const channelFilter = searchParams.get("channelFilter");
+  const periodParam = searchParams.get("period");
   const statement = useBankStatement(statementId);
   const lines = useBankStatementLines(statementId);
 
@@ -161,6 +165,18 @@ export function SplitViewWorkspace({ statementId, onPickStatement }: Props) {
     }
   }
 
+  function clearDrillDownFilter() {
+    setSearchParams(
+      (prev) => {
+        const np = new URLSearchParams(prev);
+        np.delete("channelFilter");
+        np.delete("period");
+        return np;
+      },
+      { replace: true },
+    );
+  }
+
   function handleRouteToAssetRegister() {
     if (!selectedLine) return;
     toast.info("Opening Asset Register…");
@@ -201,16 +217,41 @@ export function SplitViewWorkspace({ statementId, onPickStatement }: Props) {
   // --- Render --------------------------------------------------------------
   if (!statementId) {
     return (
-      <Card className="flex min-h-[400px] flex-col items-center justify-center gap-3 p-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          Select a statement from the Statements tab to start reconciling.
-        </p>
-        {onPickStatement && (
-          <Button onClick={onPickStatement} variant="outline">
-            Choose statement
-          </Button>
+      <div className="flex flex-col gap-4">
+        {channelFilter && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+            <div>
+              Drill-down filter active:{" "}
+              <span className="font-semibold">{channelFilter}</span>
+              {periodParam ? (
+                <>
+                  {" "}· <span className="font-semibold">{periodParam}</span>
+                </>
+              ) : null}
+              . Pick a statement below to apply it.
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearDrillDownFilter}
+              className="h-7 gap-1"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filter
+            </Button>
+          </div>
         )}
-      </Card>
+        <Card className="flex min-h-[400px] flex-col items-center justify-center gap-3 p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Select a statement from the Statements tab to start reconciling.
+          </p>
+          {onPickStatement && (
+            <Button onClick={onPickStatement} variant="outline">
+              Choose statement
+            </Button>
+          )}
+        </Card>
+      </div>
     );
   }
 
@@ -233,6 +274,28 @@ export function SplitViewWorkspace({ statementId, onPickStatement }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {channelFilter && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <div>
+            Showing only <span className="font-semibold">{channelFilter}</span> lines
+            {periodParam ? (
+              <>
+                {" "}for <span className="font-semibold">{periodParam}</span>
+              </>
+            ) : null}
+            . Filter was applied from the Revenue Gap tab.
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearDrillDownFilter}
+            className="h-7 gap-1"
+          >
+            <X className="h-3.5 w-3.5" />
+            Clear filter
+          </Button>
+        </div>
+      )}
       <StatementProgressHeader
         statementId={statementId}
         statementName={statement.fileName}

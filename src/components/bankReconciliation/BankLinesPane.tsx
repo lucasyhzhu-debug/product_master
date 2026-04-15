@@ -5,9 +5,16 @@
  * Single-row selection drives the right-hand candidates pane.
  *
  * UI-SPEC §6.2 + D-02 (confirmed lines hidden by default).
+ *
+ * Phase 73 Plan 05 (D-15): honors URL params `channelFilter` + `period`
+ * (YYYY-MM) for Revenue Gap drill-down. When set, only credit lines matching
+ * the channel + falling within that WIB month are shown. A dismissible chip
+ * advertises the active filter and clears the URL params on close.
  */
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { X } from "lucide-react";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -23,13 +30,32 @@ interface Props {
 
 type DirFilter = "all" | "debit" | "credit";
 
+/** Parse a YYYY-MM period key into WIB month bounds (UTC epoch ms). */
+function periodBoundsFromKey(key: string | null): { start: number; end: number } | null {
+  if (!key) return null;
+  const m = key.match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  const year = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10) - 1;
+  if (month < 0 || month > 11) return null;
+  const start = Date.UTC(year, month, 1, -7, 0, 0, 0);
+  const end = Date.UTC(year, month + 1, 1, -7, 0, 0, 0) - 1;
+  return { start, end };
+}
+
 export function BankLinesPane({ statementId, selectedLineId, onSelect }: Props) {
   const [dirFilter, setDirFilter] = useState<DirFilter>("all");
   const [showConfirmed, setShowConfirmed] = useState(false);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const channelFilter = searchParams.get("channelFilter");
+  const periodKey = searchParams.get("period");
+  const periodBounds = useMemo(() => periodBoundsFromKey(periodKey), [periodKey]);
+
   // listLines is a single-shot query over all lines for this statement;
   // confirmed-line hiding + direction filter are client-side. Avoids the
-  // overhead of multiple withIndex calls per render.
+  // overhead of multiple withIndex calls per render. Drill-down channel +
+  // period filters also run client-side to avoid re-running the query.
   const allLines = useBankStatementLines(statementId);
 
   const visible = useMemo(() => {
@@ -38,43 +64,88 @@ export function BankLinesPane({ statementId, selectedLineId, onSelect }: Props) 
       if (!showConfirmed && l.status === "confirmed") return false;
       if (dirFilter === "debit" && l.direction !== "debit") return false;
       if (dirFilter === "credit" && l.direction !== "credit") return false;
+      if (channelFilter) {
+        // Drill-down scopes to credit lines with a matching linkedChannel.
+        if (l.direction !== "credit") return false;
+        if ((l.linkedChannel ?? null) !== channelFilter) return false;
+      }
+      if (periodBounds) {
+        if (l.date < periodBounds.start || l.date > periodBounds.end) return false;
+      }
       return true;
     });
-  }, [allLines, dirFilter, showConfirmed]);
+  }, [allLines, dirFilter, showConfirmed, channelFilter, periodBounds]);
 
   const confirmedCount = useMemo(
     () => (allLines ? allLines.filter((l) => l.status === "confirmed").length : 0),
     [allLines],
   );
 
+  function clearDrillDown() {
+    setSearchParams(
+      (prev) => {
+        const np = new URLSearchParams(prev);
+        np.delete("channelFilter");
+        np.delete("period");
+        return np;
+      },
+      { replace: true },
+    );
+  }
+
+  // Periodkey is only displayed when we actually parsed bounds from it.
+  const periodLabel = periodBounds && periodKey ? periodKey : null;
+
   return (
     <section
       aria-label="Bank lines"
       className="flex flex-col rounded-md border border-border bg-card min-h-[600px] max-h-[calc(100vh-280px)]"
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-1">
-          {(["all", "debit", "credit"] as const).map((d) => (
+      <header className="flex flex-col gap-2 border-b border-border px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1">
+            {(["all", "debit", "credit"] as const).map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant={dirFilter === d ? "secondary" : "ghost"}
+                onClick={() => setDirFilter(d)}
+                className="h-7 px-2 text-xs capitalize"
+              >
+                {d}
+              </Button>
+            ))}
+          </div>
+          {confirmedCount > 0 && (
             <Button
-              key={d}
               size="sm"
-              variant={dirFilter === d ? "secondary" : "ghost"}
-              onClick={() => setDirFilter(d)}
-              className="h-7 px-2 text-xs capitalize"
+              variant="ghost"
+              onClick={() => setShowConfirmed((v) => !v)}
+              className="h-7 px-2 text-xs"
             >
-              {d}
+              {showConfirmed ? `Hide confirmed (${confirmedCount})` : `Show confirmed (${confirmedCount})`}
             </Button>
-          ))}
+          )}
         </div>
-        {confirmedCount > 0 && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowConfirmed((v) => !v)}
-            className="h-7 px-2 text-xs"
-          >
-            {showConfirmed ? `Hide confirmed (${confirmedCount})` : `Show confirmed (${confirmedCount})`}
-          </Button>
+        {channelFilter && (
+          <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-xs">
+            <span className="text-muted-foreground">Filtered by:</span>
+            <span className="font-medium">{channelFilter}</span>
+            {periodLabel && (
+              <>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-medium">{periodLabel}</span>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={clearDrillDown}
+              aria-label="Clear drill-down filter"
+              className="ml-auto inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
       </header>
       <ScrollArea className="flex-1">
@@ -86,7 +157,9 @@ export function BankLinesPane({ statementId, selectedLineId, onSelect }: Props) 
           </div>
         ) : visible.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
-            No bank lines match the current filter.
+            {channelFilter
+              ? `No ${channelFilter} lines${periodLabel ? ` in ${periodLabel}` : ""} in this statement.`
+              : "No bank lines match the current filter."}
           </div>
         ) : (
           <ul className="divide-y divide-border">
