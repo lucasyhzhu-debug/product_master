@@ -15,6 +15,42 @@ import {
 
 type Mode = "weekday" | "rolling";
 
+type WeekdayTooltipPayload = {
+  payload?: {
+    day?: string;
+    orders?: number;
+    units?: number;
+    unitsPerOrder?: number;
+  };
+};
+
+function WeekdayTooltip({
+  active,
+  payload,
+  mode,
+}: {
+  active?: boolean;
+  payload?: WeekdayTooltipPayload[];
+  mode: Mode;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const p = payload[0]?.payload;
+  if (!p) return null;
+  const label = p.day ?? "";
+  const orders = p.orders ?? 0;
+  const units = p.units ?? 0;
+  const upo = p.unitsPerOrder ?? 0;
+  const prefix = mode === "rolling" ? label : `${label}`;
+  return (
+    <div className="rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm">
+      <div className="font-medium">{prefix}</div>
+      <div className="text-muted-foreground">
+        {orders} orders · {units} units · {upo.toFixed(2)} u/txn
+      </div>
+    </div>
+  );
+}
+
 function formatRollingLabel(iso: string): string {
   // iso = YYYY-MM-DD; render as "MMM D"
   const [y, m, d] = iso.split("-").map(Number);
@@ -82,12 +118,19 @@ export function WeekdayDualAxisChart() {
         <ComposedChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="day" interval={xAxisInterval} />
-          <YAxis yAxisId="left" stroke="#f97316" />
-          <YAxis yAxisId="right" orientation="right" stroke="#8b5cf6" />
-          <Tooltip />
+          {/* Left axis carries both Orders and Units (same count-like scale). */}
+          <YAxis yAxisId="left" />
+          {/* Right axis dedicated to Units/Order ratio (fewer ticks). */}
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            stroke="#22d3ee"
+            tickCount={4}
+          />
+          <Tooltip content={<WeekdayTooltip mode={mode} />} />
           <Legend />
           <Bar yAxisId="left" dataKey="orders" fill="#f97316" name="Orders" />
-          <Bar yAxisId="right" dataKey="units" fill="#8b5cf6" name="Units" />
+          <Bar yAxisId="left" dataKey="units" fill="#8b5cf6" name="Units" />
           <Line
             yAxisId="right"
             type="monotone"
