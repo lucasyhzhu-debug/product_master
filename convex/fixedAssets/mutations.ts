@@ -181,8 +181,13 @@ export const create = protectedMutation({
 
     // Phase 73 D-21: CapEx round-trip — when coming from a bank line, also
     // create a companion expense linked to the acquisition JE and mark the
-    // bank line as linked. The expense is recorded+approved inline since
-    // admins/managers with fixedAssets.create access have equivalent authority.
+    // bank line as linked.
+    //
+    // WR-01 fix: align with D-17 invariant (inline-created expenses from a
+    // bank line MUST have status="submitted", NEVER pre-approved). The
+    // acquisition JE is already posted above so the asset is usable
+    // immediately; the companion expense stays in the approval queue as a
+    // tracking record and preserves second-reviewer separation for CapEx.
     let linkedExpenseId: Id<"expenses"> | undefined;
     if (args.sourceBankLineId) {
       const line = await ctx.db.get(args.sourceBankLineId);
@@ -203,12 +208,9 @@ export const create = protectedMutation({
           description: `Fixed asset acquisition: ${args.name} (${assetNumber})`,
           vendorName: args.name,
           paymentMethod: payment,
-          status: "recorded" as const,
+          status: "submitted" as const,
           lateSubmission: false,
           submittedAt: Date.now(),
-          approvedBy: ctx.user._id,
-          approvedAt: Date.now(),
-          journalEntryId: acquisitionJeId,
           convertedToAssetId: assetId,
           createdAt: Date.now(),
         });
