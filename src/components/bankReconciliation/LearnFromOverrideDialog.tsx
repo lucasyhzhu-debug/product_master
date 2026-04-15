@@ -87,12 +87,11 @@ export function LearnFromOverrideDialog({
   const [confidence, setConfidence] = useState<Confidence>("strong");
   const [priority, setPriority] = useState(50);
 
-  // Pre-fill when opened.
-  // I11 — `overrideAccountId` is in the dep array because the whole dialog's
-  // purpose is to save a rule keyed to that account; if it changes while the
-  // dialog is open (e.g., reviewer picks a different override without closing),
-  // the form should re-prefill. The effect reads it indirectly via the
-  // dialog's Save handler, which depends on it being current.
+  // Pre-fill only when the dialog opens or the target line changes. We
+  // deliberately exclude `overrideAccountId` from the dep array: the effect
+  // doesn't read it, and including it would wipe in-progress edits if the
+  // reviewer changes the override while the dialog is open.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open || !line) return;
     setRuleCode("");
@@ -108,7 +107,7 @@ export function LearnFromOverrideDialog({
     setPlSection("OpEx");
     setJeDebitAccountId(line.jeDebitAccountId ?? "");
     setJeCreditAccountId(line.jeCreditAccountId ?? "");
-  }, [open, line, overrideAccountId]);
+  }, [open, line]);
 
   const accountOptions = useMemo(
     () => (accounts ?? []).filter((a) => a.isActive),
