@@ -5,29 +5,18 @@
  * Routes:
  *   /expenses/new       -- create new expense
  *   /expenses/new?edit=ID -- edit existing draft
+ *
+ * Phase 73 I4: form body extracted into <ExpenseSubmitForm> for reuse in
+ * InlineExpenseDialog (D-17 standard submission, never auto-approve).
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Copy, Loader2, Save, Send } from "lucide-react";
+import { AlertTriangle, Loader2, Save, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useAccounts } from "@/hooks/convex/useAccounts";
 import {
@@ -35,70 +24,15 @@ import {
   useCreateExpenseDraft,
   useUpdateExpenseDraft,
   useSubmitExpense,
-  useExpenseUploadUrl,
-  useCheckReceiptHash,
 } from "@/hooks/convex/useExpenses";
-import { ReceiptUpload } from "@/components/expenses/ReceiptUpload";
-import { utcToWibDateStr, wibDateStrToUtcMs } from "@/lib/dateUtils";
-import { RECEIPT_THRESHOLD } from "../../convex/expenses/helpers";
+import { utcToWibDateStr } from "@/lib/dateUtils";
 import type { Id } from "../../convex/_generated/dataModel";
-
-// Payment method options matching schema validators
-const PAYMENT_METHODS = [
-  {
-    value: "employee_paid",
-    label: "Reimburse Employee",
-    description: "I paid for this myself and need the company to pay me back",
-  },
-  {
-    value: "company_paid",
-    label: "Paid by Company",
-    description: "The company bank account was already charged (e.g., direct debit, linked Shopee/BCA)",
-  },
-  {
-    value: "payment_request",
-    label: "Payment Request",
-    description: "I need the company to pay this vendor directly from the bank account",
-  },
-] as const;
-
-type PaymentMethod = (typeof PAYMENT_METHODS)[number]["value"];
-
-// Tier 1 expense type options for cascading GL account selection
-const EXPENSE_TYPE_OPTIONS = [
-  { value: "cogs", label: "Cost of Goods Sold" },
-  { value: "opex", label: "Operating Expenses" },
-  { value: "other", label: "Other Income/Expense" },
-] as const;
-
-interface FormState {
-  description: string;
-  amount: string;
-  expenseType: "cogs" | "opex" | "other" | "";
-  accountId: string;
-  expenseDate: string;
-  vendorName: string;
-  paymentMethod: PaymentMethod;
-  transactionReference: string;
-  receiptFileId?: Id<"_storage">;
-  receiptImageHash?: string;
-  sharedReceiptAcknowledged?: boolean;
-}
-
-function getDefaultDate(): string {
-  return utcToWibDateStr(Date.now());
-}
-
-const INITIAL_FORM: FormState = {
-  description: "",
-  amount: "",
-  expenseType: "",
-  accountId: "",
-  expenseDate: getDefaultDate(),
-  vendorName: "",
-  paymentMethod: "employee_paid",
-  transactionReference: "",
-};
+import {
+  ExpenseSubmitForm,
+  type ExpenseSubmitFormHandle,
+  type ExpenseSubmitFormValues,
+  type PaymentMethod,
+} from "@/components/expense/ExpenseSubmitForm";
 
 export function ExpenseSubmit() {
   const [searchParams] = useSearchParams();
@@ -108,53 +42,42 @@ export function ExpenseSubmit() {
 
   useDocumentTitle(isEditing ? "Edit Expense" : "New Expense");
 
-  // Data queries — filter to expense-relevant account types (opex, cogs, other)
   const allAccounts = useAccounts(true);
   const accounts = useMemo(
     () => allAccounts?.filter((a) => ["opex", "cogs", "other"].includes(a.type)),
-    [allAccounts]
+    [allAccounts],
   );
   const existingExpense = useExpense(editId ?? undefined);
-  const generateUploadUrl = useExpenseUploadUrl();
 
-  // Mutation hooks
   const { mutate: createDraft } = useCreateExpenseDraft();
   const { mutate: updateDraft } = useUpdateExpenseDraft();
   const { mutate: submitExpense } = useSubmitExpense();
 
-  // Form state
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
   const [draftId, setDraftId] = useState<Id<"expenses"> | null>(editId);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [initialValues, setInitialValues] = useState<
+    Partial<ExpenseSubmitFormValues> | undefined
+  >(undefined);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const formLoadedRef = useRef(!isEditing);
+  const formRef = useRef<ExpenseSubmitFormHandle>(null);
 
-  // Duplicate receipt detection -- reactive query triggers when hash changes
-  const duplicateReceipt = useCheckReceiptHash(
-    form.receiptImageHash,
-    draftId ?? undefined
-  );
-
-  // Pre-fill form when editing (wait for both existingExpense AND accounts to load)
   useEffect(() => {
     if (isEditing && existingExpense && accounts && !formLoadedRef.current) {
-      // Verify it's a draft
       if (existingExpense.status !== "draft") {
         toast.error("Only draft expenses can be edited");
         navigate("/expenses");
         return;
       }
 
-      // Derive Tier 1 expenseType from the account's type field
-      const matchedAccount = accounts.find(
-        (a) => a._id === existingExpense.accountId
-      );
+      const matchedAccount = accounts.find((a) => a._id === existingExpense.accountId);
 
-      setForm({
+      setInitialValues({
         description: existingExpense.description,
         amount: String(existingExpense.amount),
-        expenseType: (matchedAccount?.type as FormState["expenseType"]) ?? "",
+        expenseType:
+          (matchedAccount?.type as ExpenseSubmitFormValues["expenseType"]) ?? "",
         accountId: existingExpense.accountId,
         expenseDate: utcToWibDateStr(existingExpense.expenseDate),
         vendorName: existingExpense.vendorName,
@@ -162,7 +85,8 @@ export function ExpenseSubmit() {
         transactionReference: existingExpense.transactionReference ?? "",
         receiptFileId: existingExpense.receiptFileId,
         receiptImageHash: existingExpense.receiptImageHash,
-        sharedReceiptAcknowledged: existingExpense.sharedReceiptAcknowledged ?? undefined,
+        sharedReceiptAcknowledged:
+          existingExpense.sharedReceiptAcknowledged ?? undefined,
       });
       setDraftId(existingExpense._id);
       if (existingExpense.duplicateWarning) {
@@ -172,79 +96,23 @@ export function ExpenseSubmit() {
     }
   }, [isEditing, existingExpense, accounts, navigate]);
 
-  const updateField = useCallback(
-    <K extends keyof FormState>(field: K, value: FormState[K]) => {
-      setForm((prev) => ({ ...prev, [field]: value }));
-    },
-    []
-  );
-
-  // Tier 2 accounts filtered by selected Tier 1 expense type
-  const filteredAccounts = useMemo(
-    () =>
-      form.expenseType
-        ? (accounts ?? []).filter((a) => a.type === form.expenseType)
-        : [],
-    [accounts, form.expenseType]
-  );
-
-  // Validate form before save
-  const validateForm = useCallback((): string | null => {
-    if (!form.description.trim()) return "Description is required";
-    if (!form.amount || Number(form.amount) <= 0) return "Amount must be positive";
-    if (!Number.isInteger(Number(form.amount)))
-      return "Amount must be a whole number (IDR, no decimals)";
-    if (!form.expenseType) return "Expense Type is required";
-    if (!form.accountId) return "GL Account is required";
-    if (!form.expenseDate) return "Expense date is required";
-    if (!form.vendorName.trim()) return "Vendor name is required";
-    // Receipt required for company money (backend enforces too, but catch early)
-    if (
-      (form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request") &&
-      !form.receiptFileId
-    ) {
-      return "Receipt is required for company-paid expenses";
-    }
-    return null;
-  }, [form]);
-
-  // Build mutation args from form
-  const buildArgs = useCallback(() => {
-    return {
-      description: form.description.trim(),
-      amount: Number(form.amount),
-      accountId: form.accountId as Id<"accounts">,
-      expenseDate: wibDateStrToUtcMs(form.expenseDate),
-      vendorName: form.vendorName.trim(),
-      paymentMethod: form.paymentMethod,
-      ...(form.transactionReference.trim() && { transactionReference: form.transactionReference.trim() }),
-      ...(form.receiptFileId && { receiptFileId: form.receiptFileId }),
-      ...(form.receiptImageHash && { receiptImageHash: form.receiptImageHash }),
-      ...(form.sharedReceiptAcknowledged && { sharedReceiptAcknowledged: true }),
-    };
-  }, [form]);
-
-  // Save Draft handler
   const handleSaveDraft = useCallback(async () => {
-    const error = validateForm();
-    if (error) {
-      toast.error(error);
+    const build = formRef.current?.buildArgs();
+    if (!build) return;
+    if (!build.ok) {
+      toast.error(build.error);
       return;
     }
 
     setSaving(true);
     try {
       if (draftId) {
-        // Update existing draft
-        await updateDraft({ expenseId: draftId, ...buildArgs() });
+        await updateDraft({ expenseId: draftId, ...build.args });
       } else {
-        // Create new draft
-        const result = await createDraft(buildArgs());
+        const result = await createDraft(build.args);
         if (result) {
           setDraftId(result.expenseId);
-          if (result.duplicateWarning) {
-            setDuplicateWarning(result.duplicateWarning);
-          }
+          if (result.duplicateWarning) setDuplicateWarning(result.duplicateWarning);
         }
       }
     } catch {
@@ -252,13 +120,13 @@ export function ExpenseSubmit() {
     } finally {
       setSaving(false);
     }
-  }, [validateForm, draftId, updateDraft, createDraft, buildArgs]);
+  }, [draftId, updateDraft, createDraft]);
 
-  // Submit handler
   const handleSubmit = useCallback(async () => {
-    const error = validateForm();
-    if (error) {
-      toast.error(error);
+    const build = formRef.current?.buildArgs();
+    if (!build) return;
+    if (!build.ok) {
+      toast.error(build.error);
       return;
     }
 
@@ -266,64 +134,28 @@ export function ExpenseSubmit() {
     try {
       let expenseIdToSubmit = draftId;
 
-      // Save first if new/unsaved
       if (!expenseIdToSubmit) {
-        const result = await createDraft(buildArgs());
+        const result = await createDraft(build.args);
         if (!result) {
           setSubmitting(false);
           return;
         }
         expenseIdToSubmit = result.expenseId;
         setDraftId(result.expenseId);
-        if (result.duplicateWarning) {
-          setDuplicateWarning(result.duplicateWarning);
-        }
+        if (result.duplicateWarning) setDuplicateWarning(result.duplicateWarning);
       } else {
-        // Update with latest form data before submitting
-        await updateDraft({ expenseId: expenseIdToSubmit, ...buildArgs() });
+        await updateDraft({ expenseId: expenseIdToSubmit, ...build.args });
       }
 
-      // Submit the draft
       await submitExpense({ expenseId: expenseIdToSubmit });
       navigate("/expenses");
     } catch {
-      // Error toast handled by mutation hook (FRAUD-02 receipt hash duplicate, EXP-03 receipt required)
+      // Error toast handled by mutation hook
     } finally {
       setSubmitting(false);
     }
-  }, [validateForm, draftId, createDraft, updateDraft, submitExpense, buildArgs, navigate]);
+  }, [draftId, createDraft, updateDraft, submitExpense, navigate]);
 
-  // Handle receipt upload
-  const handleReceiptUpload = useCallback(
-    (result: { storageId: Id<"_storage">; hash: string }) => {
-      setForm((prev) => ({
-        ...prev,
-        receiptFileId: result.storageId,
-        receiptImageHash: result.hash,
-        sharedReceiptAcknowledged: undefined, // Reset acknowledgment for new receipt
-      }));
-    },
-    []
-  );
-
-  const handleReceiptRemove = useCallback(() => {
-    setForm((prev) => ({
-      ...prev,
-      receiptFileId: undefined,
-      receiptImageHash: undefined,
-      sharedReceiptAcknowledged: undefined,
-    }));
-  }, []);
-
-  // Handle user acknowledging shared receipt reuse
-  const handleAcknowledgeSharedReceipt = useCallback(() => {
-    setForm((prev) => ({
-      ...prev,
-      sharedReceiptAcknowledged: true,
-    }));
-  }, []);
-
-  // Loading states
   if (allAccounts === undefined) {
     return (
       <div className="space-y-4">
@@ -342,10 +174,14 @@ export function ExpenseSubmit() {
     );
   }
 
-  const amountNum = Number(form.amount) || 0;
-  const showReceiptWarning =
-    amountNum > RECEIPT_THRESHOLD && !form.receiptFileId;
   const isProcessing = saving || submitting;
+
+  const banner = duplicateWarning ? (
+    <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 p-3 text-sm text-amber-800 dark:text-amber-200">
+      <AlertTriangle className="h-4 w-4 shrink-0" />
+      <p>{duplicateWarning}</p>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-4">
@@ -355,232 +191,23 @@ export function ExpenseSubmit() {
         backLabel="My Expenses"
       />
 
-      {/* Duplicate Warning Banner */}
-      {duplicateWarning && (
-        <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 p-3 text-sm text-amber-800 dark:text-amber-200">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <p>{duplicateWarning}</p>
-        </div>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Expense Details</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
-            <Input
-              id="description"
-              placeholder="What was this expense for?"
-              value={form.description}
-              onChange={(e) => updateField("description", e.target.value)}
-              disabled={isProcessing}
-            />
-          </div>
-
-          {/* Amount + Expense Date row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (IDR) *</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="0"
-                min={1}
-                step={1}
-                value={form.amount}
-                onChange={(e) => updateField("amount", e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="expenseDate">Expense Date *</Label>
-              <Input
-                id="expenseDate"
-                type="date"
-                value={form.expenseDate}
-                onChange={(e) => updateField("expenseDate", e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
-
-          {/* Expense Type (Tier 1) + GL Account (Tier 2) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="expenseType">Expense Type *</Label>
-              <Select
-                value={form.expenseType}
-                onValueChange={(v) => {
-                  setForm((prev) => ({
-                    ...prev,
-                    expenseType: v as "cogs" | "opex" | "other",
-                    accountId: "",
-                  }));
-                }}
-                disabled={isProcessing}
-              >
-                <SelectTrigger id="expenseType">
-                  <SelectValue placeholder="Select type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {EXPENSE_TYPE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="accountId">GL Account *</Label>
-              <Select
-                value={form.accountId}
-                onValueChange={(v) => updateField("accountId", v)}
-                disabled={isProcessing || !form.expenseType}
-              >
-                <SelectTrigger id="accountId">
-                  <SelectValue placeholder="Select account..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredAccounts.map((account) => (
-                    <SelectItem key={account._id} value={account._id}>
-                      {account.code} - {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Vendor + Payment Method row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="vendorName">Vendor *</Label>
-              <Input
-                id="vendorName"
-                placeholder="Vendor or store name"
-                value={form.vendorName}
-                onChange={(e) => updateField("vendorName", e.target.value)}
-                disabled={isProcessing}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Payment Method</Label>
-              <Select
-                value={form.paymentMethod}
-                onValueChange={(v) =>
-                  updateField("paymentMethod", v as PaymentMethod)
-                }
-                disabled={isProcessing}
-              >
-                <SelectTrigger id="paymentMethod">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_METHODS.map((pm) => (
-                    <SelectItem key={pm.value} value={pm.value}>
-                      <div className="flex flex-col">
-                        <span>{pm.label}</span>
-                        <span className="text-xs text-muted-foreground">{pm.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Transaction Reference (visible only for company_paid) */}
-          {form.paymentMethod === "company_paid" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="transactionReference">Transaction Reference</Label>
-              <Input
-                id="transactionReference"
-                placeholder="Bank ref number, Shopee order ID, BCA transaction ID..."
-                value={form.transactionReference}
-                onChange={(e) => setForm((prev) => ({ ...prev, transactionReference: e.target.value }))}
-                disabled={isProcessing}
-              />
-              <p className="text-xs text-muted-foreground">
-                Optional: Enter the bank reference or transaction ID
-              </p>
-            </div>
-          )}
-
-          {/* Receipt Upload */}
-          <div className="space-y-2">
-            <Label>
-              Receipt{" "}
-              {form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request"
-                ? "(required)"
-                : amountNum > RECEIPT_THRESHOLD
-                  ? "(required for > Rp 50,000)"
-                  : "(optional)"}
-            </Label>
-            <ReceiptUpload
-              generateUploadUrl={generateUploadUrl}
-              onUpload={handleReceiptUpload}
-              onRemove={handleReceiptRemove}
-              currentFileId={form.receiptFileId}
-              disabled={isProcessing}
-            />
-            {(form.paymentMethod === "company_paid" || form.paymentMethod === "payment_request") && !form.receiptFileId && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                Receipt is required for all company-paid expenses
-              </p>
-            )}
-            {form.paymentMethod === "employee_paid" && showReceiptWarning && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                Receipt is required for expenses over Rp 50,000
-              </p>
-            )}
-            {/* Duplicate receipt warning with confirmation */}
-            {duplicateReceipt && !form.sharedReceiptAcknowledged && (
-              <div className="rounded-md border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950 p-3 space-y-2">
-                <div className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200">
-                  <Copy className="h-4 w-4 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">This receipt is already used</p>
-                    <p className="text-xs mt-0.5">
-                      This receipt photo is attached to expense{" "}
-                      <span className="font-mono font-medium">{duplicateReceipt.expenseNumber}</span>
-                      {duplicateReceipt.description && (
-                        <span> ({duplicateReceipt.description})</span>
-                      )}
-                      . If this receipt covers multiple line items for different expense categories, you can confirm reuse below.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="text-xs font-medium text-amber-700 dark:text-amber-300 underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
-                  onClick={handleAcknowledgeSharedReceipt}
-                >
-                  Yes, I confirm this receipt covers multiple expenses
-                </button>
-              </div>
-            )}
-            {duplicateReceipt && form.sharedReceiptAcknowledged && (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                Shared receipt confirmed -- same receipt as {duplicateReceipt.expenseNumber}. Approver will be notified.
-              </p>
-            )}
-          </div>
+        <CardContent>
+          <ExpenseSubmitForm
+            ref={formRef}
+            mode="page"
+            initialValues={initialValues}
+            disabled={isProcessing}
+            banner={banner}
+          />
         </CardContent>
       </Card>
 
-      {/* Action Buttons */}
       <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          onClick={handleSaveDraft}
-          disabled={isProcessing}
-        >
+        <Button variant="outline" onClick={handleSaveDraft} disabled={isProcessing}>
           {saving ? (
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
           ) : (
