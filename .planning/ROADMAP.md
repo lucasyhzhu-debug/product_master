@@ -257,7 +257,7 @@ Plans:
   1. User can view a split-screen interface showing unmatched bank lines on one side and candidate system records on the other
   2. User can manually match a bank line to a system record, or unmatch an auto-matched pair
   3. Each uploaded statement shows matched/unmatched/suggested counts with a reconciliation progress indicator
-**Plans:** 5 plans
+**Plans:** 3/6 plans executed
 Plans:
 - [ ] 73-PLAN-1.md — Schema + backend mutations/queries + Wave 0 scaffolds
 - [ ] 73-PLAN-2.md — Split-view workspace + tab shell + batch confirm modal
@@ -361,9 +361,9 @@ Plans:
   9. No double-count: `externalRevenue` rows whose source has an `orders` twin (gobiz/internal) are skipped at loader layer (R5)
 **Plans:** 3 plans
 Plans:
-- [ ] 80-01-PLAN.md -- Wave 1 Backend: helpers (production-unit BOM, revenue, channel taxonomy, platformColors), schema indexes (T1.5), dispatchPlanner migration (T1.6), 11 unitEconomics queries (T2-T7)
-- [ ] 80-02-PLAN.md -- Wave 2 Frontend: filter context + URL sync, 11 typed hooks, 13 widgets across 6 lenses, AnalyticsDashboard page, /analytics route, nav entries in Header + MobileBottomNav
-- [ ] 80-03-PLAN.md -- Wave 3 Verification: 10 backend tests (T14), 3 frontend smoke tests (T14.5 — creates tests/frontend/), quality gate, docs (CHANGELOG/API_REFERENCE/ROADMAP/CLAUDE.md), squash-merge PR
+- [x] 80-01-PLAN.md -- Wave 1 Backend: helpers (production-unit BOM, revenue, channel taxonomy, platformColors), schema indexes (T1.5), dispatchPlanner migration (T1.6), 11 unitEconomics queries (T2-T7)
+- [x] 80-02-PLAN.md -- Wave 2 Frontend: filter context + URL sync, 11 typed hooks, 13 widgets across 6 lenses, AnalyticsDashboard page, /analytics route, nav entries in Header + MobileBottomNav (absorbed into 80-01 per addendum)
+- [x] 80-03-PLAN.md -- Wave 3 Verification: 10 backend tests (T14), 3 frontend smoke tests (T14.5 — creates tests/frontend/), quality gate, docs (CHANGELOG/API_REFERENCE/ROADMAP/CLAUDE.md), squash-merge PR (absorbed inline; merged via PR #138 / ecd42b8f)
 **UI hint**: yes
 **Source artifacts**:
 - Spec: `docs/superpowers/specs/2026-04-13-unit-economics-analytics-dashboard-design.md`
@@ -381,14 +381,14 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 70. Data Accuracy Foundation | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
-| 73. Bank Reconciliation UI & Workflow | v2.0 | 0/TBD | Not started | - |
+| 73. Bank Reconciliation UI & Workflow | v2.0 | 3/6 | In Progress|  |
 | 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
-| 78. Product Inventory Substitution | v2.0 | 0/2 | Not started | - |
+| 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
-| 80. Unit Economics Analytics Dashboard | v2.0 | 0/3 | Not started | - |
+| 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
