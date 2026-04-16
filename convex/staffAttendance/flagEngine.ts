@@ -23,8 +23,15 @@ export type FlagReason =
 /**
  * Convert a UTC epoch-ms timestamp to the WIB (UTC+7) calendar date string
  * (YYYY-MM-DD). Used to compute the `date` field when a staff member clocks in.
+ *
+ * WR-02: Guard against NaN / Infinity inputs up-front so the stack trace
+ * points at the bad-input source rather than bubbling a cryptic `RangeError:
+ * Invalid time value` from `toISOString()` deep in the flag pipeline.
  */
 export function toWibDateString(utcMs: number): string {
+  if (!Number.isFinite(utcMs)) {
+    throw new Error(`toWibDateString: non-finite input ${utcMs}`);
+  }
   return new Date(utcMs + WIB_OFFSET_MS).toISOString().slice(0, 10);
 }
 
