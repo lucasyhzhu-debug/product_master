@@ -25,6 +25,8 @@ import { ManagerTargetSettings } from '@/components/kitchen/ManagerTargetSetting
 import { ShiftHistoryList } from '@/components/kitchen/ShiftHistoryList';
 import { KitchenOrderSummary } from '@/components/kitchen/KitchenOrderSummary';
 import { DailySummaryWidget } from '@/components/kitchen/DailySummaryWidget';
+import { AttendanceStrip, ClockOutNudgeDialog } from '@/components/staffAttendance';
+import { useCurrentOpenShift } from '@/hooks/convex/useAttendance';
 import { useKitchenTargets } from '@/hooks/convex/useKitchenTargets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from 'convex/react';
@@ -164,6 +166,13 @@ export function KitchenViewV2() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // ============================================
+  // Phase 74 — Attendance: open-shift lookup + D-08 self-clock-out nudge state
+  // ============================================
+
+  const openShift = useCurrentOpenShift();
+  const [nudgeOpen, setNudgeOpen] = useState(false);
+
+  // ============================================
   // Wake lock to prevent phone sleep
   // ============================================
 
@@ -201,6 +210,10 @@ export function KitchenViewV2() {
 
   return (
     <div className="flex flex-col gap-6 p-4 max-w-4xl mx-auto pb-12">
+      {/* Phase 74: Attendance strip — running timer + Clock-Out button when clocked in;
+          renders null otherwise, so zero visual footprint in default state. */}
+      <AttendanceStrip />
+
       {/* Page header */}
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -250,6 +263,16 @@ export function KitchenViewV2() {
           users={kitchenUsers}
           kitchenComponents={kitchenComponents ?? []}
           enabledKitchenComponentCodes={config?.enabledKitchenComponents ?? undefined}
+          onSubmitted={(selectedChefId: string) => {
+            // Phase 74 D-08 self-submission gate (T-74-17):
+            // Only open the nudge when the submitter is clocking out THEMSELVES.
+            // - selectedChefId === "" means no explicit chef selected → default = self.
+            // - selectedChefId === user.userId means explicit self-selection.
+            // - any other id means the submitter recorded a shift on behalf of another
+            //   chef — opening the nudge would clock out the wrong user.
+            const isSelf = selectedChefId === "" || selectedChefId === user?.userId;
+            if (isSelf && openShift && !openShift.deletedAt) setNudgeOpen(true);
+          }}
         />
       </section>
 
@@ -385,6 +408,15 @@ export function KitchenViewV2() {
           )}
         </section>
       )}
+
+      {/* Phase 74 D-08: Self-clock-out nudge. Opens ONLY when the submitter is
+          clocking out themselves (see onSubmitted handler above). Renders null when
+          attendanceId is null — safe to render unconditionally. */}
+      <ClockOutNudgeDialog
+        open={nudgeOpen}
+        onOpenChange={setNudgeOpen}
+        attendanceId={openShift?._id ?? null}
+      />
     </div>
   );
 }

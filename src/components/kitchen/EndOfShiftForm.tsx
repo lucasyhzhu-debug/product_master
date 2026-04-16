@@ -91,6 +91,15 @@ interface EndOfShiftFormProps {
   }>;
   /** Phase 69: Enabled kitchen component codes from config (D-04) */
   enabledKitchenComponentCodes?: string[];
+  /**
+   * Phase 74 D-08: Called after a shift record is submitted successfully.
+   * Receives the selectedChefId state value (empty string means "no explicit chef
+   * selected" — the submitter is clocking out themselves). The parent uses this to
+   * decide whether to open the self-clock-out nudge — ONLY self-submissions nudge.
+   * Submitting on behalf of another chef MUST NOT open the nudge (would clock out
+   * the wrong user — T-74-17).
+   */
+  onSubmitted?: (selectedChefId: string) => void;
 }
 
 // -------------------------------------------------------
@@ -105,6 +114,7 @@ export function EndOfShiftForm({
   users,
   kitchenComponents,
   enabledKitchenComponentCodes,
+  onSubmitted,
 }: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
@@ -345,6 +355,11 @@ export function EndOfShiftForm({
       setSubmittedProduced(producedList);
       setSubmittedWaste(wasteList);
       setStep("success");
+      // Phase 74 D-08: Notify parent so it can decide whether to open the
+      // self-clock-out nudge. Pass the current selectedChefId — the parent checks
+      // it against the current user to avoid nudging when the submitter was
+      // recording a shift on behalf of another chef (T-74-17).
+      onSubmitted?.(selectedChefId);
     } catch (error) {
       const msg =
         error instanceof Error ? error.message : "Failed to submit shift record";
@@ -352,7 +367,7 @@ export function EndOfShiftForm({
     } finally {
       setIsSubmitting(false);
     }
-  }, [produced, wasteEntries, today, submitShiftRecord, selectedChefId, users, visibleItems, componentProduced, componentWaste, visibleKitchenComponents]);
+  }, [produced, wasteEntries, today, submitShiftRecord, selectedChefId, users, visibleItems, componentProduced, componentWaste, visibleKitchenComponents, onSubmitted]);
 
   function handleDone() {
     // Reset form to initial state
