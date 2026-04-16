@@ -524,4 +524,7 @@ export {
   useMyLastShiftSummary,
   useClockIn,
   useClockOut,
+  useFlaggedShifts,
+  useMyPerformance,
+  useCorrectAttendance,
 } from "./useAttendance";

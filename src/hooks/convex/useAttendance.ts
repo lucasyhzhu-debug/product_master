@@ -51,3 +51,48 @@ export function useClockIn() {
 export function useClockOut() {
   return useProtectedMutation(api.staffAttendance.mutations.clockOut);
 }
+
+// ---------------------------------------------------------------------------
+// Phase 74 Plan 03 — Manager staff-performance + MyPerformance hooks
+// ---------------------------------------------------------------------------
+
+/**
+ * Flagged shifts (manager/admin only). Returns `undefined` while loading, an
+ * array of `{ attendance, userName, flagReasons }` otherwise.
+ *
+ * Consumed by StaffPerformance.tsx to render the top-of-page flagged banner
+ * (D-15) and drive the "Jump to first flagged" scroll interaction.
+ */
+export function useFlaggedShifts(startDate: string, endDate: string) {
+  const { user } = useAuth();
+  return useQuery(
+    api.staffAttendance.queries.getFlaggedShifts,
+    user?.token ? { token: user.token, startDate, endDate } : "skip"
+  );
+}
+
+/**
+ * Personal performance view (D-13). T-74-03 info-disclosure mitigation —
+ * backend hard-scopes `userIdFilter` to the session userId regardless of what
+ * the client sends, so kitchen/order_staff roles cannot exfiltrate other
+ * staff's hours. Returns `{ ...aggregation, staff: StaffSummary | null }` —
+ * a single entity (or null) which differs intentionally from
+ * getStaffPerformanceSummary's array-returning shape.
+ */
+export function useMyPerformance(startDate: string, endDate: string) {
+  const { user } = useAuth();
+  return useQuery(
+    api.staffAttendance.queries.getMyPerformance,
+    user?.token ? { token: user.token, startDate, endDate } : "skip"
+  );
+}
+
+/**
+ * Manager correction mutation wrapper. T-74-02 repudiation mitigation is
+ * enforced server-side (required trimmed correctionNote + non-repudiable
+ * corrections[] audit trail). Supports edit_timestamps | add_missed |
+ * reassign | delete actions.
+ */
+export function useCorrectAttendance() {
+  return useProtectedMutation(api.staffAttendance.mutations.correctAttendance);
+}

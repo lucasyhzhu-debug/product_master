@@ -23,7 +23,10 @@ function formatBreakdown(
 export function generateStaffPerformanceCSV(data: StaffPerformanceData): string {
   const rows: string[][] = [];
 
-  // Header
+  // Header — Phase 74 additive columns inserted after "Days Worked":
+  //   "Hours Worked" | "Days Attended" | "Flagged Shifts" (D-11 / D-12).
+  // Columns are additive — existing downstream consumers see no renames or
+  // reorderings of the pre-74 layout.
   rows.push([
     "Staff Name",
     "Total Balls Produced",
@@ -32,6 +35,9 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
     "Total Product Waste (units)",
     "Shifts",
     "Days Worked",
+    "Hours Worked",
+    "Days Attended",
+    "Flagged Shifts",
     "Product Breakdown",
     "Component Breakdown",
     "Component Waste Breakdown",
@@ -49,6 +55,10 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
       String(staff.totalWaste),
       String(staff.shiftCount),
       String(staff.daysWorked),
+      // Phase 74 additive fields (default-0 safe for legacy-shape inputs)
+      (staff.totalHoursWorked ?? 0).toFixed(1),
+      String(staff.daysAttended ?? 0),
+      String(staff.flaggedShiftCount ?? 0),
       formatBreakdown(staff.productBreakdown.map((p) => ({ name: p.name, quantity: p.ballCount })), " balls"),
       formatBreakdown(staff.componentBreakdown, "g"),
       formatBreakdown(staff.componentWasteBreakdown, "g"),
@@ -57,7 +67,7 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
     ]);
   }
 
-  // Totals row
+  // Totals row — include Phase 74 additive totals for consistency.
   const totals = data.staff.reduce(
     (acc, s) => ({
       balls: acc.balls + s.totalBallsProduced,
@@ -65,8 +75,11 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
       compWaste: acc.compWaste + s.totalComponentWasteGrams,
       waste: acc.waste + s.totalWaste,
       shifts: acc.shifts + s.shiftCount,
+      hours: acc.hours + (s.totalHoursWorked ?? 0),
+      daysAttended: acc.daysAttended + (s.daysAttended ?? 0),
+      flagged: acc.flagged + (s.flaggedShiftCount ?? 0),
     }),
-    { balls: 0, grams: 0, compWaste: 0, waste: 0, shifts: 0 }
+    { balls: 0, grams: 0, compWaste: 0, waste: 0, shifts: 0, hours: 0, daysAttended: 0, flagged: 0 }
   );
 
   rows.push([]);
@@ -78,6 +91,9 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
     String(totals.waste),
     String(totals.shifts),
     "",
+    totals.hours.toFixed(1),
+    String(totals.daysAttended),
+    String(totals.flagged),
     "",
     "",
     "",
@@ -146,6 +162,31 @@ export function generateDetailedStaffCSV(data: StaffPerformanceData): string {
       String(staff.totalBallsProduced),
       "total balls",
     ]);
+
+    // Phase 74 — Attendance section (per-day breakdown). Additive; legacy
+    // consumers that only read the 5-column [Staff/Type/Item/Quantity/Unit]
+    // header see new rows typed as Type="Attendance" and can ignore them.
+    const perDayBreakdown = staff.perDayBreakdown ?? [];
+    if (perDayBreakdown.length > 0) {
+      for (const day of perDayBreakdown) {
+        const flaggedCount = day.sessions.filter((s) => s.isFlagged).length;
+        rows.push([
+          staff.chefName,
+          "Attendance",
+          `${day.date} (${day.sessions.length} session${day.sessions.length === 1 ? "" : "s"}${flaggedCount > 0 ? `, ${flaggedCount} flagged` : ""})`,
+          day.hoursWorked.toFixed(2),
+          "hours",
+        ]);
+      }
+      // Attendance subtotal row — hours + days attended + flagged
+      rows.push([
+        staff.chefName,
+        "Attendance Summary",
+        `${staff.daysAttended ?? 0} days attended / ${staff.flaggedShiftCount ?? 0} flagged`,
+        (staff.totalHoursWorked ?? 0).toFixed(2),
+        "total hours",
+      ]);
+    }
   }
 
   // Footer metadata
