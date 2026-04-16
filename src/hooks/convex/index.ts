@@ -517,3 +517,11 @@ export {
   type StaffPerformanceData,
   type StaffSummary,
 } from "./useStaffPerformance";
+
+// Staff Attendance (Phase 74 — clock in/out)
+export {
+  useCurrentOpenShift,
+  useMyLastShiftSummary,
+  useClockIn,
+  useClockOut,
+} from "./useAttendance";
