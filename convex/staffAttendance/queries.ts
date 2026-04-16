@@ -16,6 +16,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { detectFlags, detectOverlaps } from "./flagEngine";
+import { aggregateStaffPerformance } from "./aggregation";
 
 export const getCurrentOpenShift = query({
   args: { token: v.string() },
@@ -179,10 +180,13 @@ export const getFlaggedShifts = query({
 });
 
 /**
- * Task 2 STUB — Task 3 replaces this body with a call to
- * aggregateStaffPerformance(ctx, { startDate, endDate, userIdFilter: user._id }).
- * Returns a type-complete placeholder so consumers can wire types now; Plan 03
- * MyPerformance.tsx empty-state key is `!data?.staff`.
+ * Personal performance view for the caller. T-74-03 info-disclosure
+ * mitigation: userIdFilter is HARD-SCOPED to the session user, so even kitchen
+ * roles can't query other staff's hours by passing a different id. Returns
+ * `{ ...aggregation, staff: StaffSummary | null }` — a single object (or null
+ * when the user has no data) which differs intentionally from
+ * getStaffPerformanceSummary's `staff: StaffSummary[]` array shape (Plan 03
+ * MyPerformance.tsx renders a single entity and checks `!data?.staff`).
  */
 export const getMyPerformance = query({
   args: {
@@ -197,13 +201,16 @@ export const getMyPerformance = query({
       "manager",
       "admin",
     ]);
-    // Reference user to silence unused-variable linting; Task 3 wires for real.
-    void user;
-    return {
+    const result = await aggregateStaffPerformance(ctx, {
       startDate: args.startDate,
       endDate: args.endDate,
-      totalRecords: 0,
-      staff: null,
+      userIdFilter: user._id,
+    });
+    return {
+      startDate: result.startDate,
+      endDate: result.endDate,
+      totalRecords: result.totalRecords,
+      staff: result.staff[0] ?? null,
     };
   },
 });
