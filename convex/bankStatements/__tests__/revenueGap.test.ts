@@ -160,11 +160,12 @@ describe("revenueGapByPeriod", () => {
       r.channels.includes("gopay"),
     );
     expect(gopay).toBeDefined();
-    expect(gopay.bankCr).toBe(1_000_000); // Debit line for gopay must be ignored
+    expect(gopay!.bankCr).toBe(1_000_000); // Debit line for gopay must be ignored
     const grabfood = result.rows.find((r: { channels: string[] }) =>
       r.channels.includes("grabfood"),
     );
-    expect(grabfood.bankCr).toBe(500_000);
+    expect(grabfood).toBeDefined();
+    expect(grabfood!.bankCr).toBe(500_000);
   });
 
   it("mapped channels join via mapChannelToSource and compute extRev by source", async () => {
@@ -181,17 +182,19 @@ describe("revenueGapByPeriod", () => {
     const gopay = result.rows.find((r: { channels: string[] }) =>
       r.channels.includes("gopay"),
     );
-    expect(gopay.source).toBe("gobiz");
-    expect(gopay.extRev).toBe(900_000);
-    expect(gopay.diff).toBe(100_000);
-    expect(gopay.diffPct).toBeCloseTo(100_000 / 900_000 * 100, 2);
+    expect(gopay).toBeDefined();
+    expect(gopay!.source).toBe("gobiz");
+    expect(gopay!.extRev).toBe(900_000);
+    expect(gopay!.diff).toBe(100_000);
+    expect(gopay!.diffPct).toBeCloseTo(100_000 / 900_000 * 100, 2);
 
     const grabfood = result.rows.find((r: { channels: string[] }) =>
       r.channels.includes("grabfood"),
     );
-    expect(grabfood.source).toBe("grabfood");
-    expect(grabfood.extRev).toBe(500_000);
-    expect(grabfood.diff).toBe(0);
+    expect(grabfood).toBeDefined();
+    expect(grabfood!.source).toBe("grabfood");
+    expect(grabfood!.extRev).toBe(500_000);
+    expect(grabfood!.diff).toBe(0);
   });
 
   it("diff and diffPct computed per row; diffPct null when extRev is 0 or null", async () => {
@@ -208,8 +211,9 @@ describe("revenueGapByPeriod", () => {
     const unallocated = result.rows.find(
       (r: { unallocated?: boolean }) => r.unallocated === true,
     );
-    expect(unallocated.extRev).toBeNull();
-    expect(unallocated.diffPct).toBeNull();
+    expect(unallocated).toBeDefined();
+    expect(unallocated!.extRev).toBeNull();
+    expect(unallocated!.diffPct).toBeNull();
   });
 
   it("unmapped channels (ovo) go into unmappedRows group with extRev=null (C1)", async () => {
@@ -226,14 +230,16 @@ describe("revenueGapByPeriod", () => {
     expect(Array.isArray(result.unmappedRows)).toBe(true);
     const ovo = result.unmappedRows.find((r: { channel: string }) => r.channel === "ovo");
     expect(ovo).toBeDefined();
-    expect(ovo.bankCr).toBe(200_000);
-    expect(ovo.extRev).toBeNull();
-    expect(ovo.diff).toBe(200_000);
-    expect(ovo.diffPct).toBeNull();
-    expect(ovo.unmapped).toBe(true);
+    expect(ovo!.bankCr).toBe(200_000);
+    expect(ovo!.extRev).toBeNull();
+    expect(ovo!.diff).toBe(200_000);
+    expect(ovo!.diffPct).toBeNull();
+    expect(ovo!.unmapped).toBe(true);
 
-    // ovo MUST NOT appear in rows
-    expect(result.rows.find((r: { channel: string }) => r.channel === "ovo")).toBeUndefined();
+    // ovo MUST NOT appear in rows (rows use channels: string[], not channel: string)
+    expect(
+      result.rows.find((r: { channels: string[] }) => r.channels.includes("ovo")),
+    ).toBeUndefined();
   });
 
   it("(unallocated) row has extRev=null and stays in rows (not unmappedRows)", async () => {
@@ -250,7 +256,7 @@ describe("revenueGapByPeriod", () => {
       (r: { unallocated?: boolean }) => r.unallocated === true,
     );
     expect(unallocated).toBeDefined();
-    expect(unallocated.extRev).toBeNull();
+    expect(unallocated!.extRev).toBeNull();
     expect(
       result.unmappedRows.find((r: { channel: string }) => r.channel === "(unallocated)"),
     ).toBeUndefined();
