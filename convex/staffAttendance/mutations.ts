@@ -101,6 +101,11 @@ export const clockOut = mutation({
         "This shift is from a prior day. Ask a manager to correct it.",
       );
     }
+    // Date anchored to clockIn: we intentionally do NOT update `record.date`
+    // when clockOut lands on a later WIB day (midnight-spanning shifts like
+    // 23:55→00:05). Aggregations bucket sessions by clockIn date, and moving
+    // the date on close would produce a row whose date disagrees with its
+    // clockIn timestamp — the exact inconsistency WR-03 rejects in corrections.
     await ctx.db.patch(args.attendanceId, {
       clockOut: now,
       durationMs: now - record.clockIn,
@@ -188,6 +193,14 @@ export const correctAttendance = mutation({
     const existing = await ctx.db.get(args.attendanceId);
     if (!existing) {
       throw new ConvexError("Attendance record not found");
+    }
+    // Triple-review C1: block mutations on soft-deleted rows. Without this,
+    // a manager could append corrections[] entries or overwrite deletedAt/By
+    // on an already-deleted record, corrupting the audit trail (T-74-02).
+    if (existing.deletedAt) {
+      throw new ConvexError(
+        "Cannot correct a deleted attendance record. Use add_missed to create a replacement.",
+      );
     }
     const corrections = existing.corrections ? [...existing.corrections] : [];
 
