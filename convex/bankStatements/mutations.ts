@@ -30,7 +30,6 @@
 
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { getWibComponents } from "../lib/periodRange";
 import { externalSource } from "../schema";
