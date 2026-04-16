@@ -52,6 +52,15 @@ describe("toWibDateString", () => {
     // Last UTC second that still resolves to 2026-04-16 WIB.
     expect(toWibDateString(Date.UTC(2026, 3, 16, 16, 59, 59))).toBe("2026-04-16");
   });
+
+  it("throws on NaN input (WR-02 regression)", () => {
+    expect(() => toWibDateString(NaN)).toThrow(/non-finite/);
+  });
+
+  it("throws on Infinity input (WR-02 regression)", () => {
+    expect(() => toWibDateString(Number.POSITIVE_INFINITY)).toThrow(/non-finite/);
+    expect(() => toWibDateString(Number.NEGATIVE_INFINITY)).toThrow(/non-finite/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -85,12 +94,29 @@ describe("detectOverlaps", () => {
     expect(overlaps.has(b._id)).toBe(true);
   });
 
-  it("treats open shifts as end = +Infinity — any subsequent session overlaps", () => {
+  it("flags open shift overlap with subsequent session within the 16h window (I1)", () => {
+    // Open shift at 10:00; another session starts at 12:00 (within 16h of clockIn).
     const open = mkSession("open", 10 * HOUR, undefined);
     const later = mkSession("later", 12 * HOUR, 14 * HOUR);
     const overlaps = detectOverlaps([open, later]);
     expect(overlaps.has(open._id)).toBe(true);
     expect(overlaps.has(later._id)).toBe(true);
+  });
+
+  it("does NOT flag sessions past the 16h open-shift window as overlapping (I1 regression)", () => {
+    // An abandoned open shift on day 0 should not taint a legitimate session
+    // on day 1. Without the cap, the +Infinity end treatment would flag every
+    // later session — inflating flaggedShiftCount across multi-day periods.
+    const openDay0 = mkSession("open", 10 * HOUR, undefined, "2026-04-16");
+    const nextDay = mkSession(
+      "next",
+      10 * HOUR + OPEN_SHIFT_THRESHOLD_MS + HOUR,
+      10 * HOUR + OPEN_SHIFT_THRESHOLD_MS + 9 * HOUR,
+      "2026-04-17",
+    );
+    const overlaps = detectOverlaps([openDay0, nextDay]);
+    expect(overlaps.has(openDay0._id)).toBe(false);
+    expect(overlaps.has(nextDay._id)).toBe(false);
   });
 
   it("handles unsorted input by sorting internally", () => {
@@ -116,7 +142,7 @@ describe("detectOverlaps", () => {
   });
 
   it("flags transitive overlaps when the outer session is open (WR-01)", () => {
-    // Open long-running session A envelops both B and C.
+    // Open long-running session A envelops both B and C (within 16h cap).
     const a = mkSession("a", 8 * HOUR, undefined);
     const b = mkSession("b", 9 * HOUR, 10 * HOUR);
     const c = mkSession("c", 11 * HOUR, 12 * HOUR);

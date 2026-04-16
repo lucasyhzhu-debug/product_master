@@ -227,6 +227,110 @@ describe("correctAttendance", () => {
     expect(row!.corrections![0].correctedByUserId).toBe(mgrId);
   });
 
+  it("add_missed rejects when clockIn WIB date disagrees with date arg (WR-03 regression)", async () => {
+    const t = convexTest(schema);
+    const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
+    const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
+
+    // clockIn = 2026-04-16T18:00Z = 2026-04-17T01:00 WIB (next day in WIB).
+    // Passing date="2026-04-16" is inconsistent with the WIB-derived date.
+    const badClockIn = Date.parse("2026-04-16T18:00:00Z");
+    await expect(
+      t.mutation(api.staffAttendance.mutations.correctAttendance, {
+        token: mgrToken,
+        action: "add_missed",
+        correctionNote: "test WR-03 guard",
+        userId,
+        date: "2026-04-16",
+        clockIn: badClockIn,
+      }),
+    ).rejects.toThrow(/does not match/i);
+  });
+
+  it("edit_timestamps rejects clockIn that moves shift across WIB midnight (WR-03 regression)", async () => {
+    const t = convexTest(schema);
+    const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
+    const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
+
+    // Seeded row: date=2026-04-16, clockIn at 08:00 WIB same day.
+    const goodClockIn = Date.parse("2026-04-16T01:00:00Z"); // 08:00 WIB
+    const attendanceId = await insertAttendance(t, {
+      userId,
+      date: "2026-04-16",
+      clockIn: goodClockIn,
+    });
+
+    // Moving clockIn to 2026-04-15T18:00Z = 2026-04-16T01:00 WIB is fine (same date).
+    // But moving to 2026-04-15T16:00Z = 2026-04-15T23:00 WIB crosses WIB date boundary.
+    const crossMidnight = Date.parse("2026-04-15T16:00:00Z");
+    await expect(
+      t.mutation(api.staffAttendance.mutations.correctAttendance, {
+        token: mgrToken,
+        action: "edit_timestamps",
+        correctionNote: "try to move across WIB midnight",
+        attendanceId,
+        clockIn: crossMidnight,
+      }),
+    ).rejects.toThrow(/does not match/i);
+  });
+
+  it("rejects any correction action on a soft-deleted row (Triple-review C1)", async () => {
+    const t = convexTest(schema);
+    const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
+    const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
+    const { userId: userB } = await seedUser(t, { name: "B", role: "kitchen" });
+
+    const today = toWibDateString(Date.now());
+    const attendanceId = await insertAttendance(t, {
+      userId,
+      date: today,
+      clockIn: Date.now() - 60 * 60 * 1000,
+    });
+
+    // Soft-delete it first.
+    await t.mutation(api.staffAttendance.mutations.correctAttendance, {
+      token: mgrToken,
+      action: "delete",
+      correctionNote: "initial delete",
+      attendanceId,
+    });
+
+    // Each remaining action must reject with the "Cannot correct a deleted" error.
+    await expect(
+      t.mutation(api.staffAttendance.mutations.correctAttendance, {
+        token: mgrToken,
+        action: "edit_timestamps",
+        correctionNote: "try to edit deleted row",
+        attendanceId,
+        clockIn: Date.now() - 2 * 60 * 60 * 1000,
+      }),
+    ).rejects.toThrow(/deleted/i);
+
+    await expect(
+      t.mutation(api.staffAttendance.mutations.correctAttendance, {
+        token: mgrToken,
+        action: "reassign",
+        correctionNote: "try to reassign deleted row",
+        attendanceId,
+        userId: userB,
+      }),
+    ).rejects.toThrow(/deleted/i);
+
+    await expect(
+      t.mutation(api.staffAttendance.mutations.correctAttendance, {
+        token: mgrToken,
+        action: "delete",
+        correctionNote: "try to double-delete",
+        attendanceId,
+      }),
+    ).rejects.toThrow(/deleted/i);
+
+    // Audit trail is preserved: only the initial delete entry remains.
+    const row = await t.run(async (ctx) => await ctx.db.get(attendanceId));
+    expect(row?.corrections).toHaveLength(1);
+    expect(row!.corrections![0].correctionNote).toBe("initial delete");
+  });
+
   it("multiple corrections accumulate in corrections[] preserving history", async () => {
     const t = convexTest(schema);
     const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
