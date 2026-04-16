@@ -135,6 +135,9 @@ const BulkPriceUpdate = lazyWithPreload(() =>
 const StaffPerformance = lazyWithPreload(() =>
   import('./pages/StaffPerformance').then(m => ({ default: m.StaffPerformance }))
 );
+const ClockInGate = lazyWithPreload(() =>
+  import('./pages/ClockInGate').then(m => ({ default: m.ClockInGate }))
+);
 const BankReconciliationPage = lazyWithPreload(() =>
   import('./pages/BankReconciliationPage').then(m => ({ default: m.BankReconciliationPage }))
 );
@@ -174,6 +177,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessKitchen">
                         <KitchenViewV2 />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase 74: Clock-In gate screen (ATT-01). Kitchen-role users land
+                      here after PIN login; they tap Clock-In and are routed to /kitchen. */}
+                  <Route
+                    path="kitchen/clock"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessKitchen">
+                        <ClockInGate />
                       </ProtectedRoute>
                     }
                   />
@@ -618,7 +631,8 @@ function App() {
 function RoleBasedRedirect() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === "kitchen") return <Navigate to="/kitchen" replace />;
+  // Phase 74: kitchen role lands on the Clock-In gate screen (ATT-01, D-01).
+  if (user.role === "kitchen") return <Navigate to="/kitchen/clock" replace />;
   if (user.role === "order_staff") return <Navigate to="/orders" replace />;
   // Manager and Admin → Hub page
   return <Navigate to="/home" replace />;
