@@ -151,6 +151,15 @@ export const correctAttendance = mutation({
       if (args.clockOut !== undefined && args.clockOut < args.clockIn) {
         throw new ConvexError("Clock-out must be after clock-in");
       }
+      // WR-03: ensure the client-computed `date` field matches the WIB date
+      // derived from `clockIn`. Prevents drift when a manager picks a clock-in
+      // time that crosses WIB midnight relative to the date input.
+      const derivedDate = toWibDateString(args.clockIn);
+      if (derivedDate !== args.date) {
+        throw new ConvexError(
+          `Date field (${args.date}) does not match clock-in WIB date (${derivedDate})`,
+        );
+      }
       const durationMs =
         args.clockOut !== undefined ? args.clockOut - args.clockIn : undefined;
       const newId = await ctx.db.insert("staffAttendance", {
@@ -226,6 +235,18 @@ export const correctAttendance = mutation({
     // I-1 guard: reject nonsensical clockOut < clockIn.
     if (newClockOut !== undefined && newClockOut < newClockIn) {
       throw new ConvexError("Clock-out must be after clock-in");
+    }
+    // WR-03: if clockIn changed, ensure the existing `date` still matches the
+    // WIB-derived date of the new clockIn. Prevents a WIB-midnight crossing
+    // correction from producing a row whose date field is inconsistent with
+    // its clockIn timestamp.
+    if (args.clockIn !== undefined) {
+      const derivedDate = toWibDateString(newClockIn);
+      if (derivedDate !== existing.date) {
+        throw new ConvexError(
+          `Existing date (${existing.date}) does not match new clock-in WIB date (${derivedDate}). Use add_missed + delete to move a shift across dates.`,
+        );
+      }
     }
     corrections.push({
       correctedAt,
