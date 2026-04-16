@@ -18,6 +18,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useProtectedMutation } from "@/hooks/convex/useProtectedMutation";
+import { useKitchenTargets } from "@/hooks/convex/useKitchenTargets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,8 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getKitchenLeafComponents } from "@/lib/componentFilters";
-import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
+import { type ComponentUnit } from "@/lib/componentUnit";
 import type { ShiftRecord, ComponentProducedEntry, ComponentWasteEntry } from "./ShiftHistoryList";
 
 import { WASTE_REASONS, type WasteReason } from './index';
@@ -74,11 +74,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     api.kitchenShiftRecords.mutations.updateShiftRecord
   );
 
-  const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
-  const kitchenComponents = useMemo(
-    () => getKitchenLeafComponents(componentsWithTiers ?? []),
-    [componentsWithTiers]
-  );
+  const { kitchenComponents, unitByCode } = useKitchenTargets();
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
 
   const [producedRows, setProducedRows] = useState<ProducedRow[]>(() =>
@@ -136,36 +132,34 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     [componentProducedRows]
   );
 
-  // componentTracking is authoritative when present; falls back to the legacy
-  // enabledKitchenComponents array. Matches the precedence used by
-  // useKitchenTargets so the dialog surfaces the same add-able set as the
-  // main shift form.
-  const enabledCodesFromTracking = useMemo(() => {
-    if (!kitchenConfig?.componentTracking || kitchenConfig.componentTracking.length === 0) {
-      return null;
-    }
+  // Enabled kitchen component codes. componentTracking is authoritative when
+  // present; falls back to legacy enabledKitchenComponents. If componentTracking
+  // exists but yields an empty set (e.g. only tier-1 codes tracked), fall back
+  // to legacy so the edit dialog doesn't hide every add-able component.
+  const enabledKitchenCodes = useMemo<Set<string> | null>(() => {
     const kitchenCodeSet = new Set(kitchenComponents.map((c) => c.code));
-    return new Set(
-      kitchenConfig.componentTracking
-        .filter((e) => e.tracked && kitchenCodeSet.has(e.code))
-        .map((e) => e.code)
-    );
-  }, [kitchenConfig?.componentTracking, kitchenComponents]);
+    if (kitchenConfig?.componentTracking && kitchenConfig.componentTracking.length > 0) {
+      const derived = new Set(
+        kitchenConfig.componentTracking
+          .filter((e) => e.tracked && kitchenCodeSet.has(e.code))
+          .map((e) => e.code)
+      );
+      if (derived.size > 0) return derived;
+    }
+    const legacy = kitchenConfig?.enabledKitchenComponents;
+    if (!legacy) return null;
+    return new Set(legacy.filter((code) => kitchenCodeSet.has(code)));
+  }, [kitchenConfig?.componentTracking, kitchenConfig?.enabledKitchenComponents, kitchenComponents]);
 
   const addableComponents = useMemo(() => {
-    if (!kitchenComponents) return [];
-    const legacyEnabled = kitchenConfig?.enabledKitchenComponents;
     return kitchenComponents
       .filter((c) => {
         if (existingComponentCodes.has(c.code)) return false;
-        if (enabledCodesFromTracking) {
-          return enabledCodesFromTracking.has(c.code);
-        }
-        if (legacyEnabled && legacyEnabled.length > 0 && !legacyEnabled.includes(c.code)) return false;
+        if (enabledKitchenCodes && !enabledKitchenCodes.has(c.code)) return false;
         return true;
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [kitchenComponents, kitchenConfig, existingComponentCodes, enabledCodesFromTracking]);
+  }, [kitchenComponents, existingComponentCodes, enabledKitchenCodes]);
 
   // Pre-computed produced grams by component code for O(1) validation lookups
   const producedGramsByCode = useMemo(() => {
@@ -178,22 +172,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     return map;
   }, [componentProducedRows]);
 
-  // Priority: stored unit on row > componentTracking unit > componentType native unit > "g".
-  const configuredUnitByCode = useMemo(() => {
-    const map = new Map<string, ComponentUnit>();
-    if (kitchenConfig?.componentTracking && kitchenConfig.componentTracking.length > 0) {
-      for (const entry of kitchenConfig.componentTracking) {
-        map.set(entry.code, entry.unit);
-      }
-    }
-    for (const c of kitchenComponents) {
-      if (!map.has(c.code)) map.set(c.code, resolveUnit(c.unit));
-    }
-    return map;
-  }, [kitchenConfig?.componentTracking, kitchenComponents]);
-
+  // Priority: stored unit on row > hook's unitByCode > "g".
   function unitForRow(code: string, storedUnit?: ComponentUnit): ComponentUnit {
-    return storedUnit ?? configuredUnitByCode.get(code) ?? "g";
+    return storedUnit ?? unitByCode[code] ?? "g";
   }
 
   function updateProducedQty(index: number, qty: number) {
