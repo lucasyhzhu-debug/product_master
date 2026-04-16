@@ -122,11 +122,13 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   );
 
   // Component production rows (Phase 69)
+  // C1: preserve stored unit (if present) for display; legacy records default to "g".
   const [componentProducedRows, setComponentProducedRows] = useState<ComponentProducedEntry[]>(() =>
     (record.componentProduced ?? []).map((c) => ({
       kitchenComponentCode: c.kitchenComponentCode,
       kitchenComponentName: c.kitchenComponentName,
       grams: c.grams,
+      unit: c.unit,
     }))
   );
 
@@ -136,6 +138,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       kitchenComponentName: c.kitchenComponentName,
       reason: (c.reason as WasteReason) ?? "waste",
       grams: c.grams,
+      unit: c.unit,
     }))
   );
 
@@ -180,6 +183,30 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     }
     return map;
   }, [componentProducedRows]);
+
+  // C1: resolve display unit for a component code.
+  // Priority: stored unit on row > componentTracking unit > componentType native unit > "g".
+  const configuredUnitByCode = useMemo(() => {
+    const map = new Map<string, "g" | "pcs">();
+    // componentTracking is authoritative when present
+    if (kitchenConfig?.componentTracking && kitchenConfig.componentTracking.length > 0) {
+      for (const entry of kitchenConfig.componentTracking) {
+        map.set(entry.code, entry.unit);
+      }
+    }
+    // fall back to componentType native unit for codes not in tracking
+    for (const c of kitchenComponents) {
+      if (!map.has(c.code)) {
+        const u = c.unit === "g" || c.unit === "pcs" ? c.unit : "g";
+        map.set(c.code, u);
+      }
+    }
+    return map;
+  }, [kitchenConfig?.componentTracking, kitchenComponents]);
+
+  function unitForRow(code: string, storedUnit?: "g" | "pcs"): "g" | "pcs" {
+    return storedUnit ?? configuredUnitByCode.get(code) ?? "g";
+  }
 
   // -------------------------------------------------------
   // Produced row handlers
@@ -330,6 +357,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
             kitchenComponentCode: c.kitchenComponentCode,
             kitchenComponentName: c.kitchenComponentName,
             grams: c.grams,
+            unit: unitForRow(c.kitchenComponentCode, c.unit),
           })),
         componentWaste: componentWasteRows
           .filter((c) => c.grams > 0)
@@ -338,6 +366,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
             kitchenComponentName: c.kitchenComponentName,
             reason: c.reason as "qa_testing" | "spoilage" | "waste",
             grams: c.grams,
+            unit: unitForRow(c.kitchenComponentCode, c.unit),
           })),
       });
 
@@ -418,7 +447,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                   .map((c) => (
                     <div key={c.kitchenComponentCode} className="flex items-center justify-between text-sm">
                       <span>{c.kitchenComponentName}</span>
-                      <span className="font-medium tabular-nums">{c.grams}g</span>
+                      <span className="font-medium tabular-nums">
+                        {c.grams}{unitForRow(c.kitchenComponentCode, c.unit)}
+                      </span>
                     </div>
                   ))}
                 {componentWasteRows
@@ -426,7 +457,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                   .map((c, i) => (
                     <div key={`${c.kitchenComponentCode}-waste-${i}`} className="flex items-center justify-between text-sm text-destructive/80">
                       <span>{c.kitchenComponentName} (waste)</span>
-                      <span className="font-medium tabular-nums">-{c.grams}g</span>
+                      <span className="font-medium tabular-nums">
+                        -{c.grams}{unitForRow(c.kitchenComponentCode, c.unit)}
+                      </span>
                     </div>
                   ))}
               </div>
@@ -603,7 +636,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                     }
                     className="w-24 text-right tabular-nums"
                   />
-                  <span className="text-xs text-muted-foreground w-4">g</span>
+                  <span className="text-xs text-muted-foreground w-6">
+                    {unitForRow(row.kitchenComponentCode, row.unit)}
+                  </span>
                 </div>
               ))}
               {/* Add component buttons for components not yet tracked */}
@@ -710,7 +745,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                           }
                           className="w-20 text-right tabular-nums"
                         />
-                        <span className="text-xs text-muted-foreground w-4">g</span>
+                        <span className="text-xs text-muted-foreground w-6">
+                          {unitForRow(row.kitchenComponentCode, row.unit)}
+                        </span>
                       </div>
                     </div>
                   ))}

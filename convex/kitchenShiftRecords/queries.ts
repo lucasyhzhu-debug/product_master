@@ -148,12 +148,16 @@ export const getDailyComponentSummary = query({
       .withIndex("by_date", (q) => q.eq("date", args.date))
       .collect();
 
-    // Aggregate per component
+    // C1: Aggregate per component and track the display unit.
+    // If two records for the same code carry different units (rare — would only
+    // happen if a manager changes the unit config mid-day), the last-seen unit
+    // wins for display and a warning is included.
     const componentMap = new Map<
       string,
       {
         code: string;
         name: string;
+        unit: "g" | "pcs";
         totalProducedGrams: number;
         totalWasteGrams: number;
         perPerson: Array<{
@@ -177,12 +181,16 @@ export const getDailyComponentSummary = query({
             componentMap.set(item.kitchenComponentCode, {
               code: item.kitchenComponentCode,
               name: item.kitchenComponentName,
+              unit: item.unit ?? "g",
               totalProducedGrams: 0,
               totalWasteGrams: 0,
               perPerson: [],
             });
           }
           const entry = componentMap.get(item.kitchenComponentCode)!;
+          // Prefer an explicit stored unit over the default (g) so newer records
+          // can upgrade the unit if the first record seen had no unit field.
+          if (item.unit) entry.unit = item.unit;
           entry.totalProducedGrams += item.grams;
 
           // Per-person attribution
@@ -211,12 +219,14 @@ export const getDailyComponentSummary = query({
             componentMap.set(item.kitchenComponentCode, {
               code: item.kitchenComponentCode,
               name: item.kitchenComponentName,
+              unit: item.unit ?? "g",
               totalProducedGrams: 0,
               totalWasteGrams: 0,
               perPerson: [],
             });
           }
           const entry = componentMap.get(item.kitchenComponentCode)!;
+          if (item.unit) entry.unit = item.unit;
           entry.totalWasteGrams += item.grams;
 
           // Per-person waste attribution

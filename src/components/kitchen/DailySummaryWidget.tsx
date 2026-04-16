@@ -27,6 +27,8 @@ interface DailySummaryWidgetProps {
   componentSummary?: Array<{
     code: string;
     name: string;
+    /** C1: display unit. Historical records default to "g". */
+    unit?: "g" | "pcs";
     totalProducedGrams: number;
     totalWasteGrams: number;
     perPerson: Array<{
@@ -91,14 +93,16 @@ export function DailySummaryWidget({
             <div>
               <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Component Production</h4>
               <div className="space-y-3">
-                {componentSummary.map((comp) => (
+                {componentSummary.map((comp) => {
+                  const unit = comp.unit ?? "g";
+                  return (
                   <div key={comp.code} className="bg-muted rounded-lg p-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">{comp.name}</span>
                       <div className="flex items-center gap-2 text-xs tabular-nums">
-                        <span className="font-bold text-foreground">{comp.totalProducedGrams}g</span>
+                        <span className="font-bold text-foreground">{comp.totalProducedGrams}{unit}</span>
                         {comp.totalWasteGrams > 0 && (
-                          <span className="text-destructive">-{comp.totalWasteGrams}g waste</span>
+                          <span className="text-destructive">-{comp.totalWasteGrams}{unit} waste</span>
                         )}
                       </div>
                     </div>
@@ -109,9 +113,9 @@ export function DailySummaryWidget({
                           <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{person.chefName ?? person.submittedBy}</span>
                             <div className="flex items-center gap-2 tabular-nums">
-                              <span>{person.producedGrams}g</span>
+                              <span>{person.producedGrams}{unit}</span>
                               {person.wasteGrams > 0 && (
-                                <span className="text-destructive">-{person.wasteGrams}g</span>
+                                <span className="text-destructive">-{person.wasteGrams}{unit}</span>
                               )}
                             </div>
                           </div>
@@ -119,7 +123,8 @@ export function DailySummaryWidget({
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

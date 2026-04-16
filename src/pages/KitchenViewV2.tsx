@@ -292,11 +292,14 @@ export function KitchenViewV2() {
                 (sum: number, w: { quantity: number }) => sum + w.quantity,
                 0
               );
-              // Phase 69: Component gram totals
-              const componentGrams = (record.componentProduced ?? []).reduce(
-                (sum: number, c: { grams: number }) => sum + c.grams,
-                0
-              );
+              // Phase 69: Component totals — split per unit (C1) so pcs records
+              // don't silently inflate the grams number.
+              const componentGrams = (record.componentProduced ?? [])
+                .filter((c: { unit?: "g" | "pcs" }) => (c.unit ?? "g") === "g")
+                .reduce((sum: number, c: { grams: number }) => sum + c.grams, 0);
+              const componentPieces = (record.componentProduced ?? [])
+                .filter((c: { unit?: "g" | "pcs" }) => c.unit === "pcs")
+                .reduce((sum: number, c: { grams: number }) => sum + c.grams, 0);
               return (
                 <Card key={record._id} className="bg-muted/30">
                   <CardContent className="py-2.5 px-3">
@@ -321,6 +324,11 @@ export function KitchenViewV2() {
                         {componentGrams > 0 && (
                           <span>
                             <span className="font-medium text-foreground">{componentGrams}g</span> components
+                          </span>
+                        )}
+                        {componentPieces > 0 && (
+                          <span>
+                            <span className="font-medium text-foreground">{componentPieces} pcs</span> components
                           </span>
                         )}
                       </div>
