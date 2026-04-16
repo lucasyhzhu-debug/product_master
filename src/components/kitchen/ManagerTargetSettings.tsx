@@ -15,7 +15,7 @@
  * Requirements: KIT-09, KIT-18
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -135,9 +135,30 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // Derive whether an override is currently active
   const overrideActive = targets?.source === "override";
 
-  // Pre-populate form from config
+  // I1: hydration split.
+  // Convex queries push new `config` references whenever ANY query in the
+  // subscription graph updates. Using `[config, ...]` as an effect dep would
+  // reset unsaved edits every time an unrelated query re-ran. Instead:
+  //   - Effect A: hydrate scalar + componentTracking state only when the
+  //     underlying data actually changes (config._id + componentTracking ref).
+  //   - Effect B: derive initial componentTracking from legacy fields ONCE
+  //     when no stored tracking exists. `hasHydratedLegacyRef` prevents
+  //     re-derivation on subsequent query pushes.
+
+  const hasHydratedLegacyRef = useRef(false);
+  const lastConfigIdRef = useRef<string | null | undefined>(undefined);
+
+  // Effect A: hydrate scalar targets + packagingMix + stored componentTracking
+  // when the config identity or the componentTracking reference changes. This
+  // does NOT depend on productionComponents/kitchenComponentsList so a load of
+  // componentTypes can't reset unsaved edits.
   useEffect(() => {
-    if (config) {
+    if (!config) return;
+    const configId = config._id ? String(config._id) : null;
+    const isNewConfig = configId !== lastConfigIdRef.current;
+    lastConfigIdRef.current = configId;
+
+    if (isNewConfig) {
       setBigBallTarget(config.bigBallTarget);
       setMidBallTarget(config.midBallTarget);
       const nextOther: Record<string, number> = {};
@@ -151,31 +172,46 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           quantity: row.quantity,
         }))
       );
-      // Unified component tracking: if saved, use it; otherwise derive from legacy fields
-      if (config.componentTracking && config.componentTracking.length > 0) {
-        setComponentTracking(config.componentTracking);
-      } else {
-        // Derive from legacy fields + available components
-        const enabledProd = config.enabledProductionComponents ?? productionComponents.map((c) => c.code);
-        const enabledKitchen = config.enabledKitchenComponents;
-        const entries: ComponentTrackingEntry[] = [];
-        for (const c of productionComponents) {
-          entries.push({
-            code: c.code,
-            tracked: enabledProd.includes(c.code),
-            unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "pcs",
-          });
-        }
-        for (const c of kitchenComponentsList) {
-          entries.push({
-            code: c.code,
-            tracked: enabledKitchen === null ? true : enabledKitchen.includes(c.code),
-            unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "g",
-          });
-        }
-        setComponentTracking(entries);
-      }
+      // Reset legacy-derivation gate whenever the config identity changes so
+      // Effect B re-runs against the fresh config.
+      hasHydratedLegacyRef.current = false;
     }
+
+    // Hydrate componentTracking from stored reference whenever it changes.
+    if (config.componentTracking && config.componentTracking.length > 0) {
+      setComponentTracking(config.componentTracking);
+      hasHydratedLegacyRef.current = true;
+    }
+  }, [config?._id, config?.componentTracking, config]);
+
+  // Effect B: derive componentTracking from legacy fields + available components
+  // ONCE per config identity when no stored componentTracking is present.
+  useEffect(() => {
+    if (!config) return;
+    if (hasHydratedLegacyRef.current) return;
+    if (config.componentTracking && config.componentTracking.length > 0) return;
+    // Need the component lists loaded to derive
+    if (productionComponents.length === 0 && kitchenComponentsList.length === 0) return;
+
+    const enabledProd = config.enabledProductionComponents ?? productionComponents.map((c) => c.code);
+    const enabledKitchen = config.enabledKitchenComponents;
+    const entries: ComponentTrackingEntry[] = [];
+    for (const c of productionComponents) {
+      entries.push({
+        code: c.code,
+        tracked: enabledProd.includes(c.code),
+        unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "pcs",
+      });
+    }
+    for (const c of kitchenComponentsList) {
+      entries.push({
+        code: c.code,
+        tracked: enabledKitchen === null ? true : enabledKitchen.includes(c.code),
+        unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "g",
+      });
+    }
+    setComponentTracking(entries);
+    hasHydratedLegacyRef.current = true;
   }, [config, productionComponents, kitchenComponentsList]);
 
   // -------------------------------------------------------
