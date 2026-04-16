@@ -91,11 +91,9 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
   const clearDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.clearDailyOverride);
 
-  // -- Unified form state --
-  const [bigBallTarget, setBigBallTarget] = useState(0);   // Jumbo (80g)
-  const [midBallTarget, setMidBallTarget] = useState(0);   // Original (45g)
-  // Round-2 follow-up: targets for non-BIG/MID production codes (e.g. HAZELNUT_REGULAR)
-  const [otherBallTargets, setOtherBallTargets] = useState<Record<string, number>>({});
+  // One target per production ball code, keyed by componentType.code
+  // (BIG_BALL / MID_BALL / HAZELNUT_REGULAR / ...).
+  const [ballTargetsByCode, setBallTargetsByCode] = useState<Record<string, number>>({});
   const [packagingMix, setPackagingMix] = useState<PackagingMixRow[]>([]);
   // Unified component tracking state
   const [componentTracking, setComponentTracking] = useState<ComponentTrackingEntry[]>([]);
@@ -138,13 +136,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     lastConfigIdRef.current = configId;
 
     if (isNewConfig) {
-      setBigBallTarget(config.bigBallTarget);
-      setMidBallTarget(config.midBallTarget);
-      const nextOther: Record<string, number> = {};
+      const nextTargets: Record<string, number> = {
+        BIG_BALL: config.bigBallTarget,
+        MID_BALL: config.midBallTarget,
+      };
       for (const entry of config.otherBallTargets ?? []) {
-        nextOther[entry.code] = entry.target;
+        nextTargets[entry.code] = entry.target;
       }
-      setOtherBallTargets(nextOther);
+      setBallTargetsByCode(nextTargets);
       setPackagingMix(
         (config.defaultPackagingMix ?? []).map((row) => ({
           menuProductId: String(row.menuProductId),
@@ -193,40 +192,22 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     hasHydratedLegacyRef.current = true;
   }, [config, productionComponents, kitchenComponentsList]);
 
-  // -------------------------------------------------------
-  // Derive the ordered list of ball target rows to render.
-  // Each active + enabled tier-1 production `pcs` componentType gets one row.
-  // BIG_BALL / MID_BALL keep their dedicated state for backward compat; every
-  // other code reads/writes via `otherBallTargets[code]`.
-  // -------------------------------------------------------
-
+  // Ordered ball target rows — one per tier-1 pcs production componentType.
+  // Disabled codes still render (so the user can enable + set a target in one
+  // save action), but the input is dimmed.
   const ballTargetRows = useMemo(() => {
-    // Filter productionComponents to tier-1 pcs ball types that are enabled.
-    // Non-enabled codes still surface (so the user can enable + set a target
-    // in one save action), but rendered disabled.
     const rows = productionComponents
       .filter((c) => c.unit === "pcs")
       .map((c) => {
         const isEnabled = enabledComponents.includes(c.code);
-        // Build label — use gramsPerUnit if present for consistency with
-        // the legacy "Original (45g)" / "Jumbo (80g)" labels.
         const grams = c.gramsPerUnit;
         const label = grams ? `${c.name} (${grams}g)` : c.name;
-        const value =
-          c.code === "BIG_BALL"
-            ? bigBallTarget
-            : c.code === "MID_BALL"
-              ? midBallTarget
-              : (otherBallTargets[c.code] ?? 0);
-        const setValue = (n: number) => {
-          const v = Math.max(0, n);
-          if (c.code === "BIG_BALL") setBigBallTarget(v);
-          else if (c.code === "MID_BALL") setMidBallTarget(v);
-          else setOtherBallTargets((prev) => ({ ...prev, [c.code]: v }));
-        };
+        const value = ballTargetsByCode[c.code] ?? 0;
+        const setValue = (n: number) =>
+          setBallTargetsByCode((prev) => ({ ...prev, [c.code]: Math.max(0, n) }));
         return { code: c.code, label, value, setValue, isEnabled };
       });
-    // Stable order: BIG_BALL / MID_BALL first (if present), then others alphabetical.
+    // Stable order: MID_BALL first, then BIG_BALL, then others alphabetical.
     rows.sort((a, b) => {
       const order = (code: string) =>
         code === "MID_BALL" ? 0 : code === "BIG_BALL" ? 1 : 2;
@@ -236,7 +217,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       return a.label.localeCompare(b.label);
     });
     return rows;
-  }, [productionComponents, enabledComponents, bigBallTarget, midBallTarget, otherBallTargets]);
+  }, [productionComponents, enabledComponents, ballTargetsByCode]);
 
   // Ball groups for the PackagingMixEditor — one section per tier-1 pcs code
   // in the same order as the target inputs above.
@@ -275,20 +256,19 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   async function handleSaveDefaults() {
     const validMix = packagingMix.filter((row) => row.menuProductId && row.quantity > 0);
 
-    // Round-2 follow-up: Build otherBallTargets payload (non-BIG/MID codes).
-    // Only include codes present in productionComponents to avoid persisting
-    // stale codes from earlier sessions.
+    // Only persist codes present in productionComponents to avoid stale codes
+    // from earlier sessions.
     const validOtherCodes = new Set(
       productionComponents
         .filter((c) => c.unit === "pcs" && c.code !== "BIG_BALL" && c.code !== "MID_BALL")
         .map((c) => c.code)
     );
-    const otherBallTargetsPayload = Object.entries(otherBallTargets)
+    const otherBallTargetsPayload = Object.entries(ballTargetsByCode)
       .filter(([code]) => validOtherCodes.has(code))
       .map(([code, target]) => ({ code, target }));
 
-    // Total balls across ALL codes (not just BIG+MID) so legacy
-    // maxProductionTarget stays > 0 when a user only uses non-BIG/MID codes.
+    const bigBallTarget = ballTargetsByCode.BIG_BALL ?? 0;
+    const midBallTarget = ballTargetsByCode.MID_BALL ?? 0;
     const totalBalls =
       bigBallTarget +
       midBallTarget +
@@ -296,7 +276,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
 
     setIsSavingDefaults(true);
     try {
-      // Derive legacy fields from componentTracking for backward compat
       const trackedProdCodes = componentTracking
         .filter((e) => e.tracked && productionComponents.some((p) => p.code === e.code))
         .map((e) => e.code);
@@ -334,18 +313,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // -------------------------------------------------------
 
   async function handleApplyOverride() {
-    const hasAnyTarget =
-      bigBallTarget > 0 ||
-      midBallTarget > 0 ||
-      Object.values(otherBallTargets).some((t) => t > 0);
+    const hasAnyTarget = Object.values(ballTargetsByCode).some((t) => t > 0);
     if (!hasAnyTarget) {
       toast.error("Enter at least one ball target before applying override");
       return;
     }
 
-    // I2: Build otherBallOverrides from the current state, filtered to tier-1
-    // codes that are currently tracked so a stale pcs entry from a previous
-    // session can't bleed into today's override.
+    // Build overrides filtered to currently-tracked tier-1 codes so stale
+    // pcs entries from a previous session can't bleed into today's override.
     const trackedCodeSet = new Set(
       componentTracking.filter((e) => e.tracked).map((e) => e.code)
     );
@@ -354,7 +329,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         .filter((c) => c.unit === "pcs" && c.code !== "BIG_BALL" && c.code !== "MID_BALL")
         .map((c) => c.code)
     );
-    const otherBallOverrides = Object.entries(otherBallTargets)
+    const otherBallOverrides = Object.entries(ballTargetsByCode)
       .filter(([code, target]) => target > 0 && validOtherCodes.has(code) && trackedCodeSet.has(code))
       .map(([code, target]) => ({ code, target }));
 
@@ -362,8 +337,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     try {
       await setDailyOverride({
         date: today,
-        bigBallOverride: bigBallTarget,
-        midBallOverride: midBallTarget,
+        bigBallOverride: ballTargetsByCode.BIG_BALL ?? 0,
+        midBallOverride: ballTargetsByCode.MID_BALL ?? 0,
         otherBallOverrides: otherBallOverrides.length > 0 ? otherBallOverrides : undefined,
         source: "manual",
       });
