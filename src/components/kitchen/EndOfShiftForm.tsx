@@ -10,14 +10,11 @@
  *   - At least one produced quantity > 0 before advancing to review
  *   - Waste quantity cannot exceed produced quantity for the same product
  *
- * Per-component toggle support (Gap 7 cascade):
+ * Per-component toggle support:
  *   - enabledComponents: which ball type codes are enabled
  *   - productBallTypes: map of menuProductId -> ball type code(s) from BOM
  *   - Rows hidden if ALL ball types for that product are disabled
  *   - Rows flagged if SOME ball types for that product are disabled
- *
- * Target display (Gap 1): target quantity shown next to each product name.
- * Chef selector (Gap 8): select chef from users list; passed to submitShiftRecord.
  *
  * On confirm, calls submitShiftRecord mutation via useProtectedMutation.
  */
@@ -90,7 +87,7 @@ interface EndOfShiftFormProps {
     sortOrder: number;
     tier?: number;
   }>;
-  /** Phase 69: Enabled kitchen component codes from config (D-04) */
+  /** Enabled kitchen component codes from config */
   enabledKitchenComponentCodes?: string[];
   /** Configured unit per component code from componentTracking */
   unitByCode?: Record<string, ComponentUnit>;
@@ -142,7 +139,6 @@ export function EndOfShiftForm({
   // Inline error from mutation failure on review screen
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  // Phase 69: Component production state
   const [componentProduced, setComponentProduced] = useState<Record<string, number>>({});
   const [componentWasteOpen, setComponentWasteOpen] = useState(false);
   const [componentWaste, setComponentWaste] = useState<ComponentWasteEntry[]>([]);
@@ -185,9 +181,9 @@ export function EndOfShiftForm({
     return ballTypes.some((bt) => enabledComponents.includes(bt));
   });
 
-  // Phase 69: Filter kitchen components by enabled codes
-  // null/undefined/empty = all enabled; non-empty array = only those codes
-  // Apply configured unit from unitByCode when available
+  // Filter kitchen components by enabled codes and apply the configured unit
+  // from unitByCode. null/undefined/empty enabledKitchenComponentCodes means
+  // "all enabled"; a non-empty array restricts to those codes.
   const visibleKitchenComponents = (kitchenComponents ?? [])
     .filter((comp) => {
       if (!enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0) return true;
@@ -261,7 +257,6 @@ export function EndOfShiftForm({
       }
     }
 
-    // Phase 69: Check component waste <= component produced
     for (const entry of componentWaste) {
       if (entry.grams <= 0) continue;
       const producedGrams = componentProduced[entry.code] ?? 0;
@@ -377,7 +372,6 @@ export function EndOfShiftForm({
     setSubmittedProduced([]);
     setSubmittedWaste([]);
     setSelectedChefId("");
-    // Phase 69: Reset component state
     setComponentProduced({});
     setComponentWaste([]);
     setComponentWasteOpen(false);
@@ -389,8 +383,7 @@ export function EndOfShiftForm({
   // -------------------------------------------------------
 
   if (step === "success") {
-    // Phase 69: Build submitted component lists for success screen
-    // Round-4: include unit so pcs-sub-components render with their native unit
+    // Include unit so pcs sub-components render with their native unit.
     const successComponentProduced = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
@@ -415,9 +408,7 @@ export function EndOfShiftForm({
   // -------------------------------------------------------
 
   if (step === "review") {
-    // Phase 69: Build component lists for review
-    // Round-4: include unit so pcs-sub-components render with their native unit
-    // I3: rename local Map to avoid shadowing the `unitByCode` prop above.
+    // Local name differs from the `unitByCode` prop above to avoid shadowing.
     const unitByCodeMap = new Map(visibleKitchenComponents.map((c) => [c.code, c.unit]));
     const reviewComponentProduced = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
@@ -477,7 +468,7 @@ export function EndOfShiftForm({
         <CardTitle className="text-base">End of Shift</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Chef selector (Gap 8) */}
+        {/* Chef selector */}
         {users && users.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
@@ -496,7 +487,7 @@ export function EndOfShiftForm({
           </div>
         )}
 
-        {/* Produced quantities (D-01: renamed to "Balls Produced") */}
+        {/* Produced quantities */}
         {visibleItems.length > 0 && (
           <>
             <div className="space-y-3">
@@ -675,7 +666,7 @@ export function EndOfShiftForm({
           </>
         )}
 
-        {/* Phase 69: Component Production Section (D-01, D-03, D-05) */}
+        {/* Component production section */}
         {visibleKitchenComponents.length > 0 && (
           <div className="border-t border-border pt-4">
             <ComponentProductionSection

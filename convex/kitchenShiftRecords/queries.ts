@@ -26,12 +26,11 @@ async function enrichRecord(
     date: string;
     submittedAt: number;
     submittedBy: string;
-    // Phase 21-08: Actual cook fields
     chefName?: string;
     chefUserId?: string;
     produced: Array<{ menuProductId: string; quantity: number }>;
     waste: Array<{ menuProductId: string; reason: string; quantity: number }>;
-    // Phase 69: Component production data (unit optional; legacy records have no unit, default to "g" on read)
+    // unit is optional; legacy records have no unit and default to "g" on read
     componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number; unit?: "g" | "pcs" }>;
     componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number; unit?: "g" | "pcs" }>;
     editedAt?: number;
@@ -61,7 +60,6 @@ async function enrichRecord(
     date: record.date,
     submittedAt: record.submittedAt,
     submittedBy: record.submittedBy,
-    // Phase 21-08: Actual cook fields (pass through, may be undefined)
     chefName: record.chefName,
     chefUserId: record.chefUserId,
     produced: record.produced.map((p) => ({
@@ -75,7 +73,6 @@ async function enrichRecord(
       reason: w.reason,
       quantity: w.quantity,
     })),
-    // Phase 69: Component production data (pass through)
     componentProduced: record.componentProduced ?? [],
     componentWaste: record.componentWaste ?? [],
     editedAt: record.editedAt,
@@ -122,7 +119,6 @@ export const getShiftRecordsByDate = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
-          // Phase 69: Pass through component production data
           componentProduced: record.componentProduced,
           componentWaste: record.componentWaste,
           editedAt: record.editedAt,
@@ -137,7 +133,7 @@ export const getShiftRecordsByDate = query({
 /**
  * getDailyComponentSummary — Aggregate component production across all shift records for a date.
  *
- * Returns per-component totals with per-person attribution (Phase 69).
+ * Returns per-component totals with per-person attribution.
  * No auth required — kitchen staff need to view daily summaries.
  */
 export const getDailyComponentSummary = query({
@@ -148,10 +144,9 @@ export const getDailyComponentSummary = query({
       .withIndex("by_date", (q) => q.eq("date", args.date))
       .collect();
 
-    // C1: Aggregate per component and track the display unit.
-    // If two records for the same code carry different units (rare — would only
-    // happen if a manager changes the unit config mid-day), the last-seen unit
-    // wins for display and a warning is included.
+    // Aggregate per component and track the display unit. If two records for
+    // the same code carry different units (rare — would only happen if a
+    // manager changes the unit config mid-day), the last-seen unit wins.
     const componentMap = new Map<
       string,
       {
@@ -315,7 +310,6 @@ export const getShiftHistory = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
-          // Phase 69: Pass through component production data
           componentProduced: record.componentProduced,
           componentWaste: record.componentWaste,
           editedAt: record.editedAt,
@@ -395,10 +389,9 @@ export const getStaffPerformanceSummary = query({
       })
     );
 
-    // Aggregate per staff member
-    // C1: split component totals by unit (grams vs pieces) so pcs entries
-    // do not pollute gram totals. componentBreakdown stores per-code grams
-    // and pieces separately with the unit tag.
+    // Aggregate per staff member. Split component totals by unit (grams vs
+    // pieces) so pcs entries do not pollute gram totals. componentBreakdown
+    // stores per-code grams and pieces separately with the unit tag.
     const staffMap = new Map<
       string,
       {
@@ -545,7 +538,7 @@ export const getStaffPerformanceSummary = query({
         quantity: val.quantity,
         ballCount: val.ballCount,
       })),
-      // C1: per-unit totals for honest aggregation.
+      // Per-unit totals for honest aggregation.
       totalComponentGrams: s.totalComponentGrams,
       totalComponentPieces: s.totalComponentPieces,
       componentBreakdown: Array.from(s.componentBreakdown.entries()).map(([code, val]) => ({

@@ -1,10 +1,9 @@
 /**
- * ComponentProductionSection (Phase 69)
+ * ComponentProductionSection
  *
- * Gram-based input section for kitchen pre-cursor components (D-01, D-03, D-05).
- * Components are tracked in grams with no targets.
- * Each component has its own waste accordion entry (D-07).
- * Only shows components that are enabled in kitchenConfig (D-04).
+ * Gram-based input section for kitchen pre-cursor components. Components are
+ * tracked in grams with no targets. Each component has its own waste accordion
+ * entry. Only shows components that are enabled in kitchenConfig.
  */
 
 import { ChevronDown, ChevronUp } from "lucide-react";

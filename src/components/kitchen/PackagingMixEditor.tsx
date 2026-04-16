@@ -1,18 +1,15 @@
 /**
  * PackagingMixEditor
  *
- * Redesigned packaging mix editor for the unified Manager Settings form.
- * Products grouped DYNAMICALLY by tier-1 production componentType code so
- * any ball type (e.g. HAZELNUT_REGULAR) gets its own section instead of
- * being swallowed into "Other (no BOM data)".
+ * Packaging mix editor for the unified Manager Settings form. Products are
+ * grouped dynamically by tier-1 production componentType code (derived from
+ * `productionComponents` passed in from ManagerTargetSettings) so any ball
+ * type (e.g. HAZELNUT_REGULAR) gets its own section rather than being lumped
+ * into "Other (no BOM data)".
  *
- * Round-2 follow-up: dropped hardcoded BIG_BALL/MID_BALL grouping. The
- * section list is now derived from `productionComponents` (active + enabled)
- * passed in from ManagerTargetSettings.
- *
- * Gap 5: Product dropdown only shows Food POS products
- *         (isActive + posSlot defined + productType=food)
- * Gap 7: Sections greyed out when that component is disabled
+ * Product dropdown only shows Food POS products
+ * (isActive + posSlot defined + productType=food). Sections are greyed out
+ * when their ball component is disabled.
  */
 
 import { useState } from "react";
@@ -302,7 +299,7 @@ export function PackagingMixEditor({
   // -- Add row state: which ball group is adding --
   const [addingGroup, setAddingGroup] = useState<string | null>(null);
 
-  // -- Filter to only food POS products (Gap 5) --
+  // -- Filter to only food POS products --
   const foodPosProducts = (menuProducts ?? [])
     .filter(
       (mp) =>

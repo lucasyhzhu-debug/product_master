@@ -1,7 +1,7 @@
 /**
  * ShiftEditDialog
  *
- * Edit dialog for a past shift record (KIT-17). Manager/admin only.
+ * Edit dialog for a past shift record. Manager/admin only.
  *
  * Flow:
  *   1. Form pre-populated with existing produced + waste values
@@ -9,8 +9,6 @@
  *   3. Show confirmation dialog with ALL non-zero deltas
  *   4. On confirm — call updateShiftRecord mutation
  *   5. On success — toast + close dialog
- *
- * Requirements: KIT-17
  */
 
 import { useState, useMemo } from "react";
@@ -42,10 +40,6 @@ import { getKitchenLeafComponents } from "@/lib/componentFilters";
 import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
 import type { ShiftRecord, ComponentProducedEntry, ComponentWasteEntry } from "./ShiftHistoryList";
 
-// -------------------------------------------------------
-// Types
-// -------------------------------------------------------
-
 import { WASTE_REASONS, type WasteReason } from './index';
 
 interface ProducedRow {
@@ -75,14 +69,6 @@ interface ShiftEditDialogProps {
   onClose: () => void;
 }
 
-// -------------------------------------------------------
-// Constants
-// -------------------------------------------------------
-
-// -------------------------------------------------------
-// Component
-// -------------------------------------------------------
-
 export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps) {
   const updateShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.updateShiftRecord
@@ -95,11 +81,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   );
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
 
-  // -------------------------------------------------------
-  // State — pre-populated from record
-  // -------------------------------------------------------
-
-  // Build initial produced rows from record (one row per product in original record)
   const [producedRows, setProducedRows] = useState<ProducedRow[]>(() =>
     record.produced.map((p) => ({
       menuProductId: p.menuProductId,
@@ -108,7 +89,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     }))
   );
 
-  // Build initial waste rows
   const [wasteRows, setWasteRows] = useState<WasteRow[]>(() =>
     record.waste.map((w) => ({
       menuProductId: w.menuProductId,
@@ -118,8 +98,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     }))
   );
 
-  // Component production rows (Phase 69)
-  // C1: preserve stored unit (if present) for display; legacy records default to "g".
+  // Preserve stored unit (if present) for display; legacy records default to "g".
   const [componentProducedRows, setComponentProducedRows] = useState<ComponentProducedEntry[]>(() =>
     (record.componentProduced ?? []).map((c) => ({
       kitchenComponentCode: c.kitchenComponentCode,
@@ -147,7 +126,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   const [chefName, setChefName] = useState(record.chefName ?? "");
   const [wasteOpen, setWasteOpen] = useState(record.waste.length > 0);
 
-  // Confirmation dialog state
   const [showConfirm, setShowConfirm] = useState(false);
   const [deltas, setDeltas] = useState<InventoryDelta[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -158,15 +136,14 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     [componentProducedRows]
   );
 
-  // C2: honour componentTracking when present (authoritative); fall back to
-  // the legacy enabledKitchenComponents array otherwise. This matches the
-  // precedence used by useKitchenTargets so the edit dialog surfaces the
-  // same set of add-able components as the main shift form.
+  // componentTracking is authoritative when present; falls back to the legacy
+  // enabledKitchenComponents array. Matches the precedence used by
+  // useKitchenTargets so the dialog surfaces the same add-able set as the
+  // main shift form.
   const enabledCodesFromTracking = useMemo(() => {
     if (!kitchenConfig?.componentTracking || kitchenConfig.componentTracking.length === 0) {
       return null;
     }
-    // Restrict to codes that exist in kitchenComponents (leaf/recipe-child set)
     const kitchenCodeSet = new Set(kitchenComponents.map((c) => c.code));
     return new Set(
       kitchenConfig.componentTracking
@@ -219,19 +196,11 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     return storedUnit ?? configuredUnitByCode.get(code) ?? "g";
   }
 
-  // -------------------------------------------------------
-  // Produced row handlers
-  // -------------------------------------------------------
-
   function updateProducedQty(index: number, qty: number) {
     setProducedRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, quantity: Math.max(0, qty) } : row))
     );
   }
-
-  // -------------------------------------------------------
-  // Waste row handlers
-  // -------------------------------------------------------
 
   function addWasteRow(menuProductId: string, menuProductName: string) {
     setWasteRows((prev) => [
@@ -264,12 +233,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     setWasteRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // -------------------------------------------------------
-  // Compute inventory impact
-  // -------------------------------------------------------
-
   function computeDeltas(): InventoryDelta[] {
-    // Build old net map from original record
     const oldNetMap = new Map<string, { name: string; net: number }>();
     for (const p of record.produced) {
       const key = p.menuProductId;
@@ -297,7 +261,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       newNetMap.set(key, { name: existing.name, net: existing.net - w.quantity });
     }
 
-    // Collect all product IDs
     const allIds = new Set([...oldNetMap.keys(), ...newNetMap.keys()]);
     const result: InventoryDelta[] = [];
 
@@ -320,10 +283,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
 
     return result;
   }
-
-  // -------------------------------------------------------
-  // Handlers
-  // -------------------------------------------------------
 
   function handleReviewChanges() {
     for (const wasteRow of componentWasteRows) {
@@ -392,10 +351,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       setIsSubmitting(false);
     }
   }
-
-  // -------------------------------------------------------
-  // Render: Confirmation dialog
-  // -------------------------------------------------------
 
   if (showConfirm) {
     const nonZeroDeltas = deltas.filter((d) => d.delta !== 0);
@@ -505,10 +460,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       </Dialog>
     );
   }
-
-  // -------------------------------------------------------
-  // Render: Edit form
-  // -------------------------------------------------------
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

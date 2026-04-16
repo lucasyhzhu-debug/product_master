@@ -2,17 +2,14 @@
  * ManagerTargetSettings
  *
  * Manager-only section rendered on the kitchen page.
- * Unified single-form design (Phase 21-09):
- *   - Ball targets (Original + Jumbo) at the top
- *   - Per-component production toggles (replaces single showJumbo toggle)
- *   - Packaging mix (new PackagingMixEditor with BOM info + allocation counters)
- *   - Two save actions: "Save as Default Daily Targets" and "Apply Override for Today Only"
- *   - Clear Override button when override is active
+ * Unified form covering:
+ *   - Ball targets (per tier-1 production componentType)
+ *   - Component tracking (which components appear in EndOfShiftForm + display unit)
+ *   - Packaging mix (PackagingMixEditor with BOM info + allocation counters)
  *
- * Max Capacity field removed — ball targets are the ceiling.
- * Two-card (Default + Override) layout replaced with single unified card.
- *
- * Requirements: KIT-09, KIT-18
+ * Two save actions: "Save as Default Daily Targets" and "Apply Override for
+ * Today Only". Ball targets are the ceiling — there is no separate max
+ * capacity field.
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -35,10 +32,6 @@ import { PackagingMixEditor, type PackagingMixRow, type BallGroupDef } from "./P
 import type { KitchenTargets } from "./ProductionTargetsBar";
 import { getKitchenLeafComponents, getProductionTier1Components } from "@/lib/componentFilters";
 import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
-
-// -------------------------------------------------------
-// Types
-// -------------------------------------------------------
 
 interface ComponentTrackingEntry {
   code: string;
@@ -67,17 +60,7 @@ interface ManagerTargetSettingsProps {
   today: string;
 }
 
-// -------------------------------------------------------
-// Main component
-// -------------------------------------------------------
-
 export function ManagerTargetSettings({ config, targets, today }: ManagerTargetSettingsProps) {
-  // -- Queries & mutations --
-  // paq: Unified source for both toggle sections (tier-1+ = Production, tier-0 = Kitchen)
-  // Round-2 fix: filter `isActive` to exclude soft-deactivated dedupe shadows
-  // (convex/componentTypes/dedupe.ts soft-deactivates dups via isActive=false).
-  // Without this filter, each duplicate shadow renders a second toggle sharing
-  // the same `code`, so flipping one appears to flip both.
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
   const productionComponents = useMemo(
     () => getProductionTier1Components(componentsWithTiers ?? []),
@@ -112,23 +95,17 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // Derive whether an override is currently active
   const overrideActive = targets?.source === "override";
 
-  // I1: hydration split.
-  // Convex queries push new `config` references whenever ANY query in the
-  // subscription graph updates. Using `[config, ...]` as an effect dep would
-  // reset unsaved edits every time an unrelated query re-ran. Instead:
-  //   - Effect A: hydrate scalar + componentTracking state only when the
-  //     underlying data actually changes (config._id + componentTracking ref).
-  //   - Effect B: derive initial componentTracking from legacy fields ONCE
-  //     when no stored tracking exists. `hasHydratedLegacyRef` prevents
-  //     re-derivation on subsequent query pushes.
+  // Hydration is split into two effects because Convex re-emits the `config`
+  // reference when any subscribed query updates. Depending on `config` alone
+  // would reset unsaved edits. Instead:
+  //   - Effect A hydrates scalars + stored componentTracking when the config
+  //     identity changes (or the componentTracking reference changes).
+  //   - Effect B derives componentTracking from legacy fields ONCE per config
+  //     identity when no stored tracking exists. `hasHydratedLegacyRef` gates
+  //     re-runs on subsequent query pushes.
 
   const hasHydratedLegacyRef = useRef(false);
   const lastConfigIdRef = useRef<string | null | undefined>(undefined);
-
-  // Effect A: hydrate scalar targets + packagingMix + stored componentTracking
-  // when the config identity or the componentTracking reference changes. This
-  // does NOT depend on productionComponents/kitchenComponentsList so a load of
-  // componentTypes can't reset unsaved edits.
   useEffect(() => {
     if (!config) return;
     const configId = config._id ? String(config._id) : null;
@@ -150,25 +127,20 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           quantity: row.quantity,
         }))
       );
-      // Reset legacy-derivation gate whenever the config identity changes so
-      // Effect B re-runs against the fresh config.
+      // Reset legacy-derivation gate so Effect B re-runs against the fresh config.
       hasHydratedLegacyRef.current = false;
     }
 
-    // Hydrate componentTracking from stored reference whenever it changes.
     if (config.componentTracking && config.componentTracking.length > 0) {
       setComponentTracking(config.componentTracking);
       hasHydratedLegacyRef.current = true;
     }
   }, [config?._id, config?.componentTracking, config]);
 
-  // Effect B: derive componentTracking from legacy fields + available components
-  // ONCE per config identity when no stored componentTracking is present.
   useEffect(() => {
     if (!config) return;
     if (hasHydratedLegacyRef.current) return;
     if (config.componentTracking && config.componentTracking.length > 0) return;
-    // Need the component lists loaded to derive
     if (productionComponents.length === 0 && kitchenComponentsList.length === 0) return;
 
     const enabledProd = config.enabledProductionComponents ?? productionComponents.map((c) => c.code);
@@ -233,10 +205,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     });
   }, [ballTargetRows, productionComponents]);
 
-  // -------------------------------------------------------
-  // Unified component tracking handlers
-  // -------------------------------------------------------
-
   function toggleTracked(code: string) {
     setComponentTracking((prev) =>
       prev.map((e) => e.code === code ? { ...e, tracked: !e.tracked } : e)
@@ -248,10 +216,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       prev.map((e) => e.code === code ? { ...e, unit } : e)
     );
   }
-
-  // -------------------------------------------------------
-  // Handler: Save as Default Daily Targets
-  // -------------------------------------------------------
 
   async function handleSaveDefaults() {
     const validMix = packagingMix.filter((row) => row.menuProductId && row.quantity > 0);
@@ -308,10 +272,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     }
   }
 
-  // -------------------------------------------------------
-  // Handler: Apply Override for Today Only
-  // -------------------------------------------------------
-
   async function handleApplyOverride() {
     const hasAnyTarget = Object.values(ballTargetsByCode).some((t) => t > 0);
     if (!hasAnyTarget) {
@@ -351,10 +311,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     }
   }
 
-  // -------------------------------------------------------
-  // Handler: Clear Override
-  // -------------------------------------------------------
-
   async function handleClearOverride() {
     setIsClearingOverride(true);
     try {
@@ -367,10 +323,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       setIsClearingOverride(false);
     }
   }
-
-  // -------------------------------------------------------
-  // Render
-  // -------------------------------------------------------
 
   return (
     <Card>
@@ -390,9 +342,8 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {/* Ball Targets — one input per active+enabled tier-1 pcs componentType
-            (e.g. Original/MID_BALL, Jumbo/BIG_BALL, Nutella-Regular/HAZELNUT_REGULAR).
-            Disabled codes render dimmed — toggle them on via Production Components. */}
+        {/* One input per active+enabled tier-1 pcs componentType. Disabled
+            codes render dimmed — toggle them on via Component Tracking. */}
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
             Ball Targets
@@ -436,7 +387,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           )}
         </div>
 
-        {/* Unified Component Tracking table */}
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
             Component Tracking
@@ -580,10 +530,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     </Card>
   );
 }
-
-// -------------------------------------------------------
-// Row for the Component Tracking table (reused by tier-1 + leaf groups)
-// -------------------------------------------------------
 
 interface ComponentTrackingRowProps {
   name: string;

@@ -1,17 +1,13 @@
 /**
- * KitchenViewV2 — Simplified production-focused kitchen page (Phase 21)
+ * KitchenViewV2 — Simplified production-focused kitchen page.
  *
  * Layout:
  *   1. Page header (title + date + chef name when assigned)
- *   2. ProductionTargetsBar — ball totals (Original/Jumbo) + packaging breakdown
+ *   2. ProductionTargetsBar — ball totals + packaging breakdown
  *   3. EndOfShiftForm — produced quantities + optional waste, 3-step flow
  *   4. Today's shift records — compact list of submissions already recorded today
- *   5. Collapsible "View Today's Orders" — KitchenOrderSummary (read-only, no action buttons)
+ *   5. Collapsible "View Today's Orders" — KitchenOrderSummary (read-only)
  *   6. Manager Settings (manager/admin only)
- *
- * Boxing/stickering panels removed from view.
- * Old component files are NOT deleted — Phase 24 handles cleanup.
- * DueDateOrderList removed (Phase 21-07) — order management belongs in Order Management kanban.
  */
 
 import { useState, useEffect, useMemo } from 'react';
@@ -72,18 +68,13 @@ export function KitchenViewV2() {
   const menuProductComps = useQuery(api.menuProductComponents.queries.listAll);
   const componentTypesList = useQuery(api.componentTypes.queries.list, {});
 
-  // ============================================
-  // Per-component toggle cascade (Phase 21-10)
-  // enabledComponents: which ball type codes are active.
-  // Default (null config) = ALL production pcs codes enabled, not just
-  // BIG_BALL/MID_BALL — otherwise any new ball type in a menu product's BOM
-  // (e.g. HAZELNUT_REGULAR) is silently hidden from the End of Shift form.
+  // enabledComponents = which ball-type codes are active. Default (null config)
+  // enables ALL production pcs codes so new ball types in a menu product's BOM
+  // aren't silently hidden from the End of Shift form.
   //
-  // During componentTypesList load we return `undefined` so downstream
-  // filters (ProductionTargetsBar, EndOfShiftForm) treat it as "no filter —
-  // show all". Returning a legacy two-code array here would briefly re-hide
-  // non-BIG/MID products for ~200ms on first paint.
-  // ============================================
+  // While componentTypesList is loading we return `undefined` so downstream
+  // filters treat it as "no filter — show all". Returning a two-code fallback
+  // would briefly hide non-BIG/MID products on first paint.
 
   const enabledComponents: string[] | undefined = useMemo(() => {
     // When componentTracking is present, derive enabled production codes from it
@@ -97,10 +88,9 @@ export function KitchenViewV2() {
       const derived = config.componentTracking
         .filter((e) => e.tracked && prodCodes.has(e.code))
         .map((e) => e.code);
-      // C4: if the derived list is empty (e.g. user only tracked kitchen leaves
-      // in componentTracking), fall back to the legacy enabledProductionComponents
-      // array or componentTypesList so products aren't all hidden from the
-      // shift form.
+      // If the derived list is empty (e.g. user only tracked kitchen leaves),
+      // fall back to legacy enabledProductionComponents or componentTypesList
+      // so products aren't all hidden from the shift form.
       if (derived.length > 0) return derived;
       if (config.enabledProductionComponents && config.enabledProductionComponents.length > 0) {
         return config.enabledProductionComponents;
@@ -119,8 +109,8 @@ export function KitchenViewV2() {
 
   const productBallTypes = useMemo(() => {
     if (!menuProductComps || !componentTypesList) return undefined;
-    // Round-2 fix: exclude inactive rows so stale BOM links to dedupe shadows
-    // don't leak codes that fail to match any active `enabledComponents` entry.
+    // Exclude inactive rows so stale BOM links to dedupe shadows don't leak
+    // codes that fail to match any active `enabledComponents` entry.
     const prodTypes = componentTypesList.filter(
       (ct) => ct.category === 'production' && ct.isActive
     );
@@ -147,9 +137,7 @@ export function KitchenViewV2() {
     [allUsers]
   );
 
-  // ============================================
-  // Phase 69: Ball production per-person attribution for DailySummaryWidget
-  // ============================================
+  // Ball production per-person attribution for DailySummaryWidget.
 
   const ballPerPerson = useMemo(() => {
     if (!todayShiftRecords || todayShiftRecords.length === 0) return [];
@@ -175,9 +163,7 @@ export function KitchenViewV2() {
     return Array.from(personMap.values());
   }, [todayShiftRecords]);
 
-  // ============================================
-  // Chef name from most recent today shift record (Gap 8 header display)
-  // ============================================
+  // Chef name from the most recent shift record, surfaced in the page header.
 
   const latestChefName = todayShiftRecords && todayShiftRecords.length > 0
     ? (todayShiftRecords[0] as { chefName?: string }).chefName
@@ -277,9 +263,9 @@ export function KitchenViewV2() {
           users={kitchenUsers}
           kitchenComponents={kitchenComponents ?? []}
           enabledKitchenComponentCodes={
-            // C3: restrict the derived code list to codes that exist in the
-            // kitchen (leaf) set — otherwise a componentTracking entry for a
-            // tier-1 ball leaks into the kitchen component toggles.
+            // Restrict to codes that exist in the kitchen (leaf) set —
+            // otherwise a componentTracking entry for a tier-1 ball leaks
+            // into the kitchen component toggles.
             (() => {
               const kitchenCodeSet = new Set((kitchenComponents ?? []).map((c) => c.code));
               if (config?.componentTracking && config.componentTracking.length > 0) {
@@ -356,7 +342,7 @@ export function KitchenViewV2() {
         </section>
       )}
 
-      {/* Section 3b: Daily Summary (Phase 69) */}
+      {/* Section 3b: Daily Summary */}
       {todayShiftRecords !== undefined && todayShiftRecords.length > 0 && (
         <section>
           <DailySummaryWidget

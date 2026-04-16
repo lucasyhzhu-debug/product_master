@@ -1,10 +1,10 @@
 /**
- * DailySummaryWidget (Phase 69 — updated)
+ * DailySummaryWidget
  *
  * Collapsible daily summary with:
- *   - Existing stats grid (balls, orders, boxed, stickers)
- *   - Component production breakdown with per-person attribution (D-13, D-14, D-15, D-16)
- *   - Ball production per-person breakdown (D-17)
+ *   - Stats grid (balls, orders, boxed, stickers)
+ *   - Component production breakdown with per-person attribution
+ *   - Ball production per-person breakdown
  *   - Materials consumed list
  */
 
@@ -24,11 +24,11 @@ interface DailySummaryWidgetProps {
       quantity: number;
     }>;
   };
-  /** Phase 69: Component production summary from getDailyComponentSummary */
+  /** Component production summary from getDailyComponentSummary */
   componentSummary?: Array<{
     code: string;
     name: string;
-    /** C1: display unit. Historical records default to "g". */
+    /** Display unit. Historical records default to "g". */
     unit?: "g" | "pcs";
     totalProducedGrams: number;
     totalWasteGrams: number;
@@ -39,7 +39,7 @@ interface DailySummaryWidgetProps {
       wasteGrams: number;
     }>;
   }>;
-  /** Phase 69: Ball production per-person attribution from shift records */
+  /** Ball production per-person attribution from shift records */
   ballPerPerson?: Array<{
     submittedBy: string;
     chefName?: string;
@@ -89,7 +89,7 @@ export function DailySummaryWidget({
             )}
           </div>
 
-          {/* Component Production Breakdown (D-13, D-14) */}
+          {/* Component Production Breakdown */}
           {componentSummary && componentSummary.length > 0 && (
             <div>
               <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Component Production</h4>
@@ -107,7 +107,7 @@ export function DailySummaryWidget({
                         )}
                       </div>
                     </div>
-                    {/* Per-person attribution (D-15, D-16) */}
+                    {/* Per-person attribution */}
                     {comp.perPerson.length > 0 && (
                       <div className="space-y-0.5">
                         {comp.perPerson.map((person, i) => (
@@ -130,7 +130,7 @@ export function DailySummaryWidget({
             </div>
           )}
 
-          {/* Ball Production Per-Person (D-17) */}
+          {/* Ball Production Per-Person */}
           {ballPerPerson && ballPerPerson.length > 0 && (
             <div>
               <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Production by Person</h4>

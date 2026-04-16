@@ -3,7 +3,7 @@
  *
  * Displayed after a successful shift record submission.
  * Shows a card list of produced items and waste rows with sequential Framer Motion
- * stagger animation (Gap 9). Uses CheckCircle2 icon per produced row.
+ * stagger animation. Uses CheckCircle2 icon per produced row.
  */
 
 import { CheckCircle2 } from "lucide-react";
@@ -42,7 +42,7 @@ interface ShiftSuccessScreenProps {
   waste: WasteEntry[];
   targets?: TargetItem[];
   onDone: () => void;
-  /** Phase 69: Component production data */
+  /** Component production data */
   componentProduced?: Array<{ kitchenComponentName: string; grams: number; unit?: string }>;
 }
 
@@ -104,7 +104,7 @@ export function ShiftSuccessScreen({
           </motion.div>
         )}
 
-        {/* Phase 69: Component production items */}
+        {/* Component production items */}
         {componentProduced && componentProduced.length > 0 && (
           <motion.div
             variants={container}

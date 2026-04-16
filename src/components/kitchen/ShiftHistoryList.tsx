@@ -1,15 +1,13 @@
 /**
  * ShiftHistoryList
  *
- * Manager-only shift history panel (KIT-16). Displays past shift records grouped
- * by date, with optional date range filtering. Each record shows:
+ * Manager-only shift history panel. Displays past shift records grouped by
+ * date, with optional date range filtering. Each record shows:
  *   - Submitted by + time
  *   - Produced summary (enriched with product names from backend)
  *   - Waste summary (if any)
  *   - Edit indicator (if edited by manager)
  *   - Edit button (opens ShiftEditDialog)
- *
- * Requirements: KIT-16
  */
 
 import { useState } from "react";
@@ -52,7 +50,7 @@ export interface ComponentProducedEntry {
   kitchenComponentCode: string;
   kitchenComponentName: string;
   grams: number;
-  /** Optional display unit (C1). Legacy records have no unit; default to "g". */
+  /** Optional display unit; legacy records have no unit and default to "g". */
   unit?: "g" | "pcs";
 }
 
@@ -61,7 +59,7 @@ export interface ComponentWasteEntry {
   kitchenComponentName: string;
   reason: string;
   grams: number;
-  /** Optional display unit (C1). Legacy records have no unit; default to "g". */
+  /** Optional display unit; legacy records have no unit and default to "g". */
   unit?: "g" | "pcs";
 }
 
