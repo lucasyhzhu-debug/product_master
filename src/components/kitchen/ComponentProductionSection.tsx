@@ -6,6 +6,7 @@
  * entry. Only shows components that are enabled in kitchenConfig.
  */
 
+import { useMemo } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { resolveUnit } from "@/lib/componentUnit";
+import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
 
 import { WASTE_REASONS, type WasteReason } from './index';
 
@@ -64,6 +65,12 @@ export function ComponentProductionSection({
   onUpdateWaste,
   onRemoveWaste,
 }: ComponentProductionSectionProps) {
+  const unitByCode = useMemo<Record<string, ComponentUnit>>(() => {
+    const map: Record<string, ComponentUnit> = {};
+    for (const c of components) map[c.code] = resolveUnit(c.unit);
+    return map;
+  }, [components]);
+
   if (components.length === 0) {
     return null;
   }
@@ -98,7 +105,7 @@ export function ComponentProductionSection({
                 className="w-24 text-right tabular-nums shrink-0"
               />
               <span className="text-xs text-muted-foreground shrink-0 min-w-[1rem]">
-                {resolveUnit(comp.unit)}
+                {unitByCode[comp.code] ?? "g"}
               </span>
             </div>
           </div>
@@ -170,7 +177,7 @@ export function ComponentProductionSection({
                   className="w-20 text-right tabular-nums"
                 />
                 <span className="text-xs text-muted-foreground shrink-0 w-4">
-                  {resolveUnit(components.find((c) => c.code === entry.code)?.unit)}
+                  {unitByCode[entry.code] ?? "g"}
                 </span>
               </div>
             </div>

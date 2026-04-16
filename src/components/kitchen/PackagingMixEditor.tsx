@@ -12,7 +12,7 @@
  * when their ball component is disabled.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, X, AlertTriangle } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -277,83 +277,86 @@ export function PackagingMixEditor({
   enabledComponents,
   ballGroups,
 }: PackagingMixEditorProps) {
-  // -- Fetch food POS products (posSlot defined, non-packaging) --
   const menuProducts = useQuery(api.menuProducts.queries.listPosProducts);
 
-  // -- Build list of menu product IDs for batch BOM fetch --
-  const allMenuProductIds = (menuProducts ?? [])
-    .filter(
-      (mp) =>
-        mp.productType === "food" &&
-        mp.isActive === true &&
-        mp.posSlot !== undefined
-    )
-    .map((mp) => mp._id);
+  // Filter menuProducts once; all downstream derivations use this list.
+  const foodPosProducts = useMemo(
+    () =>
+      (menuProducts ?? [])
+        .filter(
+          (mp) =>
+            mp.productType === "food" &&
+            mp.isActive === true &&
+            mp.posSlot !== undefined
+        )
+        .map((mp) => ({ _id: String(mp._id), name: mp.name, rawId: mp._id })),
+    [menuProducts]
+  );
 
-  // -- Batch-fetch BOM components for all food POS products --
+  const allMenuProductIds = useMemo(
+    () => foodPosProducts.map((mp) => mp.rawId),
+    [foodPosProducts]
+  );
+
   const allComponentsMap = useQuery(
     api.menuProductComponents.queries.getByMenuProductIds,
     allMenuProductIds.length > 0 ? { menuProductIds: allMenuProductIds } : "skip"
   );
 
-  // -- Add row state: which ball group is adding --
   const [addingGroup, setAddingGroup] = useState<string | null>(null);
 
-  // -- Filter to only food POS products --
-  const foodPosProducts = (menuProducts ?? [])
-    .filter(
-      (mp) =>
-        mp.productType === "food" &&
-        mp.isActive === true &&
-        mp.posSlot !== undefined
-    )
-    .map((mp) => ({ _id: String(mp._id), name: mp.name }));
+  const productNameMap = useMemo(
+    () => new Map(foodPosProducts.map((p) => [p._id, p.name])),
+    [foodPosProducts]
+  );
 
-  // Product name lookup
-  const productNameMap = new Map(foodPosProducts.map((p) => [p._id, p.name]));
-
-  // -- Build BOM info map --
-  const bomInfoMap = new Map<string, BomInfo>();
-  if (allComponentsMap) {
+  const bomInfoMap = useMemo(() => {
+    const map = new Map<string, BomInfo>();
+    if (!allComponentsMap) return map;
     for (const mp of foodPosProducts) {
-      bomInfoMap.set(mp._id, getBomInfo(mp._id, allComponentsMap as Record<string, ComponentRow[]>));
+      map.set(mp._id, getBomInfo(mp._id, allComponentsMap as Record<string, ComponentRow[]>));
     }
-  }
+    return map;
+  }, [allComponentsMap, foodPosProducts]);
 
-  // -- Classify rows by their PRIMARY ball code --
-  // A product belongs to the first ballGroup code that its BOM includes with qty > 0.
-  // This keeps any given row in exactly one section even if its BOM uses multiple
-  // production codes (rare — most products use one).
-  const groupOrder = ballGroups.map((g) => g.code);
-  function primaryCodeForRow(row: PackagingMixRow): string | null {
-    const bom = bomInfoMap.get(row.menuProductId);
-    if (!bom) return null;
-    for (const code of groupOrder) {
-      if ((bom.ballsByCode[code] ?? 0) > 0) return code;
-    }
-    return null;
-  }
+  const groupOrder = useMemo(() => ballGroups.map((g) => g.code), [ballGroups]);
 
-  const rowsByCode: Record<string, PackagingMixRow[]> = {};
-  const unclassifiedRows: PackagingMixRow[] = [];
-  for (const row of rows) {
-    const code = primaryCodeForRow(row);
-    if (code) {
-      (rowsByCode[code] ||= []).push(row);
-    } else {
-      unclassifiedRows.push(row);
+  // Classify rows by their PRIMARY ball code — the first groupOrder code with
+  // qty > 0 in the row's BOM. Each row belongs to exactly one section.
+  const { rowsByCode, unclassifiedRows } = useMemo(() => {
+    const byCode: Record<string, PackagingMixRow[]> = {};
+    const unclassified: PackagingMixRow[] = [];
+    for (const row of rows) {
+      const bom = bomInfoMap.get(row.menuProductId);
+      let primary: string | null = null;
+      if (bom) {
+        for (const code of groupOrder) {
+          if ((bom.ballsByCode[code] ?? 0) > 0) {
+            primary = code;
+            break;
+          }
+        }
+      }
+      if (primary) {
+        (byCode[primary] ||= []).push(row);
+      } else {
+        unclassified.push(row);
+      }
     }
-  }
+    return { rowsByCode: byCode, unclassifiedRows: unclassified };
+  }, [rows, bomInfoMap, groupOrder]);
 
-  // -- Ball totals per code --
-  const ballsUsedByCode: Record<string, number> = {};
-  for (const row of rows) {
-    const bom = bomInfoMap.get(row.menuProductId);
-    if (!bom) continue;
-    for (const [code, perUnit] of Object.entries(bom.ballsByCode)) {
-      ballsUsedByCode[code] = (ballsUsedByCode[code] ?? 0) + row.quantity * perUnit;
+  const ballsUsedByCode = useMemo(() => {
+    const used: Record<string, number> = {};
+    for (const row of rows) {
+      const bom = bomInfoMap.get(row.menuProductId);
+      if (!bom) continue;
+      for (const [code, perUnit] of Object.entries(bom.ballsByCode)) {
+        used[code] = (used[code] ?? 0) + row.quantity * perUnit;
+      }
     }
-  }
+    return used;
+  }, [rows, bomInfoMap]);
 
   // -- Row manipulation helpers --
   function updateQuantity(index: number, value: number) {

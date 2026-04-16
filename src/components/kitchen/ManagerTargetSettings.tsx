@@ -135,7 +135,15 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       setComponentTracking(config.componentTracking);
       hasHydratedLegacyRef.current = true;
     }
-  }, [config?._id, config?.componentTracking, config]);
+  }, [
+    config,
+    config?._id,
+    config?.componentTracking,
+    config?.bigBallTarget,
+    config?.midBallTarget,
+    config?.otherBallTargets,
+    config?.defaultPackagingMix,
+  ]);
 
   useEffect(() => {
     if (!config) return;

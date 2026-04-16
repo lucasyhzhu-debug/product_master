@@ -19,7 +19,7 @@
  * On confirm, calls submitShiftRecord mutation via useProtectedMutation.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
@@ -143,56 +143,63 @@ export function EndOfShiftForm({
   const [componentWasteOpen, setComponentWasteOpen] = useState(false);
   const [componentWaste, setComponentWaste] = useState<ComponentWasteEntry[]>([]);
 
-  // -------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------
-
   const packagingItems = targets?.packagingBreakdown ?? [];
 
-  // Filter items based on enabled components
-  const visibleItems = packagingItems.filter((item) => {
-    if (!enabledComponents || !productBallTypes) return true;
-    const ballTypes = productBallTypes[item.menuProductId] ?? [];
-    if (ballTypes.length === 0) return true; // No BOM data — show
-    // Hide if ALL ball types for this product are disabled
-    return ballTypes.some((bt) => enabledComponents.includes(bt));
-  });
-
-  // Items that have mixed ball type visibility (some enabled, some disabled)
-  const flaggedItemIds = new Set<string>(
-    packagingItems
-      .filter((item) => {
-        if (!enabledComponents || !productBallTypes) return false;
+  // Filter items based on enabled ball-type components.
+  const visibleItems = useMemo(
+    () =>
+      packagingItems.filter((item) => {
+        if (!enabledComponents || !productBallTypes) return true;
         const ballTypes = productBallTypes[item.menuProductId] ?? [];
-        if (ballTypes.length <= 1) return false;
-        return (
-          ballTypes.some((bt) => enabledComponents.includes(bt)) &&
-          ballTypes.some((bt) => !enabledComponents.includes(bt))
-        );
-      })
-      .map((item) => item.menuProductId)
+        if (ballTypes.length === 0) return true;
+        return ballTypes.some((bt) => enabledComponents.includes(bt));
+      }),
+    [packagingItems, enabledComponents, productBallTypes]
   );
 
-  // Filter waste entries to only enabled-component products (same logic as visibleItems)
-  const visibleWasteEntries = wasteEntries.filter((entry) => {
-    if (!enabledComponents || !productBallTypes) return true;
-    const ballTypes = productBallTypes[entry.menuProductId] ?? [];
-    if (ballTypes.length === 0) return true;
-    return ballTypes.some((bt) => enabledComponents.includes(bt));
-  });
+  // Products with mixed ball type visibility (some enabled, some disabled).
+  const flaggedItemIds = useMemo(
+    () =>
+      new Set<string>(
+        packagingItems
+          .filter((item) => {
+            if (!enabledComponents || !productBallTypes) return false;
+            const ballTypes = productBallTypes[item.menuProductId] ?? [];
+            if (ballTypes.length <= 1) return false;
+            return (
+              ballTypes.some((bt) => enabledComponents.includes(bt)) &&
+              ballTypes.some((bt) => !enabledComponents.includes(bt))
+            );
+          })
+          .map((item) => item.menuProductId)
+      ),
+    [packagingItems, enabledComponents, productBallTypes]
+  );
+
+  const visibleWasteEntries = useMemo(
+    () =>
+      wasteEntries.filter((entry) => {
+        if (!enabledComponents || !productBallTypes) return true;
+        const ballTypes = productBallTypes[entry.menuProductId] ?? [];
+        if (ballTypes.length === 0) return true;
+        return ballTypes.some((bt) => enabledComponents.includes(bt));
+      }),
+    [wasteEntries, enabledComponents, productBallTypes]
+  );
 
   // Filter kitchen components by enabled codes and apply the configured unit
-  // from unitByCode. null/undefined/empty enabledKitchenComponentCodes means
-  // "all enabled"; a non-empty array restricts to those codes.
-  const visibleKitchenComponents = (kitchenComponents ?? [])
-    .filter((comp) => {
-      if (!enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0) return true;
-      return enabledKitchenComponentCodes.includes(comp.code);
-    })
-    .map((comp) => ({
-      ...comp,
-      unit: unitByCode?.[comp.code] ?? comp.unit,
-    }));
+  // from unitByCode. Only emit a new object when the configured unit differs
+  // from the componentType's native unit.
+  const visibleKitchenComponents = useMemo(() => {
+    const base = kitchenComponents ?? [];
+    const allowAll = !enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0;
+    return base
+      .filter((comp) => allowAll || enabledKitchenComponentCodes.includes(comp.code))
+      .map((comp) => {
+        const configured = unitByCode?.[comp.code];
+        return configured && configured !== comp.unit ? { ...comp, unit: configured } : comp;
+      });
+  }, [kitchenComponents, enabledKitchenComponentCodes, unitByCode]);
 
   function getProducedQty(menuProductId: string): number {
     return produced[menuProductId] ?? 0;
