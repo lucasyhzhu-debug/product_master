@@ -15,7 +15,14 @@
 import { mutation } from "../_generated/server";
 import { ConvexError, v } from "convex/values";
 import { requireRole } from "../lib/auth";
+import { validateRequiredReason } from "../lib/validation";
 import { toWibDateString } from "./flagEngine";
+
+function assertClockOutAfterIn(clockIn: number, clockOut: number | undefined): void {
+  if (clockOut !== undefined && clockOut <= clockIn) {
+    throw new ConvexError("Clock-out must be after clock-in");
+  }
+}
 
 /**
  * D-04 blocker + T-74-01 spoofing prevention. `userId` is derived from
@@ -139,12 +146,8 @@ export const correctAttendance = mutation({
   handler: async (ctx, args) => {
     const manager = await requireRole(ctx, args.token, ["manager", "admin"]);
 
-    // D-19 belt-and-suspenders: validator is v.string() (not optional) so
-    // empty-string can still sneak through; we trim and reject here.
+    validateRequiredReason(args.correctionNote, "Correction note");
     const note = args.correctionNote.trim();
-    if (note.length === 0) {
-      throw new ConvexError("Correction note is required");
-    }
     const correctedAt = Date.now();
 
     // --- action: add_missed (inserts a brand-new row) ---
@@ -152,11 +155,8 @@ export const correctAttendance = mutation({
       if (!args.userId || !args.date || args.clockIn === undefined) {
         throw new ConvexError("add_missed requires userId, date, clockIn");
       }
-      // I-1 guard: reject nonsensical clockOut <= clockIn (negative or zero hours).
-      if (args.clockOut !== undefined && args.clockOut <= args.clockIn) {
-        throw new ConvexError("Clock-out must be after clock-in");
-      }
-      // WR-03: ensure the client-computed `date` field matches the WIB date
+      assertClockOutAfterIn(args.clockIn, args.clockOut);
+      // Ensure the client-computed `date` field matches the WIB date
       // derived from `clockIn`. Prevents drift when a manager picks a clock-in
       // time that crosses WIB midnight relative to the date input.
       const derivedDate = toWibDateString(args.clockIn);
@@ -194,9 +194,8 @@ export const correctAttendance = mutation({
     if (!existing) {
       throw new ConvexError("Attendance record not found");
     }
-    // Triple-review C1: block mutations on soft-deleted rows. Without this,
-    // a manager could append corrections[] entries or overwrite deletedAt/By
-    // on an already-deleted record, corrupting the audit trail (T-74-02).
+    // Block mutations on soft-deleted rows — appending to corrections[] or
+    // overwriting deletedAt on a deleted record corrupts the audit trail.
     if (existing.deletedAt) {
       throw new ConvexError(
         "Cannot correct a deleted attendance record. Use add_missed to create a replacement.",
@@ -245,11 +244,8 @@ export const correctAttendance = mutation({
     const newClockIn = args.clockIn ?? existing.clockIn;
     const newClockOut =
       args.clockOut !== undefined ? args.clockOut : existing.clockOut;
-    // I-1 guard: reject nonsensical clockOut <= clockIn (negative or zero hours).
-    if (newClockOut !== undefined && newClockOut <= newClockIn) {
-      throw new ConvexError("Clock-out must be after clock-in");
-    }
-    // WR-03: if clockIn changed, ensure the existing `date` still matches the
+    assertClockOutAfterIn(newClockIn, newClockOut);
+    // If clockIn changed, ensure the existing `date` still matches the
     // WIB-derived date of the new clockIn. Prevents a WIB-midnight crossing
     // correction from producing a row whose date field is inconsistent with
     // its clockIn timestamp.

@@ -222,9 +222,7 @@ export async function aggregateStaffPerformance(
         // Project every BOM entry for tracking-map aggregation.
         bomProjection.push({ code: compType.code, qty: comp.quantity });
       }
-      // Triple-review I2: no BOM production components → 0 balls, NOT 1.
-      // Defaulting to 1 silently violated Business Rule 13 ("units sold = balls")
-      // by overcounting packaging-only or mis-configured products.
+      // No BOM production components → 0 balls (Business Rule 13).
       productBallCountMap.set(id, ballCount);
       productBomByProductId.set(id, bomProjection);
     }),
@@ -312,8 +310,6 @@ export async function aggregateStaffPerformance(
     // Produced — BOM-resolved balls.
     for (const p of record.produced) {
       const pid = String(p.menuProductId);
-      // Triple-review I2: products without production-category BOM entries
-      // contribute 0 balls (NOT 1). See productBallCountMap.set() above.
       const ballsPerUnit = productBallCountMap.get(pid) ?? 0;
       const totalBalls = p.quantity * ballsPerUnit;
       staff.totalBallsProduced += totalBalls;
@@ -495,10 +491,8 @@ export async function aggregateStaffPerformance(
           for (const c of rec.componentProduced) {
             if (c.grams <= 0) continue;
             if (!trackedCodes.has(c.kitchenComponentCode)) continue;
-            // Triple-review I6 (deferred to rebase): PR #140 on main adds a
-            // `unit` field to componentProduced. After rebase, gate this
-            // accumulation on `(c as { unit?: string }).unit !== "pcs"` so pcs
-            // entries don't silently inflate the grams bucket.
+            // TODO(post-rebase): gate on (c as {unit?:string}).unit !== "pcs"
+            // once componentProduced.unit lands from the kitchen-dedupe merge.
             componentAccumulator.set(
               c.kitchenComponentCode,
               (componentAccumulator.get(c.kitchenComponentCode) ?? 0) + c.grams,

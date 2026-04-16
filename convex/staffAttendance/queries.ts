@@ -12,11 +12,28 @@
  */
 
 import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { detectFlags, detectOverlaps } from "./flagEngine";
 import { aggregateStaffPerformance } from "./aggregation";
+
+const MAX_DATE_RANGE_DAYS = 92;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function assertBoundedDateRange(startDate: string, endDate: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    throw new ConvexError("startDate and endDate must be YYYY-MM-DD");
+  }
+  const startMs = Date.parse(startDate);
+  const endMs = Date.parse(endDate);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+    throw new ConvexError("Invalid date range");
+  }
+  if ((endMs - startMs) / DAY_MS > MAX_DATE_RANGE_DAYS) {
+    throw new ConvexError(`Date range cannot exceed ${MAX_DATE_RANGE_DAYS} days`);
+  }
+}
 
 export const getCurrentOpenShift = query({
   args: { token: v.string() },
@@ -147,21 +164,9 @@ export const getFlaggedShifts = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    // Triple-review I5: bound the scan. A malicious or buggy caller passing
-    // startDate="2020-01-01" would otherwise `.collect()` the entire table.
-    // Frontend already bounds to month ranges, so 92 days is a generous cap.
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(args.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(args.endDate)) {
-      throw new Error("startDate and endDate must be YYYY-MM-DD");
-    }
-    const startMs = Date.parse(args.startDate);
-    const endMs = Date.parse(args.endDate);
-    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
-      throw new Error("Invalid date range");
-    }
-    const dayMs = 24 * 60 * 60 * 1000;
-    if ((endMs - startMs) / dayMs > 92) {
-      throw new Error("Date range cannot exceed 92 days");
-    }
+    // Bound the scan — an unbounded startDate would .collect() the whole table.
+    // Frontend already bounds to month ranges; 92 days is a generous cap.
+    assertBoundedDateRange(args.startDate, args.endDate);
     const rows = await ctx.db
       .query("staffAttendance")
       .withIndex("by_date", (q) =>
@@ -232,6 +237,7 @@ export const getMyPerformance = query({
       "manager",
       "admin",
     ]);
+    assertBoundedDateRange(args.startDate, args.endDate);
     const result = await aggregateStaffPerformance(ctx, {
       startDate: args.startDate,
       endDate: args.endDate,

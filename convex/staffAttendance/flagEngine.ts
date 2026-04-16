@@ -40,8 +40,8 @@ export function toWibDateString(utcMs: number): string {
  * Open shifts (clockOut undefined) have their end capped at
  * `clockIn + OPEN_SHIFT_THRESHOLD_MS` for overlap purposes — this prevents a
  * single forgotten clock-out from tainting every later day's sessions as
- * "overlapping" (Triple-review I1). The `missing_clockout` / `over_16h` rules
- * still flag the abandoned session on their own.
+ * "overlapping". The `missing_clockout` / `over_16h` rules still flag the
+ * abandoned session on their own.
  *
  * Note: this function is pure; callers must pass only active (non-deleted)
  * sessions. Returns the set of session ids that participate in any overlap.
@@ -53,9 +53,7 @@ export function detectOverlaps(
   const sorted = [...sessions].sort((a, b) => a.clockIn - b.clockIn);
   // Track the running max-end (across ALL earlier sessions, not just the
   // immediate predecessor) so a long earlier session still catches later
-  // shorter sessions it envelops. WR-01 regression: fixes 3+ session cases
-  // where the middle session was "inside" the first and the naive pairwise
-  // scan would skip the outer/later overlap.
+  // shorter sessions it envelops.
   let maxEnd = Number.NEGATIVE_INFINITY;
   let maxEndId: Id<"staffAttendance"> | null = null;
   for (const cur of sorted) {

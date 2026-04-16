@@ -18,9 +18,8 @@ interface RunningTimerProps {
 export function RunningTimer({ clockIn, className }: RunningTimerProps) {
   // Display only — authoritative hours computed server-side in getStaffPerformanceSummary via durationMs.
   const [now, setNow] = useState(() => Date.now());
-  // Triple-review I4 / IN-05: `clockIn` in the deps resets the interval when
-  // the parent re-renders with a new open-shift id (e.g. after a mid-session
-  // manager correction), preventing up-to-60s display lag.
+  // `clockIn` in deps resets the interval when the parent re-renders with a
+  // new open-shift id (e.g. after a manager correction).
   useEffect(() => {
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 60_000);

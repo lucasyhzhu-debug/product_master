@@ -140,7 +140,10 @@ export function AttendanceCorrectionDialog({
         ? epochMsToDatetimeLocalWib(attendance.clockOut)
         : "",
     );
-  }, [open, attendance]);
+  // Key on _id (stable), not the object ref — prevents wiping typed state
+  // when a parent re-constructs the prop without changing the underlying record.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, attendance?._id]);
 
   const activeUsers = useMemo(
     () => (users ?? []).filter((u) => u.isActive !== false),
