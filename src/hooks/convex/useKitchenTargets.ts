@@ -32,17 +32,24 @@ export function useKitchenTargets() {
     api.productionRecipes.queries.getComponentsWithTiers
   );
 
-  // Tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types).
-  // The unit guard prevents tier-1 pcs components from leaking in when links are missing.
+  // Kitchen components = production componentTypes referenced as a CHILD of
+  // some tier-1+ recipe (i.e. `productionComponentLinks.childComponentId`).
+  // This is the canonical definition: kitchen staff produces things that are
+  // sub-components of recipes. Top-level balls like BIG_BALL/Jumbo are linked
+  // directly to menu products (menuProductComponents) but are NOT recipe
+  // children — they belong to PRODUCTION COMPONENTS (ball targets), not
+  // KITCHEN COMPONENTS.
+  //
   // Round-2 fix: filter `isActive` to exclude soft-deactivated dedupe shadows
   // (convex/componentTypes/dedupe.ts line 757 sets isActive=false without deletion).
-  // Without this filter, duplicate shadow rows render twice in the kitchen form
-  // and the shift submit payload doubles componentProduced entries per code.
+  // Round-4 fix: source from `isRecipeChild` (not tier===0 && unit==="g") so
+  // pcs-unit sub-components like Filling Pistachio, Outer Marshmallow,
+  // nutella_filling appear as toggleable kitchen components.
   // Additional dedupe-by-code guard protects against any lingering active
   // dupes the schema doesn't enforce unique.
   const kitchenComponents = useMemo(() => {
     const base = (productionComponentsWithTiers ?? []).filter(
-      (c) => c.tier === 0 && c.unit === "g" && c.isActive
+      (c) => c.isActive && c.isRecipeChild
     );
     const seen = new Set<string>();
     const unique: typeof base = [];

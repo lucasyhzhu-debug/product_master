@@ -42,7 +42,7 @@ interface ShiftSuccessScreenProps {
   targets?: TargetItem[];
   onDone: () => void;
   /** Phase 69: Component production data */
-  componentProduced?: Array<{ kitchenComponentName: string; grams: number }>;
+  componentProduced?: Array<{ kitchenComponentName: string; grams: number; unit?: string }>;
 }
 
 // Framer Motion stagger variants
@@ -124,7 +124,7 @@ export function ShiftSuccessScreen({
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                   <span className="text-sm font-medium">{c.kitchenComponentName}</span>
                 </div>
-                <span className="text-sm font-semibold tabular-nums">{c.grams}g</span>
+                <span className="text-sm font-semibold tabular-nums">{c.grams}{c.unit || "g"}</span>
               </motion.div>
             ))}
           </motion.div>

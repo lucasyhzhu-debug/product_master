@@ -97,7 +97,9 @@ export function ComponentProductionSection({
                 onChange={(e) => onProducedChange(comp.code, Number(e.target.value))}
                 className="w-24 text-right tabular-nums shrink-0"
               />
-              <span className="text-xs text-muted-foreground shrink-0 w-4">g</span>
+              <span className="text-xs text-muted-foreground shrink-0 min-w-[1rem]">
+                {comp.unit || "g"}
+              </span>
             </div>
           </div>
         );

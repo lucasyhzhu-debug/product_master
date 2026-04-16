@@ -81,10 +81,16 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     }
     return unique;
   }, [componentsWithTiers]);
-  // tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types)
+  // Kitchen components = active production componentTypes that are referenced
+  // as a CHILD of some tier-1+ recipe (isRecipeChild=true). This matches the
+  // /components/production page's leaf grouping INTENT without pulling in
+  // top-level balls like Jumbo/BIG_BALL (which are direct menu-product
+  // components, not recipe children → they belong to PRODUCTION COMPONENTS).
+  // Round-4 fix: was filtering `tier===0 && unit==='g'`, which excluded
+  // pcs-unit sub-components (Filling Pistachio, Outer Marshmallow, nutella_filling).
   const kitchenComponentsList = useMemo(() => {
     const base = (componentsWithTiers ?? []).filter(
-      (c) => c.tier === 0 && c.unit === "g" && c.isActive
+      (c) => c.isActive && c.isRecipeChild
     );
     const seen = new Set<string>();
     const unique: typeof base = [];

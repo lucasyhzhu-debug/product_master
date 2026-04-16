@@ -375,11 +375,13 @@ export function EndOfShiftForm({
 
   if (step === "success") {
     // Phase 69: Build submitted component lists for success screen
+    // Round-4: include unit so pcs-sub-components render with their native unit
     const successComponentProduced = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentName: c.name,
         grams: componentProduced[c.code]!,
+        unit: c.unit,
       }));
 
     return (
@@ -399,11 +401,14 @@ export function EndOfShiftForm({
 
   if (step === "review") {
     // Phase 69: Build component lists for review
+    // Round-4: include unit so pcs-sub-components render with their native unit
+    const unitByCode = new Map(visibleKitchenComponents.map((c) => [c.code, c.unit]));
     const reviewComponentProduced = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentName: c.name,
         grams: componentProduced[c.code]!,
+        unit: c.unit,
       }));
     const reviewComponentWaste = componentWaste
       .filter((e) => e.grams > 0)
@@ -411,6 +416,7 @@ export function EndOfShiftForm({
         kitchenComponentName: e.name,
         grams: e.grams,
         reason: e.reason,
+        unit: unitByCode.get(e.code),
       }));
 
     return (

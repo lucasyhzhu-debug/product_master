@@ -50,9 +50,9 @@ interface ShiftReviewModalProps {
   /** Inline error from mutation failure — rendered above action buttons */
   error?: string | null;
   /** Phase 69: Component production data */
-  componentProduced?: Array<{ kitchenComponentName: string; grams: number }>;
+  componentProduced?: Array<{ kitchenComponentName: string; grams: number; unit?: string }>;
   /** Phase 69: Component waste data */
-  componentWaste?: Array<{ kitchenComponentName: string; grams: number; reason: string }>;
+  componentWaste?: Array<{ kitchenComponentName: string; grams: number; reason: string; unit?: string }>;
 }
 
 export function ShiftReviewModal({
@@ -148,7 +148,9 @@ export function ShiftReviewModal({
                     className="flex items-center justify-between text-sm"
                   >
                     <span className="text-foreground">{item.kitchenComponentName}</span>
-                    <span className="font-semibold tabular-nums">{item.grams}g</span>
+                    <span className="font-semibold tabular-nums">
+                      {item.grams}{item.unit || "g"}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -177,7 +179,7 @@ export function ShiftReviewModal({
                       </span>
                     </span>
                     <span className="font-semibold tabular-nums text-destructive">
-                      -{item.grams}g
+                      -{item.grams}{item.unit || "g"}
                     </span>
                   </li>
                 ))}

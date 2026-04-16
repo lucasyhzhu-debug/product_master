@@ -86,11 +86,14 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     api.kitchenShiftRecords.mutations.updateShiftRecord
   );
 
-  // Query available kitchen components (tier-0 from componentTypes)
+  // Query available kitchen components (recipe-child production componentTypes)
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
-  // tier-0 + unit="g" = leaf ingredients in grams (unit guard prevents pcs components leaking in)
+  // Round-4 fix: kitchen components are production componentTypes referenced as
+  // a CHILD of some tier-1+ recipe (isRecipeChild=true). Previous `tier===0 && unit==="g"`
+  // filter excluded pcs-unit sub-components like Filling Pistachio, Outer Marshmallow,
+  // nutella_filling. Also filter `isActive` to exclude soft-deactivated dedupe shadows.
   const kitchenComponents = useMemo(
-    () => (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
+    () => (componentsWithTiers ?? []).filter((c) => c.isActive && c.isRecipeChild),
     [componentsWithTiers]
   );
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);

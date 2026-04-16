@@ -2,7 +2,105 @@
 status: awaiting_human_verify
 trigger: "Kitchen view still shows duplicated components, toggles tied together, grammage recorded twice, Nutella-Regular missing from BALLS PRODUCED."
 created: 2026-04-16T00:00:00Z
-updated: 2026-04-16T02:00:00Z
+updated: 2026-04-16T03:00:00Z
+---
+
+## Bug 7 — Kitchen Components sourced from wrong set (Round 4)
+<!-- New symptom surfaced during human-verify for round-2/3 (screenshots 16-18). -->
+
+### Symptom
+
+- Manager Settings "KITCHEN COMPONENTS" toggles show only 2: Butter, Marshmallow.
+- Expected: all active leaf sub-components referenced in tier-1 recipes:
+  Butter, Filling Pistachio, Marshmallow, nutella_filling, Outer Marshmallow.
+- The 2 that appear happen to exactly match /inventory Ingredients tab entries —
+  suspicious coincidence suggesting the source is inventory-linked ingredients,
+  not componentTypes leaves.
+
+### Root cause
+
+The kitchen-components filter was `tier === 0 && unit === "g"`. This worked
+only for the two gram-tracked bulk ingredients (Butter, Marshmallow). It
+excluded pcs-unit sub-components (Filling Pistachio 28g/pcs, Outer Marshmallow
+15g/pcs, nutella_filling 45g/pcs) because the `unit === "g"` guard was added
+in Phase 69 to keep tier-1 balls out when links were missing.
+
+Screenshot 16/18 coincidence: the 2 ingredients in /inventory (Butter, Marshmallow)
+happen to be the only leaf production componentTypes with `unit === "g"`, so
+it LOOKED like the source was inventory. It wasn't — the filter just happened
+to collapse to the same 2 rows. Confirmed by reading
+`src/hooks/convex/useKitchenTargets.ts:44` and
+`src/components/kitchen/ManagerTargetSettings.tsx:86`.
+
+### Fix
+
+Replace the `tier === 0 && unit === "g"` heuristic with the canonical
+definition: a kitchen component is a production componentType referenced as
+a CHILD of some tier-1+ recipe (i.e. appears in
+`productionComponentLinks.childComponentId`).
+
+- `convex/productionRecipes/queries.ts` — `getComponentsWithTiers` now
+  collects `productionComponentLinks` once, builds a `recipeChildIds` Set,
+  and tags each returned component with `isRecipeChild: boolean`.
+- `src/hooks/convex/useKitchenTargets.ts` — kitchenComponents filter now
+  `c.isActive && c.isRecipeChild` (was `tier===0 && unit==="g" && isActive`).
+- `src/components/kitchen/ManagerTargetSettings.tsx` — kitchenComponentsList
+  same change.
+- `src/components/kitchen/ShiftEditDialog.tsx` — kitchenComponents same change
+  (and added missing `isActive` filter).
+- `src/components/kitchen/ComponentProductionSection.tsx` — input suffix now
+  renders `comp.unit || "g"` instead of hardcoded "g", so pcs components
+  show "pcs" next to the quantity field.
+- `src/components/kitchen/EndOfShiftForm.tsx` — review and success payloads
+  now include `unit` per entry.
+- `src/components/kitchen/ShiftReviewModal.tsx` — renders `{grams}{unit || "g"}`
+  for component produced + waste rows.
+- `src/components/kitchen/ShiftSuccessScreen.tsx` — renders `{grams}{unit || "g"}`
+  for component rows.
+
+Jumbo/BIG_BALL is naturally excluded: it's directly linked to menu products
+via `menuProductComponents` but NOT referenced as a child in any
+`productionComponentLinks` row, so `isRecipeChild=false`. It stays in
+PRODUCTION COMPONENTS (ball targets), not KITCHEN COMPONENTS.
+
+### Evidence
+
+- timestamp: 2026-04-16T02:50:00Z
+  checked: src/hooks/convex/useKitchenTargets.ts:44, ManagerTargetSettings.tsx:86, ShiftEditDialog.tsx:93
+  found: All three consumers filter `tier === 0 && c.unit === "g"`.
+  implication: pcs sub-components never reach the kitchen UI regardless of
+    isActive or seed status.
+
+- timestamp: 2026-04-16T02:55:00Z
+  checked: Screenshot 18 /components/production — leaf components list
+  found: Active leaves are Butter (g), Filling Pistachio (pcs 28g),
+    Jumbo (pcs 80g), Marshmallow (g), nutella_filling (pcs 45g),
+    Outer Marshmallow (pcs 15g). Of these, only Butter + Marshmallow have
+    unit="g" → matches the 2 toggles in screenshot 17.
+  implication: Root cause confirmed — `unit==="g"` guard is too narrow.
+
+- timestamp: 2026-04-16T03:00:00Z
+  checked: convex/productionRecipes/queries.ts getComponentsWithTiers fix
+  found: Now collects productionComponentLinks once, tags each component
+    with isRecipeChild. Jumbo/BIG_BALL not referenced as child → excluded.
+  implication: Kitchen consumers get the correct set automatically; no
+    schema changes, no seed runs required.
+
+- timestamp: 2026-04-16T03:05:00Z
+  checked: npm run type-check + npm run build
+  found: type-check passes clean; build completes in 20.71s with zero errors.
+  implication: Round-4 fix is type-safe and ships.
+
+### files_changed (round 4)
+- convex/productionRecipes/queries.ts                     # add isRecipeChild tag
+- src/hooks/convex/useKitchenTargets.ts                   # filter isRecipeChild
+- src/components/kitchen/ManagerTargetSettings.tsx        # filter isRecipeChild
+- src/components/kitchen/ShiftEditDialog.tsx              # filter isRecipeChild + isActive
+- src/components/kitchen/ComponentProductionSection.tsx   # render native unit
+- src/components/kitchen/EndOfShiftForm.tsx               # pass unit through
+- src/components/kitchen/ShiftReviewModal.tsx             # render native unit
+- src/components/kitchen/ShiftSuccessScreen.tsx           # render native unit
+
 ---
 
 ## Current Focus
