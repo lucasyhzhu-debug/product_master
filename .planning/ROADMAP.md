@@ -275,7 +275,12 @@ Plans:
   2. Per-staff production tracking page shows balls produced by type (Big Ball, Mid Ball) and total grams during each shift
   3. Monthly attendance summary displays hours worked and production output per staff member
   4. Manager can correct a missed clock-out with the correction logged in an audit trail
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+- [ ] 74-01-PLAN.md -- Backend: staffAttendance schema + clockIn/clockOut/correctAttendance mutations + extended getStaffPerformanceSummary with hours/flags
+- [ ] 74-02-PLAN.md -- Frontend: ClockInGate at /kitchen/clock + DashboardHeader running timer + Clock-Out nudge dialog
+- [ ] 74-03-PLAN.md -- Frontend: /staff-performance hours column + flagged-shifts banner + per-day breakdown + AttendanceCorrectionDialog + /my-performance
+- [ ] 74-04-PLAN.md -- Tests: mutation + summary integration tests + Playwright E2E scaffold + SCHEMA/API_REFERENCE/CHANGELOG docs + verification gate
 **UI hint**: yes
 
 ### Phase 75: Full P&L Extension
