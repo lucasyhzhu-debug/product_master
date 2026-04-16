@@ -161,17 +161,37 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     [componentProducedRows]
   );
 
+  // C2: honour componentTracking when present (authoritative); fall back to
+  // the legacy enabledKitchenComponents array otherwise. This matches the
+  // precedence used by useKitchenTargets so the edit dialog surfaces the
+  // same set of add-able components as the main shift form.
+  const enabledCodesFromTracking = useMemo(() => {
+    if (!kitchenConfig?.componentTracking || kitchenConfig.componentTracking.length === 0) {
+      return null;
+    }
+    // Restrict to codes that exist in kitchenComponents (leaf/recipe-child set)
+    const kitchenCodeSet = new Set(kitchenComponents.map((c) => c.code));
+    return new Set(
+      kitchenConfig.componentTracking
+        .filter((e) => e.tracked && kitchenCodeSet.has(e.code))
+        .map((e) => e.code)
+    );
+  }, [kitchenConfig?.componentTracking, kitchenComponents]);
+
   const addableComponents = useMemo(() => {
     if (!kitchenComponents) return [];
-    const enabledCodes = kitchenConfig?.enabledKitchenComponents;
+    const legacyEnabled = kitchenConfig?.enabledKitchenComponents;
     return kitchenComponents
       .filter((c) => {
         if (existingComponentCodes.has(c.code)) return false;
-        if (enabledCodes && enabledCodes.length > 0 && !enabledCodes.includes(c.code)) return false;
+        if (enabledCodesFromTracking) {
+          return enabledCodesFromTracking.has(c.code);
+        }
+        if (legacyEnabled && legacyEnabled.length > 0 && !legacyEnabled.includes(c.code)) return false;
         return true;
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [kitchenComponents, kitchenConfig, existingComponentCodes]);
+  }, [kitchenComponents, kitchenConfig, existingComponentCodes, enabledCodesFromTracking]);
 
   // Pre-computed produced grams by component code for O(1) validation lookups
   const producedGramsByCode = useMemo(() => {
