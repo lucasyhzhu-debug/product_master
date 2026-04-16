@@ -412,3 +412,28 @@ Legacy fields are still synced on save for backward compat.
 
 - `npm run type-check` passes clean
 - `npm run build` completes in 20.16s with zero errors
+
+## Post-review fixes (2026-04-16)
+
+Applied after staff review `docs/reviews/staffreview-kitchen-ui-dedupe-round2-2026-04-16.md`.
+Seven commits on top of `0d38346f`; each passes type-check + build.
+
+| Commit | SHA | Focus |
+|--------|-----|-------|
+| 1a | `74d2f61c` | Persist optional `unit` on `kitchenShiftRecords.componentProduced`/`componentWaste`; mutation + submit payload include unit; I3 rename local Map to `unitByCodeMap` |
+| 1b | `5ec3dd76` | Display consumers render stored unit (ShiftHistoryList/ShiftEditDialog/DailySummaryWidget/KitchenViewV2); totals split per unit; `getDailyComponentSummary` carries unit per code |
+| 1c | `6c1ad3a9` | Staff performance aggregation split into `totalComponentGrams` + `totalComponentPieces` (same for waste); componentBreakdown carries unit; CSV export adds dedicated pcs columns |
+| 2  | `8cc27a73` | C2 — ShiftEditDialog addableComponents prefers `componentTracking` before falling back to `enabledKitchenComponents` |
+| 3  | `ad77bd98` | C3 — `enabledKitchenComponentCodes` passed to EndOfShiftForm now filtered to kitchen leaf code set |
+| 4  | `a93a85ae` | C4 — `enabledComponents` falls back to legacy `enabledProductionComponents` (or componentTypesList) when componentTracking-derived list is empty |
+| 5  | `e0827715` | I1 — ManagerTargetSettings hydration split into Effect A (hydrate on config._id / componentTracking ref change) + Effect B (derive legacy fields ONCE via `hasHydratedLegacyRef`) |
+| 6  | `1c567641` | I2 — `kitchenDailyOverrides` accepts + persists `otherBallOverrides`; `getKitchenTargetsForDate` override branch surfaces otherBalls; `handleApplyOverride` filters state to tracked tier-1 codes |
+
+**Deferred:** I4 N+1 (otherBallTargets ≤5 in practice), I5 backend validation, Minor/Nitpick.
+
+### Post-review verification
+
+- Seven sequential commits; each isolated to its fix group.
+- `npm run type-check` clean after every commit.
+- `npm run build` under 21s after every commit.
+- Dev Convex deploy succeeded after final commit.
