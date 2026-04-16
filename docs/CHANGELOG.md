@@ -16,6 +16,14 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Unblock Convex Deploy (19 TS errors in bank-statement tests) -- 2026-04-16
+
+**For the team:** Prod Convex backend was stuck on the pre-kitchen-fix code since 2026-04-16 05:35 UTC because CI deploy failed on TS18048/TS2769 errors in `convex/bankStatements/__tests__/`. The failed deploy meant the new `componentTracking` / `otherBallTargets` fields sent by the updated kitchen UI were rejected by the stale backend (`ArgumentValidationError`), which manifested as "left components not visible in kitchen" and "Server Error when submitting Nutella production target".
+
+**Fix:** Added `!` non-null assertions after `.find()` calls where tests already guard with `expect(x).toBeDefined()`, and corrected one predicate type on `result.rows` that was using `{ channel: string }` instead of the actual `{ channels: string[] }` shape.
+
+**Files:** `convex/bankStatements/__tests__/revenueGap.test.ts`, `convex/bankStatements/__tests__/listCandidates.test.ts`
+
 ### Fix: Kitchen UI Component Dedup + Unified Tracking Config -- 2026-04-16
 
 **For the team:** Manager Settings now shows ONE "Component Tracking" table listing every production component (grouped by Tier 1 and Leaf) with a Track? toggle AND a g/pcs unit selector per row. The kitchen shift form automatically reflects what's tracked and records each component in its configured unit. Ball targets, dispatch-plan dropdown, and packaging-mix sections all scale to any tier-1 production code (no more Original+Jumbo hardcoding). Historical shift records preserve the unit they were entered with — switching a component's unit later doesn't corrupt old data.

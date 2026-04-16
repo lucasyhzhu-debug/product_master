@@ -58,7 +58,7 @@ describe("listCandidatesForLine", () => {
       (e: { _id: string; alreadyLinkedToLineId?: string }) => e._id === f.expenseId,
     );
     expect(candidate).toBeDefined();
-    expect(candidate.alreadyLinkedToLineId).toBe(f.matchedLineId);
+    expect(candidate!.alreadyLinkedToLineId).toBe(f.matchedLineId);
   });
 
   it("empty groups returned with count=0 rather than omitted (D-05)", async () => {
