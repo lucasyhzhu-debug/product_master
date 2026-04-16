@@ -396,6 +396,9 @@ export const getStaffPerformanceSummary = query({
     );
 
     // Aggregate per staff member
+    // C1: split component totals by unit (grams vs pieces) so pcs entries
+    // do not pollute gram totals. componentBreakdown stores per-code grams
+    // and pieces separately with the unit tag.
     const staffMap = new Map<
       string,
       {
@@ -405,9 +408,11 @@ export const getStaffPerformanceSummary = query({
         totalBallsProduced: number;
         productBreakdown: Map<string, { name: string; quantity: number; ballCount: number }>;
         totalComponentGrams: number;
-        componentBreakdown: Map<string, { name: string; grams: number }>;
+        totalComponentPieces: number;
+        componentBreakdown: Map<string, { name: string; grams: number; unit: "g" | "pcs" }>;
         totalComponentWasteGrams: number;
-        componentWasteBreakdown: Map<string, { name: string; grams: number }>;
+        totalComponentWastePieces: number;
+        componentWasteBreakdown: Map<string, { name: string; grams: number; unit: "g" | "pcs" }>;
         totalWaste: number;
         wasteByReason: Map<string, number>;
         wasteProductBreakdown: Map<string, { name: string; quantity: number }>;
@@ -430,8 +435,10 @@ export const getStaffPerformanceSummary = query({
           totalBallsProduced: 0,
           productBreakdown: new Map(),
           totalComponentGrams: 0,
+          totalComponentPieces: 0,
           componentBreakdown: new Map(),
           totalComponentWasteGrams: 0,
+          totalComponentWastePieces: 0,
           componentWasteBreakdown: new Map(),
           totalWaste: 0,
           wasteByReason: new Map(),
@@ -482,35 +489,44 @@ export const getStaffPerformanceSummary = query({
         }
       }
 
-      // Aggregate component production (grams)
+      // Aggregate component production — split totals by unit.
       if (record.componentProduced) {
         for (const c of record.componentProduced) {
           if (c.grams <= 0) continue;
-          staff.totalComponentGrams += c.grams;
+          const unit: "g" | "pcs" = c.unit ?? "g";
+          if (unit === "g") staff.totalComponentGrams += c.grams;
+          else staff.totalComponentPieces += c.grams;
           const existing = staff.componentBreakdown.get(c.kitchenComponentCode);
           if (existing) {
             existing.grams += c.grams;
+            // Prefer an explicit unit (newer record) over the default.
+            if (c.unit) existing.unit = c.unit;
           } else {
             staff.componentBreakdown.set(c.kitchenComponentCode, {
               name: c.kitchenComponentName,
               grams: c.grams,
+              unit,
             });
           }
         }
       }
 
-      // Aggregate component waste (grams)
+      // Aggregate component waste — split totals by unit.
       if (record.componentWaste) {
         for (const c of record.componentWaste) {
           if (c.grams <= 0) continue;
-          staff.totalComponentWasteGrams += c.grams;
+          const unit: "g" | "pcs" = c.unit ?? "g";
+          if (unit === "g") staff.totalComponentWasteGrams += c.grams;
+          else staff.totalComponentWastePieces += c.grams;
           const existing = staff.componentWasteBreakdown.get(c.kitchenComponentCode);
           if (existing) {
             existing.grams += c.grams;
+            if (c.unit) existing.unit = c.unit;
           } else {
             staff.componentWasteBreakdown.set(c.kitchenComponentCode, {
               name: c.kitchenComponentName,
               grams: c.grams,
+              unit,
             });
           }
         }
@@ -529,17 +545,22 @@ export const getStaffPerformanceSummary = query({
         quantity: val.quantity,
         ballCount: val.ballCount,
       })),
+      // C1: per-unit totals for honest aggregation.
       totalComponentGrams: s.totalComponentGrams,
+      totalComponentPieces: s.totalComponentPieces,
       componentBreakdown: Array.from(s.componentBreakdown.entries()).map(([code, val]) => ({
         code,
         name: val.name,
         grams: val.grams,
+        unit: val.unit,
       })),
       totalComponentWasteGrams: s.totalComponentWasteGrams,
+      totalComponentWastePieces: s.totalComponentWastePieces,
       componentWasteBreakdown: Array.from(s.componentWasteBreakdown.entries()).map(([code, val]) => ({
         code,
         name: val.name,
         grams: val.grams,
+        unit: val.unit,
       })),
       totalWaste: s.totalWaste,
       wasteByReason: Array.from(s.wasteByReason.entries()).map(([reason, qty]) => ({
