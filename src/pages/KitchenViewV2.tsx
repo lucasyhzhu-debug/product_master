@@ -270,7 +270,11 @@ export function KitchenViewV2() {
             // - selectedChefId === user.userId means explicit self-selection.
             // - any other id means the submitter recorded a shift on behalf of another
             //   chef — opening the nudge would clock out the wrong user.
-            const isSelf = selectedChefId === "" || selectedChefId === user?.userId;
+            // Coerce both sides to string to defend against Convex Id<> objects
+            // slipping through — silent mis-equality would nudge the wrong user.
+            const isSelf =
+              selectedChefId === "" ||
+              String(selectedChefId) === String(user?.userId ?? "");
             if (isSelf && openShift && !openShift.deletedAt) setNudgeOpen(true);
           }}
         />

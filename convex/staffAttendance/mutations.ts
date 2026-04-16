@@ -152,8 +152,8 @@ export const correctAttendance = mutation({
       if (!args.userId || !args.date || args.clockIn === undefined) {
         throw new ConvexError("add_missed requires userId, date, clockIn");
       }
-      // I-1 guard: reject nonsensical clockOut < clockIn (negative hours).
-      if (args.clockOut !== undefined && args.clockOut < args.clockIn) {
+      // I-1 guard: reject nonsensical clockOut <= clockIn (negative or zero hours).
+      if (args.clockOut !== undefined && args.clockOut <= args.clockIn) {
         throw new ConvexError("Clock-out must be after clock-in");
       }
       // WR-03: ensure the client-computed `date` field matches the WIB date
@@ -245,8 +245,8 @@ export const correctAttendance = mutation({
     const newClockIn = args.clockIn ?? existing.clockIn;
     const newClockOut =
       args.clockOut !== undefined ? args.clockOut : existing.clockOut;
-    // I-1 guard: reject nonsensical clockOut < clockIn.
-    if (newClockOut !== undefined && newClockOut < newClockIn) {
+    // I-1 guard: reject nonsensical clockOut <= clockIn (negative or zero hours).
+    if (newClockOut !== undefined && newClockOut <= newClockIn) {
       throw new ConvexError("Clock-out must be after clock-in");
     }
     // WR-03: if clockIn changed, ensure the existing `date` still matches the

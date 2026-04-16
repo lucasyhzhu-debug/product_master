@@ -76,9 +76,13 @@ function epochMsToDatetimeLocalWib(ms: number): string {
 
 /**
  * Convert a WIB datetime-local input value back to UTC epoch ms. WIB is UTC+7.
+ * Returns NaN on malformed input so callers can guard rather than crash.
  */
 function datetimeLocalWibToEpochMs(local: string): number {
-  // `local` is "YYYY-MM-DDTHH:MM" interpreted as WIB. Build the UTC moment.
+  // `local` must be "YYYY-MM-DDTHH:MM" interpreted as WIB.
+  if (typeof local !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(local)) {
+    return NaN;
+  }
   const [date, time] = local.split("T");
   const [y, mo, d] = date.split("-").map(Number);
   const [h, mi] = time.split(":").map(Number);
@@ -177,6 +181,28 @@ export function AttendanceCorrectionDialog({
   async function handleSubmit() {
     setPending(true);
     try {
+      // Malformed datetime-local input → NaN from the parser; guard so we
+      // don't send NaN to the mutation (which would fail a cryptic Convex
+      // validator message).
+      const parsedClockIn =
+        action === "edit_timestamps" || action === "add_missed"
+          ? datetimeLocalWibToEpochMs(clockInLocal)
+          : undefined;
+      const parsedClockOut =
+        (action === "edit_timestamps" || action === "add_missed") &&
+        clockOutLocal
+          ? datetimeLocalWibToEpochMs(clockOutLocal)
+          : undefined;
+      if (parsedClockIn !== undefined && Number.isNaN(parsedClockIn)) {
+        toast.error("Clock-in time is invalid");
+        setPending(false);
+        return;
+      }
+      if (parsedClockOut !== undefined && Number.isNaN(parsedClockOut)) {
+        toast.error("Clock-out time is invalid");
+        setPending(false);
+        return;
+      }
       await correctAttendance({
         action,
         correctionNote: note.trim(),
@@ -189,15 +215,8 @@ export function AttendanceCorrectionDialog({
             ? (selectedUserId as Id<"users">)
             : undefined,
         date: action === "add_missed" ? newDate : undefined,
-        clockIn:
-          action === "edit_timestamps" || action === "add_missed"
-            ? datetimeLocalWibToEpochMs(clockInLocal)
-            : undefined,
-        clockOut:
-          (action === "edit_timestamps" || action === "add_missed") &&
-          clockOutLocal
-            ? datetimeLocalWibToEpochMs(clockOutLocal)
-            : undefined,
+        clockIn: parsedClockIn,
+        clockOut: parsedClockOut,
       });
       toast.success("Attendance corrected");
       onOpenChange(false);
