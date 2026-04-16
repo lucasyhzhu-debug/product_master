@@ -33,6 +33,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PackagingMixEditor, type PackagingMixRow, type BallGroupDef } from "./PackagingMixEditor";
 import type { KitchenTargets } from "./ProductionTargetsBar";
+import { getKitchenLeafComponents, getProductionTier1Components } from "@/lib/componentFilters";
+import { resolveUnit } from "@/lib/componentUnit";
 
 // -------------------------------------------------------
 // Types
@@ -77,37 +79,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // Without this filter, each duplicate shadow renders a second toggle sharing
   // the same `code`, so flipping one appears to flip both.
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
-  const productionComponents = useMemo(() => {
-    const base = (componentsWithTiers ?? []).filter((c) => c.tier > 0 && c.isActive);
-    const seen = new Set<string>();
-    const unique: typeof base = [];
-    for (const c of base) {
-      if (seen.has(c.code)) continue;
-      seen.add(c.code);
-      unique.push(c);
-    }
-    return unique;
-  }, [componentsWithTiers]);
-  // Kitchen components = active production componentTypes that are referenced
-  // as a CHILD of some tier-1+ recipe (isRecipeChild=true). This matches the
-  // /components/production page's leaf grouping INTENT without pulling in
-  // top-level balls like Jumbo/BIG_BALL (which are direct menu-product
-  // components, not recipe children → they belong to PRODUCTION COMPONENTS).
-  // Round-4 fix: was filtering `tier===0 && unit==='g'`, which excluded
-  // pcs-unit sub-components (Filling Pistachio, Outer Marshmallow, nutella_filling).
-  const kitchenComponentsList = useMemo(() => {
-    const base = (componentsWithTiers ?? []).filter(
-      (c) => c.isActive && c.isRecipeChild
-    );
-    const seen = new Set<string>();
-    const unique: typeof base = [];
-    for (const c of base) {
-      if (seen.has(c.code)) continue;
-      seen.add(c.code);
-      unique.push(c);
-    }
-    return unique;
-  }, [componentsWithTiers]);
+  const productionComponents = useMemo(
+    () => getProductionTier1Components(componentsWithTiers ?? []),
+    [componentsWithTiers]
+  );
+  const kitchenComponentsList = useMemo(
+    () => getKitchenLeafComponents(componentsWithTiers ?? []),
+    [componentsWithTiers]
+  );
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
   const clearDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.clearDailyOverride);
@@ -200,14 +179,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       entries.push({
         code: c.code,
         tracked: enabledProd.includes(c.code),
-        unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "pcs",
+        unit: resolveUnit(c.unit, "pcs"),
       });
     }
     for (const c of kitchenComponentsList) {
       entries.push({
         code: c.code,
         tracked: enabledKitchen === null ? true : enabledKitchen.includes(c.code),
-        unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "g",
+        unit: resolveUnit(c.unit),
       });
     }
     setComponentTracking(entries);
@@ -587,7 +566,7 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                       {kitchenComponentsList.map((comp) => {
                         const entry = componentTracking.find((e) => e.code === comp.code);
                         const isTracked = entry?.tracked ?? true;
-                        const unit = entry?.unit ?? ((comp.unit === "g" || comp.unit === "pcs") ? comp.unit : "g");
+                        const unit = entry?.unit ?? resolveUnit(comp.unit);
                         return (
                           <tr key={comp._id} className="border-t border-border">
                             <td className="px-3 py-2">{comp.name}</td>

@@ -10,6 +10,7 @@ import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { resolveUnit } from "@/lib/componentUnit";
 
 const REASON_LABELS: Record<string, string> = {
   qa_testing: "QA / Testing",
@@ -124,7 +125,7 @@ export function ShiftSuccessScreen({
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                   <span className="text-sm font-medium">{c.kitchenComponentName}</span>
                 </div>
-                <span className="text-sm font-semibold tabular-nums">{c.grams}{c.unit || "g"}</span>
+                <span className="text-sm font-semibold tabular-nums">{c.grams}{resolveUnit(c.unit)}</span>
               </motion.div>
             ))}
           </motion.div>

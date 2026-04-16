@@ -13,6 +13,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { resolveUnit } from "@/lib/componentUnit";
 
 const REASON_LABELS: Record<string, string> = {
   qa_testing: "QA / Testing",
@@ -149,7 +150,7 @@ export function ShiftReviewModal({
                   >
                     <span className="text-foreground">{item.kitchenComponentName}</span>
                     <span className="font-semibold tabular-nums">
-                      {item.grams}{item.unit || "g"}
+                      {item.grams}{resolveUnit(item.unit)}
                     </span>
                   </li>
                 ))}
@@ -179,7 +180,7 @@ export function ShiftReviewModal({
                       </span>
                     </span>
                     <span className="font-semibold tabular-nums text-destructive">
-                      -{item.grams}{item.unit || "g"}
+                      -{item.grams}{resolveUnit(item.unit)}
                     </span>
                   </li>
                 ))}

@@ -11,6 +11,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveUnit } from '@/lib/componentUnit';
 
 interface DailySummaryWidgetProps {
   stats: {
@@ -94,7 +95,7 @@ export function DailySummaryWidget({
               <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Component Production</h4>
               <div className="space-y-3">
                 {componentSummary.map((comp) => {
-                  const unit = comp.unit ?? "g";
+                  const unit = resolveUnit(comp.unit);
                   return (
                   <div key={comp.code} className="bg-muted rounded-lg p-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">

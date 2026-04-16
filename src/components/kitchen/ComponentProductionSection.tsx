@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { resolveUnit } from "@/lib/componentUnit";
 
 import { WASTE_REASONS, type WasteReason } from './index';
 
@@ -98,7 +99,7 @@ export function ComponentProductionSection({
                 className="w-24 text-right tabular-nums shrink-0"
               />
               <span className="text-xs text-muted-foreground shrink-0 min-w-[1rem]">
-                {comp.unit || "g"}
+                {resolveUnit(comp.unit)}
               </span>
             </div>
           </div>
@@ -170,10 +171,7 @@ export function ComponentProductionSection({
                   className="w-20 text-right tabular-nums"
                 />
                 <span className="text-xs text-muted-foreground shrink-0 w-4">
-                  {(() => {
-                    const comp = components.find((c) => c.code === entry.code);
-                    return comp?.unit || "g";
-                  })()}
+                  {resolveUnit(components.find((c) => c.code === entry.code)?.unit)}
                 </span>
               </div>
             </div>

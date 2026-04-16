@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { resolveUnit, sumByUnit } from "@/lib/componentUnit";
 import { ShiftEditDialog } from "./ShiftEditDialog";
 
 // -------------------------------------------------------
@@ -240,14 +241,17 @@ export function ShiftHistoryList() {
 function buildComponentSummary(components: ComponentProducedEntry[]): string {
   if (components.length === 0) return "";
   return components
-    .map((c) => `${c.kitchenComponentName}: ${c.grams}${c.unit ?? "g"}`)
+    .map((c) => `${c.kitchenComponentName}: ${c.grams}${resolveUnit(c.unit)}`)
     .join(", ");
 }
 
 function buildComponentWasteSummary(waste: ComponentWasteEntry[]): string {
   if (waste.length === 0) return "";
   return waste
-    .map((w) => `${w.kitchenComponentName}: ${w.grams}${w.unit ?? "g"} (${w.reason.replace("_", " ")})`)
+    .map(
+      (w) =>
+        `${w.kitchenComponentName}: ${w.grams}${resolveUnit(w.unit)} (${w.reason.replace("_", " ")})`
+    )
     .join(", ");
 }
 
@@ -263,19 +267,8 @@ function ShiftRecordCard({
   const wasteSummary = buildWasteSummary(record.waste);
   const componentProduced = record.componentProduced ?? [];
   const componentWaste = record.componentWaste ?? [];
-  // C1: split totals by unit so pcs entries don't silently pollute gram sums.
-  const totalComponentGrams = componentProduced
-    .filter((c) => (c.unit ?? "g") === "g")
-    .reduce((sum, c) => sum + c.grams, 0);
-  const totalComponentPieces = componentProduced
-    .filter((c) => c.unit === "pcs")
-    .reduce((sum, c) => sum + c.grams, 0);
-  const totalComponentWasteGrams = componentWaste
-    .filter((c) => (c.unit ?? "g") === "g")
-    .reduce((sum, c) => sum + c.grams, 0);
-  const totalComponentWastePieces = componentWaste
-    .filter((c) => c.unit === "pcs")
-    .reduce((sum, c) => sum + c.grams, 0);
+  const { grams: totalComponentGrams, pieces: totalComponentPieces } = sumByUnit(componentProduced);
+  const { grams: totalComponentWasteGrams, pieces: totalComponentWastePieces } = sumByUnit(componentWaste);
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 space-y-1.5">

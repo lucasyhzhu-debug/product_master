@@ -49,6 +49,7 @@ import { ShiftSuccessScreen } from "./ShiftSuccessScreen";
 import { ComponentProductionSection } from "./ComponentProductionSection";
 import type { ComponentWasteEntry } from "./ComponentProductionSection";
 import type { KitchenTargets } from "./ProductionTargetsBar";
+import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
 
 // -------------------------------------------------------
 // Types
@@ -92,7 +93,7 @@ interface EndOfShiftFormProps {
   /** Phase 69: Enabled kitchen component codes from config (D-04) */
   enabledKitchenComponentCodes?: string[];
   /** Configured unit per component code from componentTracking */
-  unitByCode?: Record<string, "g" | "pcs">;
+  unitByCode?: Record<string, ComponentUnit>;
 }
 
 // -------------------------------------------------------
@@ -313,11 +314,9 @@ export function EndOfShiftForm({
     const chefName = selectedUser?.name;
     const chefUserId = selectedChefId || undefined;
 
-    // Phase 69: Build component production/waste lists
-    // Round-2 follow-up (C1): include the displayed `unit` so aggregators can
-    // bucket grams vs pcs correctly.
-    const unitByCodeMap = new Map<string, "g" | "pcs">(
-      visibleKitchenComponents.map((c) => [c.code, (c.unit === "g" || c.unit === "pcs") ? c.unit : "g"])
+    // Build unit map so both produced and waste entries report their configured unit.
+    const unitByCodeMap = new Map<string, ComponentUnit>(
+      visibleKitchenComponents.map((c) => [c.code, resolveUnit(c.unit)])
     );
     const componentProducedList = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
@@ -325,7 +324,7 @@ export function EndOfShiftForm({
         kitchenComponentCode: c.code,
         kitchenComponentName: c.name,
         grams: componentProduced[c.code]!,
-        unit: (c.unit === "g" || c.unit === "pcs" ? c.unit : "g") as "g" | "pcs",
+        unit: resolveUnit(c.unit),
       }));
 
     const componentWasteList = componentWaste
@@ -335,7 +334,7 @@ export function EndOfShiftForm({
         kitchenComponentName: e.name,
         reason: e.reason as "qa_testing" | "spoilage" | "waste",
         grams: e.grams,
-        unit: (unitByCodeMap.get(e.code) ?? "g") as "g" | "pcs",
+        unit: unitByCodeMap.get(e.code) ?? "g",
       }));
 
     setIsSubmitting(true);

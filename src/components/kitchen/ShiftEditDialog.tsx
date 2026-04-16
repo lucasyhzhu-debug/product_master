@@ -38,6 +38,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getKitchenLeafComponents } from "@/lib/componentFilters";
+import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
 import type { ShiftRecord, ComponentProducedEntry, ComponentWasteEntry } from "./ShiftHistoryList";
 
 // -------------------------------------------------------
@@ -86,14 +88,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     api.kitchenShiftRecords.mutations.updateShiftRecord
   );
 
-  // Query available kitchen components (recipe-child production componentTypes)
   const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
-  // Round-4 fix: kitchen components are production componentTypes referenced as
-  // a CHILD of some tier-1+ recipe (isRecipeChild=true). Previous `tier===0 && unit==="g"`
-  // filter excluded pcs-unit sub-components like Filling Pistachio, Outer Marshmallow,
-  // nutella_filling. Also filter `isActive` to exclude soft-deactivated dedupe shadows.
   const kitchenComponents = useMemo(
-    () => (componentsWithTiers ?? []).filter((c) => c.isActive && c.isRecipeChild),
+    () => getKitchenLeafComponents(componentsWithTiers ?? []),
     [componentsWithTiers]
   );
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
@@ -204,27 +201,21 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     return map;
   }, [componentProducedRows]);
 
-  // C1: resolve display unit for a component code.
   // Priority: stored unit on row > componentTracking unit > componentType native unit > "g".
   const configuredUnitByCode = useMemo(() => {
-    const map = new Map<string, "g" | "pcs">();
-    // componentTracking is authoritative when present
+    const map = new Map<string, ComponentUnit>();
     if (kitchenConfig?.componentTracking && kitchenConfig.componentTracking.length > 0) {
       for (const entry of kitchenConfig.componentTracking) {
         map.set(entry.code, entry.unit);
       }
     }
-    // fall back to componentType native unit for codes not in tracking
     for (const c of kitchenComponents) {
-      if (!map.has(c.code)) {
-        const u = c.unit === "g" || c.unit === "pcs" ? c.unit : "g";
-        map.set(c.code, u);
-      }
+      if (!map.has(c.code)) map.set(c.code, resolveUnit(c.unit));
     }
     return map;
   }, [kitchenConfig?.componentTracking, kitchenComponents]);
 
-  function unitForRow(code: string, storedUnit?: "g" | "pcs"): "g" | "pcs" {
+  function unitForRow(code: string, storedUnit?: ComponentUnit): ComponentUnit {
     return storedUnit ?? configuredUnitByCode.get(code) ?? "g";
   }
 

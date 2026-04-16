@@ -29,6 +29,7 @@ import { useKitchenTargets } from '@/hooks/convex/useKitchenTargets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { sumByUnit } from '@/lib/componentUnit';
 
 /** Format a timestamp (ms) as a local time string */
 function formatTime(ms: number): string {
@@ -311,14 +312,9 @@ export function KitchenViewV2() {
                 (sum: number, w: { quantity: number }) => sum + w.quantity,
                 0
               );
-              // Phase 69: Component totals — split per unit (C1) so pcs records
-              // don't silently inflate the grams number.
-              const componentGrams = (record.componentProduced ?? [])
-                .filter((c: { unit?: "g" | "pcs" }) => (c.unit ?? "g") === "g")
-                .reduce((sum: number, c: { grams: number }) => sum + c.grams, 0);
-              const componentPieces = (record.componentProduced ?? [])
-                .filter((c: { unit?: "g" | "pcs" }) => c.unit === "pcs")
-                .reduce((sum: number, c: { grams: number }) => sum + c.grams, 0);
+              const { grams: componentGrams, pieces: componentPieces } = sumByUnit(
+                record.componentProduced ?? []
+              );
               return (
                 <Card key={record._id} className="bg-muted/30">
                   <CardContent className="py-2.5 px-3">
