@@ -3,9 +3,16 @@
  *
  * Monthly production summary per kitchen staff member with CSV export.
  * Manager/admin only (canAccessDashboard permission).
+ *
+ * Phase 74 extensions:
+ * - Hours column (D-11)
+ * - FlaggedShiftsBanner + Jump-to-first interaction (D-15)
+ * - PerDayBreakdownTable rendered inside expanded staff row (D-14)
+ * - AttendanceCorrectionDialog wiring for Fix + "Record missed shift" (D-16/D-17)
+ * - T-74-09 mitigation: synthetic Doc seed; backend re-loads real record.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useStaffPerformance, type StaffSummary } from "@/hooks/convex/useStaffPerformance";
 import {
@@ -31,6 +38,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Download, ChevronDown, ChevronRight, Users, Calendar, TrendingUp, AlertTriangle } from "lucide-react";
+import {
+  FlaggedShiftsBanner,
+  PerDayBreakdownTable,
+  AttendanceCorrectionDialog,
+} from "@/components/staffAttendance";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
+
+type SessionShape = StaffSummary["perDayBreakdown"][number]["sessions"][number];
 
 /** Returns YYYY-MM-DD start and end for a given 0-indexed month. */
 function getMonthRange(year: number, month: number) {
@@ -63,7 +78,20 @@ function MonthPicker({
   );
 }
 
-function StaffDetailRow({ staff }: { staff: StaffSummary }) {
+function StaffDetailRow({
+  staff,
+  onFix,
+  columnCount,
+}: {
+  staff: StaffSummary;
+  onFix: (
+    attendanceId: Id<"staffAttendance">,
+    session: SessionShape,
+    date: string,
+    userId: Id<"users">,
+  ) => void;
+  columnCount: number;
+}) {
   const [open, setOpen] = useState(false);
 
   const sortedProducts = useMemo(
@@ -109,11 +137,15 @@ function StaffDetailRow({ staff }: { staff: StaffSummary }) {
         </TableCell>
         <TableCell className="text-right">{staff.shiftCount}</TableCell>
         <TableCell className="text-right">{staff.daysWorked}</TableCell>
+        {/* Hours column (Phase 74) — between Days Worked and (implicit) next column */}
+        <TableCell className="text-right tabular-nums">
+          {(staff.totalHoursWorked ?? 0).toFixed(1)}
+        </TableCell>
       </TableRow>
 
       {open && (
         <tr>
-          <td colSpan={6} className="p-0">
+          <td colSpan={columnCount} className="p-0">
             <div className="bg-muted/30 px-8 py-4 space-y-3 border-b">
               {/* Product breakdown */}
               {sortedProducts.length > 0 && (
@@ -186,6 +218,42 @@ function StaffDetailRow({ staff }: { staff: StaffSummary }) {
                   </div>
                 </div>
               )}
+
+              {/* Phase 74 — Per-day attendance + production breakdown */}
+              <div className="mt-4">
+                <h4 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Per-day breakdown
+                </h4>
+                <PerDayBreakdownTable
+                  perDayBreakdown={staff.perDayBreakdown ?? []}
+                  // chefUserId && guard — Fix button hidden when false. The
+                  // dialog cannot operate without a user to reassign to
+                  // (for add_missed flows) or a real row (for edit_timestamps).
+                  fixEnabled={Boolean(staff.chefUserId)}
+                  onFixShift={(aid) => {
+                    // Short-circuit when fixEnabled is false (defence in depth).
+                    if (!staff.chefUserId) return;
+                    const day = (staff.perDayBreakdown ?? []).find((d) =>
+                      d.sessions.some((s) => s.attendanceId === aid),
+                    );
+                    const session = day?.sessions.find(
+                      (s) => s.attendanceId === aid,
+                    );
+                    if (day && session) {
+                      // chefUserId is a string (preserved from the underlying
+                      // kitchenShiftRecords.chefUserId field) which originates
+                      // from a users table Id. Safe to cast — backend
+                      // correctAttendance re-validates when it mutates.
+                      onFix(
+                        aid,
+                        session,
+                        day.date,
+                        staff.chefUserId as Id<"users">,
+                      );
+                    }
+                  }}
+                />
+              </div>
             </div>
           </td>
         </tr>
@@ -205,6 +273,12 @@ export function StaffPerformance() {
   const periodDisplay = `${MONTH_NAMES[month]} ${year}`;
   const periodLabel = `${MONTH_NAMES[month]}-${year}`;
 
+  // Phase 74 — correction dialog state
+  const [correcting, setCorrecting] = useState<Doc<"staffAttendance"> | null>(
+    null,
+  );
+  const [addMissedOpen, setAddMissedOpen] = useState(false);
+
   // Totals
   const totals = useMemo(() => {
     if (!data) return null;
@@ -218,6 +292,49 @@ export function StaffPerformance() {
       { balls: 0, grams: 0, waste: 0, shifts: 0 }
     );
   }, [data]);
+
+  // Phase 74 — aggregate flagged count across all staff for the banner.
+  const totalFlagged = useMemo(
+    () =>
+      data?.staff.reduce(
+        (a, s) => a + (s.flaggedShiftCount ?? 0),
+        0,
+      ) ?? 0,
+    [data],
+  );
+
+  // Phase 74 — scroll the first flagged row into view.
+  const jumpToFirstFlagged = useCallback(() => {
+    const el = document.querySelector<HTMLElement>('[data-flagged="true"]');
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  // Phase 74 — Fix-button handler. Constructs a synthetic Doc from session
+  // data (T-74-09: synthetic Doc is a form seed ONLY; backend re-loads by id).
+  // Canonical path — no backend single-record fetch query is defined; the
+  // correctAttendance mutation reads the real row by attendanceId on submit.
+  const handleFix = useCallback(
+    (
+      attendanceId: Id<"staffAttendance">,
+      session: SessionShape,
+      date: string,
+      userId: Id<"users">,
+    ) => {
+      setCorrecting({
+        _id: attendanceId,
+        _creationTime: 0,
+        userId,
+        date,
+        clockIn: session.clockIn,
+        clockOut: session.clockOut ?? undefined,
+        durationMs: session.durationMs ?? undefined,
+      } as Doc<"staffAttendance">);
+    },
+    [],
+  );
+
+  // Column count for the expanded row colSpan (7 columns after adding Hours).
+  const STAFF_TABLE_COLUMN_COUNT = 7;
 
   return (
     <div>
@@ -234,6 +351,13 @@ export function StaffPerformance() {
                 setMonth(m);
               }}
             />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddMissedOpen(true)}
+            >
+              Record missed shift
+            </Button>
             {data && data.staff.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -258,6 +382,12 @@ export function StaffPerformance() {
             )}
           </div>
         }
+      />
+
+      {/* Phase 74 — flagged banner (D-15). Renders null when totalFlagged === 0. */}
+      <FlaggedShiftsBanner
+        flaggedCount={totalFlagged}
+        onJumpToFirst={jumpToFirstFlagged}
       />
 
       {isLoading && (
@@ -341,11 +471,17 @@ export function StaffPerformance() {
                     <TableHead className="text-right">Waste</TableHead>
                     <TableHead className="text-right">Shifts</TableHead>
                     <TableHead className="text-right">Days</TableHead>
+                    <TableHead className="text-right">Hours</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data.staff.map((staff) => (
-                    <StaffDetailRow key={staff.staffKey} staff={staff} />
+                    <StaffDetailRow
+                      key={staff.staffKey}
+                      staff={staff}
+                      onFix={handleFix}
+                      columnCount={STAFF_TABLE_COLUMN_COUNT}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -353,6 +489,20 @@ export function StaffPerformance() {
           </Card>
         </>
       )}
+
+      {/* Phase 74 — correction dialogs */}
+      <AttendanceCorrectionDialog
+        open={correcting !== null}
+        onOpenChange={(o) => {
+          if (!o) setCorrecting(null);
+        }}
+        attendance={correcting}
+      />
+      <AttendanceCorrectionDialog
+        open={addMissedOpen}
+        onOpenChange={setAddMissedOpen}
+        attendance={null}
+      />
     </div>
   );
 }

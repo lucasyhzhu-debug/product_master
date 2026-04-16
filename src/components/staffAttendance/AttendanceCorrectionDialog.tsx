@@ -49,7 +49,6 @@ import {
 import { utcToWibTimeStr, utcToWibDateStr } from "@/lib/dateUtils";
 
 type Action = "edit_timestamps" | "add_missed" | "reassign" | "delete";
-type Step = "input" | "review";
 
 interface Props {
   open: boolean;

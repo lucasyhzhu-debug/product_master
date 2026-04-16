@@ -138,6 +138,9 @@ const StaffPerformance = lazyWithPreload(() =>
 const ClockInGate = lazyWithPreload(() =>
   import('./pages/ClockInGate').then(m => ({ default: m.ClockInGate }))
 );
+const MyPerformance = lazyWithPreload(() =>
+  import('./pages/MyPerformance').then(m => ({ default: m.MyPerformance }))
+);
 const BankReconciliationPage = lazyWithPreload(() =>
   import('./pages/BankReconciliationPage').then(m => ({ default: m.BankReconciliationPage }))
 );
@@ -487,6 +490,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessDashboard">
                         <StaffPerformance />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* My Performance — self-scoped attendance + production (all roles, Phase 74 D-13) */}
+                  <Route
+                    path="my-performance"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessKitchen">
+                        <MyPerformance />
                       </ProtectedRoute>
                     }
                   />
