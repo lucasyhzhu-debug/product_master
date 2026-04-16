@@ -267,10 +267,20 @@ export function KitchenViewV2() {
           users={kitchenUsers}
           kitchenComponents={kitchenComponents ?? []}
           enabledKitchenComponentCodes={
-            // Derive from componentTracking when present; fall back to legacy field
-            config?.componentTracking && config.componentTracking.length > 0
-              ? config.componentTracking.filter((e) => e.tracked).map((e) => e.code)
-              : config?.enabledKitchenComponents ?? undefined
+            // C3: restrict the derived code list to codes that exist in the
+            // kitchen (leaf) set — otherwise a componentTracking entry for a
+            // tier-1 ball leaks into the kitchen component toggles.
+            (() => {
+              const kitchenCodeSet = new Set((kitchenComponents ?? []).map((c) => c.code));
+              if (config?.componentTracking && config.componentTracking.length > 0) {
+                return config.componentTracking
+                  .filter((e) => e.tracked && kitchenCodeSet.has(e.code))
+                  .map((e) => e.code);
+              }
+              const legacy = config?.enabledKitchenComponents;
+              if (!legacy) return undefined;
+              return legacy.filter((code) => kitchenCodeSet.has(code));
+            })()
           }
           unitByCode={unitByCode}
         />
