@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { PackagingMixEditor, type PackagingMixRow, type BallGroupDef } from "./PackagingMixEditor";
 import type { KitchenTargets } from "./ProductionTargetsBar";
 import { getKitchenLeafComponents, getProductionTier1Components } from "@/lib/componentFilters";
-import { resolveUnit } from "@/lib/componentUnit";
+import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
 
 // -------------------------------------------------------
 // Types
@@ -487,7 +487,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Tier 1 group */}
                   {productionComponents.length > 0 && (
                     <>
                       <tr className="bg-muted/30">
@@ -497,65 +496,21 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                       </tr>
                       {productionComponents.map((ct) => {
                         const entry = componentTracking.find((e) => e.code === ct.code);
-                        const isTracked = entry?.tracked ?? true;
-                        const unit = entry?.unit ?? "pcs";
                         return (
-                          <tr key={ct._id} className="border-t border-border">
-                            <td className="px-3 py-2">{ct.name}</td>
-                            <td className="px-3 py-2 text-center">
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={isTracked}
-                                onClick={() => toggleTracked(ct.code)}
-                                className={[
-                                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                                  isTracked ? "bg-primary" : "bg-input",
-                                ].join(" ")}
-                              >
-                                <span
-                                  className={[
-                                    "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                                    isTracked ? "translate-x-4" : "translate-x-0",
-                                  ].join(" ")}
-                                />
-                              </button>
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <div className="inline-flex rounded-md border border-border overflow-hidden">
-                                <button
-                                  type="button"
-                                  onClick={() => setUnit(ct.code, "g")}
-                                  className={[
-                                    "px-2 py-0.5 text-xs font-medium transition-colors",
-                                    unit === "g"
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-background text-muted-foreground hover:bg-muted",
-                                  ].join(" ")}
-                                >
-                                  g
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setUnit(ct.code, "pcs")}
-                                  className={[
-                                    "px-2 py-0.5 text-xs font-medium transition-colors border-l border-border",
-                                    unit === "pcs"
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-background text-muted-foreground hover:bg-muted",
-                                  ].join(" ")}
-                                >
-                                  pcs
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                          <ComponentTrackingRow
+                            key={ct._id}
+                            name={ct.name}
+                            code={ct.code}
+                            isTracked={entry?.tracked ?? true}
+                            unit={entry?.unit ?? "pcs"}
+                            onToggle={toggleTracked}
+                            onSetUnit={setUnit}
+                          />
                         );
                       })}
                     </>
                   )}
 
-                  {/* Leaf Components group */}
                   {kitchenComponentsList.length > 0 && (
                     <>
                       <tr className="bg-muted/30">
@@ -565,59 +520,16 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
                       </tr>
                       {kitchenComponentsList.map((comp) => {
                         const entry = componentTracking.find((e) => e.code === comp.code);
-                        const isTracked = entry?.tracked ?? true;
-                        const unit = entry?.unit ?? resolveUnit(comp.unit);
                         return (
-                          <tr key={comp._id} className="border-t border-border">
-                            <td className="px-3 py-2">{comp.name}</td>
-                            <td className="px-3 py-2 text-center">
-                              <button
-                                type="button"
-                                role="switch"
-                                aria-checked={isTracked}
-                                onClick={() => toggleTracked(comp.code)}
-                                className={[
-                                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                                  isTracked ? "bg-primary" : "bg-input",
-                                ].join(" ")}
-                              >
-                                <span
-                                  className={[
-                                    "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                                    isTracked ? "translate-x-4" : "translate-x-0",
-                                  ].join(" ")}
-                                />
-                              </button>
-                            </td>
-                            <td className="px-3 py-2 text-center">
-                              <div className="inline-flex rounded-md border border-border overflow-hidden">
-                                <button
-                                  type="button"
-                                  onClick={() => setUnit(comp.code, "g")}
-                                  className={[
-                                    "px-2 py-0.5 text-xs font-medium transition-colors",
-                                    unit === "g"
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-background text-muted-foreground hover:bg-muted",
-                                  ].join(" ")}
-                                >
-                                  g
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setUnit(comp.code, "pcs")}
-                                  className={[
-                                    "px-2 py-0.5 text-xs font-medium transition-colors border-l border-border",
-                                    unit === "pcs"
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-background text-muted-foreground hover:bg-muted",
-                                  ].join(" ")}
-                                >
-                                  pcs
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
+                          <ComponentTrackingRow
+                            key={comp._id}
+                            name={comp.name}
+                            code={comp.code}
+                            isTracked={entry?.tracked ?? true}
+                            unit={entry?.unit ?? resolveUnit(comp.unit)}
+                            onToggle={toggleTracked}
+                            onSetUnit={setUnit}
+                          />
                         );
                       })}
                     </>
@@ -691,5 +603,80 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// -------------------------------------------------------
+// Row for the Component Tracking table (reused by tier-1 + leaf groups)
+// -------------------------------------------------------
+
+interface ComponentTrackingRowProps {
+  name: string;
+  code: string;
+  isTracked: boolean;
+  unit: ComponentUnit;
+  onToggle: (code: string) => void;
+  onSetUnit: (code: string, unit: ComponentUnit) => void;
+}
+
+function ComponentTrackingRow({
+  name,
+  code,
+  isTracked,
+  unit,
+  onToggle,
+  onSetUnit,
+}: ComponentTrackingRowProps) {
+  return (
+    <tr className="border-t border-border">
+      <td className="px-3 py-2">{name}</td>
+      <td className="px-3 py-2 text-center">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isTracked}
+          onClick={() => onToggle(code)}
+          className={[
+            "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+            isTracked ? "bg-primary" : "bg-input",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+              isTracked ? "translate-x-4" : "translate-x-0",
+            ].join(" ")}
+          />
+        </button>
+      </td>
+      <td className="px-3 py-2 text-center">
+        <div className="inline-flex rounded-md border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => onSetUnit(code, "g")}
+            className={[
+              "px-2 py-0.5 text-xs font-medium transition-colors",
+              unit === "g"
+                ? "bg-primary text-primary-foreground"
+                : "bg-background text-muted-foreground hover:bg-muted",
+            ].join(" ")}
+          >
+            g
+          </button>
+          <button
+            type="button"
+            onClick={() => onSetUnit(code, "pcs")}
+            className={[
+              "px-2 py-0.5 text-xs font-medium transition-colors border-l border-border",
+              unit === "pcs"
+                ? "bg-primary text-primary-foreground"
+                : "bg-background text-muted-foreground hover:bg-muted",
+            ].join(" ")}
+          >
+            pcs
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
