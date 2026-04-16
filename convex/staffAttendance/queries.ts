@@ -147,6 +147,21 @@ export const getFlaggedShifts = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
+    // Triple-review I5: bound the scan. A malicious or buggy caller passing
+    // startDate="2020-01-01" would otherwise `.collect()` the entire table.
+    // Frontend already bounds to month ranges, so 92 days is a generous cap.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(args.startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(args.endDate)) {
+      throw new Error("startDate and endDate must be YYYY-MM-DD");
+    }
+    const startMs = Date.parse(args.startDate);
+    const endMs = Date.parse(args.endDate);
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+      throw new Error("Invalid date range");
+    }
+    const dayMs = 24 * 60 * 60 * 1000;
+    if ((endMs - startMs) / dayMs > 92) {
+      throw new Error("Date range cannot exceed 92 days");
+    }
     const rows = await ctx.db
       .query("staffAttendance")
       .withIndex("by_date", (q) =>
