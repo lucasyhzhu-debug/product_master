@@ -36,11 +36,29 @@ created: 2026-04-16
 
 ## Per-Task Verification Map
 
-> Populated by gsd-planner when plans are written. See `74-RESEARCH.md` §Validation Architecture for test scenarios.
+> Populated by Plan 04 Task 2 (2026-04-16). Compliance flags (nyquist_compliant, wave_0_complete) flip in Plan 04 Task 3 after the full gate passes.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 74-01-01 | 01 | 1 | ATT-01 | — | Clock-in rejects prior-open-shift | unit | `npm run test -- staffAttendance/__tests__/clockIn.test.ts` | ❌ W0 | ⬜ pending |
+| 74-01-01 | 01 | 1 | ATT-01 | T-74-04 | Clock-in rejects prior-day open shift (D-04) | integration | `npx vitest run convex/staffAttendance/__tests__/clockIn.test.ts` | ✅ | ✅ passing |
+| 74-01-02 | 01 | 1 | ATT-01 | T-74-01 | clockIn derives userId from session (no arg) | integration | `npx vitest run convex/staffAttendance/__tests__/clockIn.test.ts` | ✅ | ✅ passing |
+| 74-01-03 | 01 | 1 | ATT-01 | T-74-04 | clockOut D-04 server enforcement for staff on prior day | integration | `npx vitest run convex/staffAttendance/__tests__/clockOut.test.ts` | ✅ | ✅ passing |
+| 74-01-04 | 01 | 1 | ATT-01 | — | clockOut permits manager to close others | integration | `npx vitest run convex/staffAttendance/__tests__/clockOut.test.ts` | ✅ | ✅ passing |
+| 74-01-05 | 01 | 1 | ATT-04 | T-74-02 | correctAttendance manager/admin role gate | integration | `npx vitest run convex/staffAttendance/__tests__/correctAttendance.test.ts` | ✅ | ✅ passing |
+| 74-01-06 | 01 | 1 | ATT-04 | — | D-19 correctionNote trimmed non-empty | integration | `npx vitest run convex/staffAttendance/__tests__/correctAttendance.test.ts` | ✅ | ✅ passing |
+| 74-01-07 | 01 | 1 | ATT-04 | T-74-02 | corrections[] audit trail appended (all 4 actions) | integration | `npx vitest run convex/staffAttendance/__tests__/correctAttendance.test.ts` | ✅ | ✅ passing |
+| 74-01-08 | 01 | 1 | ATT-04 | — | I-1 clockOut < clockIn guard | integration | `npx vitest run convex/staffAttendance/__tests__/correctAttendance.test.ts` | ✅ | ✅ passing |
+| 74-01-09 | 01 | 1 | ATT-01..04 | — | D-18 flag-engine (4 rules) pure-function | unit | `npx vitest run convex/staffAttendance/__tests__/flagEngine.test.ts` | ✅ | ✅ passing |
+| 74-01-10 | 01 | 1 | ATT-02/03 | — | totalHoursWorked sum (D-03 open=0) | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-01-11 | 01 | 1 | ATT-03 | — | daysAttended distinct + flaggedShiftCount | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-01-12 | 01 | 1 | ATT-02 | — | BOM ball counting preserved | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-01-13 | 01 | 1 | ATT-03 | — | D-07 retroactive production (attendance-only staff surface) | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-01-14 | 01 | 1 | ATT-03 | — | D-11 componentTotals preserve unit (no cross-unit sum) | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-01-15 | 01 | 1 | ATT-04 | — | 4 flag-engine rules surface through summary query | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-01-16 | 01 | 1 | ATT-03 | — | D-14 adapter fallback when kitchenConfig lacks componentTracking | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-01-17 | 01 | 1 | ATT-03 | — | C-5 componentTracking subset semantics | integration | `npx vitest run convex/kitchenShiftRecords/__tests__/summary.test.ts` | ✅ | ✅ passing |
+| 74-02-01 | 02 | 2 | ATT-01 | T-74-16 | RunningTimer renders minute-resolution | unit | `npx vitest run src/components/staffAttendance/__tests__/RunningTimer.test.tsx` | ✅ | ✅ passing |
+| 74-04-01 | 04 | 3 | ATT-01 | T-74-14 | E2E scaffold: gate → kitchen → clock-out | e2e (gated) | `PLAYWRIGHT_E2E_FULL=1 npx playwright test tests/e2e/staff-attendance.spec.ts` | ✅ | 🟡 skipped without env flag |
 
 ---
 
