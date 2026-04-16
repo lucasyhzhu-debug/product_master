@@ -53,11 +53,12 @@ export const submitShiftRecord = mutation({
     // Phase 21-08: Actual cook (may differ from submitter)
     chefName: v.optional(v.string()),
     chefUserId: v.optional(v.id("users")),
-    // Phase 69: Component production (pre-cursor ingredients in grams)
+    // Phase 69: Component production (pre-cursor ingredients in grams or pcs per `unit`)
     componentProduced: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),
       kitchenComponentName: v.string(),
       grams: v.number(),
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     componentWaste: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),
@@ -68,6 +69,7 @@ export const submitShiftRecord = mutation({
         v.literal("waste")
       ),
       grams: v.number(),
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
   },
   handler: async (ctx, args) => {
@@ -330,11 +332,12 @@ export const updateShiftRecord = mutation({
     // Phase 21-08: Actual cook (manager can correct who cooked)
     chefName: v.optional(v.string()),
     chefUserId: v.optional(v.id("users")),
-    // Phase 69: Component production (pre-cursor ingredients in grams)
+    // Phase 69: Component production (pre-cursor ingredients in grams or pcs per `unit`)
     componentProduced: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),
       kitchenComponentName: v.string(),
       grams: v.number(),
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     componentWaste: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),
@@ -345,6 +348,7 @@ export const updateShiftRecord = mutation({
         v.literal("waste")
       ),
       grams: v.number(),
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
   },
   handler: async (ctx, args) => {

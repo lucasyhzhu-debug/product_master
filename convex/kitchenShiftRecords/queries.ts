@@ -26,14 +26,13 @@ async function enrichRecord(
     date: string;
     submittedAt: number;
     submittedBy: string;
-    // Phase 21-08: Actual cook fields
     chefName?: string;
     chefUserId?: string;
     produced: Array<{ menuProductId: string; quantity: number }>;
     waste: Array<{ menuProductId: string; reason: string; quantity: number }>;
-    // Phase 69: Component production data
-    componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number }>;
-    componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number }>;
+    // unit is optional; legacy records have no unit and default to "g" on read
+    componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number; unit?: "g" | "pcs" }>;
+    componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number; unit?: "g" | "pcs" }>;
     editedAt?: number;
     editedBy?: string;
     editNote?: string;
@@ -61,7 +60,6 @@ async function enrichRecord(
     date: record.date,
     submittedAt: record.submittedAt,
     submittedBy: record.submittedBy,
-    // Phase 21-08: Actual cook fields (pass through, may be undefined)
     chefName: record.chefName,
     chefUserId: record.chefUserId,
     produced: record.produced.map((p) => ({
@@ -75,7 +73,6 @@ async function enrichRecord(
       reason: w.reason,
       quantity: w.quantity,
     })),
-    // Phase 69: Component production data (pass through)
     componentProduced: record.componentProduced ?? [],
     componentWaste: record.componentWaste ?? [],
     editedAt: record.editedAt,
@@ -122,7 +119,6 @@ export const getShiftRecordsByDate = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
-          // Phase 69: Pass through component production data
           componentProduced: record.componentProduced,
           componentWaste: record.componentWaste,
           editedAt: record.editedAt,
@@ -137,7 +133,7 @@ export const getShiftRecordsByDate = query({
 /**
  * getDailyComponentSummary — Aggregate component production across all shift records for a date.
  *
- * Returns per-component totals with per-person attribution (Phase 69).
+ * Returns per-component totals with per-person attribution.
  * No auth required — kitchen staff need to view daily summaries.
  */
 export const getDailyComponentSummary = query({
@@ -148,12 +144,15 @@ export const getDailyComponentSummary = query({
       .withIndex("by_date", (q) => q.eq("date", args.date))
       .collect();
 
-    // Aggregate per component
+    // Aggregate per component and track the display unit. If two records for
+    // the same code carry different units (rare — would only happen if a
+    // manager changes the unit config mid-day), the last-seen unit wins.
     const componentMap = new Map<
       string,
       {
         code: string;
         name: string;
+        unit: "g" | "pcs";
         totalProducedGrams: number;
         totalWasteGrams: number;
         perPerson: Array<{
@@ -177,12 +176,16 @@ export const getDailyComponentSummary = query({
             componentMap.set(item.kitchenComponentCode, {
               code: item.kitchenComponentCode,
               name: item.kitchenComponentName,
+              unit: item.unit ?? "g",
               totalProducedGrams: 0,
               totalWasteGrams: 0,
               perPerson: [],
             });
           }
           const entry = componentMap.get(item.kitchenComponentCode)!;
+          // Prefer an explicit stored unit over the default (g) so newer records
+          // can upgrade the unit if the first record seen had no unit field.
+          if (item.unit) entry.unit = item.unit;
           entry.totalProducedGrams += item.grams;
 
           // Per-person attribution
@@ -211,12 +214,14 @@ export const getDailyComponentSummary = query({
             componentMap.set(item.kitchenComponentCode, {
               code: item.kitchenComponentCode,
               name: item.kitchenComponentName,
+              unit: item.unit ?? "g",
               totalProducedGrams: 0,
               totalWasteGrams: 0,
               perPerson: [],
             });
           }
           const entry = componentMap.get(item.kitchenComponentCode)!;
+          if (item.unit) entry.unit = item.unit;
           entry.totalWasteGrams += item.grams;
 
           // Per-person waste attribution
@@ -305,7 +310,6 @@ export const getShiftHistory = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
-          // Phase 69: Pass through component production data
           componentProduced: record.componentProduced,
           componentWaste: record.componentWaste,
           editedAt: record.editedAt,
@@ -385,7 +389,9 @@ export const getStaffPerformanceSummary = query({
       })
     );
 
-    // Aggregate per staff member
+    // Aggregate per staff member. Split component totals by unit (grams vs
+    // pieces) so pcs entries do not pollute gram totals. componentBreakdown
+    // stores per-code grams and pieces separately with the unit tag.
     const staffMap = new Map<
       string,
       {
@@ -395,9 +401,11 @@ export const getStaffPerformanceSummary = query({
         totalBallsProduced: number;
         productBreakdown: Map<string, { name: string; quantity: number; ballCount: number }>;
         totalComponentGrams: number;
-        componentBreakdown: Map<string, { name: string; grams: number }>;
+        totalComponentPieces: number;
+        componentBreakdown: Map<string, { name: string; grams: number; unit: "g" | "pcs" }>;
         totalComponentWasteGrams: number;
-        componentWasteBreakdown: Map<string, { name: string; grams: number }>;
+        totalComponentWastePieces: number;
+        componentWasteBreakdown: Map<string, { name: string; grams: number; unit: "g" | "pcs" }>;
         totalWaste: number;
         wasteByReason: Map<string, number>;
         wasteProductBreakdown: Map<string, { name: string; quantity: number }>;
@@ -420,8 +428,10 @@ export const getStaffPerformanceSummary = query({
           totalBallsProduced: 0,
           productBreakdown: new Map(),
           totalComponentGrams: 0,
+          totalComponentPieces: 0,
           componentBreakdown: new Map(),
           totalComponentWasteGrams: 0,
+          totalComponentWastePieces: 0,
           componentWasteBreakdown: new Map(),
           totalWaste: 0,
           wasteByReason: new Map(),
@@ -472,35 +482,44 @@ export const getStaffPerformanceSummary = query({
         }
       }
 
-      // Aggregate component production (grams)
+      // Aggregate component production — split totals by unit.
       if (record.componentProduced) {
         for (const c of record.componentProduced) {
           if (c.grams <= 0) continue;
-          staff.totalComponentGrams += c.grams;
+          const unit: "g" | "pcs" = c.unit ?? "g";
+          if (unit === "g") staff.totalComponentGrams += c.grams;
+          else staff.totalComponentPieces += c.grams;
           const existing = staff.componentBreakdown.get(c.kitchenComponentCode);
           if (existing) {
             existing.grams += c.grams;
+            // Prefer an explicit unit (newer record) over the default.
+            if (c.unit) existing.unit = c.unit;
           } else {
             staff.componentBreakdown.set(c.kitchenComponentCode, {
               name: c.kitchenComponentName,
               grams: c.grams,
+              unit,
             });
           }
         }
       }
 
-      // Aggregate component waste (grams)
+      // Aggregate component waste — split totals by unit.
       if (record.componentWaste) {
         for (const c of record.componentWaste) {
           if (c.grams <= 0) continue;
-          staff.totalComponentWasteGrams += c.grams;
+          const unit: "g" | "pcs" = c.unit ?? "g";
+          if (unit === "g") staff.totalComponentWasteGrams += c.grams;
+          else staff.totalComponentWastePieces += c.grams;
           const existing = staff.componentWasteBreakdown.get(c.kitchenComponentCode);
           if (existing) {
             existing.grams += c.grams;
+            if (c.unit) existing.unit = c.unit;
           } else {
             staff.componentWasteBreakdown.set(c.kitchenComponentCode, {
               name: c.kitchenComponentName,
               grams: c.grams,
+              unit,
             });
           }
         }
@@ -519,17 +538,22 @@ export const getStaffPerformanceSummary = query({
         quantity: val.quantity,
         ballCount: val.ballCount,
       })),
+      // Per-unit totals for honest aggregation.
       totalComponentGrams: s.totalComponentGrams,
+      totalComponentPieces: s.totalComponentPieces,
       componentBreakdown: Array.from(s.componentBreakdown.entries()).map(([code, val]) => ({
         code,
         name: val.name,
         grams: val.grams,
+        unit: val.unit,
       })),
       totalComponentWasteGrams: s.totalComponentWasteGrams,
+      totalComponentWastePieces: s.totalComponentWastePieces,
       componentWasteBreakdown: Array.from(s.componentWasteBreakdown.entries()).map(([code, val]) => ({
         code,
         name: val.name,
         grams: val.grams,
+        unit: val.unit,
       })),
       totalWaste: s.totalWaste,
       wasteByReason: Array.from(s.wasteByReason.entries()).map(([reason, qty]) => ({

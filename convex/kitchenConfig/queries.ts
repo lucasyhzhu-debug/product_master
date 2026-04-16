@@ -29,18 +29,22 @@ export const getConfig = query({
         bigBallTarget: DEFAULTS.bigBallTarget,
         midBallTarget: DEFAULTS.midBallTarget,
         defaultPackagingMix: [] as Array<{ menuProductId: Id<"menuProducts">; quantity: number }>,
-        // Phase 21-08: null = all production components enabled (frontend resolves from componentTypes)
+        // null = all production components enabled (frontend resolves from componentTypes)
         enabledProductionComponents: null as string[] | null,
-        // Phase 69: null = all kitchen components enabled
+        // null = all kitchen components enabled
         enabledKitchenComponents: null as string[] | null,
+        // No targets for non-BIG/MID ball codes yet
+        otherBallTargets: [] as Array<{ code: string; target: number }>,
+        // Unified component tracking — null means derive from legacy fields
+        componentTracking: null as Array<{ code: string; tracked: boolean; unit: "g" | "pcs" }> | null,
         showJumbo: true,  // backward-compat default: show Jumbo
         updatedAt: null,
         updatedBy: null,
       };
     }
 
-    // Phase 21-08: If enabledProductionComponents is set, derive showJumbo from it.
-    // Otherwise fall back to the legacy showJumbo field.
+    // When enabledProductionComponents is set, derive showJumbo from it;
+    // otherwise fall back to the legacy showJumbo field.
     const derivedShowJumbo = config.enabledProductionComponents
       ? config.enabledProductionComponents.includes("BIG_BALL")
       : (config.showJumbo ?? true);
@@ -51,13 +55,16 @@ export const getConfig = query({
       bigBallTarget: config.bigBallTarget,
       midBallTarget: config.midBallTarget,
       defaultPackagingMix: config.defaultPackagingMix ?? [],
-      // Phase 21-08: null = all enabled; array = explicit enabled list
+      // null = all enabled; array = explicit enabled list
       enabledProductionComponents: config.enabledProductionComponents ?? null,
-      // Phase 69: null = all kitchen components enabled; normalize empty array to null
+      // null = all kitchen components enabled; normalize empty array to null
       enabledKitchenComponents:
         config.enabledKitchenComponents && config.enabledKitchenComponents.length > 0
           ? config.enabledKitchenComponents
           : null,
+      otherBallTargets: config.otherBallTargets ?? [],
+      // Unified component tracking — null means derive from legacy fields
+      componentTracking: config.componentTracking ?? null,
       showJumbo: derivedShowJumbo,
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,
@@ -99,9 +106,9 @@ export const getKitchenTargetsForDate = query({
         packagingBreakdown = await resolvePackagingBreakdown(ctx, override.packagingOverrides);
       }
 
-      // Gap 2 fix: If no packaging overrides set on the override document,
-      // fall through to defaultPackagingMix from config so packaging breakdown
-      // badges remain visible on the kitchen view even when an override is active.
+      // If no packaging overrides set on the override document, fall through
+      // to defaultPackagingMix so packaging breakdown badges stay visible on
+      // the kitchen view while an override is active.
       if (packagingBreakdown.length === 0) {
         const config = await ctx.db.query("kitchenConfig").first();
         if (config?.defaultPackagingMix && config.defaultPackagingMix.length > 0) {
@@ -109,10 +116,25 @@ export const getKitchenTargetsForDate = query({
         }
       }
 
+      // Surface otherBallOverrides so per-day targets for non-BIG/MID codes
+      // reach ProductionTargetsBar. Shape matches the defaults branch below.
+      const otherBalls: Array<{ code: string; name: string; quantity: number }> = [];
+      if (override.otherBallOverrides && override.otherBallOverrides.length > 0) {
+        for (const entry of override.otherBallOverrides) {
+          if (!entry.target || entry.target <= 0) continue;
+          const ct = await ctx.db
+            .query("componentTypes")
+            .withIndex("by_code", (q) => q.eq("code", entry.code))
+            .first();
+          if (!ct || !ct.isActive || ct.category !== "production") continue;
+          otherBalls.push({ code: entry.code, name: ct.name, quantity: entry.target });
+        }
+      }
+
       return {
         bigBalls,
         midBalls,
-        otherBalls: [] as Array<{ code: string; name: string; quantity: number }>,
+        otherBalls,
         packagingBreakdown,
         source: "override" as const,
         overrideSource: (override.source ?? "manual") as "manual" | "restock_planner",
@@ -231,10 +253,27 @@ export const getKitchenTargetsForDate = query({
       packagingBreakdown = await resolvePackagingBreakdown(ctx, config.defaultPackagingMix);
     }
 
+    // Surface targets for non-BIG/MID ball codes saved in
+    // kitchenConfig.otherBallTargets. Look up componentType names per code so
+    // the ProductionTargetsBar StatCard shows a human-readable label.
+    const otherBalls: Array<{ code: string; name: string; quantity: number }> = [];
+    if (config?.otherBallTargets && config.otherBallTargets.length > 0) {
+      for (const entry of config.otherBallTargets) {
+        if (!entry.target || entry.target <= 0) continue;
+        // Look up componentType by code to get display name
+        const ct = await ctx.db
+          .query("componentTypes")
+          .withIndex("by_code", (q) => q.eq("code", entry.code))
+          .first();
+        if (!ct || !ct.isActive || ct.category !== "production") continue;
+        otherBalls.push({ code: entry.code, name: ct.name, quantity: entry.target });
+      }
+    }
+
     return {
       bigBalls,
       midBalls,
-      otherBalls: [] as Array<{ code: string; name: string; quantity: number }>,
+      otherBalls,
       packagingBreakdown,
       source: "defaults" as const,
     };

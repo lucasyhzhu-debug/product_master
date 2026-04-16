@@ -4,15 +4,17 @@
  * Inline review screen (not a dialog) shown before committing an end-of-shift submission.
  * Displays produced + waste summary with target deltas, then offers Confirm / Back buttons.
  *
- * Target delta (Gap 10): each product row shows produced count, optional waste count,
+ * Target delta: each product row shows produced count, optional waste count,
  * and a +/- variance against the target (produced + waste = total made).
- * Waste is stored separately in the shift record but counts toward "total made" here.
+ * Waste is stored separately in the shift record but counts toward "total
+ * made" here.
  */
 
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { resolveUnit } from "@/lib/componentUnit";
 
 const REASON_LABELS: Record<string, string> = {
   qa_testing: "QA / Testing",
@@ -49,10 +51,10 @@ interface ShiftReviewModalProps {
   isSubmitting: boolean;
   /** Inline error from mutation failure — rendered above action buttons */
   error?: string | null;
-  /** Phase 69: Component production data */
-  componentProduced?: Array<{ kitchenComponentName: string; grams: number }>;
-  /** Phase 69: Component waste data */
-  componentWaste?: Array<{ kitchenComponentName: string; grams: number; reason: string }>;
+  /** Component production data */
+  componentProduced?: Array<{ kitchenComponentName: string; grams: number; unit?: string }>;
+  /** Component waste data */
+  componentWaste?: Array<{ kitchenComponentName: string; grams: number; reason: string; unit?: string }>;
 }
 
 export function ShiftReviewModal({
@@ -133,7 +135,7 @@ export function ShiftReviewModal({
           </ul>
         </div>
 
-        {/* Phase 69: Component production summary */}
+        {/* Component production summary */}
         {componentProduced && componentProduced.length > 0 && (
           <>
             <Separator />
@@ -148,7 +150,9 @@ export function ShiftReviewModal({
                     className="flex items-center justify-between text-sm"
                   >
                     <span className="text-foreground">{item.kitchenComponentName}</span>
-                    <span className="font-semibold tabular-nums">{item.grams}g</span>
+                    <span className="font-semibold tabular-nums">
+                      {item.grams}{resolveUnit(item.unit)}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -156,7 +160,7 @@ export function ShiftReviewModal({
           </>
         )}
 
-        {/* Phase 69: Component waste summary */}
+        {/* Component waste summary */}
         {componentWaste && componentWaste.length > 0 && (
           <>
             <Separator />
@@ -177,7 +181,7 @@ export function ShiftReviewModal({
                       </span>
                     </span>
                     <span className="font-semibold tabular-nums text-destructive">
-                      -{item.grams}g
+                      -{item.grams}{resolveUnit(item.unit)}
                     </span>
                   </li>
                 ))}

@@ -109,6 +109,14 @@ export const calculateCogs = query({
  * Get all production component types with their computed tier depth.
  * Tier = max nesting depth (0 = leaf, 1 = has direct children, etc.)
  * Sorted by tier descending, then by name alphabetically.
+ *
+ * Also includes `isRecipeChild`: true when this componentType is referenced as
+ * a `childComponentId` in `productionComponentLinks` (i.e. it's a sub-component
+ * of some tier-1+ recipe). This is the canonical "kitchen-produced" marker —
+ * kitchen staff produces things that are ingredients-of-recipes, while
+ * top-level balls (like BIG_BALL/Jumbo — directly linked to menu products via
+ * menuProductComponents but not referenced as a child of any recipe) are
+ * production-target balls, not kitchen components.
  */
 export const getComponentsWithTiers = query({
   args: {},
@@ -119,11 +127,23 @@ export const getComponentsWithTiers = query({
       .withIndex("by_category", (q) => q.eq("category", "production"))
       .collect();
 
+    // Build the set of componentTypeIds that appear as a child in any
+    // productionComponentLinks row. Flat collect — no joins.
+    const allLinks = await ctx.db.query("productionComponentLinks").collect();
+    const recipeChildIds = new Set<string>();
+    for (const link of allLinks) {
+      recipeChildIds.add(String(link.childComponentId));
+    }
+
     // Compute tier for each component
     const componentsWithTiers = await Promise.all(
       allComponents.map(async (component) => {
         const tier = await computeTier(ctx, component._id, new Set(), 3);
-        return { ...component, tier };
+        return {
+          ...component,
+          tier,
+          isRecipeChild: recipeChildIds.has(String(component._id)),
+        };
       })
     );
 
