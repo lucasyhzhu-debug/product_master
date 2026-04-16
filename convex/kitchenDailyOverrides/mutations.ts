@@ -17,6 +17,11 @@ export const setDailyOverride = mutation({
     date: v.string(), // YYYY-MM-DD
     bigBallOverride: v.optional(v.number()),
     midBallOverride: v.optional(v.number()),
+    // I2: per-day targets for non-BIG/MID ball codes.
+    otherBallOverrides: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
     packagingOverrides: v.optional(v.array(v.object({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),
@@ -26,10 +31,26 @@ export const setDailyOverride = mutation({
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
 
+    // Validate non-negative targets
+    if (args.bigBallOverride !== undefined && args.bigBallOverride < 0) {
+      throw new Error("bigBallOverride must be non-negative");
+    }
+    if (args.midBallOverride !== undefined && args.midBallOverride < 0) {
+      throw new Error("midBallOverride must be non-negative");
+    }
+    if (args.otherBallOverrides) {
+      for (const entry of args.otherBallOverrides) {
+        if (entry.target < 0) {
+          throw new Error(`otherBallOverrides[${entry.code}].target must be non-negative`);
+        }
+      }
+    }
+
     const overrideData = {
       date: args.date,
       bigBallOverride: args.bigBallOverride,
       midBallOverride: args.midBallOverride,
+      otherBallOverrides: args.otherBallOverrides,
       packagingOverrides: args.packagingOverrides,
       setAt: Date.now(),
       setBy: user.name,

@@ -1473,6 +1473,12 @@ export default defineSchema({
     date: v.string(),                          // YYYY-MM-DD
     bigBallOverride: v.optional(v.number()),
     midBallOverride: v.optional(v.number()),
+    // I2: per-day override targets for non-BIG/MID ball codes (e.g.
+    // HAZELNUT_REGULAR). Matches kitchenConfig.otherBallTargets shape.
+    otherBallOverrides: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
     packagingOverrides: v.optional(v.array(v.object({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),

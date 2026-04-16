@@ -117,10 +117,26 @@ export const getKitchenTargetsForDate = query({
         }
       }
 
+      // I2: Surface otherBallOverrides so per-day overrides for non-BIG/MID
+      // codes (e.g. HAZELNUT_REGULAR) reach ProductionTargetsBar. Match the
+      // shape used by the defaults branch below.
+      const otherBalls: Array<{ code: string; name: string; quantity: number }> = [];
+      if (override.otherBallOverrides && override.otherBallOverrides.length > 0) {
+        for (const entry of override.otherBallOverrides) {
+          if (!entry.target || entry.target <= 0) continue;
+          const ct = await ctx.db
+            .query("componentTypes")
+            .withIndex("by_code", (q) => q.eq("code", entry.code))
+            .first();
+          if (!ct || !ct.isActive || ct.category !== "production") continue;
+          otherBalls.push({ code: entry.code, name: ct.name, quantity: entry.target });
+        }
+      }
+
       return {
         bigBalls,
         midBalls,
-        otherBalls: [] as Array<{ code: string; name: string; quantity: number }>,
+        otherBalls,
         packagingBreakdown,
         source: "override" as const,
         overrideSource: (override.source ?? "manual") as "manual" | "restock_planner",

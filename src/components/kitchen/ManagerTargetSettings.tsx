@@ -364,12 +364,28 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
       return;
     }
 
+    // I2: Build otherBallOverrides from the current state, filtered to tier-1
+    // codes that are currently tracked so a stale pcs entry from a previous
+    // session can't bleed into today's override.
+    const trackedCodeSet = new Set(
+      componentTracking.filter((e) => e.tracked).map((e) => e.code)
+    );
+    const validOtherCodes = new Set(
+      productionComponents
+        .filter((c) => c.unit === "pcs" && c.code !== "BIG_BALL" && c.code !== "MID_BALL")
+        .map((c) => c.code)
+    );
+    const otherBallOverrides = Object.entries(otherBallTargets)
+      .filter(([code, target]) => target > 0 && validOtherCodes.has(code) && trackedCodeSet.has(code))
+      .map(([code, target]) => ({ code, target }));
+
     setIsSavingOverride(true);
     try {
       await setDailyOverride({
         date: today,
         bigBallOverride: bigBallTarget,
         midBallOverride: midBallTarget,
+        otherBallOverrides: otherBallOverrides.length > 0 ? otherBallOverrides : undefined,
         source: "manual",
       });
       toast.success("Override applied for today only");
