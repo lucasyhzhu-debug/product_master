@@ -169,7 +169,12 @@ export function ComponentProductionSection({
                   onChange={(e) => onUpdateWaste(index, "grams", Number(e.target.value))}
                   className="w-20 text-right tabular-nums"
                 />
-                <span className="text-xs text-muted-foreground shrink-0 w-4">g</span>
+                <span className="text-xs text-muted-foreground shrink-0 w-4">
+                  {(() => {
+                    const comp = components.find((c) => c.code === entry.code);
+                    return comp?.unit || "g";
+                  })()}
+                </span>
               </div>
             </div>
           ))}

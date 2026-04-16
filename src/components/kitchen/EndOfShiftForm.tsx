@@ -91,6 +91,8 @@ interface EndOfShiftFormProps {
   }>;
   /** Phase 69: Enabled kitchen component codes from config (D-04) */
   enabledKitchenComponentCodes?: string[];
+  /** Configured unit per component code from componentTracking */
+  unitByCode?: Record<string, "g" | "pcs">;
 }
 
 // -------------------------------------------------------
@@ -105,6 +107,7 @@ export function EndOfShiftForm({
   users,
   kitchenComponents,
   enabledKitchenComponentCodes,
+  unitByCode,
 }: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
@@ -183,10 +186,16 @@ export function EndOfShiftForm({
 
   // Phase 69: Filter kitchen components by enabled codes
   // null/undefined/empty = all enabled; non-empty array = only those codes
-  const visibleKitchenComponents = (kitchenComponents ?? []).filter((comp) => {
-    if (!enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0) return true;
-    return enabledKitchenComponentCodes.includes(comp.code);
-  });
+  // Apply configured unit from unitByCode when available
+  const visibleKitchenComponents = (kitchenComponents ?? [])
+    .filter((comp) => {
+      if (!enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0) return true;
+      return enabledKitchenComponentCodes.includes(comp.code);
+    })
+    .map((comp) => ({
+      ...comp,
+      unit: unitByCode?.[comp.code] ?? comp.unit,
+    }));
 
   function getProducedQty(menuProductId: string): number {
     return produced[menuProductId] ?? 0;

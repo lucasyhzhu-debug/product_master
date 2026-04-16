@@ -362,10 +362,53 @@ fix (Bug 6 — Dispatch plan dropdown):
     else "{Name} Products".
 
 files_changed (cumulative across rounds):
-  - convex/schema.ts                                      # +otherBallTargets field
-  - convex/kitchenConfig/queries.ts                       # surface otherBallTargets in getConfig + defaults branch
-  - convex/kitchenConfig/mutations.ts                     # accept + validate + persist otherBallTargets
-  - src/hooks/convex/useKitchenTargets.ts                 # [round-2 primary] isActive filter
-  - src/components/kitchen/ManagerTargetSettings.tsx      # [round-2 + Bug 5] dynamic ball target rows, otherBallTargets state, ballGroups for editor
+  - convex/schema.ts                                      # +otherBallTargets field, +componentTracking field
+  - convex/kitchenConfig/queries.ts                       # surface otherBallTargets + componentTracking in getConfig + defaults branch
+  - convex/kitchenConfig/mutations.ts                     # accept + validate + persist otherBallTargets + componentTracking
+  - src/hooks/convex/useKitchenTargets.ts                 # [round-2 primary] isActive filter, [round-5] unitByCode from componentTracking
+  - src/components/kitchen/ManagerTargetSettings.tsx      # [round-2 + Bug 5] dynamic ball target rows, [round-5] unified Component Tracking table
   - src/components/kitchen/PackagingMixEditor.tsx         # [Bug 6] dynamic ballGroups, BomInfo.ballsByCode
-  - src/pages/KitchenViewV2.tsx                           # [round-2] enabledComponents derivation, codeMap isActive filter
+  - src/components/kitchen/EndOfShiftForm.tsx             # [round-5] accept unitByCode, apply configured unit to visibleKitchenComponents
+  - src/components/kitchen/ComponentProductionSection.tsx # [round-5] waste unit label uses component unit (not hardcoded "g")
+  - src/pages/KitchenViewV2.tsx                           # [round-2] enabledComponents derivation, [round-5] componentTracking-aware derivation, pass unitByCode
+
+## Round 5 — Unified Component Tracking config
+
+### Design
+
+Replace the two separate toggle groups (PRODUCTION COMPONENTS + KITCHEN COMPONENTS)
+in Manager Settings with a single "COMPONENT TRACKING" table. Each row has:
+- Component name (grouped by Tier 1 / Leaf Components)
+- Track? toggle (whether the component appears in End of Shift form)
+- Unit selector (g / pcs button pair, manager decides)
+
+### Schema change
+
+Added `componentTracking: v.optional(v.array(v.object({ code, tracked, unit })))` to
+`kitchenConfig` table. When present, this is authoritative. When absent (old config),
+derive from legacy `enabledProductionComponents` + `enabledKitchenComponents` fields.
+Legacy fields are still synced on save for backward compat.
+
+### Changes
+
+1. **convex/schema.ts** — added `componentTracking` field
+2. **convex/kitchenConfig/mutations.ts** — accept + persist `componentTracking`
+3. **convex/kitchenConfig/queries.ts** — return `componentTracking` (null when absent)
+4. **ManagerTargetSettings.tsx** — replaced two toggle sections with unified table;
+   `componentTracking` state replaces `enabledComponents` + `enabledKitchenComponents`;
+   on save, derives legacy fields from componentTracking for backward compat
+5. **useKitchenTargets.ts** — reads `componentTracking` from config, builds `unitByCode`
+   map, exposes it to consumers
+6. **KitchenViewV2.tsx** — `enabledComponents` now prefers componentTracking when present;
+   `enabledKitchenComponentCodes` derived from componentTracking; passes `unitByCode` to
+   EndOfShiftForm
+7. **EndOfShiftForm.tsx** — accepts `unitByCode`, applies configured unit to
+   `visibleKitchenComponents` so ComponentProductionSection/ShiftReviewModal/ShiftSuccessScreen
+   display the manager-configured unit
+8. **ComponentProductionSection.tsx** — waste unit label now uses component's unit
+   (not hardcoded "g")
+
+### Verification
+
+- `npm run type-check` passes clean
+- `npm run build` completes in 20.16s with zero errors

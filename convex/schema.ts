@@ -1369,6 +1369,15 @@ export default defineSchema({
       code: v.string(),
       target: v.number(),
     }))),
+    // Unified component tracking config (replaces enabledProductionComponents +
+    // enabledKitchenComponents). Each entry controls whether a component appears
+    // in the shift form and what unit to display (g or pcs).
+    // When present, this is authoritative. When absent, derive from legacy fields.
+    componentTracking: v.optional(v.array(v.object({
+      code: v.string(),
+      tracked: v.boolean(),
+      unit: v.union(v.literal("g"), v.literal("pcs")),
+    }))),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),

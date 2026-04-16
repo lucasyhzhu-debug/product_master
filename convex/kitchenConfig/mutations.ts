@@ -34,6 +34,12 @@ export const updateConfig = mutation({
       code: v.string(),
       target: v.number(),
     }))),
+    // Unified component tracking (replaces enabledProductionComponents + enabledKitchenComponents)
+    componentTracking: v.optional(v.array(v.object({
+      code: v.string(),
+      tracked: v.boolean(),
+      unit: v.union(v.literal("g"), v.literal("pcs")),
+    }))),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["manager", "admin"]);
@@ -75,6 +81,9 @@ export const updateConfig = mutation({
       }),
       ...(args.otherBallTargets !== undefined && {
         otherBallTargets: args.otherBallTargets,
+      }),
+      ...(args.componentTracking !== undefined && {
+        componentTracking: args.componentTracking,
       }),
       updatedAt: Date.now(),
       updatedBy: user.name,

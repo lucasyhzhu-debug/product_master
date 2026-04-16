@@ -35,6 +35,8 @@ export const getConfig = query({
         enabledKitchenComponents: null as string[] | null,
         // Round-2 follow-up: no targets for non-BIG/MID ball codes yet
         otherBallTargets: [] as Array<{ code: string; target: number }>,
+        // Unified component tracking — null means derive from legacy fields
+        componentTracking: null as Array<{ code: string; tracked: boolean; unit: "g" | "pcs" }> | null,
         showJumbo: true,  // backward-compat default: show Jumbo
         updatedAt: null,
         updatedBy: null,
@@ -62,6 +64,8 @@ export const getConfig = query({
           : null,
       // Round-2 follow-up: targets for non-BIG/MID ball codes
       otherBallTargets: config.otherBallTargets ?? [],
+      // Unified component tracking — null means derive from legacy fields
+      componentTracking: config.componentTracking ?? null,
       showJumbo: derivedShowJumbo,
       updatedAt: config.updatedAt,
       updatedBy: config.updatedBy,

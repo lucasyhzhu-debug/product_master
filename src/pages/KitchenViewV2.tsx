@@ -54,7 +54,7 @@ export function KitchenViewV2() {
   // Kitchen targets + shift records (Phase 21)
   // ============================================
 
-  const { today, targets, todayShiftRecords, kitchenComponents, dailyComponentSummary } =
+  const { today, targets, todayShiftRecords, kitchenComponents, dailyComponentSummary, unitByCode } =
     useKitchenTargets();
 
   // ============================================
@@ -85,6 +85,19 @@ export function KitchenViewV2() {
   // ============================================
 
   const enabledComponents: string[] | undefined = useMemo(() => {
+    // When componentTracking is present, derive enabled production codes from it
+    if (config?.componentTracking && config.componentTracking.length > 0) {
+      // Get all production codes (tier-1 pcs) to filter componentTracking entries
+      const prodCodes = new Set(
+        (componentTypesList ?? [])
+          .filter((ct) => ct.category === 'production' && ct.unit === 'pcs' && ct.isActive)
+          .map((ct) => ct.code)
+      );
+      return config.componentTracking
+        .filter((e) => e.tracked && prodCodes.has(e.code))
+        .map((e) => e.code);
+    }
+    // Legacy: use enabledProductionComponents
     if (config?.enabledProductionComponents) {
       return config.enabledProductionComponents;
     }
@@ -92,7 +105,7 @@ export function KitchenViewV2() {
     return componentTypesList
       .filter((ct) => ct.category === 'production' && ct.unit === 'pcs' && ct.isActive)
       .map((ct) => ct.code);
-  }, [config?.enabledProductionComponents, componentTypesList]);
+  }, [config?.componentTracking, config?.enabledProductionComponents, componentTypesList]);
 
   const productBallTypes = useMemo(() => {
     if (!menuProductComps || !componentTypesList) return undefined;
@@ -253,7 +266,13 @@ export function KitchenViewV2() {
           productBallTypes={productBallTypes}
           users={kitchenUsers}
           kitchenComponents={kitchenComponents ?? []}
-          enabledKitchenComponentCodes={config?.enabledKitchenComponents ?? undefined}
+          enabledKitchenComponentCodes={
+            // Derive from componentTracking when present; fall back to legacy field
+            config?.componentTracking && config.componentTracking.length > 0
+              ? config.componentTracking.filter((e) => e.tracked).map((e) => e.code)
+              : config?.enabledKitchenComponents ?? undefined
+          }
+          unitByCode={unitByCode}
         />
       </section>
 

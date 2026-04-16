@@ -38,6 +38,12 @@ import type { KitchenTargets } from "./ProductionTargetsBar";
 // Types
 // -------------------------------------------------------
 
+interface ComponentTrackingEntry {
+  code: string;
+  tracked: boolean;
+  unit: "g" | "pcs";
+}
+
 interface KitchenConfig {
   _id: Id<"kitchenConfig"> | null;
   maxProductionTarget: number;
@@ -48,6 +54,7 @@ interface KitchenConfig {
   enabledProductionComponents: string[] | null;
   enabledKitchenComponents: string[] | null;
   otherBallTargets?: Array<{ code: string; target: number }>;
+  componentTracking?: ComponentTrackingEntry[] | null;
   updatedAt: number | null;
   updatedBy: string | null;
 }
@@ -101,8 +108,6 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
     }
     return unique;
   }, [componentsWithTiers]);
-  const allKitchenCodes = useMemo(() => kitchenComponentsList.map((c) => c.code), [kitchenComponentsList]);
-
   const updateConfig = useProtectedMutation(api.kitchenConfig.mutations.updateConfig);
   const setDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.setDailyOverride);
   const clearDailyOverride = useProtectedMutation(api.kitchenDailyOverrides.mutations.clearDailyOverride);
@@ -113,9 +118,14 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   // Round-2 follow-up: targets for non-BIG/MID production codes (e.g. HAZELNUT_REGULAR)
   const [otherBallTargets, setOtherBallTargets] = useState<Record<string, number>>({});
   const [packagingMix, setPackagingMix] = useState<PackagingMixRow[]>([]);
-  const [enabledComponents, setEnabledComponents] = useState<string[]>(["BIG_BALL", "MID_BALL"]);
-  // Phase 69: Enabled kitchen component codes (null = all enabled)
-  const [enabledKitchenComponents, setEnabledKitchenComponents] = useState<string[] | null>(null);
+  // Unified component tracking state
+  const [componentTracking, setComponentTracking] = useState<ComponentTrackingEntry[]>([]);
+
+  // Derived: enabledComponents for backward-compat reads by ballTargetRows/PackagingMixEditor
+  const enabledComponents = useMemo(
+    () => componentTracking.filter((e) => e.tracked).map((e) => e.code),
+    [componentTracking]
+  );
 
   // -- Saving states --
   const [isSavingDefaults, setIsSavingDefaults] = useState(false);
@@ -141,12 +151,32 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           quantity: row.quantity,
         }))
       );
-      // null means all enabled — resolve default from ["BIG_BALL", "MID_BALL"]
-      setEnabledComponents(config.enabledProductionComponents ?? ["BIG_BALL", "MID_BALL"]);
-      // Phase 69: Kitchen component toggles
-      setEnabledKitchenComponents(config.enabledKitchenComponents);
+      // Unified component tracking: if saved, use it; otherwise derive from legacy fields
+      if (config.componentTracking && config.componentTracking.length > 0) {
+        setComponentTracking(config.componentTracking);
+      } else {
+        // Derive from legacy fields + available components
+        const enabledProd = config.enabledProductionComponents ?? productionComponents.map((c) => c.code);
+        const enabledKitchen = config.enabledKitchenComponents;
+        const entries: ComponentTrackingEntry[] = [];
+        for (const c of productionComponents) {
+          entries.push({
+            code: c.code,
+            tracked: enabledProd.includes(c.code),
+            unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "pcs",
+          });
+        }
+        for (const c of kitchenComponentsList) {
+          entries.push({
+            code: c.code,
+            tracked: enabledKitchen === null ? true : enabledKitchen.includes(c.code),
+            unit: (c.unit === "g" || c.unit === "pcs") ? c.unit : "g",
+          });
+        }
+        setComponentTracking(entries);
+      }
     }
-  }, [config]);
+  }, [config, productionComponents, kitchenComponentsList]);
 
   // -------------------------------------------------------
   // Derive the ordered list of ball target rows to render.
@@ -208,27 +238,19 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
   }, [ballTargetRows, productionComponents]);
 
   // -------------------------------------------------------
-  // Per-component toggle handler
+  // Unified component tracking handlers
   // -------------------------------------------------------
 
-  function toggleComponent(code: string) {
-    setEnabledComponents((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+  function toggleTracked(code: string) {
+    setComponentTracking((prev) =>
+      prev.map((e) => e.code === code ? { ...e, tracked: !e.tracked } : e)
     );
   }
 
-  // -------------------------------------------------------
-  // Phase 69: Kitchen component toggle handler
-  // -------------------------------------------------------
-
-  function toggleKitchenComponent(code: string, enabled: boolean) {
-    const currentEnabled = enabledKitchenComponents === null ? allKitchenCodes : enabledKitchenComponents;
-
-    const newEnabled = enabled
-      ? [...currentEnabled, code]
-      : currentEnabled.filter((c) => c !== code);
-
-    setEnabledKitchenComponents(newEnabled);
+  function setUnit(code: string, unit: "g" | "pcs") {
+    setComponentTracking((prev) =>
+      prev.map((e) => e.code === code ? { ...e, unit } : e)
+    );
   }
 
   // -------------------------------------------------------
@@ -259,18 +281,22 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
 
     setIsSavingDefaults(true);
     try {
+      // Derive legacy fields from componentTracking for backward compat
+      const trackedProdCodes = componentTracking
+        .filter((e) => e.tracked && productionComponents.some((p) => p.code === e.code))
+        .map((e) => e.code);
+      const trackedKitchenCodes = componentTracking
+        .filter((e) => e.tracked && kitchenComponentsList.some((k) => k.code === e.code))
+        .map((e) => e.code);
+
       await updateConfig({
         maxProductionTarget: totalBalls || 1, // keep legacy field > 0
         bigBallTarget,
         midBallTarget,
-        enabledProductionComponents: enabledComponents,
-        // Phase 69: Save kitchen component toggles
-        // null or empty = all enabled (don't write field); non-empty = explicit list
-        enabledKitchenComponents:
-          enabledKitchenComponents && enabledKitchenComponents.length > 0
-            ? enabledKitchenComponents
-            : undefined,
+        enabledProductionComponents: trackedProdCodes,
+        enabledKitchenComponents: trackedKitchenCodes.length > 0 ? trackedKitchenCodes : undefined,
         otherBallTargets: otherBallTargetsPayload,
+        componentTracking: componentTracking,
         defaultPackagingMix:
           validMix.length > 0
             ? validMix.map((row) => ({
@@ -404,94 +430,172 @@ export function ManagerTargetSettings({ config, targets, today }: ManagerTargetS
           )}
         </div>
 
-        {/* Per-Component Production Toggles */}
+        {/* Unified Component Tracking table */}
         <div>
           <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
-            Production Components
+            Component Tracking
           </Label>
-          <div className="flex flex-wrap gap-3">
-            {(productionComponents ?? []).map((ct) => {
-              const isOn = enabledComponents.includes(ct.code);
-              return (
-                <label
-                  key={ct._id}
-                  className="flex items-center gap-2 cursor-pointer select-none"
-                >
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isOn}
-                    onClick={() => toggleComponent(ct.code)}
-                    className={[
-                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                      isOn ? "bg-primary" : "bg-input",
-                    ].join(" ")}
-                  >
-                    <span
-                      className={[
-                        "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                        isOn ? "translate-x-4" : "translate-x-0",
-                      ].join(" ")}
-                    />
-                  </button>
-                  <span className="text-sm">{ct.name}</span>
-                </label>
-              );
-            })}
-            {componentsWithTiers === undefined && (
-              <p className="text-xs text-muted-foreground">Loading components...</p>
-            )}
-          </div>
-        </div>
-
-        {/* Kitchen Component Toggles (tier-0 leaves) */}
-        {kitchenComponentsList.length > 0 && (
-          <div>
-            <Label className="text-xs text-muted-foreground uppercase tracking-wide block mb-2">
-              Kitchen Components
-            </Label>
-            <p className="text-xs text-muted-foreground mb-2">
-              Toggle which pre-cursor components appear in the shift form.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              {kitchenComponentsList.map((comp) => {
-                const isOn = enabledKitchenComponents === null
-                  ? true
-                  : enabledKitchenComponents.includes(comp.code);
-                return (
-                  <label
-                    key={comp._id}
-                    className="flex items-center gap-2 cursor-pointer select-none"
-                  >
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={isOn}
-                      onClick={() => toggleKitchenComponent(comp.code, !isOn)}
-                      className={[
-                        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
-                        isOn ? "bg-primary" : "bg-input",
-                      ].join(" ")}
-                    >
-                      <span
-                        className={[
-                          "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                          isOn ? "translate-x-4" : "translate-x-0",
-                        ].join(" ")}
-                      />
-                    </button>
-                    <span className="text-sm">{comp.name}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        {componentsWithTiers !== undefined && kitchenComponentsList.length === 0 && (
-          <p className="text-xs text-muted-foreground italic">
-            No leaf kitchen components found. Run seedLeafKitchenComponents from the dashboard.
+          <p className="text-xs text-muted-foreground mb-3">
+            Configure which components appear in the End of Shift form and their display unit.
           </p>
-        )}
+
+          {componentsWithTiers === undefined ? (
+            <p className="text-xs text-muted-foreground">Loading components...</p>
+          ) : (productionComponents.length === 0 && kitchenComponentsList.length === 0) ? (
+            <p className="text-xs text-muted-foreground italic">
+              No components found. Add production components or run seedLeafKitchenComponents.
+            </p>
+          ) : (
+            <div className="rounded-lg border border-border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Component</th>
+                    <th className="text-center px-3 py-2 font-medium text-muted-foreground w-16">Track?</th>
+                    <th className="text-center px-3 py-2 font-medium text-muted-foreground w-24">Unit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Tier 1 group */}
+                  {productionComponents.length > 0 && (
+                    <>
+                      <tr className="bg-muted/30">
+                        <td colSpan={3} className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Tier 1
+                        </td>
+                      </tr>
+                      {productionComponents.map((ct) => {
+                        const entry = componentTracking.find((e) => e.code === ct.code);
+                        const isTracked = entry?.tracked ?? true;
+                        const unit = entry?.unit ?? "pcs";
+                        return (
+                          <tr key={ct._id} className="border-t border-border">
+                            <td className="px-3 py-2">{ct.name}</td>
+                            <td className="px-3 py-2 text-center">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={isTracked}
+                                onClick={() => toggleTracked(ct.code)}
+                                className={[
+                                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                                  isTracked ? "bg-primary" : "bg-input",
+                                ].join(" ")}
+                              >
+                                <span
+                                  className={[
+                                    "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+                                    isTracked ? "translate-x-4" : "translate-x-0",
+                                  ].join(" ")}
+                                />
+                              </button>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() => setUnit(ct.code, "g")}
+                                  className={[
+                                    "px-2 py-0.5 text-xs font-medium transition-colors",
+                                    unit === "g"
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-background text-muted-foreground hover:bg-muted",
+                                  ].join(" ")}
+                                >
+                                  g
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setUnit(ct.code, "pcs")}
+                                  className={[
+                                    "px-2 py-0.5 text-xs font-medium transition-colors border-l border-border",
+                                    unit === "pcs"
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-background text-muted-foreground hover:bg-muted",
+                                  ].join(" ")}
+                                >
+                                  pcs
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  )}
+
+                  {/* Leaf Components group */}
+                  {kitchenComponentsList.length > 0 && (
+                    <>
+                      <tr className="bg-muted/30">
+                        <td colSpan={3} className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Leaf Components
+                        </td>
+                      </tr>
+                      {kitchenComponentsList.map((comp) => {
+                        const entry = componentTracking.find((e) => e.code === comp.code);
+                        const isTracked = entry?.tracked ?? true;
+                        const unit = entry?.unit ?? ((comp.unit === "g" || comp.unit === "pcs") ? comp.unit : "g");
+                        return (
+                          <tr key={comp._id} className="border-t border-border">
+                            <td className="px-3 py-2">{comp.name}</td>
+                            <td className="px-3 py-2 text-center">
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={isTracked}
+                                onClick={() => toggleTracked(comp.code)}
+                                className={[
+                                  "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors",
+                                  isTracked ? "bg-primary" : "bg-input",
+                                ].join(" ")}
+                              >
+                                <span
+                                  className={[
+                                    "pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+                                    isTracked ? "translate-x-4" : "translate-x-0",
+                                  ].join(" ")}
+                                />
+                              </button>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <div className="inline-flex rounded-md border border-border overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() => setUnit(comp.code, "g")}
+                                  className={[
+                                    "px-2 py-0.5 text-xs font-medium transition-colors",
+                                    unit === "g"
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-background text-muted-foreground hover:bg-muted",
+                                  ].join(" ")}
+                                >
+                                  g
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setUnit(comp.code, "pcs")}
+                                  className={[
+                                    "px-2 py-0.5 text-xs font-medium transition-colors border-l border-border",
+                                    unit === "pcs"
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-background text-muted-foreground hover:bg-muted",
+                                  ].join(" ")}
+                                >
+                                  pcs
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         {/* Packaging Mix */}
         <div>

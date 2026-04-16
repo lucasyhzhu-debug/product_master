@@ -66,6 +66,28 @@ export function useKitchenTargets() {
     { date: today }
   );
 
+  // Read kitchen config for componentTracking
+  const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
+
+  // Build unitByCode map from componentTracking (authoritative when present).
+  // Falls back to componentType.unit when componentTracking is absent (legacy).
+  const unitByCode = useMemo(() => {
+    const map: Record<string, "g" | "pcs"> = {};
+    if (kitchenConfig?.componentTracking && kitchenConfig.componentTracking.length > 0) {
+      for (const entry of kitchenConfig.componentTracking) {
+        map[entry.code] = entry.unit;
+      }
+    } else {
+      // Derive from componentType unit
+      for (const c of (productionComponentsWithTiers ?? [])) {
+        if (c.isActive) {
+          map[c.code] = (c.unit === "g" || c.unit === "pcs") ? c.unit : "g";
+        }
+      }
+    }
+    return map;
+  }, [kitchenConfig?.componentTracking, productionComponentsWithTiers]);
+
   return {
     today,
     targets,
@@ -73,5 +95,6 @@ export function useKitchenTargets() {
     productionComponentsWithTiers,
     kitchenComponents,
     dailyComponentSummary,
+    unitByCode,
   };
 }
