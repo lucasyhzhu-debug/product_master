@@ -80,20 +80,36 @@ export const getMyLastShiftSummary = query({
       prodComponentTypes.map((c) => c._id as Id<"componentTypes">),
     );
 
-    // Pre-fetch BOM once and bucket by menuProductId to avoid N+1.
-    const allMpcs = await ctx.db.query("menuProductComponents").collect();
+    // WR-04: scope BOM fetch to the menuProductIds actually present in the
+    // user's same-day shift records (gate-screen hot path — avoid scanning the
+    // full menuProductComponents table on every kitchen login).
+    const neededProductIds = new Set<Id<"menuProducts">>();
+    for (const rec of shifts) {
+      for (const item of rec.produced ?? []) {
+        neededProductIds.add(item.menuProductId as Id<"menuProducts">);
+      }
+    }
+    const productIdList = Array.from(neededProductIds);
+    const allMpcs = await Promise.all(
+      productIdList.map((id) =>
+        ctx.db
+          .query("menuProductComponents")
+          .withIndex("by_menu_product", (q) => q.eq("menuProductId", id))
+          .collect(),
+      ),
+    );
     const bomByProduct = new Map<
       string,
       Array<{ componentTypeId: Id<"componentTypes">; quantity: number }>
     >();
-    for (const mpc of allMpcs) {
-      const key = String(mpc.menuProductId);
-      const list = bomByProduct.get(key) ?? [];
-      list.push({
-        componentTypeId: mpc.componentTypeId as Id<"componentTypes">,
-        quantity: mpc.quantity,
-      });
-      bomByProduct.set(key, list);
+    for (let i = 0; i < productIdList.length; i++) {
+      bomByProduct.set(
+        String(productIdList[i]),
+        allMpcs[i].map((mpc) => ({
+          componentTypeId: mpc.componentTypeId as Id<"componentTypes">,
+          quantity: mpc.quantity,
+        })),
+      );
     }
 
     let ballsProduced = 0;
