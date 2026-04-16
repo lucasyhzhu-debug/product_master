@@ -16,6 +16,33 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feat: Phase 74 -- Staff Attendance -- 2026-04-16
+
+**For the team:** Kitchen staff now clock in and out of their shifts with a single tap. After PIN login, kitchen users land on a dedicated gate screen (`/kitchen/clock`) with a welcome card, live WIB clock, one-tap Clock-In button, and a "Last shift" recap ("Yesterday 6h 23m • 42 balls"). Once clocked in, the kitchen view shows a running timer + Clock-Out button at the top; submitting a shift record prompts a non-blocking nudge to clock out. Managers get a revamped `/staff-performance` with an Hours-Worked column, a flagged-shifts banner for missing clock-outs / overlapping sessions / shifts-before-hire-date, and an expandable per-day breakdown with dynamic component columns (unit shown in the header, native units preserved — no cross-unit summing). Staff can view their own attendance at `/my-performance`. Managers correct missed clock-outs via a dialog with a required note; the full edit history is preserved in a `corrections[]` audit array.
+
+**What shipped:**
+- New `staffAttendance` table + 3 indexes (`by_user_date`, `by_user_open`, `by_date`) — D-06 (no FK to production; joined at query time).
+- 3 mutations (D-01, D-04, D-05, D-19): `clockIn` (session-derived userId per T-74-01), `clockOut` (owner-or-manager gate + D-04 server enforcement), `correctAttendance` (manager/admin, required trimmed note, 4 actions: `edit_timestamps` / `add_missed` / `reassign` / `delete`).
+- 4 queries: `getCurrentOpenShift`, `getMyLastShiftSummary` (BOM-resolved balls), `getFlaggedShifts` (manager/admin), `getMyPerformance` (T-74-03 self-scoped). Plus additive extension to `getStaffPerformanceSummary` with `totalHoursWorked` / `daysAttended` / `flaggedShiftCount` / `perDayBreakdown[]`.
+- Pure-function flag engine covering D-18 rules: `missing_clockout`, `over_16h`, `overlapping`, `before_hire`. Query-time computation — no stored flags.
+- D-14 adapter: `aggregateStaffPerformance` runtime-probes `kitchenConfig` for optional `componentTracking` array (worktree-merged shape). When present, authoritative. Otherwise falls back to legacy `enabledProductionComponents` / `enabledKitchenComponents` arrays + derives units from `componentTypes` (production → pcs) and `kitchenComponents` (→ g). Subsetting is intentional behavior (C-5 regression test locked in).
+- Frontend: `/kitchen/clock` gate, `AttendanceStrip` (null-render when no open shift), `RunningTimer` (minute-resolution, tabular-nums), `ClockOutButton`, `ClockOutNudgeDialog` (D-08), `AttendanceCorrectionDialog` (D-16/D-17 with input → review step machine), `FlaggedShiftsBanner` (D-15), `PerDayBreakdownTable` (D-11/D-14), extended `StaffPerformance.tsx`, new `MyPerformance.tsx` (D-13), 3 hooks (`useFlaggedShifts`, `useMyPerformance`, `useCorrectAttendance`), header nav entry gated to kitchen/order_staff, additive CSV columns (Hours Worked / Days Attended / Flagged Shifts).
+- Tests: 47 phase-74 tests green (18 flag-engine unit + 5 clockIn + 6 clockOut + 8 correctAttendance + 10 summary integration). Full suite 1555/1555 passing. Playwright E2E scaffold at `tests/e2e/staff-attendance.spec.ts` (gated by `PLAYWRIGHT_E2E_FULL=1`).
+
+**Schema additions:**
+- `staffAttendance` table with 8 fields (userId, date, clockIn, clockOut?, durationMs?, corrections?, deletedAt?, deletedBy?) and 3 indexes.
+- `corrections[]` audit array preserves full multi-correction history (D-17): `{ correctedAt, correctedBy, correctedByUserId, correctionNote, previousClockIn?, previousClockOut?, previousUserId?, action: "edit_timestamps"|"add_missed"|"reassign"|"delete" }`.
+
+**Requirements satisfied:** ATT-01, ATT-02, ATT-03, ATT-04.
+
+**Files added (highlights):**
+- Backend: `convex/staffAttendance/{constants, flagEngine, mutations, queries, aggregation}.ts` + 5 `__tests__/*.test.ts` files.
+- Frontend: `src/hooks/convex/useAttendance.ts`, `src/components/staffAttendance/` (6 components + barrel + RunningTimer test), `src/pages/{ClockInGate, MyPerformance}.tsx`.
+
+**Migration:** None — purely additive. Existing `kitchenShiftRecords` consumers unchanged via additive field propagation through TypeScript inference.
+
+---
+
 ### Fix: Quick task 260416-jm7 — Test Debt Cleanup -- 2026-04-16
 
 **For the team:** CI test suite restored to fully green. 17 pre-existing test failures that had accumulated across phases 41–69 have been fixed. Future test regressions will no longer be masked by this noise.

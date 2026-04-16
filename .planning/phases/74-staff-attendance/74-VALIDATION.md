@@ -1,10 +1,11 @@
 ---
 phase: 74
 slug: staff-attendance
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: ready
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-04-16
+completed: 2026-04-16
 ---
 
 # Phase 74 — Validation Strategy
@@ -65,13 +66,14 @@ created: 2026-04-16
 ## Wave 0 Requirements
 
 > R-5 (staff review 2026-04-16): filenames aligned to actual plan scaffolds. Plans split tests by mutation/query instead of a single monolithic file.
+> Plan 04 (2026-04-16): all scaffolds replaced with real convex-test cases — 47 phase-74 tests green; full suite 1555/1555.
 
-- [ ] `convex/staffAttendance/__tests__/clockIn.test.ts` — stubs for ATT-01 clock-in behaviors (prior-day block, same-day double-click, token-derived userId)
-- [ ] `convex/staffAttendance/__tests__/clockOut.test.ts` — stubs for ATT-01 clock-out behaviors (manager override, durationMs)
-- [ ] `convex/staffAttendance/__tests__/correctAttendance.test.ts` — stubs for ATT-04 manager correction (edit_timestamps, add_missed, reassign, delete, required note, clockOut >= clockIn guard)
-- [ ] `convex/staffAttendance/__tests__/flagEngine.test.ts` — REAL tests for D-18 auto-flag rules (over_16h, missing_clockout, overlapping, before_hire); pure-function, no ctx needed
-- [ ] `convex/kitchenShiftRecords/__tests__/summary.test.ts` — stubs for ATT-02/ATT-03 extended getStaffPerformanceSummary (hours, daysAttended, flaggedShiftCount, perDayBreakdown, D-11 no-cross-unit-sum, D-14 adapter, C-5 componentTracking subset)
-- [ ] `tests/e2e/staff-attendance.spec.ts` — gate screen happy path + deferred correction/manager flows
+- [x] `convex/staffAttendance/__tests__/clockIn.test.ts` — 5 real tests (prior-day block D-04, token-derived userId T-74-01, same-day double-click, open-row insertion, deletedAt ignored)
+- [x] `convex/staffAttendance/__tests__/clockOut.test.ts` — 6 real tests (durationMs denormalization, owner-or-manager gate, D-04 server enforcement, already-closed + deleted guards)
+- [x] `convex/staffAttendance/__tests__/correctAttendance.test.ts` — 8 real tests (role gate, D-19 trimmed note, 4 actions + I-1 guard + multi-correction history)
+- [x] `convex/staffAttendance/__tests__/flagEngine.test.ts` — 18 real pure-function tests (Plan 01 Task 1)
+- [x] `convex/kitchenShiftRecords/__tests__/summary.test.ts` — 10 real integration tests (hours sum D-03, daysAttended, BOM balls, flaggedShiftCount, D-07 retroactive, D-11 no-cross-unit-sum, 4-flag-rule integration, D-14 adapter fallback, C-5 componentTracking subset, sort desc)
+- [x] `tests/e2e/staff-attendance.spec.ts` — gate → kitchen → clock-out happy path (gated by `PLAYWRIGHT_E2E_FULL=1`) + 2 explicit `test.skip` placeholders deferred to HUMAN-UAT
 
 ---
 
@@ -88,11 +90,11 @@ created: 2026-04-16
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 60s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** auto — gsd-planner phase 74 plans complete (Plan 04 verification passed: type-check + test + build green; see 74-04-SUMMARY.md for known pre-existing lint debt outside Phase 74 scope).
