@@ -93,9 +93,18 @@ export function KitchenViewV2() {
           .filter((ct) => ct.category === 'production' && ct.unit === 'pcs' && ct.isActive)
           .map((ct) => ct.code)
       );
-      return config.componentTracking
+      const derived = config.componentTracking
         .filter((e) => e.tracked && prodCodes.has(e.code))
         .map((e) => e.code);
+      // C4: if the derived list is empty (e.g. user only tracked kitchen leaves
+      // in componentTracking), fall back to the legacy enabledProductionComponents
+      // array or componentTypesList so products aren't all hidden from the
+      // shift form.
+      if (derived.length > 0) return derived;
+      if (config.enabledProductionComponents && config.enabledProductionComponents.length > 0) {
+        return config.enabledProductionComponents;
+      }
+      return undefined;
     }
     // Legacy: use enabledProductionComponents
     if (config?.enabledProductionComponents) {
