@@ -1444,6 +1444,41 @@ export default defineSchema({
     // OI-14: removed by_date_submitted -- zero withIndex references
 
   // ============================================
+  // STAFF ATTENDANCE (Phase 74)
+  // Time-tracking for kitchen staff. NO FK to kitchenShiftRecords per D-06 —
+  // join happens at query time on (date, chefUserId).
+  // ============================================
+  staffAttendance: defineTable({
+    userId: v.id("users"),                           // FK to users
+    date: v.string(),                                // YYYY-MM-DD WIB (clock-in day)
+    clockIn: v.number(),                             // epoch ms UTC
+    clockOut: v.optional(v.number()),                // epoch ms UTC; undefined = open shift
+    durationMs: v.optional(v.number()),              // denormalized: clockOut - clockIn; set on close
+    // Audit trail (D-17): array preserves history for multi-correction scenarios
+    corrections: v.optional(v.array(v.object({
+      correctedAt: v.number(),
+      correctedBy: v.string(),                       // Manager name snapshot
+      correctedByUserId: v.id("users"),
+      correctionNote: v.string(),                    // required non-empty (D-19)
+      previousClockIn: v.optional(v.number()),
+      previousClockOut: v.optional(v.number()),
+      previousUserId: v.optional(v.id("users")),     // populated on chef reassignment (D-16)
+      action: v.union(
+        v.literal("edit_timestamps"),
+        v.literal("add_missed"),
+        v.literal("reassign"),
+        v.literal("delete"),
+      ),
+    }))),
+    // Soft-delete (D-16 "delete an erroneous shift")
+    deletedAt: v.optional(v.number()),
+    deletedBy: v.optional(v.string()),
+  })
+    .index("by_user_date", ["userId", "date"])
+    .index("by_user_open", ["userId", "clockOut"])
+    .index("by_date", ["date"]),
+
+  // ============================================
   // KITCHEN DAILY OVERRIDES
   // Per-day production target overrides (manager can override dispatch plan)
   // Priority chain: override > dispatch_plan > defaults
