@@ -1435,11 +1435,15 @@ export default defineSchema({
       previousQuantity: v.number(),
       newQuantity: v.number(),
     })),
-    // Phase 69: Component production (pre-cursor ingredients in grams)
+    // Phase 69: Component production (pre-cursor ingredients in grams OR pcs)
+    // Round-2 follow-up (C1): `unit` is optional for backward compat; historical
+    // records default to "g" on read. `grams` field name is legacy — when
+    // unit === "pcs" the value represents a raw piece count.
     componentProduced: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),     // e.g. "OUTER_MARSHMALLOW"
       kitchenComponentName: v.string(),     // snapshot at submission time
-      grams: v.number(),                    // Amount produced in grams
+      grams: v.number(),                    // Amount produced (grams or pcs per `unit`)
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     componentWaste: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),
@@ -1449,7 +1453,8 @@ export default defineSchema({
         v.literal("spoilage"),
         v.literal("waste")
       ),
-      grams: v.number(),
+      grams: v.number(),                    // Amount wasted (grams or pcs per `unit`)
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     editedAt: v.optional(v.number()),
     editedBy: v.optional(v.string()),

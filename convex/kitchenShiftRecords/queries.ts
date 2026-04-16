@@ -31,9 +31,9 @@ async function enrichRecord(
     chefUserId?: string;
     produced: Array<{ menuProductId: string; quantity: number }>;
     waste: Array<{ menuProductId: string; reason: string; quantity: number }>;
-    // Phase 69: Component production data
-    componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number }>;
-    componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number }>;
+    // Phase 69: Component production data (unit optional; legacy records have no unit, default to "g" on read)
+    componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number; unit?: "g" | "pcs" }>;
+    componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number; unit?: "g" | "pcs" }>;
     editedAt?: number;
     editedBy?: string;
     editNote?: string;

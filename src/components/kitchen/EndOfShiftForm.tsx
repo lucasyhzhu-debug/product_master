@@ -314,12 +314,18 @@ export function EndOfShiftForm({
     const chefUserId = selectedChefId || undefined;
 
     // Phase 69: Build component production/waste lists
+    // Round-2 follow-up (C1): include the displayed `unit` so aggregators can
+    // bucket grams vs pcs correctly.
+    const unitByCodeMap = new Map<string, "g" | "pcs">(
+      visibleKitchenComponents.map((c) => [c.code, (c.unit === "g" || c.unit === "pcs") ? c.unit : "g"])
+    );
     const componentProducedList = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentCode: c.code,
         kitchenComponentName: c.name,
         grams: componentProduced[c.code]!,
+        unit: (c.unit === "g" || c.unit === "pcs" ? c.unit : "g") as "g" | "pcs",
       }));
 
     const componentWasteList = componentWaste
@@ -329,6 +335,7 @@ export function EndOfShiftForm({
         kitchenComponentName: e.name,
         reason: e.reason as "qa_testing" | "spoilage" | "waste",
         grams: e.grams,
+        unit: (unitByCodeMap.get(e.code) ?? "g") as "g" | "pcs",
       }));
 
     setIsSubmitting(true);
@@ -411,7 +418,8 @@ export function EndOfShiftForm({
   if (step === "review") {
     // Phase 69: Build component lists for review
     // Round-4: include unit so pcs-sub-components render with their native unit
-    const unitByCode = new Map(visibleKitchenComponents.map((c) => [c.code, c.unit]));
+    // I3: rename local Map to avoid shadowing the `unitByCode` prop above.
+    const unitByCodeMap = new Map(visibleKitchenComponents.map((c) => [c.code, c.unit]));
     const reviewComponentProduced = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
@@ -425,7 +433,7 @@ export function EndOfShiftForm({
         kitchenComponentName: e.name,
         grams: e.grams,
         reason: e.reason,
-        unit: unitByCode.get(e.code),
+        unit: unitByCodeMap.get(e.code),
       }));
 
     return (
