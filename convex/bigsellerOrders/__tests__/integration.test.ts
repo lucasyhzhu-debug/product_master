@@ -108,8 +108,8 @@ describe("BigSeller sync data flow simulation", () => {
       expect(revenue.source).not.toBe("bigseller");
       // Dedup key has bigseller prefix
       expect(revenue.externalTransactionId).toMatch(/^bigseller:/);
-      // Commission is present (BigSeller passes values through unchanged; negative = deduction)
-      expect(revenue.commission).toBeDefined();
+      // Commission passes through unchanged (BigSeller negative = deduction)
+      expect(revenue.commission).toBe(order.commissionFee ?? 0);
       // Data origin is api_revenue
       expect(revenue.dataOrigin).toBe("api_revenue");
     }
