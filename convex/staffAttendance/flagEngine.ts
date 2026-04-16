@@ -41,13 +41,22 @@ export function detectOverlaps(
 ): Set<Id<"staffAttendance">> {
   const flagged = new Set<Id<"staffAttendance">>();
   const sorted = [...sessions].sort((a, b) => a.clockIn - b.clockIn);
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = sorted[i - 1];
-    const cur = sorted[i];
-    const prevEnd = prev.clockOut ?? Number.POSITIVE_INFINITY;
-    if (prevEnd > cur.clockIn) {
-      flagged.add(prev._id);
+  // Track the running max-end (across ALL earlier sessions, not just the
+  // immediate predecessor) so a long earlier session still catches later
+  // shorter sessions it envelops. WR-01 regression: fixes 3+ session cases
+  // where the middle session was "inside" the first and the naive pairwise
+  // scan would skip the outer/later overlap.
+  let maxEnd = Number.NEGATIVE_INFINITY;
+  let maxEndId: Id<"staffAttendance"> | null = null;
+  for (const cur of sorted) {
+    if (maxEnd > cur.clockIn) {
       flagged.add(cur._id);
+      if (maxEndId) flagged.add(maxEndId);
+    }
+    const curEnd = cur.clockOut ?? Number.POSITIVE_INFINITY;
+    if (curEnd > maxEnd) {
+      maxEnd = curEnd;
+      maxEndId = cur._id;
     }
   }
   return flagged;

@@ -101,6 +101,30 @@ describe("detectOverlaps", () => {
     expect(overlaps.has(a._id)).toBe(true);
     expect(overlaps.has(b._id)).toBe(true);
   });
+
+  it("flags transitive overlaps when a long outer session envelops 2+ shorter sessions (WR-01)", () => {
+    // Regression: naive pairwise scan would only compare each session to its
+    // immediate predecessor after sort-by-clockIn and miss C's overlap with A.
+    // A: 08:00–18:00 (10h), B: 09:00–10:00 (inside A), C: 11:00–12:00 (inside A).
+    const a = mkSession("a", 8 * HOUR, 18 * HOUR);
+    const b = mkSession("b", 9 * HOUR, 10 * HOUR);
+    const c = mkSession("c", 11 * HOUR, 12 * HOUR);
+    const overlaps = detectOverlaps([a, b, c]);
+    expect(overlaps.has(a._id)).toBe(true);
+    expect(overlaps.has(b._id)).toBe(true);
+    expect(overlaps.has(c._id)).toBe(true);
+  });
+
+  it("flags transitive overlaps when the outer session is open (WR-01)", () => {
+    // Open long-running session A envelops both B and C.
+    const a = mkSession("a", 8 * HOUR, undefined);
+    const b = mkSession("b", 9 * HOUR, 10 * HOUR);
+    const c = mkSession("c", 11 * HOUR, 12 * HOUR);
+    const overlaps = detectOverlaps([a, b, c]);
+    expect(overlaps.has(a._id)).toBe(true);
+    expect(overlaps.has(b._id)).toBe(true);
+    expect(overlaps.has(c._id)).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
