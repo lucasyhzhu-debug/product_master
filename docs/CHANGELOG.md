@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Quick task 260416-jm7 — Test Debt Cleanup -- 2026-04-16
+
+**For the team:** CI test suite restored to fully green. 17 pre-existing test failures that had accumulated across phases 41–69 have been fixed. Future test regressions will no longer be masked by this noise.
+
+**What was fixed (test code only — zero production changes):**
+- `tests/convex/gobizAdapter.test.ts` — 2 tests: updated `ctx.db.get(ids[0])` to `ctx.db.get(ids[0].id)` after `saveRevenue` return shape changed to `Array<{id, isNew}>`
+- `tests/convex/k3martCockpit.test.ts` — 4 tests: removed dead `getStockMovementHistory` describe block (the underlying query was deleted from production)
+- `convex/bigsellerOrders/__tests__/integration.test.ts` — 1 test: tightened commission assertion to `toBe(order.commissionFee ?? 0)` to verify BigSeller pass-through semantics (negative commissions are valid deductions)
+- `src/lib/__tests__/csvImportValidation.test.ts` — 10 tests: added required `paymentMethod` + `submitterName` columns to CSV fixtures after Phase 72 asset import added these as mandatory
+
+**Results:** Full suite now 1509/1509 passing across 108 files (was 1492/1509).
+
+**Files modified:** 4 test files only. No production code touched.
+
+---
+
 ### Feat: Phase 80 — Unit Economics Analytics Dashboard -- 2026-04-15
 
 **For the team:** Managers and admins can open `/analytics` to see 13 widgets across 6 lenses (headline KPIs, time patterns, channel economics, volume/mix, SKU concentration, momentum). Filterable by date range (7d/30d/90d presets or custom), display channel (Shopee, Tokopedia, GoFood, K3Mart, Direct, Consignment, TikTok, Other), and menu product. All filter state syncs to the URL so views are bookmarkable.
