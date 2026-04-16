@@ -18,10 +18,14 @@ interface RunningTimerProps {
 export function RunningTimer({ clockIn, className }: RunningTimerProps) {
   // Display only — authoritative hours computed server-side in getStaffPerformanceSummary via durationMs.
   const [now, setNow] = useState(() => Date.now());
+  // Triple-review I4 / IN-05: `clockIn` in the deps resets the interval when
+  // the parent re-renders with a new open-shift id (e.g. after a mid-session
+  // manager correction), preventing up-to-60s display lag.
   useEffect(() => {
+    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [clockIn]);
   const elapsedMs = Math.max(0, now - clockIn);
   const h = Math.floor(elapsedMs / 3_600_000);
   const m = Math.floor((elapsedMs % 3_600_000) / 60_000);
