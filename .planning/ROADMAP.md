@@ -181,7 +181,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
 - [x] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07) (completed 2026-04-13)
 - [x] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking (completed 2026-04-15)
-- [ ] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries
+- [x] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries (completed 2026-04-17)
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
@@ -275,7 +275,12 @@ Plans:
   2. Per-staff production tracking page shows balls produced by type (Big Ball, Mid Ball) and total grams during each shift
   3. Monthly attendance summary displays hours worked and production output per staff member
   4. Manager can correct a missed clock-out with the correction logged in an audit trail
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+- [x] 74-01-PLAN.md -- Backend: staffAttendance schema + clockIn/clockOut/correctAttendance mutations + extended getStaffPerformanceSummary with hours/flags
+- [x] 74-02-PLAN.md -- Frontend: ClockInGate at /kitchen/clock + DashboardHeader running timer + Clock-Out nudge dialog
+- [x] 74-03-PLAN.md -- Frontend: /staff-performance hours column + flagged-shifts banner + per-day breakdown + AttendanceCorrectionDialog + /my-performance
+- [x] 74-04-PLAN.md -- Tests: mutation + summary integration tests + Playwright E2E scaffold + SCHEMA/API_REFERENCE/CHANGELOG docs + verification gate
 **UI hint**: yes
 
 ### Phase 75: Full P&L Extension
@@ -283,10 +288,16 @@ Plans:
 **Depends on**: Phase 70 (needs accurate revenue and COGS from DA-01/02/03)
 **Requirements**: FIN-01, FIN-02
 **Success Criteria** (what must be TRUE):
-  1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income
-  2. Per-channel breakdown continues through the full P&L flow (each channel shows Revenue through FCF contribution)
-  3. FCF calculation is correct: Net Income + Depreciation - CapEx
-**Plans**: TBD
+  1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income in canonical EBITDA-first layout (Revenue -> Net Revenue -> COGS -> Contribution Margin -> OpEx-excl-D/A -> EBITDA -> D/A -> EBIT -> Other -> Net Income -> CapEx -> FCF)
+  2. Per-channel breakdown flows through Contribution Margin (renamed from Gross Margin); no per-channel OpEx/D/A/CapEx/FCF allocation (D-11)
+  3. FCF calculation is correct: Net Income + D/A - CapEx; CapEx sourced from fixedAssets.cost where acquisitionDate in period
+**Plans:** 5 plans
+Plans:
+- [ ] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
+- [ ] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
+- [ ] 75-02-PLAN.md -- Wave 2 Frontend: EBITDA-first layout in FinancialStatement.tsx, helperText prop on PLRow, Contribution Margin rename in ChannelRow, missingReversals section in DataQualityPanel
+- [ ] 75-03-PLAN.md -- Wave 2 CSV: extend generateIncomeStatementCSV with new rows in canonical order, per-channel blank below Contribution Margin
+- [ ] 75-04-PLAN.md -- Wave 3 Verification: type-check/lint/test/build + human smoke on /financials + CHANGELOG/ROADMAP/API_REFERENCE updates
 **UI hint**: yes
 
 ### Phase 76: Financial Data Export
@@ -382,8 +393,8 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
-| 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
-| 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
+| 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
+| 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |

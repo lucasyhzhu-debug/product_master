@@ -16,6 +16,18 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feat: Phase 74 -- Staff Attendance -- 2026-04-17
+
+**For the team:** Kitchen staff now clock in/out with one tap. Gate screen at `/kitchen/clock`, running timer, clock-out nudge after shift submission. Managers see hours, flagged shifts, per-day breakdowns on `/staff-performance`. Staff view own data at `/my-performance`. Manager correction dialog with audit trail.
+
+**What shipped:** `staffAttendance` table + 3 mutations + 4 queries + flag engine (missing_clockout, over_16h, overlapping, before_hire) + 7 frontend components + `aggregateStaffPerformance` extension + 57 tests.
+
+**UAT fixes:** Aggregation join fallback (submittedByUserId), hours as h:mm, component grams summary, chef dropdown in ShiftEditDialog, chef selector hidden when clocked in, My Performance link on kitchen page.
+
+**Requirements:** ATT-01, ATT-02, ATT-03, ATT-04.
+
+---
+
 ### Fix: Unblock Convex Deploy (19 TS errors in bank-statement tests) -- 2026-04-16
 
 **For the team:** Prod Convex backend was stuck on the pre-kitchen-fix code since 2026-04-16 05:35 UTC because CI deploy failed on TS18048/TS2769 errors in `convex/bankStatements/__tests__/`. The failed deploy meant the new `componentTracking` / `otherBallTargets` fields sent by the updated kitchen UI were rejected by the stale backend (`ArgumentValidationError`), which manifested as "left components not visible in kitchen" and "Server Error when submitting Nutella production target".

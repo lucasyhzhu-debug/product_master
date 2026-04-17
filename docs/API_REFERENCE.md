@@ -1100,6 +1100,123 @@ bankKeywordRules.createFromOverride({
 
 ---
 
+## Staff Attendance (Phase 74)
+
+Kitchen staff clock-in/out time tracking (ATT-01..ATT-04). Joined with existing `kitchenShiftRecords` at query time on `(date, chefUserId)` — no FK (D-06). All mutations take `token: v.string()` and are gated via `requireRole`. `clockIn` NEVER accepts a `userId` arg (T-74-01 spoofing prevention — the target is always derived from the session).
+
+### Mutations (Write Operations)
+
+```typescript
+// clockIn — caller clocks themselves in. userId derived from session (T-74-01).
+// D-04: rejects when a prior-day open shift exists; same-day double-click guarded.
+// ConvexError: "You have an open shift from {date}. Please ask a manager to correct it."
+// ConvexError: "You're already clocked in."
+staffAttendance.mutations.clockIn({ token }): Id<"staffAttendance">
+
+// clockOut — owner-or-manager gate. Staff cannot self-close prior-day shifts (D-04).
+// ConvexError: "Attendance record not found" | "Cannot clock out a deleted shift"
+//            | "Cannot clock out another user's shift"  | "Shift already closed"
+//            | "This shift is from a prior day. Ask a manager to correct it."
+staffAttendance.mutations.clockOut({
+  token,
+  attendanceId: Id<"staffAttendance">
+}): void
+
+// correctAttendance — manager/admin-only. Each call appends ONE corrections[] entry
+// with a previous-state snapshot (T-74-02 non-repudiable audit trail).
+// Actions: "edit_timestamps" | "add_missed" | "reassign" | "delete"
+// D-19: rejects empty/whitespace correctionNote.
+// I-1: rejects clockOut < clockIn.
+staffAttendance.mutations.correctAttendance({
+  token,
+  action: "edit_timestamps" | "add_missed" | "reassign" | "delete",
+  correctionNote: string,           // Trimmed server-side; must be non-empty (D-19)
+  attendanceId?: Id<"staffAttendance">,  // Required for edit_timestamps / reassign / delete
+  userId?: Id<"users">,             // Required for add_missed / reassign target
+  date?: string,                     // Required for add_missed (YYYY-MM-DD WIB)
+  clockIn?: number,                  // Required for add_missed; optional for edit_timestamps
+  clockOut?: number                  // Optional for add_missed / edit_timestamps
+}): Id<"staffAttendance"> | void    // Returns new id for add_missed; void otherwise
+```
+
+### Queries (Read Operations)
+
+```typescript
+// getCurrentOpenShift — caller's open attendance row (O(1) via by_user_open).
+staffAttendance.queries.getCurrentOpenShift({ token }):
+  Doc<"staffAttendance"> | null
+
+// getMyLastShiftSummary — caller's most recent CLOSED attendance row joined with
+// same-day kitchenShiftRecords. Ball counts are BOM-resolved (category="production").
+// Powers the gate-screen "Last shift: 6h 23m • 42 balls" recap.
+staffAttendance.queries.getMyLastShiftSummary({ token }):
+  { date, clockIn, clockOut, durationMs, ballsProduced } | null
+
+// getFlaggedShifts — manager/admin-only range scan. Runs detectFlags per session
+// and detectOverlaps across sibling sessions. Returns rows with flagReasons[].
+staffAttendance.queries.getFlaggedShifts({
+  token,
+  startDate: string,
+  endDate: string
+}): Array<{
+  attendance: Doc<"staffAttendance">,
+  userName: string,
+  flagReasons: Array<"missing_clockout" | "over_16h" | "overlapping" | "before_hire">
+}>
+
+// getMyPerformance — T-74-03 info-disclosure mitigation: userIdFilter is
+// HARD-SCOPED to the session user (cannot be overridden via args). Returns
+// staff: StaffSummary | null — single object (differs from getStaffPerformanceSummary
+// which returns an array; documented divergence).
+staffAttendance.queries.getMyPerformance({
+  token,
+  startDate: string,
+  endDate: string
+}): {
+  startDate, endDate, totalRecords,
+  staff: StaffPerformanceSummary | null
+}
+```
+
+### Extended query
+
+```typescript
+// getStaffPerformanceSummary — additive extension (Plan 01 Task 3).
+// Existing consumers unchanged; new fields propagate via TypeScript inference.
+kitchenShiftRecords.queries.getStaffPerformanceSummary({
+  token, startDate, endDate
+}): {
+  startDate, endDate, totalRecords,
+  staff: Array<StaffPerformanceSummary & {
+    totalHoursWorked: number,     // Sum of closed durationMs / 3_600_000 (D-03: open=0)
+    daysAttended: number,          // Distinct dates with ≥1 clock-in
+    flaggedShiftCount: number,     // Sessions with any flag reason
+    perDayBreakdown: Array<{
+      date: string,
+      hoursWorked: number,
+      sessions: Array<{
+        attendanceId, clockIn, clockOut, durationMs,
+        isFlagged: boolean,
+        flagReasons: FlagReason[]
+      }>,
+      ballsProduced: number,
+      componentTotals: Array<{     // D-11: preserves unit — no cross-unit sum
+        code: string,
+        name: string,
+        unit: "g" | "pcs",
+        quantity: number
+      }>
+    }>
+  }>
+}
+```
+
+### D-14 adapter behavior
+
+`aggregateStaffPerformance` runtime-probes `kitchenConfig` for an optional `componentTracking: { code, tracked, unit }[]` array (worktree-merged schema) and uses it authoritatively when present. Otherwise derives from `componentTypes` (production → pcs) + `kitchenComponents` (→ g) tables, using legacy `enabledProductionComponents` / `enabledKitchenComponents` arrays as the tracked filter. Result: `perDayBreakdown[].componentTotals` emits native units regardless of which branch is merged.
+
+---
+
 ## Response Patterns
 
 ### List Endpoints (Summaries)

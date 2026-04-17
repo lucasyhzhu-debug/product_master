@@ -50,9 +50,9 @@ describe("strictWibDateStrToUtcMs", () => {
 
 describe("parseAndValidateCsv", () => {
   it("parses a valid 2-row CSV into 2 validRows, 0 errors", () => {
-    const csv = `date,amount,description,vendorName,accountCode,receiptUrl
-2026-01-15,50000,Office supplies,PT Toko,6100,https://example.com/receipt1.pdf
-2026-01-16,75000,Rent payment,,6200,`;
+    const csv = `date,amount,description,vendorName,accountCode,receiptUrl,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,PT Toko,6100,https://example.com/receipt1.pdf,employee_paid,Admin
+2026-01-16,75000,Rent payment,,6200,,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows).toHaveLength(2);
@@ -60,8 +60,8 @@ describe("parseAndValidateCsv", () => {
   });
 
   it("converts amounts to numbers", () => {
-    const csv = `date,amount,description,accountCode
-2026-01-15,50000,Office supplies,6100`;
+    const csv = `date,amount,description,accountCode,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,6100,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(typeof result.validRows[0].amount).toBe("number");
@@ -69,8 +69,8 @@ describe("parseAndValidateCsv", () => {
   });
 
   it("converts dates to WIB epoch numbers", () => {
-    const csv = `date,amount,description,accountCode
-2026-01-15,50000,Office supplies,6100`;
+    const csv = `date,amount,description,accountCode,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,6100,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(typeof result.validRows[0].date).toBe("number");
@@ -81,24 +81,24 @@ describe("parseAndValidateCsv", () => {
   });
 
   it("preserves optional vendorName when present", () => {
-    const csv = `date,amount,description,vendorName,accountCode
-2026-01-15,50000,Office supplies,PT Sumber Jaya,6100`;
+    const csv = `date,amount,description,vendorName,accountCode,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,PT Sumber Jaya,6100,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows[0].vendorName).toBe("PT Sumber Jaya");
   });
 
   it("sets vendorName to undefined when empty", () => {
-    const csv = `date,amount,description,vendorName,accountCode
-2026-01-15,50000,Office supplies,,6100`;
+    const csv = `date,amount,description,vendorName,accountCode,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,,6100,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows[0].vendorName).toBeUndefined();
   });
 
   it("preserves optional receiptUrl when present", () => {
-    const csv = `date,amount,description,accountCode,receiptUrl
-2026-01-15,50000,Office supplies,6100,https://example.com/receipt.pdf`;
+    const csv = `date,amount,description,accountCode,receiptUrl,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,6100,https://example.com/receipt.pdf,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows[0].receiptUrl).toBe(
@@ -107,8 +107,8 @@ describe("parseAndValidateCsv", () => {
   });
 
   it("sets receiptUrl to undefined when empty", () => {
-    const csv = `date,amount,description,accountCode,receiptUrl
-2026-01-15,50000,Office supplies,6100,`;
+    const csv = `date,amount,description,accountCode,receiptUrl,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,6100,,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows[0].receiptUrl).toBeUndefined();
@@ -178,8 +178,8 @@ describe("parseAndValidateCsv", () => {
   // ---------------------------------------------------------------------------
 
   it("parses CSV with quoted fields containing commas correctly", () => {
-    const csv = `date,amount,description,accountCode
-2026-01-15,50000,"Office supplies, paper, pens",6100`;
+    const csv = `date,amount,description,accountCode,paymentMethod,submitterName
+2026-01-15,50000,"Office supplies, paper, pens",6100,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows).toHaveLength(1);
@@ -189,9 +189,9 @@ describe("parseAndValidateCsv", () => {
   });
 
   it("detects duplicate rows (same date+amount+description) as warning", () => {
-    const csv = `date,amount,description,accountCode
-2026-01-15,50000,Office supplies,6100
-2026-01-15,50000,Office supplies,6200`;
+    const csv = `date,amount,description,accountCode,paymentMethod,submitterName
+2026-01-15,50000,Office supplies,6100,employee_paid,Admin
+2026-01-15,50000,Office supplies,6200,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows).toHaveLength(2); // Both are valid
@@ -208,8 +208,8 @@ describe("parseAndValidateCsv", () => {
   });
 
   it("handles whitespace in headers", () => {
-    const csv = ` date , amount , description , accountCode
-2026-01-15,50000,Office supplies,6100`;
+    const csv = ` date , amount , description , accountCode , paymentMethod , submitterName
+2026-01-15,50000,Office supplies,6100,employee_paid,Admin`;
 
     const result = parseAndValidateCsv(csv, mockAccounts);
     expect(result.validRows).toHaveLength(1);

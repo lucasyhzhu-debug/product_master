@@ -837,7 +837,8 @@ export function getRoleDisplayName(role: UserRole): string {
 // Helper to get role landing page
 export function getRoleLandingPage(role: UserRole): string {
   const landingPages: Record<UserRole, string> = {
-    kitchen: "/kitchen",
+    // Phase 74: kitchen role lands on the Clock-In gate screen (ATT-01, D-01).
+    kitchen: "/kitchen/clock",
     order_staff: "/orders",
     manager: "/",
     admin: "/",

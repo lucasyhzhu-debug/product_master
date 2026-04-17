@@ -11,8 +11,9 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ChevronDown, ChevronUp, Eye, Settings } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, Settings, BarChart2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ProductionTargetsBar } from '@/components/kitchen/ProductionTargetsBar';
@@ -21,6 +22,8 @@ import { ManagerTargetSettings } from '@/components/kitchen/ManagerTargetSetting
 import { ShiftHistoryList } from '@/components/kitchen/ShiftHistoryList';
 import { KitchenOrderSummary } from '@/components/kitchen/KitchenOrderSummary';
 import { DailySummaryWidget } from '@/components/kitchen/DailySummaryWidget';
+import { AttendanceStrip, ClockOutNudgeDialog } from '@/components/staffAttendance';
+import { useCurrentOpenShift } from '@/hooks/convex/useAttendance';
 import { useKitchenTargets } from '@/hooks/convex/useKitchenTargets';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from 'convex/react';
@@ -46,6 +49,10 @@ export function KitchenViewV2() {
   const { user, hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
   const isManager = user?.role === 'manager' || user?.role === 'admin';
+
+  // Phase 74: Attendance
+  const openShift = useCurrentOpenShift();
+  const [nudgeOpen, setNudgeOpen] = useState(false);
 
   // ============================================
   // Kitchen targets + shift records (Phase 21)
@@ -214,6 +221,9 @@ export function KitchenViewV2() {
 
   return (
     <div className="flex flex-col gap-6 p-4 max-w-4xl mx-auto pb-12">
+      {/* Phase 74: Attendance strip */}
+      <AttendanceStrip />
+
       {/* Page header */}
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -225,19 +235,28 @@ export function KitchenViewV2() {
             </Badge>
           )}
         </div>
-        <div className="flex flex-col items-end gap-0.5">
-          <div className="text-sm text-muted-foreground font-medium">
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </div>
-          {latestChefName && (
-            <div className="text-xs text-muted-foreground">
-              Shift for: <span className="font-medium text-foreground">{latestChefName}</span>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/my-performance"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <BarChart2 className="h-3.5 w-3.5" />
+            My Performance
+          </Link>
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="text-sm text-muted-foreground font-medium">
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+              })}
             </div>
-          )}
+            {latestChefName && (
+              <div className="text-xs text-muted-foreground">
+                Shift for: <span className="font-medium text-foreground">{latestChefName}</span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -279,6 +298,15 @@ export function KitchenViewV2() {
             })()
           }
           unitByCode={unitByCode}
+          isManager={isManager}
+          currentUserId={user?.userId}
+          isClockedIn={!!openShift && !openShift.deletedAt}
+          onSubmitted={(selectedChefId: string) => {
+            const isSelf =
+              selectedChefId === "" ||
+              String(selectedChefId) === String(user?.userId ?? "");
+            if (isSelf && openShift && !openShift.deletedAt) setNudgeOpen(true);
+          }}
         />
       </section>
 
@@ -417,6 +445,12 @@ export function KitchenViewV2() {
           )}
         </section>
       )}
+      {/* Phase 74: Clock-out nudge dialog */}
+      <ClockOutNudgeDialog
+        open={nudgeOpen}
+        onClose={() => setNudgeOpen(false)}
+        attendanceId={openShift?._id ?? null}
+      />
     </div>
   );
 }

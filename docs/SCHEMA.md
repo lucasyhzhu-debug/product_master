@@ -1778,3 +1778,43 @@ All optional. Populated when a reviewer confirms, unmatches, or inline-creates a
 - **`externalRevenue`** gained `by_amount_transactionDate` compound index — used by Layer B record-linkage scan.
 - **`reimbursementBatches`** gained `by_amount_createdAt` compound index — used by Layer B record-linkage scan.
 - **`payrollEntries`** gained `by_amount_period` compound index — used by Layer B record-linkage scan.
+
+## Staff Attendance (Phase 74)
+
+One new table supports kitchen staff clock-in/out time tracking. NO FK to `kitchenShiftRecords` — attendance and production are joined at query time on `(date, chefUserId)` (D-06). This preserves the existing production flow unchanged and allows staff to be clocked in without necessarily submitting a shift record (and vice-versa, D-07).
+
+### `staffAttendance` -- Clock-In/Out Time Tracking
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | `id("users")` | FK to the clocked-in staff. Required. |
+| `date` | `string` | `YYYY-MM-DD` in WIB (derived via `toWibDateString`). Required. |
+| `clockIn` | `number` | Epoch ms UTC. Required. |
+| `clockOut` | `optional number` | Epoch ms UTC. `undefined` means the shift is still open. |
+| `durationMs` | `optional number` | Denormalized `clockOut - clockIn`. Set on close. Undefined for open shifts — they contribute 0 to `totalHoursWorked` (D-03). |
+| `corrections` | `optional array` | Audit trail (D-17). Array of `{ correctedAt, correctedBy, correctedByUserId, correctionNote, previousClockIn?, previousClockOut?, previousUserId?, action }`. Array preserves multi-correction history. |
+| `deletedAt` | `optional number` | Soft-delete timestamp (D-16). |
+| `deletedBy` | `optional string` | Manager name snapshot for soft-deletion. |
+
+**`corrections[].action` union:** `"edit_timestamps"` \| `"add_missed"` \| `"reassign"` \| `"delete"`.
+
+**Indexes:**
+- `by_user_date` (`userId`, `date`) — personal history scans.
+- `by_user_open` (`userId`, `clockOut`) — O(1) open-shift lookup where `clockOut === undefined`.
+- `by_date` (`date`) — manager-side range scans for flagged lists and aggregation.
+
+**Relationships:**
+- No FK to `kitchenShiftRecords`. Join target is the pair `(date, chefUserId)` which matches the existing `kitchenShiftRecords.chefUserId` + `kitchenShiftRecords.date` fields.
+- `corrections[].correctedByUserId` and `corrections[].previousUserId` reference `users` (polymorphic FK, enforced at mutation time).
+
+**Business rules:**
+- **D-04 prior-day blocker:** `clockIn` mutation rejects when a prior-day open shift exists for the same user. `clockOut` mutation rejects when a non-manager attempts to self-close a prior-day shift.
+- **D-03 open-shift semantics:** Open shifts (`clockOut === undefined`) contribute 0 hours to `totalHoursWorked` in the summary aggregation. Auto clock-out at midnight is explicitly out of scope.
+- **D-19 required note:** `correctAttendance` rejects empty/whitespace `correctionNote`. Every path pushes a fully-populated `corrections[]` entry with `correctedByUserId` snapshot (non-repudiable audit trail).
+- **D-18 flag engine (query-time, no stored flags):** `detectFlags` computes `missing_clockout` / `over_16h` / `before_hire` per session; `detectOverlaps` computes `overlapping` across sibling sessions. Flags surface through `getFlaggedShifts` and the extended `getStaffPerformanceSummary` / `getMyPerformance`.
+
+### Extensions to existing tables
+
+**`kitchenConfig`** — unchanged schema. The `aggregateStaffPerformance` helper runtime-probes the document for an optional `componentTracking: { code, tracked, unit }[]` array (D-14 worktree adapter). When present it is authoritative; otherwise the helper falls through to the legacy `enabledProductionComponents` / `enabledKitchenComponents` arrays + derives units from `componentTypes` (production → pcs) and `kitchenComponents` (→ g).
+
+**`kitchenShiftRecords`** — no schema change. `getStaffPerformanceSummary` now delegates to `convex/staffAttendance/aggregation.ts::aggregateStaffPerformance` which additively extends the return shape with `totalHoursWorked`, `daysAttended`, `flaggedShiftCount`, and `perDayBreakdown[]`. Existing consumers are unchanged.

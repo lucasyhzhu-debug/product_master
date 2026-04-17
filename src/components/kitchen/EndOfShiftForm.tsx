@@ -91,6 +91,14 @@ interface EndOfShiftFormProps {
   enabledKitchenComponentCodes?: string[];
   /** Configured unit per component code from componentTracking */
   unitByCode?: Record<string, ComponentUnit>;
+  /** Called after a shift record is submitted successfully. */
+  onSubmitted?: (selectedChefId: string) => void;
+  /** When true, show chef selector (managers submit on behalf of others). */
+  isManager?: boolean;
+  /** Current user's ID — used to auto-assign chef when isManager is false. */
+  currentUserId?: string;
+  /** When true, the current user has an active clock-in — hide chef selector. */
+  isClockedIn?: boolean;
 }
 
 // -------------------------------------------------------
@@ -106,6 +114,10 @@ export function EndOfShiftForm({
   kitchenComponents,
   enabledKitchenComponentCodes,
   unitByCode,
+  onSubmitted,
+  isManager = false,
+  currentUserId,
+  isClockedIn = false,
 }: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
@@ -128,6 +140,12 @@ export function EndOfShiftForm({
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Chef selector — hide when clocked in or non-manager
+  const showChefSelector = isManager && !isClockedIn;
+  const [selectedChefId, setSelectedChefId] = useState<string>(
+    (!showChefSelector && currentUserId) ? currentUserId : "",
+  );
 
   // Submitted data (for success screen)
   const [submittedProduced, setSubmittedProduced] = useState<ProducedItem[]>([]);
@@ -362,6 +380,7 @@ export function EndOfShiftForm({
       setSubmittedProduced(producedList);
       setSubmittedWaste(wasteList);
       setStep("success");
+      onSubmitted?.(selectedChefId);
     } catch (error) {
       const msg =
         error instanceof Error ? error.message : "Failed to submit shift record";
@@ -369,7 +388,7 @@ export function EndOfShiftForm({
     } finally {
       setIsSubmitting(false);
     }
-  }, [produced, wasteEntries, today, submitShiftRecord, selectedChefId, users, visibleItems, componentProduced, componentWaste, visibleKitchenComponents]);
+  }, [produced, wasteEntries, today, submitShiftRecord, selectedChefId, users, visibleItems, componentProduced, componentWaste, visibleKitchenComponents, onSubmitted]);
 
   function handleDone() {
     // Reset form to initial state
@@ -475,8 +494,8 @@ export function EndOfShiftForm({
         <CardTitle className="text-base">End of Shift</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Chef selector */}
-        {users && users.length > 0 && (
+        {/* Chef selector — hidden when clocked in (clock-in identifies the chef) */}
+        {showChefSelector && users && users.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
             <Select value={selectedChefId} onValueChange={setSelectedChefId}>

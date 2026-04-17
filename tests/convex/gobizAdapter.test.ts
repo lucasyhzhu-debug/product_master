@@ -55,7 +55,7 @@ describe("saveRevenue with new GoBiz fields", () => {
     expect(ids).toHaveLength(1);
 
     const record = await t.run(async (ctx) => {
-      return await ctx.db.get(ids[0]);
+      return await ctx.db.get(ids[0].id);
     });
 
     expect(record).toBeDefined();
@@ -86,7 +86,7 @@ describe("saveRevenue with new GoBiz fields", () => {
     expect(ids).toHaveLength(1);
 
     const record = await t.run(async (ctx) => {
-      return await ctx.db.get(ids[0]);
+      return await ctx.db.get(ids[0].id);
     });
 
     expect(record).toBeDefined();
