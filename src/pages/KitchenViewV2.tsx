@@ -263,6 +263,8 @@ export function KitchenViewV2() {
           users={kitchenUsers}
           kitchenComponents={kitchenComponents ?? []}
           enabledKitchenComponentCodes={config?.enabledKitchenComponents ?? undefined}
+          isManager={isManager}
+          currentUserId={user?.userId}
           onSubmitted={(selectedChefId: string) => {
             // Phase 74 D-08 self-submission gate (T-74-17):
             // Only open the nudge when the submitter is clocking out THEMSELVES.

@@ -100,6 +100,11 @@ interface EndOfShiftFormProps {
    * the wrong user — T-74-17).
    */
   onSubmitted?: (selectedChefId: string) => void;
+  /** When true, show chef selector (managers submit on behalf of others).
+   *  When false, auto-assign to current user — no selector shown. */
+  isManager?: boolean;
+  /** Current user's ID — used to auto-assign chef when isManager is false. */
+  currentUserId?: string;
 }
 
 // -------------------------------------------------------
@@ -115,6 +120,8 @@ export function EndOfShiftForm({
   kitchenComponents,
   enabledKitchenComponentCodes,
   onSubmitted,
+  isManager = false,
+  currentUserId,
 }: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
@@ -142,8 +149,11 @@ export function EndOfShiftForm({
   const [submittedProduced, setSubmittedProduced] = useState<ProducedItem[]>([]);
   const [submittedWaste, setSubmittedWaste] = useState<WasteEntry[]>([]);
 
-  // Chef selector
-  const [selectedChefId, setSelectedChefId] = useState<string>("");
+  // Chef selector — non-managers auto-assign to themselves (no dropdown needed
+  // when clock-in already identifies who's working).
+  const [selectedChefId, setSelectedChefId] = useState<string>(
+    !isManager && currentUserId ? currentUserId : "",
+  );
 
   // Inline error from mutation failure on review screen
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -470,8 +480,9 @@ export function EndOfShiftForm({
         <CardTitle className="text-base">End of Shift</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Chef selector (Gap 8) */}
-        {users && users.length > 0 && (
+        {/* Chef selector — only shown for managers who can submit on behalf of others.
+           Kitchen/order_staff auto-assign via currentUserId (clock-in identifies them). */}
+        {isManager && users && users.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
             <Select value={selectedChefId} onValueChange={setSelectedChefId}>
