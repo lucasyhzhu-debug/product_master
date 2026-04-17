@@ -40,6 +40,26 @@ jobs:
           fi
           echo "No dynamic imports found"
 
+  # Job 1b: Build frontend (tsc -b + vite build) — gates BOTH Convex deploy and Vercel trigger.
+  # Vercel runs the same command at deploy time, but by then Convex has already shipped.
+  # This job lets us catch frontend regressions before split-brain (Convex ahead, Vercel broken).
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend (tsc + vite)
+        run: npm run build
+
   # Job 2: Check if Convex files changed
   check-convex-changes:
     runs-on: ubuntu-latest
@@ -94,7 +114,7 @@ jobs:
   # Job 3: Deploy Convex (only if convex files changed)
   deploy-convex:
     runs-on: ubuntu-latest
-    needs: [lint-convex, check-convex-changes]
+    needs: [lint-convex, build-frontend, check-convex-changes]
     if: needs.check-convex-changes.outputs.convex_changed == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -116,11 +136,12 @@ jobs:
   # Job 4: Trigger Vercel (waits for Convex to complete first)
   trigger-vercel:
     runs-on: ubuntu-latest
-    needs: [lint-convex, check-convex-changes, deploy-convex]
-    # Run if: lint passes, convex either succeeds or skips, and vercel deploy is requested
+    needs: [lint-convex, build-frontend, check-convex-changes, deploy-convex]
+    # Run if: lint + frontend build pass, convex either succeeds or skips, and vercel deploy is requested
     if: |
       always() &&
       needs.lint-convex.result == 'success' &&
+      needs.build-frontend.result == 'success' &&
       (needs.deploy-convex.result == 'success' || needs.deploy-convex.result == 'skipped') &&
       (
         (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_vercel == 'true') ||

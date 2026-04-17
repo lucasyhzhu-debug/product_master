@@ -16,6 +16,14 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Chore: CI — add `npm run build` gate before Convex deploy -- 2026-04-17
+
+**For the team:** Prevents split-brain deploys where Convex ships but Vercel can't. If the frontend won't compile, neither system deploys — you'll see a red build on the PR merge commit and main stays on the last good deploy.
+
+**What shipped:** New `build-frontend` job in `.github/workflows/deploy.yml` runs `npm run build` (`tsc -b && vite build`) on every push to `main` and every manual dispatch. Both `deploy-convex` and `trigger-vercel` now depend on it — a failed frontend build blocks both.
+
+**Background:** Phase 74 merge ship-blocked prod because 18 TS errors passed local `tsc --noEmit` but failed Vercel's `tsc -b` (project-reference mode is stricter). GitHub Actions "Deploy" only ran `npx convex deploy`, so the frontend regression wasn't caught until Vercel's deploy hook fired — by which time Convex had already deployed, creating a backend/frontend schema mismatch.
+
 ### Fix: Phase 74 prod build — restore per-unit component split + botched-merge residue -- 2026-04-17
 
 **For the team:** Vercel production build was failing with 18 TypeScript errors after Phase 74 merged. Staff Performance page now builds and deploys. No user-visible behavior change — the page already showed grams correctly in dev; prod was blocked from deploying at all.
