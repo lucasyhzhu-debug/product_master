@@ -63,6 +63,7 @@ No new decisions yet for v2.0.
 ### Roadmap Evolution
 
 - Phase 70.1 inserted after Phase 70: Admin All-Expenses Visibility (URGENT)
+- Phase 1000 added 2026-04-17: Unified Channel Integration Architecture (promoted from backlog 999.4, folded in 999.5). Spec + implementation plan pre-written via superpowers:brainstorming + writing-plans; committed on `feature/999.4-channel-integration-spec`. See `docs/superpowers/specs/2026-04-17-*-design.md` and `docs/superpowers/plans/2026-04-17-*.md`.
 
 ### Research Flags
 

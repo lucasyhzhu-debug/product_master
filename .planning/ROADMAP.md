@@ -458,7 +458,48 @@ Plans:
 
 ---
 
-### Phase 999.4: Unified Cross-Channel Inventory Deduction (BACKLOG, URGENT — promote after 80)
+### Phase 1000: Unified Channel Integration Architecture (promoted from 999.4, folded in 999.5)
+
+**Goal:** Build a single coherent pipeline from external sale events to inventory transactions so all channels (GoFood, Shopee, TikTok, BigSeller, K3Mart, internal) flow through one atomic `saveRevenueItems` + admin-configurable routing table, with backfilled historical deductions.
+
+**Why:** Today's external-sync channels use three different wiring patterns. Inventory deduction exists for GoFood only; Shopee and TikTok drift daily. K3Mart has a custom path. Adding a new channel requires replicating ad-hoc patterns. This phase centralises the spine so future channels plug in at a well-defined contract.
+
+**References (load-bearing — read before planning/executing):**
+- Design spec: `docs/superpowers/specs/2026-04-17-unified-channel-integration-architecture-design.md` (15 sections, 500 LOC)
+- Implementation plan: `docs/superpowers/plans/2026-04-17-unified-channel-integration.md` (12 tasks, 3376 LOC)
+- Feature branch: `feature/999.4-channel-integration-spec` (spec + plan already committed)
+
+**Scope (α + 999.5 folded in):**
+1. `ChannelAdapter` interface + `ChannelSaleEvent` canonical type (new contract)
+2. `channelRouting` table with 3-tier precedence (source / source+outlet / source+product)
+3. `saveRevenueItems` becomes single atomic revenue-write + inventory-deduction entry
+4. Audit + curation workbench gates historical backfill (5 issue types: unmapped_sku, stale_mapping, malformed_item, duplicate_transaction, orphan_item)
+5. Historical deduction backfill preserves original sale timestamps (analytics-grade ledger)
+6. Refactor all 5 adapters (gobiz, bigseller, internal, k3mart, grabfood) to emit `ChannelSaleEvent[]`
+7. Two new admin pages: `ChannelRoutingManager`, `ChannelAuditWorkbench`
+8. Negative stock allowed universally (all channels = post-sale); `channel_sale` transaction type + `source` column replace per-source literals
+
+**Deferred to follow-on phases (documented in spec):**
+- 999.6 / future — pricing consolidation (`menuProductChannelPricing` table; deprecate scattered pricing fields)
+- 999.7 / future — SKU resolver auto-match service with confidence threshold + manager review queue
+- 999.8 / future — channel onboarding recipe in `docs/CHANNEL_INTEGRATION.md`
+
+**Depends on:** Phase 78 (substitution + stock tracker), Phase 79 (Shopee item pipeline with `linkedMenuProductId`), Phase 80 (`externalSourceToDisplayChannel` + `channelTaxonomy.ts` — reuse, do not reinvent).
+
+**Estimated size:** 12 tasks, ~4 weeks, refactors 5 adapters; highest-risk integration in the v2.0 milestone.
+
+**Plans:** TBD (run `/gsd-plan-phase 1000` to materialise plans from the implementation plan doc)
+
+Plans:
+- [ ] TBD (tasks 1-12 from implementation plan will become PLAN-NN.md files on `/gsd-plan-phase 1000`)
+
+---
+
+### Phase 999.4: Unified Cross-Channel Inventory Deduction (PROMOTED 2026-04-17 → Phase 1000)
+
+**Status:** Promoted to Phase 1000 with scope expanded (adapter refactor 999.5 folded in). See Phase 1000 above for the active entry. The content below is preserved for historical context.
+
+---
 
 **Cross-reference (added 2026-04-14):** Phase 80 Task 4b establishes the READ side of cross-channel unification (reads from `externalRevenueItems` via `externalSourceToDisplayChannel` in `convex/reports/channelTaxonomy.ts`). This phase is the WRITE side — it deducts inventory when those same external sales happen. **Reuse, do not reinvent**: import `externalSourceToDisplayChannel` from `convex/reports/channelTaxonomy.ts`, import `getProductionUnitsByTypePerProduct` from `convex/reports/productionUnitHelpers.ts` (Phase 80) when resolving BOM components to deduct. The `externalRevenueItems.linkedMenuProductId` field is the shared integration pivot — Phase 79 populates it, Phase 80 reads from it, this phase writes inventory transactions from it.
 
