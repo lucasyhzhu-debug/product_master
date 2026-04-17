@@ -1363,6 +1363,17 @@ export default defineSchema({
     // Array of kitchenComponent codes that are enabled in shift form
     // When unset, defaults to all active kitchen components (all enabled)
     enabledKitchenComponents: v.optional(v.array(v.string())),
+    // Kitchen-dedupe merge: unified component tracking config
+    componentTracking: v.optional(v.array(v.object({
+      code: v.string(),
+      tracked: v.boolean(),
+      unit: v.string(),
+    }))),
+    // Kitchen-dedupe merge: per-component targets beyond big/mid ball
+    otherBallTargets: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),

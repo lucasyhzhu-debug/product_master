@@ -228,6 +228,7 @@ import type * as restock_mutations from "../restock/mutations.js";
 import type * as restock_queries from "../restock/queries.js";
 import type * as shipping_mutations from "../shipping/mutations.js";
 import type * as shipping_queries from "../shipping/queries.js";
+import type * as staffAttendance___tests___helpers from "../staffAttendance/__tests__/helpers.js";
 import type * as staffAttendance_aggregation from "../staffAttendance/aggregation.js";
 import type * as staffAttendance_constants from "../staffAttendance/constants.js";
 import type * as staffAttendance_flagEngine from "../staffAttendance/flagEngine.js";
@@ -467,6 +468,7 @@ declare const fullApi: ApiFromModules<{
   "restock/queries": typeof restock_queries;
   "shipping/mutations": typeof shipping_mutations;
   "shipping/queries": typeof shipping_queries;
+  "staffAttendance/__tests__/helpers": typeof staffAttendance___tests___helpers;
   "staffAttendance/aggregation": typeof staffAttendance_aggregation;
   "staffAttendance/constants": typeof staffAttendance_constants;
   "staffAttendance/flagEngine": typeof staffAttendance_flagEngine;
