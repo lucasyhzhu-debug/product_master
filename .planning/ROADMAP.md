@@ -12,7 +12,7 @@
 - [x] **v1.7 Expense & Accounting** - Phases 41-54 (shipped 2026-03-16)
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
-- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80.1 (in progress)
+- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80.2 (in progress)
 
 ## Phases
 
@@ -189,6 +189,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron (completed 2026-04-14)
 - [x] **Phase 80: Unit Economics Analytics Dashboard** - New /analytics page with 13 widgets across 6 lenses answering unit-economics questions (completed 2026-04-15)
 - [ ] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route
+- [ ] **Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)** - Eliminate the `(Unlinked)` bucket in SKU Pareto / SKU Channel Matrix reports caused by two independent bugs: K3Mart mapping cascade not covering `source="k3mart"` (737/737 parents affected) and syncInternalOrders skipping child-item creation on historical re-syncs (219/262 Direct parents affected)
 
 ## Phase Details
 
@@ -417,10 +418,42 @@ Plans:
 - Plan: `docs/superpowers/plans/2026-04-17-analytics-perf-consolidation.md`
 - Upstream staff review flagging I-04/M-02/M-03: `docs/reviews/staffreview-gsd-phase-80-unit-economics-analytics-dashboard-2026-04-15.md`
 
+### Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)
+
+**Goal**: Eliminate the `(Unlinked)` bucket in Unit Economics SKU Pareto / SKU Channel Matrix reports for K3Mart (737/737 parents) and Direct (219/262 parents) by fixing two independent bugs that funnel through the same loader-synthesis branch in `convex/reports/unitEconomics.ts`.
+
+**Depends on**: Phase 80 (the reports affected are Phase 80 deliverables). Can run in parallel with Phase 80.1 — no file overlap.
+
+**Why inserted**: Root cause investigation on 2026-04-17 (`.planning/debug/unlinked-products-k3mart-direct.md`) confirmed two independent bugs producing the same symptom: (1) `applyRetroactiveProductMappingImpl` at `convex/externalData/mutations.ts:458-596` has no branch for `source="k3mart"` — mapping a K3Mart SKU in admin UI saves the mapping row but never patches any `externalRevenue` parent; and (2) `syncInternalOrders` at `convex/integrations/internal/adapter.ts:126` has unconditional `if (!isNew) continue;` before `saveRevenueItems`, leaving 219 Direct parents synced before 2026-04-10 permanently orphaned (no children). Both flow through the "no item-level detail" branch in unitEconomics loader and land in UNLINKED_KEY. Plan was drafted and staff-reviewed (v2 incorporates review feedback C1-C3 + I1) before reframing from `/gsd:quick` to a proper phase.
+
+**Success Criteria** (what must be TRUE):
+  1. `applyRetroactiveProductMapping` with `source="k3mart"` patches all matching `externalRevenue` parents in one invocation (4000-row cap respected)
+  2. Future K3Mart syncs insert records with `linkedMenuProductId` set when a mapping exists — verified by dev fresh-sync test
+  3. `backfillInternalRevenueItems` admin mutation restores `externalRevenueItems` for all 219 orphan Direct parents — idempotent on re-run (all counters zero)
+  4. `syncInternalOrders` self-heals missing child rows on re-sync without duplicating existing children (relies on `saveRevenueItems` dedup at mutations.ts:752)
+  5. Return shape of `applyRetroactiveProductMappingImpl` is additive-compatible — new `externalRevenueUpdated: number` field alongside existing `updatedItems` and `bigsellerUpdated`; zero call-site breakage
+  6. New `by_source_productCode` index on `externalRevenue` deployed and rebuild completes; queries use both bounds inside `.withIndex(...)`
+  7. `npm run type-check` + `npm run lint` + `npm run build` + `npm run test` all pass
+  8. 5 new test files cover all 4 sub-fixes + remap idempotency + empty-orderItems edge case
+  9. Post-prod-backfill visual verification: Unit Economics SKU Pareto / SKU Channel Matrix reports show no `(Unlinked)` bucket for K3Mart or Direct channels
+ 10. Rollback procedure documented and tested (Convex export as point-in-time restore before prod run)
+
+**Plans:** 1 plan covering 4 sequential waves
+
+Plans:
+- [ ] 80.2-01-PLAN.md — Wave 1 Schema + K3Mart cascade + sync-time linking; Wave 2 Direct backfill mutation + re-sync heal; Wave 3 Tests (5 files); Wave 4 Verification + prod data backfill with user checkpoint at 4.4
+
+**UI hint**: no (backend-only data-attribution fix)
+
+**Source artifacts**:
+- Debug session: `.planning/debug/unlinked-products-k3mart-direct.md` (evidence table, eliminated hypotheses, confirmed root cause)
+- Staff-reviewed plan v2: `.planning/phases/80.2-unlinked-products-fix/80.2-01-PLAN.md`
+- Context: `.planning/phases/80.2-unlinked-products-fix/80.2-CONTEXT.md`
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80 -> 80.1
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80 -> 80.1 -> 80.2
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -436,6 +469,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 | 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 0/3 waves (24 tasks) | Not started | - |
+| 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 0/1 plans (4 waves) | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -449,7 +483,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-80.1 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80.2 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
