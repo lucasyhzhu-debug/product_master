@@ -1363,16 +1363,23 @@ export default defineSchema({
     // Array of kitchenComponent codes that are enabled in shift form
     // When unset, defaults to all active kitchen components (all enabled)
     enabledKitchenComponents: v.optional(v.array(v.string())),
-    // Kitchen-dedupe merge: unified component tracking config
-    componentTracking: v.optional(v.array(v.object({
-      code: v.string(),
-      tracked: v.boolean(),
-      unit: v.string(),
-    }))),
-    // Kitchen-dedupe merge: per-component targets beyond big/mid ball
+    // Round-2 follow-up: Targets for production `pcs` ball codes other than
+    // the legacy BIG_BALL/MID_BALL (e.g. HAZELNUT_REGULAR). Additive — BIG/MID
+    // still live on bigBallTarget/midBallTarget for backward compat.
+    // One entry per enabled non-BIG/MID production code; rendered as its own
+    // input in ManagerTargetSettings and own StatCard in ProductionTargetsBar.
     otherBallTargets: v.optional(v.array(v.object({
       code: v.string(),
       target: v.number(),
+    }))),
+    // Unified component tracking config (replaces enabledProductionComponents +
+    // enabledKitchenComponents). Each entry controls whether a component appears
+    // in the shift form and what unit to display (g or pcs).
+    // When present, this is authoritative. When absent, derive from legacy fields.
+    componentTracking: v.optional(v.array(v.object({
+      code: v.string(),
+      tracked: v.boolean(),
+      unit: v.union(v.literal("g"), v.literal("pcs")),
     }))),
     updatedAt: v.number(),
     updatedBy: v.string(),
@@ -1431,11 +1438,15 @@ export default defineSchema({
       previousQuantity: v.number(),
       newQuantity: v.number(),
     })),
-    // Phase 69: Component production (pre-cursor ingredients in grams)
+    // Phase 69: Component production (pre-cursor ingredients in grams OR pcs)
+    // Round-2 follow-up (C1): `unit` is optional for backward compat; historical
+    // records default to "g" on read. `grams` field name is legacy — when
+    // unit === "pcs" the value represents a raw piece count.
     componentProduced: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),     // e.g. "OUTER_MARSHMALLOW"
       kitchenComponentName: v.string(),     // snapshot at submission time
-      grams: v.number(),                    // Amount produced in grams
+      grams: v.number(),                    // Amount produced (grams or pcs per `unit`)
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     componentWaste: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),
@@ -1445,7 +1456,8 @@ export default defineSchema({
         v.literal("spoilage"),
         v.literal("waste")
       ),
-      grams: v.number(),
+      grams: v.number(),                    // Amount wasted (grams or pcs per `unit`)
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     editedAt: v.optional(v.number()),
     editedBy: v.optional(v.string()),
@@ -1453,41 +1465,6 @@ export default defineSchema({
   })
     .index("by_date", ["date"]),
     // OI-14: removed by_date_submitted -- zero withIndex references
-
-  // ============================================
-  // STAFF ATTENDANCE (Phase 74)
-  // Time-tracking for kitchen staff. NO FK to kitchenShiftRecords per D-06 —
-  // join happens at query time on (date, chefUserId).
-  // ============================================
-  staffAttendance: defineTable({
-    userId: v.id("users"),                           // FK to users
-    date: v.string(),                                // YYYY-MM-DD WIB (clock-in day)
-    clockIn: v.number(),                             // epoch ms UTC
-    clockOut: v.optional(v.number()),                // epoch ms UTC; undefined = open shift
-    durationMs: v.optional(v.number()),              // denormalized: clockOut - clockIn; set on close
-    // Audit trail (D-17): array preserves history for multi-correction scenarios
-    corrections: v.optional(v.array(v.object({
-      correctedAt: v.number(),
-      correctedBy: v.string(),                       // Manager name snapshot
-      correctedByUserId: v.id("users"),
-      correctionNote: v.string(),                    // required non-empty (D-19)
-      previousClockIn: v.optional(v.number()),
-      previousClockOut: v.optional(v.number()),
-      previousUserId: v.optional(v.id("users")),     // populated on chef reassignment (D-16)
-      action: v.union(
-        v.literal("edit_timestamps"),
-        v.literal("add_missed"),
-        v.literal("reassign"),
-        v.literal("delete"),
-      ),
-    }))),
-    // Soft-delete (D-16 "delete an erroneous shift")
-    deletedAt: v.optional(v.number()),
-    deletedBy: v.optional(v.string()),
-  })
-    .index("by_user_date", ["userId", "date"])
-    .index("by_user_open", ["userId", "clockOut"])
-    .index("by_date", ["date"]),
 
   // ============================================
   // KITCHEN DAILY OVERRIDES
@@ -1499,6 +1476,12 @@ export default defineSchema({
     date: v.string(),                          // YYYY-MM-DD
     bigBallOverride: v.optional(v.number()),
     midBallOverride: v.optional(v.number()),
+    // I2: per-day override targets for non-BIG/MID ball codes (e.g.
+    // HAZELNUT_REGULAR). Matches kitchenConfig.otherBallTargets shape.
+    otherBallOverrides: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
     packagingOverrides: v.optional(v.array(v.object({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),

@@ -1,15 +1,13 @@
 /**
  * ShiftHistoryList
  *
- * Manager-only shift history panel (KIT-16). Displays past shift records grouped
- * by date, with optional date range filtering. Each record shows:
+ * Manager-only shift history panel. Displays past shift records grouped by
+ * date, with optional date range filtering. Each record shows:
  *   - Submitted by + time
  *   - Produced summary (enriched with product names from backend)
  *   - Waste summary (if any)
  *   - Edit indicator (if edited by manager)
  *   - Edit button (opens ShiftEditDialog)
- *
- * Requirements: KIT-16
  */
 
 import { useState } from "react";
@@ -28,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { resolveUnit, sumByUnit } from "@/lib/componentUnit";
 import { ShiftEditDialog } from "./ShiftEditDialog";
 
 // -------------------------------------------------------
@@ -51,6 +50,8 @@ export interface ComponentProducedEntry {
   kitchenComponentCode: string;
   kitchenComponentName: string;
   grams: number;
+  /** Optional display unit; legacy records have no unit and default to "g". */
+  unit?: "g" | "pcs";
 }
 
 export interface ComponentWasteEntry {
@@ -58,6 +59,8 @@ export interface ComponentWasteEntry {
   kitchenComponentName: string;
   reason: string;
   grams: number;
+  /** Optional display unit; legacy records have no unit and default to "g". */
+  unit?: "g" | "pcs";
 }
 
 export interface ShiftRecord {
@@ -235,12 +238,19 @@ export function ShiftHistoryList() {
 
 function buildComponentSummary(components: ComponentProducedEntry[]): string {
   if (components.length === 0) return "";
-  return components.map((c) => `${c.kitchenComponentName}: ${c.grams}g`).join(", ");
+  return components
+    .map((c) => `${c.kitchenComponentName}: ${c.grams}${resolveUnit(c.unit)}`)
+    .join(", ");
 }
 
 function buildComponentWasteSummary(waste: ComponentWasteEntry[]): string {
   if (waste.length === 0) return "";
-  return waste.map((w) => `${w.kitchenComponentName}: ${w.grams}g (${w.reason.replace("_", " ")})`).join(", ");
+  return waste
+    .map(
+      (w) =>
+        `${w.kitchenComponentName}: ${w.grams}${resolveUnit(w.unit)} (${w.reason.replace("_", " ")})`
+    )
+    .join(", ");
 }
 
 function ShiftRecordCard({
@@ -255,8 +265,8 @@ function ShiftRecordCard({
   const wasteSummary = buildWasteSummary(record.waste);
   const componentProduced = record.componentProduced ?? [];
   const componentWaste = record.componentWaste ?? [];
-  const totalComponentGrams = componentProduced.reduce((sum, c) => sum + c.grams, 0);
-  const totalComponentWasteGrams = componentWaste.reduce((sum, c) => sum + c.grams, 0);
+  const { grams: totalComponentGrams, pieces: totalComponentPieces } = sumByUnit(componentProduced);
+  const { grams: totalComponentWasteGrams, pieces: totalComponentWastePieces } = sumByUnit(componentWaste);
 
   return (
     <div className="rounded-lg border border-border bg-card p-3 space-y-1.5">
@@ -307,13 +317,29 @@ function ShiftRecordCard({
               </>
             )}
           </div>
-          {totalComponentGrams > 0 && (
+          {(totalComponentGrams > 0 || totalComponentPieces > 0) && (
             <div className="text-right text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{totalComponentGrams}g</span> components
-              {totalComponentWasteGrams > 0 && (
+              {totalComponentGrams > 0 && (
                 <>
-                  {" "}
-                  <span className="font-medium text-destructive">{totalComponentWasteGrams}g</span> waste
+                  <span className="font-medium text-foreground">{totalComponentGrams}g</span> components
+                  {totalComponentWasteGrams > 0 && (
+                    <>
+                      {" "}
+                      <span className="font-medium text-destructive">{totalComponentWasteGrams}g</span> waste
+                    </>
+                  )}
+                </>
+              )}
+              {totalComponentPieces > 0 && (
+                <>
+                  {totalComponentGrams > 0 && <> · </>}
+                  <span className="font-medium text-foreground">{totalComponentPieces} pcs</span> components
+                  {totalComponentWastePieces > 0 && (
+                    <>
+                      {" "}
+                      <span className="font-medium text-destructive">{totalComponentWastePieces} pcs</span> waste
+                    </>
+                  )}
                 </>
               )}
             </div>

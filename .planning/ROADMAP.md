@@ -181,7 +181,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
 - [x] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07) (completed 2026-04-13)
 - [x] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking (completed 2026-04-15)
-- [ ] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries
+- [x] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries (completed 2026-04-16)
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
@@ -275,12 +275,12 @@ Plans:
   2. Per-staff production tracking page shows balls produced by type (Big Ball, Mid Ball) and total grams during each shift
   3. Monthly attendance summary displays hours worked and production output per staff member
   4. Manager can correct a missed clock-out with the correction logged in an audit trail
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
-- [ ] 74-01-PLAN.md -- Backend: staffAttendance schema + clockIn/clockOut/correctAttendance mutations + extended getStaffPerformanceSummary with hours/flags
-- [ ] 74-02-PLAN.md -- Frontend: ClockInGate at /kitchen/clock + DashboardHeader running timer + Clock-Out nudge dialog
-- [ ] 74-03-PLAN.md -- Frontend: /staff-performance hours column + flagged-shifts banner + per-day breakdown + AttendanceCorrectionDialog + /my-performance
-- [ ] 74-04-PLAN.md -- Tests: mutation + summary integration tests + Playwright E2E scaffold + SCHEMA/API_REFERENCE/CHANGELOG docs + verification gate
+- [x] 74-01-PLAN.md -- Backend: staffAttendance schema + clockIn/clockOut/correctAttendance mutations + extended getStaffPerformanceSummary with hours/flags
+- [x] 74-02-PLAN.md -- Frontend: ClockInGate at /kitchen/clock + DashboardHeader running timer + Clock-Out nudge dialog
+- [x] 74-03-PLAN.md -- Frontend: /staff-performance hours column + flagged-shifts banner + per-day breakdown + AttendanceCorrectionDialog + /my-performance
+- [x] 74-04-PLAN.md -- Tests: mutation + summary integration tests + Playwright E2E scaffold + SCHEMA/API_REFERENCE/CHANGELOG docs + verification gate
 **UI hint**: yes
 
 ### Phase 75: Full P&L Extension
@@ -387,7 +387,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
-| 74. Staff Attendance | v2.0 | 0/TBD | Not started | - |
+| 74. Staff Attendance | v2.0 | 4/4 | Complete   | 2026-04-16 |
 | 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |

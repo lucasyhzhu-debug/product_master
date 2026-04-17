@@ -3,14 +3,14 @@
  *
  * Provides today's production targets (ball totals + packaging breakdown),
  * today's shift records, kitchen components, and daily component summary.
- * Uses WIB (UTC+7) date, same as useKitchenProduction.ts.
- *
- * Phase 69: Added kitchenComponents + dailyComponentSummary queries.
+ * Uses WIB (UTC+7) date.
  */
 
 import { useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { getKitchenLeafComponents } from "../../lib/componentFilters";
+import { resolveUnit, type ComponentUnit } from "../../lib/componentUnit";
 
 export function useKitchenTargets() {
   const today = useMemo(() => {
@@ -27,16 +27,16 @@ export function useKitchenTargets() {
     { date: today }
   );
 
-  // Phase 69 -> paq: Unified production components with tier computation
   const productionComponentsWithTiers = useQuery(
     api.productionRecipes.queries.getComponentsWithTiers
   );
 
-  // Tier-0 + unit="g" = leaf ingredients tracked in grams (not pcs ball types).
-  // The unit guard prevents tier-1 pcs components from leaking in when links are missing.
+  // Kitchen components = production componentTypes referenced as a CHILD of
+  // some tier-1+ recipe. Top-level balls (BIG_BALL/Jumbo) are linked directly
+  // to menu products and belong to PRODUCTION COMPONENTS (ball targets),
+  // NOT KITCHEN COMPONENTS.
   const kitchenComponents = useMemo(
-    () =>
-      (productionComponentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
+    () => getKitchenLeafComponents(productionComponentsWithTiers ?? []),
     [productionComponentsWithTiers]
   );
 
@@ -45,6 +45,24 @@ export function useKitchenTargets() {
     { date: today }
   );
 
+  const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
+
+  // Build unitByCode: componentTracking is authoritative when present,
+  // otherwise derive from componentType.unit.
+  const unitByCode = useMemo(() => {
+    const map: Record<string, ComponentUnit> = {};
+    if (kitchenConfig?.componentTracking && kitchenConfig.componentTracking.length > 0) {
+      for (const entry of kitchenConfig.componentTracking) {
+        map[entry.code] = entry.unit;
+      }
+    } else {
+      for (const c of productionComponentsWithTiers ?? []) {
+        if (c.isActive) map[c.code] = resolveUnit(c.unit);
+      }
+    }
+    return map;
+  }, [kitchenConfig?.componentTracking, productionComponentsWithTiers]);
+
   return {
     today,
     targets,
@@ -52,5 +70,6 @@ export function useKitchenTargets() {
     productionComponentsWithTiers,
     kitchenComponents,
     dailyComponentSummary,
+    unitByCode,
   };
 }

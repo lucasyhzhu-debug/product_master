@@ -10,19 +10,16 @@
  *   - At least one produced quantity > 0 before advancing to review
  *   - Waste quantity cannot exceed produced quantity for the same product
  *
- * Per-component toggle support (Gap 7 cascade):
+ * Per-component toggle support:
  *   - enabledComponents: which ball type codes are enabled
  *   - productBallTypes: map of menuProductId -> ball type code(s) from BOM
  *   - Rows hidden if ALL ball types for that product are disabled
  *   - Rows flagged if SOME ball types for that product are disabled
  *
- * Target display (Gap 1): target quantity shown next to each product name.
- * Chef selector (Gap 8): select chef from users list; passed to submitShiftRecord.
- *
  * On confirm, calls submitShiftRecord mutation via useProtectedMutation.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
@@ -49,6 +46,7 @@ import { ShiftSuccessScreen } from "./ShiftSuccessScreen";
 import { ComponentProductionSection } from "./ComponentProductionSection";
 import type { ComponentWasteEntry } from "./ComponentProductionSection";
 import type { KitchenTargets } from "./ProductionTargetsBar";
+import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
 
 // -------------------------------------------------------
 // Types
@@ -89,16 +87,10 @@ interface EndOfShiftFormProps {
     sortOrder: number;
     tier?: number;
   }>;
-  /** Phase 69: Enabled kitchen component codes from config (D-04) */
+  /** Enabled kitchen component codes from config */
   enabledKitchenComponentCodes?: string[];
-  /**
-   * Phase 74 D-08: Called after a shift record is submitted successfully.
-   * Receives the selectedChefId state value (empty string means "no explicit chef
-   * selected" — the submitter is clocking out themselves). The parent uses this to
-   * decide whether to open the self-clock-out nudge — ONLY self-submissions nudge.
-   * Submitting on behalf of another chef MUST NOT open the nudge (would clock out
-   * the wrong user — T-74-17).
-   */
+  /** Configured unit per component code from componentTracking */
+  unitByCode?: Record<string, ComponentUnit>;
   onSubmitted?: (selectedChefId: string) => void;
   /** When true, show chef selector (managers submit on behalf of others).
    *  When false, auto-assign to current user — no selector shown. */
@@ -119,6 +111,7 @@ export function EndOfShiftForm({
   users,
   kitchenComponents,
   enabledKitchenComponentCodes,
+  unitByCode,
   onSubmitted,
   isManager = false,
   currentUserId,
@@ -158,55 +151,67 @@ export function EndOfShiftForm({
   // Inline error from mutation failure on review screen
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  // Phase 69: Component production state
   const [componentProduced, setComponentProduced] = useState<Record<string, number>>({});
   const [componentWasteOpen, setComponentWasteOpen] = useState(false);
   const [componentWaste, setComponentWaste] = useState<ComponentWasteEntry[]>([]);
 
-  // -------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------
-
   const packagingItems = targets?.packagingBreakdown ?? [];
 
-  // Filter items based on enabled components
-  const visibleItems = packagingItems.filter((item) => {
-    if (!enabledComponents || !productBallTypes) return true;
-    const ballTypes = productBallTypes[item.menuProductId] ?? [];
-    if (ballTypes.length === 0) return true; // No BOM data — show
-    // Hide if ALL ball types for this product are disabled
-    return ballTypes.some((bt) => enabledComponents.includes(bt));
-  });
-
-  // Items that have mixed ball type visibility (some enabled, some disabled)
-  const flaggedItemIds = new Set<string>(
-    packagingItems
-      .filter((item) => {
-        if (!enabledComponents || !productBallTypes) return false;
+  // Filter items based on enabled ball-type components.
+  const visibleItems = useMemo(
+    () =>
+      packagingItems.filter((item) => {
+        if (!enabledComponents || !productBallTypes) return true;
         const ballTypes = productBallTypes[item.menuProductId] ?? [];
-        if (ballTypes.length <= 1) return false;
-        return (
-          ballTypes.some((bt) => enabledComponents.includes(bt)) &&
-          ballTypes.some((bt) => !enabledComponents.includes(bt))
-        );
-      })
-      .map((item) => item.menuProductId)
+        if (ballTypes.length === 0) return true;
+        return ballTypes.some((bt) => enabledComponents.includes(bt));
+      }),
+    [packagingItems, enabledComponents, productBallTypes]
   );
 
-  // Filter waste entries to only enabled-component products (same logic as visibleItems)
-  const visibleWasteEntries = wasteEntries.filter((entry) => {
-    if (!enabledComponents || !productBallTypes) return true;
-    const ballTypes = productBallTypes[entry.menuProductId] ?? [];
-    if (ballTypes.length === 0) return true;
-    return ballTypes.some((bt) => enabledComponents.includes(bt));
-  });
+  // Products with mixed ball type visibility (some enabled, some disabled).
+  const flaggedItemIds = useMemo(
+    () =>
+      new Set<string>(
+        packagingItems
+          .filter((item) => {
+            if (!enabledComponents || !productBallTypes) return false;
+            const ballTypes = productBallTypes[item.menuProductId] ?? [];
+            if (ballTypes.length <= 1) return false;
+            return (
+              ballTypes.some((bt) => enabledComponents.includes(bt)) &&
+              ballTypes.some((bt) => !enabledComponents.includes(bt))
+            );
+          })
+          .map((item) => item.menuProductId)
+      ),
+    [packagingItems, enabledComponents, productBallTypes]
+  );
 
-  // Phase 69: Filter kitchen components by enabled codes
-  // null/undefined/empty = all enabled; non-empty array = only those codes
-  const visibleKitchenComponents = (kitchenComponents ?? []).filter((comp) => {
-    if (!enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0) return true;
-    return enabledKitchenComponentCodes.includes(comp.code);
-  });
+  const visibleWasteEntries = useMemo(
+    () =>
+      wasteEntries.filter((entry) => {
+        if (!enabledComponents || !productBallTypes) return true;
+        const ballTypes = productBallTypes[entry.menuProductId] ?? [];
+        if (ballTypes.length === 0) return true;
+        return ballTypes.some((bt) => enabledComponents.includes(bt));
+      }),
+    [wasteEntries, enabledComponents, productBallTypes]
+  );
+
+  // Filter kitchen components by enabled codes and apply the configured unit
+  // from unitByCode. Only emit a new object when the configured unit differs
+  // from the componentType's native unit.
+  const visibleKitchenComponents = useMemo(() => {
+    const base = kitchenComponents ?? [];
+    const allowAll = !enabledKitchenComponentCodes || enabledKitchenComponentCodes.length === 0;
+    return base
+      .filter((comp) => allowAll || enabledKitchenComponentCodes.includes(comp.code))
+      .map((comp) => {
+        const configured = unitByCode?.[comp.code];
+        return configured && configured !== comp.unit ? { ...comp, unit: configured } : comp;
+      });
+  }, [kitchenComponents, enabledKitchenComponentCodes, unitByCode]);
 
   function getProducedQty(menuProductId: string): number {
     return produced[menuProductId] ?? 0;
@@ -271,7 +276,6 @@ export function EndOfShiftForm({
       }
     }
 
-    // Phase 69: Check component waste <= component produced
     for (const entry of componentWaste) {
       if (entry.grams <= 0) continue;
       const producedGrams = componentProduced[entry.code] ?? 0;
@@ -324,13 +328,17 @@ export function EndOfShiftForm({
     const chefName = selectedUser?.name;
     const chefUserId = selectedChefId || undefined;
 
-    // Phase 69: Build component production/waste lists
+    // Build unit map so both produced and waste entries report their configured unit.
+    const unitByCodeMap = new Map<string, ComponentUnit>(
+      visibleKitchenComponents.map((c) => [c.code, resolveUnit(c.unit)])
+    );
     const componentProducedList = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentCode: c.code,
         kitchenComponentName: c.name,
         grams: componentProduced[c.code]!,
+        unit: resolveUnit(c.unit),
       }));
 
     const componentWasteList = componentWaste
@@ -340,6 +348,7 @@ export function EndOfShiftForm({
         kitchenComponentName: e.name,
         reason: e.reason as "qa_testing" | "spoilage" | "waste",
         grams: e.grams,
+        unit: unitByCodeMap.get(e.code) ?? "g",
       }));
 
     setIsSubmitting(true);
@@ -387,7 +396,6 @@ export function EndOfShiftForm({
     setSubmittedProduced([]);
     setSubmittedWaste([]);
     setSelectedChefId("");
-    // Phase 69: Reset component state
     setComponentProduced({});
     setComponentWaste([]);
     setComponentWasteOpen(false);
@@ -399,12 +407,13 @@ export function EndOfShiftForm({
   // -------------------------------------------------------
 
   if (step === "success") {
-    // Phase 69: Build submitted component lists for success screen
+    // Include unit so pcs sub-components render with their native unit.
     const successComponentProduced = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentName: c.name,
         grams: componentProduced[c.code]!,
+        unit: c.unit,
       }));
 
     return (
@@ -423,12 +432,14 @@ export function EndOfShiftForm({
   // -------------------------------------------------------
 
   if (step === "review") {
-    // Phase 69: Build component lists for review
+    // Local name differs from the `unitByCode` prop above to avoid shadowing.
+    const unitByCodeMap = new Map(visibleKitchenComponents.map((c) => [c.code, c.unit]));
     const reviewComponentProduced = visibleKitchenComponents
       .filter((c) => (componentProduced[c.code] ?? 0) > 0)
       .map((c) => ({
         kitchenComponentName: c.name,
         grams: componentProduced[c.code]!,
+        unit: c.unit,
       }));
     const reviewComponentWaste = componentWaste
       .filter((e) => e.grams > 0)
@@ -436,6 +447,7 @@ export function EndOfShiftForm({
         kitchenComponentName: e.name,
         grams: e.grams,
         reason: e.reason,
+        unit: unitByCodeMap.get(e.code),
       }));
 
     return (
@@ -480,8 +492,7 @@ export function EndOfShiftForm({
         <CardTitle className="text-base">End of Shift</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Chef selector — only shown for managers who can submit on behalf of others.
-           Kitchen/order_staff auto-assign via currentUserId (clock-in identifies them). */}
+        {/* Chef selector — only shown for managers who submit on behalf of others. */}
         {isManager && users && users.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
@@ -500,7 +511,7 @@ export function EndOfShiftForm({
           </div>
         )}
 
-        {/* Produced quantities (D-01: renamed to "Balls Produced") */}
+        {/* Produced quantities */}
         {visibleItems.length > 0 && (
           <>
             <div className="space-y-3">
@@ -679,7 +690,7 @@ export function EndOfShiftForm({
           </>
         )}
 
-        {/* Phase 69: Component Production Section (D-01, D-03, D-05) */}
+        {/* Component production section */}
         {visibleKitchenComponents.length > 0 && (
           <div className="border-t border-border pt-4">
             <ComponentProductionSection

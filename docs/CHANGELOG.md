@@ -59,6 +59,55 @@ After merging any code change, add a new entry with:
 
 ---
 
+### Fix: Unblock Convex Deploy (19 TS errors in bank-statement tests) -- 2026-04-16
+
+**For the team:** Prod Convex backend was stuck on the pre-kitchen-fix code since 2026-04-16 05:35 UTC because CI deploy failed on TS18048/TS2769 errors in `convex/bankStatements/__tests__/`. The failed deploy meant the new `componentTracking` / `otherBallTargets` fields sent by the updated kitchen UI were rejected by the stale backend (`ArgumentValidationError`), which manifested as "left components not visible in kitchen" and "Server Error when submitting Nutella production target".
+
+**Fix:** Added `!` non-null assertions after `.find()` calls where tests already guard with `expect(x).toBeDefined()`, and corrected one predicate type on `result.rows` that was using `{ channel: string }` instead of the actual `{ channels: string[] }` shape.
+
+**Files:** `convex/bankStatements/__tests__/revenueGap.test.ts`, `convex/bankStatements/__tests__/listCandidates.test.ts`
+
+### Fix: Kitchen UI Component Dedup + Unified Tracking Config -- 2026-04-16
+
+**For the team:** Manager Settings now shows ONE "Component Tracking" table listing every production component (grouped by Tier 1 and Leaf) with a Track? toggle AND a g/pcs unit selector per row. The kitchen shift form automatically reflects what's tracked and records each component in its configured unit. Ball targets, dispatch-plan dropdown, and packaging-mix sections all scale to any tier-1 production code (no more Original+Jumbo hardcoding). Historical shift records preserve the unit they were entered with — switching a component's unit later doesn't corrupt old data.
+
+**Bugs fixed (4 reported + 4 triple-review critical):**
+- Soft-deactivated duplicate componentTypes were leaking into Kitchen toggles, End-of-Shift rows, and the codeMap — causing ghost duplicates where toggling one flipped both, and submit handlers writing each component twice (Pistachio Spread 7528g doubled).
+- Ball target editor was hardcoded to Original (MID_BALL) + Jumbo (BIG_BALL); new production codes (HAZELNUT_REGULAR / Nutella-Regular) were invisible.
+- Dispatch plan dropdown filtered menu products to BIG/MID codes only, hiding Nutella Sea Salt.
+- Kitchen Components source filter `tier === 0 && unit === "g"` dropped pcs-unit sub-components (Filling Pistachio 28g, Outer Marshmallow 15g, Nutella Filling 45g). Replaced with the canonical "referenced as child in productionComponentLinks" definition.
+- Shift records didn't persist unit — ShiftHistoryList, ShiftEditDialog, DailySummaryWidget, KitchenViewV2 all hardcoded "g" → pcs entries rendered as grams. Staff performance aggregation summed pcs + g homogeneously.
+- Daily overrides silently dropped otherBallTargets — HAZELNUT_REGULAR override values lost on save.
+- Convex pushes during editing reset unsaved form state in ManagerTargetSettings.
+- ShiftEditDialog read legacy `enabledKitchenComponents` only — components toggled off via new unified table stayed visible in edit flow.
+
+**Schema changes (additive, no migration needed):**
+- `kitchenConfig.componentTracking: Array<{ code, tracked, unit }>` — single source of truth for kitchen-form visibility + unit per component
+- `kitchenConfig.otherBallTargets: Array<{ code, target }>` — per-code ball target for non-BIG/MID production codes
+- `kitchenDailyOverrides.otherBallOverrides: Array<{ code, target }>` — same for daily overrides
+- `kitchenShiftRecords.componentProduced/componentWaste[].unit: "g" | "pcs"` — per-entry unit (optional; absent = grams for historical records)
+
+**Architectural notes:**
+- `getComponentsWithTiers` now returns `isRecipeChild: boolean` — canonical definition for "is this a kitchen-producible sub-component?"
+- Extracted shared helpers: `src/lib/componentFilters.ts` (dedupeByCode, getKitchenLeafComponents, getProductionTier1Components) and `src/lib/componentUnit.ts` (ComponentUnit type, resolveUnit, sumByUnit)
+- Backward compat: when `componentTracking` is absent, legacy `enabledProductionComponents`/`enabledKitchenComponents` are the fallback source; writes sync both sides until a future migration phase can drop legacy fields.
+- Legacy `bigBallTarget`/`midBallTarget` fields preserved; `componentTracking`-derived rows project onto them on save.
+- ManagerTargetSettings state collapsed: three separate ball-target useStates → one `ballTargetsByCode: Record<string, number>`.
+- `ShiftEditDialog` now delegates to `useKitchenTargets` hook (removes ~60 LOC of re-derivation + closes a C4-fallback divergence).
+
+**Files changed:** 23 files, net +975 LOC (feature + tests-mdfiles + helpers).
+
+**Migration:** None required. On first load of Manager Settings, componentTracking hydrates from existing legacy fields; first Save materializes the new config shape.
+
+**Verification steps (manager/admin):**
+1. Kitchen page → Manager Settings → Component Tracking table shows all active production components grouped by tier.
+2. Toggle any Track?/unit; save → settings persist.
+3. End of Shift form shows only tracked components with their configured unit; submit records unit alongside quantity.
+4. History + edit dialog display entries in the unit they were entered with.
+5. Ball Targets + Packaging Mix scale to any active tier-1 production code.
+
+---
+
 ### Feat: Phase 80 — Unit Economics Analytics Dashboard -- 2026-04-15
 
 **For the team:** Managers and admins can open `/analytics` to see 13 widgets across 6 lenses (headline KPIs, time patterns, channel economics, volume/mix, SKU concentration, momentum). Filterable by date range (7d/30d/90d presets or custom), display channel (Shopee, Tokopedia, GoFood, K3Mart, Direct, Consignment, TikTok, Other), and menu product. All filter state syncs to the URL so views are bookmarkable.

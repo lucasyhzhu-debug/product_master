@@ -1,12 +1,12 @@
 /**
- * ComponentProductionSection (Phase 69)
+ * ComponentProductionSection
  *
- * Gram-based input section for kitchen pre-cursor components (D-01, D-03, D-05).
- * Components are tracked in grams with no targets.
- * Each component has its own waste accordion entry (D-07).
- * Only shows components that are enabled in kitchenConfig (D-04).
+ * Gram-based input section for kitchen pre-cursor components. Components are
+ * tracked in grams with no targets. Each component has its own waste accordion
+ * entry. Only shows components that are enabled in kitchenConfig.
  */
 
+import { useMemo } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { resolveUnit, type ComponentUnit } from "@/lib/componentUnit";
 
 import { WASTE_REASONS, type WasteReason } from './index';
 
@@ -64,6 +65,12 @@ export function ComponentProductionSection({
   onUpdateWaste,
   onRemoveWaste,
 }: ComponentProductionSectionProps) {
+  const unitByCode = useMemo<Record<string, ComponentUnit>>(() => {
+    const map: Record<string, ComponentUnit> = {};
+    for (const c of components) map[c.code] = resolveUnit(c.unit);
+    return map;
+  }, [components]);
+
   if (components.length === 0) {
     return null;
   }
@@ -97,7 +104,9 @@ export function ComponentProductionSection({
                 onChange={(e) => onProducedChange(comp.code, Number(e.target.value))}
                 className="w-24 text-right tabular-nums shrink-0"
               />
-              <span className="text-xs text-muted-foreground shrink-0 w-4">g</span>
+              <span className="text-xs text-muted-foreground shrink-0 min-w-[1rem]">
+                {unitByCode[comp.code] ?? "g"}
+              </span>
             </div>
           </div>
         );
@@ -167,7 +176,9 @@ export function ComponentProductionSection({
                   onChange={(e) => onUpdateWaste(index, "grams", Number(e.target.value))}
                   className="w-20 text-right tabular-nums"
                 />
-                <span className="text-xs text-muted-foreground shrink-0 w-4">g</span>
+                <span className="text-xs text-muted-foreground shrink-0 w-4">
+                  {unitByCode[entry.code] ?? "g"}
+                </span>
               </div>
             </div>
           ))}

@@ -124,9 +124,20 @@ function StaffDetailRow({
           {staff.totalBallsProduced.toLocaleString()}
         </TableCell>
         <TableCell className="text-right font-mono">
-          {staff.totalComponentGrams > 0
-            ? `${staff.totalComponentGrams.toLocaleString()}g`
-            : "-"}
+          {/* C1: render grams and pcs separately so mixed-unit records
+              don't silently conflate. */}
+          {staff.totalComponentGrams === 0 && staff.totalComponentPieces === 0 ? (
+            "-"
+          ) : (
+            <div className="flex flex-col items-end">
+              {staff.totalComponentGrams > 0 && (
+                <span>{staff.totalComponentGrams.toLocaleString()}g</span>
+              )}
+              {staff.totalComponentPieces > 0 && (
+                <span>{staff.totalComponentPieces.toLocaleString()} pcs</span>
+              )}
+            </div>
+          )}
         </TableCell>
         <TableCell className="text-right font-mono">
           {staff.totalWaste > 0 ? (
@@ -179,7 +190,9 @@ function StaffDetailRow({
                     {sortedComponents.map((c) => (
                         <div key={c.code} className="flex justify-between">
                           <span className="text-muted-foreground truncate mr-2">{c.name}</span>
-                          <span className="font-mono">{c.grams.toLocaleString()}g</span>
+                          <span className="font-mono">
+                            {c.grams.toLocaleString()}{c.unit === "pcs" ? " pcs" : "g"}
+                          </span>
                         </div>
                       ))}
                   </div>
@@ -196,7 +209,9 @@ function StaffDetailRow({
                     {sortedComponentWaste.map((c) => (
                         <div key={c.code} className="flex justify-between text-orange-400">
                           <span className="truncate mr-2">{c.name}</span>
-                          <span className="font-mono">{c.grams.toLocaleString()}g</span>
+                          <span className="font-mono">
+                            {c.grams.toLocaleString()}{c.unit === "pcs" ? " pcs" : "g"}
+                          </span>
                         </div>
                       ))}
                   </div>
@@ -286,10 +301,11 @@ export function StaffPerformance() {
       (acc, s) => ({
         balls: acc.balls + s.totalBallsProduced,
         grams: acc.grams + s.totalComponentGrams,
+        pieces: acc.pieces + s.totalComponentPieces,
         waste: acc.waste + s.totalWaste,
         shifts: acc.shifts + s.shiftCount,
       }),
-      { balls: 0, grams: 0, waste: 0, shifts: 0 }
+      { balls: 0, grams: 0, pieces: 0, waste: 0, shifts: 0 }
     );
   }, [data]);
 
