@@ -46,7 +46,10 @@ npx convex dashboard          # Open dashboard in browser
 
 ## Git Workflow
 
-**NO direct commits to main. NO exceptions.**
+**NO direct commits to main for CODE. Documentation-only commits to main are allowed.**
+
+### Code changes — always on a feature branch
+Any commit that touches code (anything outside the docs-only paths listed below) MUST be made on a feature branch:
 
 ```bash
 git switch main && git pull
@@ -59,9 +62,38 @@ git push origin feature/{name}
 # Merge to main after review
 ```
 
-**Branch-per-phase rule:** Every GSD phase MUST run on its own feature branch (`feature/{slug}`). The GSD config enforces this via `branching_strategy: "phase"` in `.planning/config.json`. Before starting a phase, verify `git branch --show-current` is NOT `main`. After a phase completes and is verified, merge to main before starting the next phase.
+### Documentation-only commits — direct to main is fine
+Commits that ONLY touch the following paths may go straight to main, no feature branch needed. This avoids branch churn for planning work that doesn't interact with code:
 
-**After every merge to main:** Update `docs/CHANGELOG.md` (always required). Also update `docs/SCHEMA.md` if schema changed, `docs/API_REFERENCE.md` if backend changed, `docs/ROADMAP.md` if feature completed.
+- `.planning/**` — roadmaps, phase directories, specs, plans, requirements, retrospectives, discussion logs, context files, research notes, UAT checklists
+- `docs/**` — CHANGELOG, SCHEMA, API_REFERENCE, ROADMAP, TESTING_GUIDE, design docs, review notes, superpowers specs, superpowers plans
+- Root-level `*.md` files — README, CLAUDE.md, etc.
+- `.claude/**` — agent definitions, commands, skills, settings (tooling config, not product code)
+
+**Rule of thumb:** if `npm run build` or `npm run test` would be unaffected by the commit, it's doc-only and can go straight to main.
+
+### Workflows that always produce doc-only output (direct-to-main OK)
+The following workflows produce ONLY artifacts in the paths above and are explicitly allowed to commit direct to main with no feature branch:
+
+- **GSD planning** (`/gsd-plan-phase`, `/gsd-add-phase`, `/gsd-insert-phase`, `/gsd-research-phase`, `/gsd-plan-milestone-gaps`, `/gsd-new-milestone`, `/gsd-map-codebase`) — writes `.planning/phases/**/*.md`, `.planning/ROADMAP.md`, `.planning/codebase/**`
+- **GSD discussion** (`/gsd-discuss-phase`, `/gsd-list-phase-assumptions`, `/gsd-explore`, `/gsd-note`, `/gsd-add-backlog`) — writes `.planning/phases/**/CONTEXT.md`, `.planning/phases/**/DISCUSSION-LOG.md`, `.planning/notes.md`
+- **Superpowers brainstorming** (`superpowers:brainstorming` skill) — writes `docs/superpowers/specs/YYYY-MM-DD-*.md`
+- **Superpowers plan writing** (`superpowers:writing-plans` skill) — writes `docs/superpowers/plans/YYYY-MM-DD-*.md`
+- **Code review artifacts** (`/gsd-code-review`, `/staffreview`, `/triple-review`) — writes `docs/reviews/**/*.md`, `.planning/phases/**/REVIEW.md`
+- **Docs updates** (`/gsd-docs-update`, CHANGELOG updates) — writes `docs/**/*.md`
+- **Verification artifacts** (`/gsd-verify-work`, `/gsd-validate-phase`, `/gsd-secure-phase`, `/gsd-audit-milestone`) — writes `.planning/phases/**/VERIFICATION.md`, `SECURITY.md`, `UI-REVIEW.md`
+
+These workflows do not need a feature branch. Committing their output to main is the default behavior. This keeps the feature-branch focused on actual code work without interleaving with planning churn.
+
+**Mixed commits** (code + docs together) — still require a feature branch. The carve-out only applies to commits that are 100% in the doc-only paths above. If a planning workflow somehow produces a code change (unusual — most don't), that commit must go to a feature branch.
+
+### Branch-per-phase rule (code work)
+Every GSD phase MUST run on its own feature branch (`feature/{slug}`). The GSD config enforces this via `branching_strategy: "phase"` in `.planning/config.json`. Before starting code work on a phase, verify `git branch --show-current` is NOT `main`. After a phase completes and is verified, merge to main before starting the next phase.
+
+Planning artifacts for a phase (spec, plan, discussion logs, roadmap edits) can land on main independently of the phase's code branch — they don't need to wait for the code branch to merge.
+
+### After every merge to main
+Update `docs/CHANGELOG.md` (always required). Also update `docs/SCHEMA.md` if schema changed, `docs/API_REFERENCE.md` if backend changed, `docs/ROADMAP.md` if feature completed.
 
 ---
 
