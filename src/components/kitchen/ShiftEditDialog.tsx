@@ -140,8 +140,18 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     (record.componentWaste ?? []).length > 0
   );
 
+  // Users list for chef dropdown
+  const allUsers = useQuery(api.auth.queries.listUsers);
+  const activeUsers = useMemo(
+    () => (allUsers ?? []).filter((u) => u.isActive).map((u) => ({ _id: String(u._id), name: u.name })),
+    [allUsers],
+  );
+
   const [editNote, setEditNote] = useState("");
-  const [chefName, setChefName] = useState(record.chefName ?? "");
+  // Track chef by userId; fall back to matching by name
+  const [selectedChefUserId, setSelectedChefUserId] = useState(
+    record.chefUserId ? String(record.chefUserId) : "",
+  );
   const [wasteOpen, setWasteOpen] = useState(record.waste.length > 0);
 
   // Confirmation dialog state
@@ -320,7 +330,8 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
             quantity: w.quantity,
           })),
         editNote: editNote.trim() || undefined,
-        chefName: chefName.trim() || undefined,
+        chefName: activeUsers.find((u) => u._id === selectedChefUserId)?.name ?? undefined,
+        chefUserId: selectedChefUserId ? selectedChefUserId as Id<"users"> : undefined,
         componentProduced: componentProducedRows
           .filter((c) => c.grams > 0)
           .map((c) => ({
@@ -740,15 +751,21 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
             </div>
           )}
 
-          {/* Chef name */}
+          {/* Chef selector */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
-            <Input
-              value={chefName}
-              onChange={(e) => setChefName(e.target.value)}
-              placeholder="Chef name..."
-              className="h-8 text-sm"
-            />
+            <Select value={selectedChefUserId} onValueChange={setSelectedChefUserId}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder={record.chefName ?? record.submittedBy ?? "Select chef..."} />
+              </SelectTrigger>
+              <SelectContent>
+                {activeUsers.map((u) => (
+                  <SelectItem key={u._id} value={u._id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Edit note */}

@@ -95,11 +95,6 @@ const mainNavItems: NavItem[] = [
   { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'canAccessDashboard' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
   { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
-  // Phase 74 D-13: "My Performance" nav entry visible ONLY to kitchen/order_staff roles.
-  // Equivalent role check semantically: `user.role === "kitchen" || user.role === "order_staff"`.
-  // Manager/admin use /staff-performance (has all staff + corrections) — R-4 staff
-  // review: no duplicate nav entry for manager/admin. The route itself is accessible
-  // to all 4 roles via URL (canAccessKitchen permission); only the nav link is gated.
   { path: '/my-performance', label: 'My Perf.', icon: UserCheck, permission: 'canAccessKitchen', rolesAllowed: ['kitchen', 'order_staff'] },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
   { path: '/restock-planner', label: 'Planner', icon: CalendarRange, permission: 'canAccessDashboard', preload: _prefetchRestock },

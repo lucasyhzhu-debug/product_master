@@ -105,6 +105,9 @@ interface EndOfShiftFormProps {
   isManager?: boolean;
   /** Current user's ID — used to auto-assign chef when isManager is false. */
   currentUserId?: string;
+  /** When true, the current user has an active clock-in — hide chef selector
+   *  since clocking in already identifies who's cooking. */
+  isClockedIn?: boolean;
 }
 
 // -------------------------------------------------------
@@ -122,6 +125,7 @@ export function EndOfShiftForm({
   onSubmitted,
   isManager = false,
   currentUserId,
+  isClockedIn = false,
 }: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
@@ -149,10 +153,11 @@ export function EndOfShiftForm({
   const [submittedProduced, setSubmittedProduced] = useState<ProducedItem[]>([]);
   const [submittedWaste, setSubmittedWaste] = useState<WasteEntry[]>([]);
 
-  // Chef selector — non-managers auto-assign to themselves (no dropdown needed
-  // when clock-in already identifies who's working).
+  // Chef selector — hide when clocked in (clock-in already identifies the chef)
+  // or when non-manager (auto-assign to current user).
+  const showChefSelector = isManager && !isClockedIn;
   const [selectedChefId, setSelectedChefId] = useState<string>(
-    !isManager && currentUserId ? currentUserId : "",
+    (!showChefSelector && currentUserId) ? currentUserId : "",
   );
 
   // Inline error from mutation failure on review screen
@@ -480,9 +485,9 @@ export function EndOfShiftForm({
         <CardTitle className="text-base">End of Shift</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Chef selector — only shown for managers who can submit on behalf of others.
-           Kitchen/order_staff auto-assign via currentUserId (clock-in identifies them). */}
-        {isManager && users && users.length > 0 && (
+        {/* Chef selector — only shown for managers not clocked in (submitting on behalf).
+           When clocked in, the user is the chef — no selector needed. */}
+        {showChefSelector && users && users.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
             <Select value={selectedChefId} onValueChange={setSelectedChefId}>

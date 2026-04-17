@@ -156,7 +156,7 @@ export async function aggregateStaffPerformance(
     .collect();
   const records =
     userIdFilter !== undefined
-      ? recordsAll.filter((r) => r.chefUserId === userIdFilter)
+      ? recordsAll.filter((r) => (r.chefUserId ?? r.submittedByUserId) === userIdFilter)
       : recordsAll;
 
   const attendanceAll = await ctx.db
@@ -249,7 +249,7 @@ export async function aggregateStaffPerformance(
     allStaffUserIds.add(String(userId));
   }
   for (const record of records) {
-    if (record.chefUserId) allStaffUserIds.add(String(record.chefUserId));
+    allStaffUserIds.add(String(record.chefUserId ?? record.submittedByUserId));
   }
   const userDocs = await Promise.all(
     Array.from(allStaffUserIds).map((id) =>
@@ -265,7 +265,7 @@ export async function aggregateStaffPerformance(
   type StaffBucket = {
     staffKey: string;
     chefName: string;
-    chefUserId: string | null;
+    chefUserId: string;
     totalBallsProduced: number;
     productBreakdown: Map<string, { name: string; quantity: number; ballCount: number }>;
     totalComponentGrams: number;
@@ -282,8 +282,8 @@ export async function aggregateStaffPerformance(
 
   for (const record of records) {
     const name = record.chefName ?? record.submittedBy;
-    const userId = record.chefUserId ? String(record.chefUserId) : null;
-    const staffKey = userId ?? name;
+    const userId = String(record.chefUserId ?? record.submittedByUserId);
+    const staffKey = userId;
 
     if (!staffMap.has(staffKey)) {
       staffMap.set(staffKey, {
@@ -409,11 +409,9 @@ export async function aggregateStaffPerformance(
   const results = Array.from(staffMap.values()).map((s) => {
     const userIdKey = s.chefUserId;
     const userAttendance: Map<string, Doc<"staffAttendance">[]> =
-      userIdKey !== null
-        ? attendanceByUser.get(userIdKey as Id<"users">) ??
-          new Map<string, Doc<"staffAttendance">[]>()
-        : new Map<string, Doc<"staffAttendance">[]>();
-    const hireDate = userIdKey !== null ? userMap.get(userIdKey)?.hireDate : undefined;
+      attendanceByUser.get(userIdKey as Id<"users">) ??
+      new Map<string, Doc<"staffAttendance">[]>();
+    const hireDate = userMap.get(userIdKey)?.hireDate;
 
     // Flatten for cross-date overlap detection (e.g. two open shifts on
     // consecutive dates still overlap).
@@ -463,9 +461,7 @@ export async function aggregateStaffPerformance(
       const dayRecords = records.filter(
         (r) =>
           r.date === date &&
-          (userIdKey === null
-            ? r.chefName === s.chefName
-            : r.chefUserId === userIdKey),
+          String(r.chefUserId ?? r.submittedByUserId) === userIdKey,
       );
       const componentAccumulator = new Map<string, number>();
       let dayBalls = 0;
