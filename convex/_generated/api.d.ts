@@ -126,6 +126,7 @@ import type * as kitchenShiftRecords_mutations from "../kitchenShiftRecords/muta
 import type * as kitchenShiftRecords_queries from "../kitchenShiftRecords/queries.js";
 import type * as lib_accountUtils from "../lib/accountUtils.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_componentUnit from "../lib/componentUnit.js";
 import type * as lib_confidence from "../lib/confidence.js";
 import type * as lib_costCalculator from "../lib/costCalculator.js";
 import type * as lib_costInvalidation from "../lib/costInvalidation.js";
@@ -366,6 +367,7 @@ declare const fullApi: ApiFromModules<{
   "kitchenShiftRecords/queries": typeof kitchenShiftRecords_queries;
   "lib/accountUtils": typeof lib_accountUtils;
   "lib/auth": typeof lib_auth;
+  "lib/componentUnit": typeof lib_componentUnit;
   "lib/confidence": typeof lib_confidence;
   "lib/costCalculator": typeof lib_costCalculator;
   "lib/costInvalidation": typeof lib_costInvalidation;

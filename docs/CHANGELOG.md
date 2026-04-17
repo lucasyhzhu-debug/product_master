@@ -16,6 +16,25 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Phase 74 prod build — restore per-unit component split + botched-merge residue -- 2026-04-17
+
+**For the team:** Vercel production build was failing with 18 TypeScript errors after Phase 74 merged. Staff Performance page now builds and deploys. No user-visible behavior change — the page already showed grams correctly in dev; prod was blocked from deploying at all.
+
+**Root cause:** Three drifts from the merge commit `2031e615`:
+1. `EndOfShiftForm.tsx` kept two copies of `selectedChefId` useState (kept both sides of merge).
+2. `aggregateStaffPerformance` helper, when lifted out of `kitchenShiftRecords/queries.ts` in Phase 74, dropped the per-unit split (`totalComponentPieces`, `totalComponentWastePieces`, breakdown `unit` tag) added earlier in the kitchen-dedupe round 2. Frontend (`staffPerformanceExport.ts` + `StaffPerformance.tsx`) was still reading those fields, silently breaking.
+3. `ClockOutNudgeDialog` renamed its prop `onClose` → `onOpenChange`; `KitchenViewV2.tsx:451` was still passing the stale name.
+
+**Why CI missed it:** GitHub Actions "Deploy" workflow only runs `npx convex deploy` (backend). Vercel is the only pipeline running `npm run build` (`tsc -b && vite build`). `tsc --noEmit` (local type-check) is looser than `tsc -b` project-reference mode.
+
+**What shipped:**
+- `convex/staffAttendance/aggregation.ts` — restored per-unit split; uses shared `ComponentUnit` / `resolveUnit` from new `convex/lib/componentUnit.ts` (mirrors frontend `src/lib/componentUnit.ts`).
+- `convex/lib/componentUnit.ts` — new backend helper (type + resolveUnit + sumByUnit).
+- `src/components/kitchen/EndOfShiftForm.tsx` — removed duplicate useState.
+- `src/pages/KitchenViewV2.tsx` — `onClose` → `onOpenChange`.
+
+**Follow-up tech debt:** aggregation uses per-record `c.unit` with silent last-write-wins on conflict. Should trust `unitByCode` config as source of truth (same pattern already in per-day loop). Same issue mirrored in `kitchenShiftRecords/queries.ts`. Separate refactor.
+
 ### Quick task 260417-hyv -- Nav bar simplification -- 2026-04-17
 
 **For the team:** The top nav bar is now much less cluttered. Collapsed from 8 top-level items + 5 dropdowns to just **Dashboards ▾ Orders Ops ▾ Finance ▾ Config ▾**. Sales/Analytics now live under Dashboards; Kitchen/Inventory/Planner/My Perf/K3 Mart/GoFood/GrabFood under Ops; Financials+Accounting merged into Finance; Help and Admin folded into Config. Every page you could reach before is still reachable — just one extra click for items that moved into a dropdown.
