@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
-status: verifying
-stopped_at: Phase 74 context gathered
-last_updated: "2026-04-16T04:47:34.756Z"
-last_activity: 2026-04-16
+status: ready_to_execute
+stopped_at: Phase 74 complete, Phase 75 ready to execute
+last_updated: "2026-04-17T11:00:00.000Z"
+last_activity: 2026-04-17
 progress:
   total_phases: 15
-  completed_phases: 8
-  total_plans: 31
-  completed_plans: 31
-  percent: 100
+  completed_phases: 9
+  total_plans: 40
+  completed_plans: 35
+  percent: 88
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-08)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 78 — product-inventory-substitution
+**Current focus:** Phase 75 — full-p-l-extension
 
 ## Current Position
 
-Phase: 78
-Plan: Not started
-Status: Phase 78 complete, ready for verification
-Last activity: 2026-04-16 - Completed quick task 260416-jm7: Fix 17 test debt failures
+Phase: 75
+Plan: Ready to execute (5 plans, 4 waves)
+Status: Phase 74 complete (2026-04-17), Phase 75 planned and ready
+Last activity: 2026-04-17 - Phase 74 Staff Attendance complete (4/4 plans, UAT approved)
 
 Progress: [���█████████] 100%
 
