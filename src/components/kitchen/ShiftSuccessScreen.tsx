@@ -3,13 +3,14 @@
  *
  * Displayed after a successful shift record submission.
  * Shows a card list of produced items and waste rows with sequential Framer Motion
- * stagger animation (Gap 9). Uses CheckCircle2 icon per produced row.
+ * stagger animation. Uses CheckCircle2 icon per produced row.
  */
 
 import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { resolveUnit } from "@/lib/componentUnit";
 
 const REASON_LABELS: Record<string, string> = {
   qa_testing: "QA / Testing",
@@ -41,8 +42,8 @@ interface ShiftSuccessScreenProps {
   waste: WasteEntry[];
   targets?: TargetItem[];
   onDone: () => void;
-  /** Phase 69: Component production data */
-  componentProduced?: Array<{ kitchenComponentName: string; grams: number }>;
+  /** Component production data */
+  componentProduced?: Array<{ kitchenComponentName: string; grams: number; unit?: string }>;
 }
 
 // Framer Motion stagger variants
@@ -103,7 +104,7 @@ export function ShiftSuccessScreen({
           </motion.div>
         )}
 
-        {/* Phase 69: Component production items */}
+        {/* Component production items */}
         {componentProduced && componentProduced.length > 0 && (
           <motion.div
             variants={container}
@@ -124,7 +125,7 @@ export function ShiftSuccessScreen({
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                   <span className="text-sm font-medium">{c.kitchenComponentName}</span>
                 </div>
-                <span className="text-sm font-semibold tabular-nums">{c.grams}g</span>
+                <span className="text-sm font-semibold tabular-nums">{c.grams}{resolveUnit(c.unit)}</span>
               </motion.div>
             ))}
           </motion.div>

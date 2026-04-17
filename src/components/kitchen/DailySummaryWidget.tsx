@@ -1,16 +1,17 @@
 /**
- * DailySummaryWidget (Phase 69 — updated)
+ * DailySummaryWidget
  *
  * Collapsible daily summary with:
- *   - Existing stats grid (balls, orders, boxed, stickers)
- *   - Component production breakdown with per-person attribution (D-13, D-14, D-15, D-16)
- *   - Ball production per-person breakdown (D-17)
+ *   - Stats grid (balls, orders, boxed, stickers)
+ *   - Component production breakdown with per-person attribution
+ *   - Ball production per-person breakdown
  *   - Materials consumed list
  */
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { resolveUnit } from '@/lib/componentUnit';
 
 interface DailySummaryWidgetProps {
   stats: {
@@ -23,10 +24,12 @@ interface DailySummaryWidgetProps {
       quantity: number;
     }>;
   };
-  /** Phase 69: Component production summary from getDailyComponentSummary */
+  /** Component production summary from getDailyComponentSummary */
   componentSummary?: Array<{
     code: string;
     name: string;
+    /** Display unit. Historical records default to "g". */
+    unit?: "g" | "pcs";
     totalProducedGrams: number;
     totalWasteGrams: number;
     perPerson: Array<{
@@ -36,7 +39,7 @@ interface DailySummaryWidgetProps {
       wasteGrams: number;
     }>;
   }>;
-  /** Phase 69: Ball production per-person attribution from shift records */
+  /** Ball production per-person attribution from shift records */
   ballPerPerson?: Array<{
     submittedBy: string;
     chefName?: string;
@@ -86,32 +89,34 @@ export function DailySummaryWidget({
             )}
           </div>
 
-          {/* Component Production Breakdown (D-13, D-14) */}
+          {/* Component Production Breakdown */}
           {componentSummary && componentSummary.length > 0 && (
             <div>
               <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Component Production</h4>
               <div className="space-y-3">
-                {componentSummary.map((comp) => (
+                {componentSummary.map((comp) => {
+                  const unit = resolveUnit(comp.unit);
+                  return (
                   <div key={comp.code} className="bg-muted rounded-lg p-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">{comp.name}</span>
                       <div className="flex items-center gap-2 text-xs tabular-nums">
-                        <span className="font-bold text-foreground">{comp.totalProducedGrams}g</span>
+                        <span className="font-bold text-foreground">{comp.totalProducedGrams}{unit}</span>
                         {comp.totalWasteGrams > 0 && (
-                          <span className="text-destructive">-{comp.totalWasteGrams}g waste</span>
+                          <span className="text-destructive">-{comp.totalWasteGrams}{unit} waste</span>
                         )}
                       </div>
                     </div>
-                    {/* Per-person attribution (D-15, D-16) */}
+                    {/* Per-person attribution */}
                     {comp.perPerson.length > 0 && (
                       <div className="space-y-0.5">
                         {comp.perPerson.map((person, i) => (
                           <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{person.chefName ?? person.submittedBy}</span>
                             <div className="flex items-center gap-2 tabular-nums">
-                              <span>{person.producedGrams}g</span>
+                              <span>{person.producedGrams}{unit}</span>
                               {person.wasteGrams > 0 && (
-                                <span className="text-destructive">-{person.wasteGrams}g</span>
+                                <span className="text-destructive">-{person.wasteGrams}{unit}</span>
                               )}
                             </div>
                           </div>
@@ -119,12 +124,13 @@ export function DailySummaryWidget({
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Ball Production Per-Person (D-17) */}
+          {/* Ball Production Per-Person */}
           {ballPerPerson && ballPerPerson.length > 0 && (
             <div>
               <h4 className="text-xs font-bold text-foreground/80 uppercase mb-2">Production by Person</h4>

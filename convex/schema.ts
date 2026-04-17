@@ -1363,6 +1363,24 @@ export default defineSchema({
     // Array of kitchenComponent codes that are enabled in shift form
     // When unset, defaults to all active kitchen components (all enabled)
     enabledKitchenComponents: v.optional(v.array(v.string())),
+    // Round-2 follow-up: Targets for production `pcs` ball codes other than
+    // the legacy BIG_BALL/MID_BALL (e.g. HAZELNUT_REGULAR). Additive — BIG/MID
+    // still live on bigBallTarget/midBallTarget for backward compat.
+    // One entry per enabled non-BIG/MID production code; rendered as its own
+    // input in ManagerTargetSettings and own StatCard in ProductionTargetsBar.
+    otherBallTargets: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
+    // Unified component tracking config (replaces enabledProductionComponents +
+    // enabledKitchenComponents). Each entry controls whether a component appears
+    // in the shift form and what unit to display (g or pcs).
+    // When present, this is authoritative. When absent, derive from legacy fields.
+    componentTracking: v.optional(v.array(v.object({
+      code: v.string(),
+      tracked: v.boolean(),
+      unit: v.union(v.literal("g"), v.literal("pcs")),
+    }))),
     updatedAt: v.number(),
     updatedBy: v.string(),
   }),
@@ -1420,11 +1438,15 @@ export default defineSchema({
       previousQuantity: v.number(),
       newQuantity: v.number(),
     })),
-    // Phase 69: Component production (pre-cursor ingredients in grams)
+    // Phase 69: Component production (pre-cursor ingredients in grams OR pcs)
+    // Round-2 follow-up (C1): `unit` is optional for backward compat; historical
+    // records default to "g" on read. `grams` field name is legacy — when
+    // unit === "pcs" the value represents a raw piece count.
     componentProduced: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),     // e.g. "OUTER_MARSHMALLOW"
       kitchenComponentName: v.string(),     // snapshot at submission time
-      grams: v.number(),                    // Amount produced in grams
+      grams: v.number(),                    // Amount produced (grams or pcs per `unit`)
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     componentWaste: v.optional(v.array(v.object({
       kitchenComponentCode: v.string(),
@@ -1434,7 +1456,8 @@ export default defineSchema({
         v.literal("spoilage"),
         v.literal("waste")
       ),
-      grams: v.number(),
+      grams: v.number(),                    // Amount wasted (grams or pcs per `unit`)
+      unit: v.optional(v.union(v.literal("g"), v.literal("pcs"))),
     }))),
     editedAt: v.optional(v.number()),
     editedBy: v.optional(v.string()),
@@ -1488,6 +1511,12 @@ export default defineSchema({
     date: v.string(),                          // YYYY-MM-DD
     bigBallOverride: v.optional(v.number()),
     midBallOverride: v.optional(v.number()),
+    // I2: per-day override targets for non-BIG/MID ball codes (e.g.
+    // HAZELNUT_REGULAR). Matches kitchenConfig.otherBallTargets shape.
+    otherBallOverrides: v.optional(v.array(v.object({
+      code: v.string(),
+      target: v.number(),
+    }))),
     packagingOverrides: v.optional(v.array(v.object({
       menuProductId: v.id("menuProducts"),
       quantity: v.number(),

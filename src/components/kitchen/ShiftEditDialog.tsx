@@ -1,7 +1,7 @@
 /**
  * ShiftEditDialog
  *
- * Edit dialog for a past shift record (KIT-17). Manager/admin only.
+ * Edit dialog for a past shift record. Manager/admin only.
  *
  * Flow:
  *   1. Form pre-populated with existing produced + waste values
@@ -9,8 +9,6 @@
  *   3. Show confirmation dialog with ALL non-zero deltas
  *   4. On confirm — call updateShiftRecord mutation
  *   5. On success — toast + close dialog
- *
- * Requirements: KIT-17
  */
 
 import { useState, useMemo } from "react";
@@ -20,6 +18,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { useProtectedMutation } from "@/hooks/convex/useProtectedMutation";
+import { useKitchenTargets } from "@/hooks/convex/useKitchenTargets";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,11 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { type ComponentUnit } from "@/lib/componentUnit";
 import type { ShiftRecord, ComponentProducedEntry, ComponentWasteEntry } from "./ShiftHistoryList";
-
-// -------------------------------------------------------
-// Types
-// -------------------------------------------------------
 
 import { WASTE_REASONS, type WasteReason } from './index';
 
@@ -73,33 +69,14 @@ interface ShiftEditDialogProps {
   onClose: () => void;
 }
 
-// -------------------------------------------------------
-// Constants
-// -------------------------------------------------------
-
-// -------------------------------------------------------
-// Component
-// -------------------------------------------------------
-
 export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps) {
   const updateShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.updateShiftRecord
   );
 
-  // Query available kitchen components (tier-0 from componentTypes)
-  const componentsWithTiers = useQuery(api.productionRecipes.queries.getComponentsWithTiers);
-  // tier-0 + unit="g" = leaf ingredients in grams (unit guard prevents pcs components leaking in)
-  const kitchenComponents = useMemo(
-    () => (componentsWithTiers ?? []).filter((c) => c.tier === 0 && c.unit === "g"),
-    [componentsWithTiers]
-  );
+  const { kitchenComponents, unitByCode } = useKitchenTargets();
   const kitchenConfig = useQuery(api.kitchenConfig.queries.getConfig);
 
-  // -------------------------------------------------------
-  // State — pre-populated from record
-  // -------------------------------------------------------
-
-  // Build initial produced rows from record (one row per product in original record)
   const [producedRows, setProducedRows] = useState<ProducedRow[]>(() =>
     record.produced.map((p) => ({
       menuProductId: p.menuProductId,
@@ -108,7 +85,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     }))
   );
 
-  // Build initial waste rows
   const [wasteRows, setWasteRows] = useState<WasteRow[]>(() =>
     record.waste.map((w) => ({
       menuProductId: w.menuProductId,
@@ -118,12 +94,13 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     }))
   );
 
-  // Component production rows (Phase 69)
+  // Preserve stored unit (if present) for display; legacy records default to "g".
   const [componentProducedRows, setComponentProducedRows] = useState<ComponentProducedEntry[]>(() =>
     (record.componentProduced ?? []).map((c) => ({
       kitchenComponentCode: c.kitchenComponentCode,
       kitchenComponentName: c.kitchenComponentName,
       grams: c.grams,
+      unit: c.unit,
     }))
   );
 
@@ -133,6 +110,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       kitchenComponentName: c.kitchenComponentName,
       reason: (c.reason as WasteReason) ?? "waste",
       grams: c.grams,
+      unit: c.unit,
     }))
   );
 
@@ -154,7 +132,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
   );
   const [wasteOpen, setWasteOpen] = useState(record.waste.length > 0);
 
-  // Confirmation dialog state
   const [showConfirm, setShowConfirm] = useState(false);
   const [deltas, setDeltas] = useState<InventoryDelta[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -165,17 +142,34 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     [componentProducedRows]
   );
 
+  // Enabled kitchen component codes. componentTracking is authoritative when
+  // present; falls back to legacy enabledKitchenComponents. If componentTracking
+  // exists but yields an empty set (e.g. only tier-1 codes tracked), fall back
+  // to legacy so the edit dialog doesn't hide every add-able component.
+  const enabledKitchenCodes = useMemo<Set<string> | null>(() => {
+    const kitchenCodeSet = new Set(kitchenComponents.map((c) => c.code));
+    if (kitchenConfig?.componentTracking && kitchenConfig.componentTracking.length > 0) {
+      const derived = new Set(
+        kitchenConfig.componentTracking
+          .filter((e) => e.tracked && kitchenCodeSet.has(e.code))
+          .map((e) => e.code)
+      );
+      if (derived.size > 0) return derived;
+    }
+    const legacy = kitchenConfig?.enabledKitchenComponents;
+    if (!legacy) return null;
+    return new Set(legacy.filter((code) => kitchenCodeSet.has(code)));
+  }, [kitchenConfig?.componentTracking, kitchenConfig?.enabledKitchenComponents, kitchenComponents]);
+
   const addableComponents = useMemo(() => {
-    if (!kitchenComponents) return [];
-    const enabledCodes = kitchenConfig?.enabledKitchenComponents;
     return kitchenComponents
       .filter((c) => {
         if (existingComponentCodes.has(c.code)) return false;
-        if (enabledCodes && enabledCodes.length > 0 && !enabledCodes.includes(c.code)) return false;
+        if (enabledKitchenCodes && !enabledKitchenCodes.has(c.code)) return false;
         return true;
       })
       .sort((a, b) => a.sortOrder - b.sortOrder);
-  }, [kitchenComponents, kitchenConfig, existingComponentCodes]);
+  }, [kitchenComponents, existingComponentCodes, enabledKitchenCodes]);
 
   // Pre-computed produced grams by component code for O(1) validation lookups
   const producedGramsByCode = useMemo(() => {
@@ -188,19 +182,16 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     return map;
   }, [componentProducedRows]);
 
-  // -------------------------------------------------------
-  // Produced row handlers
-  // -------------------------------------------------------
+  // Priority: stored unit on row > hook's unitByCode > "g".
+  function unitForRow(code: string, storedUnit?: ComponentUnit): ComponentUnit {
+    return storedUnit ?? unitByCode[code] ?? "g";
+  }
 
   function updateProducedQty(index: number, qty: number) {
     setProducedRows((prev) =>
       prev.map((row, i) => (i === index ? { ...row, quantity: Math.max(0, qty) } : row))
     );
   }
-
-  // -------------------------------------------------------
-  // Waste row handlers
-  // -------------------------------------------------------
 
   function addWasteRow(menuProductId: string, menuProductName: string) {
     setWasteRows((prev) => [
@@ -233,12 +224,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
     setWasteRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // -------------------------------------------------------
-  // Compute inventory impact
-  // -------------------------------------------------------
-
   function computeDeltas(): InventoryDelta[] {
-    // Build old net map from original record
     const oldNetMap = new Map<string, { name: string; net: number }>();
     for (const p of record.produced) {
       const key = p.menuProductId;
@@ -266,7 +252,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       newNetMap.set(key, { name: existing.name, net: existing.net - w.quantity });
     }
 
-    // Collect all product IDs
     const allIds = new Set([...oldNetMap.keys(), ...newNetMap.keys()]);
     const result: InventoryDelta[] = [];
 
@@ -289,10 +274,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
 
     return result;
   }
-
-  // -------------------------------------------------------
-  // Handlers
-  // -------------------------------------------------------
 
   function handleReviewChanges() {
     for (const wasteRow of componentWasteRows) {
@@ -338,6 +319,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
             kitchenComponentCode: c.kitchenComponentCode,
             kitchenComponentName: c.kitchenComponentName,
             grams: c.grams,
+            unit: unitForRow(c.kitchenComponentCode, c.unit),
           })),
         componentWaste: componentWasteRows
           .filter((c) => c.grams > 0)
@@ -346,6 +328,7 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
             kitchenComponentName: c.kitchenComponentName,
             reason: c.reason as "qa_testing" | "spoilage" | "waste",
             grams: c.grams,
+            unit: unitForRow(c.kitchenComponentCode, c.unit),
           })),
       });
 
@@ -360,10 +343,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       setIsSubmitting(false);
     }
   }
-
-  // -------------------------------------------------------
-  // Render: Confirmation dialog
-  // -------------------------------------------------------
 
   if (showConfirm) {
     const nonZeroDeltas = deltas.filter((d) => d.delta !== 0);
@@ -426,7 +405,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                   .map((c) => (
                     <div key={c.kitchenComponentCode} className="flex items-center justify-between text-sm">
                       <span>{c.kitchenComponentName}</span>
-                      <span className="font-medium tabular-nums">{c.grams}g</span>
+                      <span className="font-medium tabular-nums">
+                        {c.grams}{unitForRow(c.kitchenComponentCode, c.unit)}
+                      </span>
                     </div>
                   ))}
                 {componentWasteRows
@@ -434,7 +415,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                   .map((c, i) => (
                     <div key={`${c.kitchenComponentCode}-waste-${i}`} className="flex items-center justify-between text-sm text-destructive/80">
                       <span>{c.kitchenComponentName} (waste)</span>
-                      <span className="font-medium tabular-nums">-{c.grams}g</span>
+                      <span className="font-medium tabular-nums">
+                        -{c.grams}{unitForRow(c.kitchenComponentCode, c.unit)}
+                      </span>
                     </div>
                   ))}
               </div>
@@ -469,10 +452,6 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
       </Dialog>
     );
   }
-
-  // -------------------------------------------------------
-  // Render: Edit form
-  // -------------------------------------------------------
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -611,7 +590,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                     }
                     className="w-24 text-right tabular-nums"
                   />
-                  <span className="text-xs text-muted-foreground w-4">g</span>
+                  <span className="text-xs text-muted-foreground w-6">
+                    {unitForRow(row.kitchenComponentCode, row.unit)}
+                  </span>
                 </div>
               ))}
               {/* Add component buttons for components not yet tracked */}
@@ -718,7 +699,9 @@ export function ShiftEditDialog({ record, open, onClose }: ShiftEditDialogProps)
                           }
                           className="w-20 text-right tabular-nums"
                         />
-                        <span className="text-xs text-muted-foreground w-4">g</span>
+                        <span className="text-xs text-muted-foreground w-6">
+                          {unitForRow(row.kitchenComponentCode, row.unit)}
+                        </span>
                       </div>
                     </div>
                   ))}

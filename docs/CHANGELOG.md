@@ -16,54 +16,64 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
-### Feat: Phase 74 -- Staff Attendance -- 2026-04-16
+### Feat: Phase 74 -- Staff Attendance -- 2026-04-17
 
-**For the team:** Kitchen staff now clock in and out of their shifts with a single tap. After PIN login, kitchen users land on a dedicated gate screen (`/kitchen/clock`) with a welcome card, live WIB clock, one-tap Clock-In button, and a "Last shift" recap ("Yesterday 6h 23m • 42 balls"). Once clocked in, the kitchen view shows a running timer + Clock-Out button at the top; submitting a shift record prompts a non-blocking nudge to clock out. Managers get a revamped `/staff-performance` with an Hours-Worked column, a flagged-shifts banner for missing clock-outs / overlapping sessions / shifts-before-hire-date, and an expandable per-day breakdown with dynamic component columns (unit shown in the header, native units preserved — no cross-unit summing). Staff can view their own attendance at `/my-performance`. Managers correct missed clock-outs via a dialog with a required note; the full edit history is preserved in a `corrections[]` audit array.
+**For the team:** Kitchen staff now clock in/out with one tap. Gate screen at `/kitchen/clock`, running timer, clock-out nudge after shift submission. Managers see hours, flagged shifts, per-day breakdowns on `/staff-performance`. Staff view own data at `/my-performance`. Manager correction dialog with audit trail.
 
-**What shipped:**
-- New `staffAttendance` table + 3 indexes (`by_user_date`, `by_user_open`, `by_date`) — D-06 (no FK to production; joined at query time).
-- 3 mutations (D-01, D-04, D-05, D-19): `clockIn` (session-derived userId per T-74-01), `clockOut` (owner-or-manager gate + D-04 server enforcement), `correctAttendance` (manager/admin, required trimmed note, 4 actions: `edit_timestamps` / `add_missed` / `reassign` / `delete`).
-- 4 queries: `getCurrentOpenShift`, `getMyLastShiftSummary` (BOM-resolved balls), `getFlaggedShifts` (manager/admin), `getMyPerformance` (T-74-03 self-scoped). Plus additive extension to `getStaffPerformanceSummary` with `totalHoursWorked` / `daysAttended` / `flaggedShiftCount` / `perDayBreakdown[]`.
-- Pure-function flag engine covering D-18 rules: `missing_clockout`, `over_16h`, `overlapping`, `before_hire`. Query-time computation — no stored flags.
-- D-14 adapter: `aggregateStaffPerformance` runtime-probes `kitchenConfig` for optional `componentTracking` array (worktree-merged shape). When present, authoritative. Otherwise falls back to legacy `enabledProductionComponents` / `enabledKitchenComponents` arrays + derives units from `componentTypes` (production → pcs) and `kitchenComponents` (→ g). Subsetting is intentional behavior (C-5 regression test locked in).
-- Frontend: `/kitchen/clock` gate, `AttendanceStrip` (null-render when no open shift), `RunningTimer` (minute-resolution, tabular-nums), `ClockOutButton`, `ClockOutNudgeDialog` (D-08), `AttendanceCorrectionDialog` (D-16/D-17 with input → review step machine), `FlaggedShiftsBanner` (D-15), `PerDayBreakdownTable` (D-11/D-14), extended `StaffPerformance.tsx`, new `MyPerformance.tsx` (D-13), 3 hooks (`useFlaggedShifts`, `useMyPerformance`, `useCorrectAttendance`), header nav entry gated to kitchen/order_staff, additive CSV columns (Hours Worked / Days Attended / Flagged Shifts).
-- Tests: 47 phase-74 tests green (18 flag-engine unit + 5 clockIn + 6 clockOut + 8 correctAttendance + 10 summary integration). Full suite 1555/1555 passing. Playwright E2E scaffold at `tests/e2e/staff-attendance.spec.ts` (gated by `PLAYWRIGHT_E2E_FULL=1`).
+**What shipped:** `staffAttendance` table + 3 mutations + 4 queries + flag engine (missing_clockout, over_16h, overlapping, before_hire) + 7 frontend components + `aggregateStaffPerformance` extension + 57 tests.
 
-**Schema additions:**
-- `staffAttendance` table with 8 fields (userId, date, clockIn, clockOut?, durationMs?, corrections?, deletedAt?, deletedBy?) and 3 indexes.
-- `corrections[]` audit array preserves full multi-correction history (D-17): `{ correctedAt, correctedBy, correctedByUserId, correctionNote, previousClockIn?, previousClockOut?, previousUserId?, action: "edit_timestamps"|"add_missed"|"reassign"|"delete" }`.
+**UAT fixes:** Aggregation join fallback (submittedByUserId), hours as h:mm, component grams summary, chef dropdown in ShiftEditDialog, chef selector hidden when clocked in, My Performance link on kitchen page.
 
-**UAT fixes (2026-04-17):**
-- Fixed `aggregateStaffPerformance` join — fallback to `submittedByUserId` when `chefUserId` not set (was showing 0 balls in My Performance).
-- Hours displayed as h:mm instead of decimal across all performance views.
-- Added "Components" summary card (kg) to My Performance page.
-- ShiftEditDialog chef field changed from text input to user dropdown.
-- EndOfShiftForm hides chef selector when user is clocked in.
-- "My Performance" link added to kitchen page header (accessible to all roles).
-
-**Requirements satisfied:** ATT-01, ATT-02, ATT-03, ATT-04.
-
-**Files added (highlights):**
-- Backend: `convex/staffAttendance/{constants, flagEngine, mutations, queries, aggregation}.ts` + 5 `__tests__/*.test.ts` files.
-- Frontend: `src/hooks/convex/useAttendance.ts`, `src/components/staffAttendance/` (6 components + barrel + RunningTimer test), `src/pages/{ClockInGate, MyPerformance}.tsx`.
-
-**Migration:** None — purely additive. Existing `kitchenShiftRecords` consumers unchanged via additive field propagation through TypeScript inference.
+**Requirements:** ATT-01, ATT-02, ATT-03, ATT-04.
 
 ---
 
-### Fix: Quick task 260416-jm7 — Test Debt Cleanup -- 2026-04-16
+### Fix: Unblock Convex Deploy (19 TS errors in bank-statement tests) -- 2026-04-16
 
-**For the team:** CI test suite restored to fully green. 17 pre-existing test failures that had accumulated across phases 41–69 have been fixed. Future test regressions will no longer be masked by this noise.
+**For the team:** Prod Convex backend was stuck on the pre-kitchen-fix code since 2026-04-16 05:35 UTC because CI deploy failed on TS18048/TS2769 errors in `convex/bankStatements/__tests__/`. The failed deploy meant the new `componentTracking` / `otherBallTargets` fields sent by the updated kitchen UI were rejected by the stale backend (`ArgumentValidationError`), which manifested as "left components not visible in kitchen" and "Server Error when submitting Nutella production target".
 
-**What was fixed (test code only — zero production changes):**
-- `tests/convex/gobizAdapter.test.ts` — 2 tests: updated `ctx.db.get(ids[0])` to `ctx.db.get(ids[0].id)` after `saveRevenue` return shape changed to `Array<{id, isNew}>`
-- `tests/convex/k3martCockpit.test.ts` — 4 tests: removed dead `getStockMovementHistory` describe block (the underlying query was deleted from production)
-- `convex/bigsellerOrders/__tests__/integration.test.ts` — 1 test: tightened commission assertion to `toBe(order.commissionFee ?? 0)` to verify BigSeller pass-through semantics (negative commissions are valid deductions)
-- `src/lib/__tests__/csvImportValidation.test.ts` — 10 tests: added required `paymentMethod` + `submitterName` columns to CSV fixtures after Phase 72 asset import added these as mandatory
+**Fix:** Added `!` non-null assertions after `.find()` calls where tests already guard with `expect(x).toBeDefined()`, and corrected one predicate type on `result.rows` that was using `{ channel: string }` instead of the actual `{ channels: string[] }` shape.
 
-**Results:** Full suite now 1509/1509 passing across 108 files (was 1492/1509).
+**Files:** `convex/bankStatements/__tests__/revenueGap.test.ts`, `convex/bankStatements/__tests__/listCandidates.test.ts`
 
-**Files modified:** 4 test files only. No production code touched.
+### Fix: Kitchen UI Component Dedup + Unified Tracking Config -- 2026-04-16
+
+**For the team:** Manager Settings now shows ONE "Component Tracking" table listing every production component (grouped by Tier 1 and Leaf) with a Track? toggle AND a g/pcs unit selector per row. The kitchen shift form automatically reflects what's tracked and records each component in its configured unit. Ball targets, dispatch-plan dropdown, and packaging-mix sections all scale to any tier-1 production code (no more Original+Jumbo hardcoding). Historical shift records preserve the unit they were entered with — switching a component's unit later doesn't corrupt old data.
+
+**Bugs fixed (4 reported + 4 triple-review critical):**
+- Soft-deactivated duplicate componentTypes were leaking into Kitchen toggles, End-of-Shift rows, and the codeMap — causing ghost duplicates where toggling one flipped both, and submit handlers writing each component twice (Pistachio Spread 7528g doubled).
+- Ball target editor was hardcoded to Original (MID_BALL) + Jumbo (BIG_BALL); new production codes (HAZELNUT_REGULAR / Nutella-Regular) were invisible.
+- Dispatch plan dropdown filtered menu products to BIG/MID codes only, hiding Nutella Sea Salt.
+- Kitchen Components source filter `tier === 0 && unit === "g"` dropped pcs-unit sub-components (Filling Pistachio 28g, Outer Marshmallow 15g, Nutella Filling 45g). Replaced with the canonical "referenced as child in productionComponentLinks" definition.
+- Shift records didn't persist unit — ShiftHistoryList, ShiftEditDialog, DailySummaryWidget, KitchenViewV2 all hardcoded "g" → pcs entries rendered as grams. Staff performance aggregation summed pcs + g homogeneously.
+- Daily overrides silently dropped otherBallTargets — HAZELNUT_REGULAR override values lost on save.
+- Convex pushes during editing reset unsaved form state in ManagerTargetSettings.
+- ShiftEditDialog read legacy `enabledKitchenComponents` only — components toggled off via new unified table stayed visible in edit flow.
+
+**Schema changes (additive, no migration needed):**
+- `kitchenConfig.componentTracking: Array<{ code, tracked, unit }>` — single source of truth for kitchen-form visibility + unit per component
+- `kitchenConfig.otherBallTargets: Array<{ code, target }>` — per-code ball target for non-BIG/MID production codes
+- `kitchenDailyOverrides.otherBallOverrides: Array<{ code, target }>` — same for daily overrides
+- `kitchenShiftRecords.componentProduced/componentWaste[].unit: "g" | "pcs"` — per-entry unit (optional; absent = grams for historical records)
+
+**Architectural notes:**
+- `getComponentsWithTiers` now returns `isRecipeChild: boolean` — canonical definition for "is this a kitchen-producible sub-component?"
+- Extracted shared helpers: `src/lib/componentFilters.ts` (dedupeByCode, getKitchenLeafComponents, getProductionTier1Components) and `src/lib/componentUnit.ts` (ComponentUnit type, resolveUnit, sumByUnit)
+- Backward compat: when `componentTracking` is absent, legacy `enabledProductionComponents`/`enabledKitchenComponents` are the fallback source; writes sync both sides until a future migration phase can drop legacy fields.
+- Legacy `bigBallTarget`/`midBallTarget` fields preserved; `componentTracking`-derived rows project onto them on save.
+- ManagerTargetSettings state collapsed: three separate ball-target useStates → one `ballTargetsByCode: Record<string, number>`.
+- `ShiftEditDialog` now delegates to `useKitchenTargets` hook (removes ~60 LOC of re-derivation + closes a C4-fallback divergence).
+
+**Files changed:** 23 files, net +975 LOC (feature + tests-mdfiles + helpers).
+
+**Migration:** None required. On first load of Manager Settings, componentTracking hydrates from existing legacy fields; first Save materializes the new config shape.
+
+**Verification steps (manager/admin):**
+1. Kitchen page → Manager Settings → Component Tracking table shows all active production components grouped by tier.
+2. Toggle any Track?/unit; save → settings persist.
+3. End of Shift form shows only tracked components with their configured unit; submit records unit alongside quantity.
+4. History + edit dialog display entries in the unit they were entered with.
+5. Ball Targets + Packaging Mix scale to any active tier-1 production code.
 
 ---
 

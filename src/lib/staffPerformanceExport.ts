@@ -9,13 +9,16 @@ import type { StaffPerformanceData } from "@/hooks/convex/useStaffPerformance";
 import { downloadCSV, escapeCell } from "./csvExport";
 
 function formatBreakdown(
-  items: Array<{ name: string; quantity?: number; grams?: number }>,
+  items: Array<{ name: string; quantity?: number; grams?: number; unit?: "g" | "pcs" }>,
   unit: string
 ): string {
   return items
     .map((item) => {
       const value = item.quantity ?? item.grams ?? 0;
-      return `${item.name}: ${String(value)}${unit}`;
+      // C1: when the caller supplies a per-item unit, use it; otherwise fall
+      // back to the column-wide unit label.
+      const suffix = item.unit ? (item.unit === "pcs" ? " pcs" : "g") : unit;
+      return `${item.name}: ${String(value)}${suffix}`;
     })
     .join("; ");
 }
@@ -23,21 +26,18 @@ function formatBreakdown(
 export function generateStaffPerformanceCSV(data: StaffPerformanceData): string {
   const rows: string[][] = [];
 
-  // Header — Phase 74 additive columns inserted after "Days Worked":
-  //   "Hours Worked" | "Days Attended" | "Flagged Shifts" (D-11 / D-12).
-  // Columns are additive — existing downstream consumers see no renames or
-  // reorderings of the pre-74 layout.
+  // Header — C1: grams and pcs are separate columns so aggregation in Excel
+  // stays honest when some components are tracked in pcs.
   rows.push([
     "Staff Name",
     "Total Balls Produced",
     "Total Component Grams",
+    "Total Component Pieces",
     "Total Component Waste (g)",
+    "Total Component Waste (pcs)",
     "Total Product Waste (units)",
     "Shifts",
     "Days Worked",
-    "Hours Worked",
-    "Days Attended",
-    "Flagged Shifts",
     "Product Breakdown",
     "Component Breakdown",
     "Component Waste Breakdown",
@@ -51,14 +51,12 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
       staff.chefName,
       String(staff.totalBallsProduced),
       String(staff.totalComponentGrams),
+      String(staff.totalComponentPieces),
       String(staff.totalComponentWasteGrams),
+      String(staff.totalComponentWastePieces),
       String(staff.totalWaste),
       String(staff.shiftCount),
       String(staff.daysWorked),
-      // Phase 74 additive fields (default-0 safe for legacy-shape inputs)
-      (staff.totalHoursWorked ?? 0).toFixed(1),
-      String(staff.daysAttended ?? 0),
-      String(staff.flaggedShiftCount ?? 0),
       formatBreakdown(staff.productBreakdown.map((p) => ({ name: p.name, quantity: p.ballCount })), " balls"),
       formatBreakdown(staff.componentBreakdown, "g"),
       formatBreakdown(staff.componentWasteBreakdown, "g"),
@@ -67,19 +65,18 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
     ]);
   }
 
-  // Totals row — include Phase 74 additive totals for consistency.
+  // Totals row
   const totals = data.staff.reduce(
     (acc, s) => ({
       balls: acc.balls + s.totalBallsProduced,
       grams: acc.grams + s.totalComponentGrams,
+      pieces: acc.pieces + s.totalComponentPieces,
       compWaste: acc.compWaste + s.totalComponentWasteGrams,
+      compWastePieces: acc.compWastePieces + s.totalComponentWastePieces,
       waste: acc.waste + s.totalWaste,
       shifts: acc.shifts + s.shiftCount,
-      hours: acc.hours + (s.totalHoursWorked ?? 0),
-      daysAttended: acc.daysAttended + (s.daysAttended ?? 0),
-      flagged: acc.flagged + (s.flaggedShiftCount ?? 0),
     }),
-    { balls: 0, grams: 0, compWaste: 0, waste: 0, shifts: 0, hours: 0, daysAttended: 0, flagged: 0 }
+    { balls: 0, grams: 0, pieces: 0, compWaste: 0, compWastePieces: 0, waste: 0, shifts: 0 }
   );
 
   rows.push([]);
@@ -87,13 +84,12 @@ export function generateStaffPerformanceCSV(data: StaffPerformanceData): string 
     "TOTAL",
     String(totals.balls),
     String(totals.grams),
+    String(totals.pieces),
     String(totals.compWaste),
+    String(totals.compWastePieces),
     String(totals.waste),
     String(totals.shifts),
     "",
-    totals.hours.toFixed(1),
-    String(totals.daysAttended),
-    String(totals.flagged),
     "",
     "",
     "",
@@ -139,14 +135,15 @@ export function generateDetailedStaffCSV(data: StaffPerformanceData): string {
       rows.push([staff.chefName, "Production", p.name, String(p.ballCount), "balls"]);
     }
 
-    // Component production rows
+    // Component production rows — C1: use per-component unit so pcs entries
+    // export with the correct suffix.
     for (const c of staff.componentBreakdown) {
-      rows.push([staff.chefName, "Component", c.name, String(c.grams), "g"]);
+      rows.push([staff.chefName, "Component", c.name, String(c.grams), c.unit ?? "g"]);
     }
 
     // Component waste rows
     for (const c of staff.componentWasteBreakdown) {
-      rows.push([staff.chefName, "Component Waste", c.name, String(c.grams), "g"]);
+      rows.push([staff.chefName, "Component Waste", c.name, String(c.grams), c.unit ?? "g"]);
     }
 
     // Product waste rows (with reason)
@@ -162,31 +159,6 @@ export function generateDetailedStaffCSV(data: StaffPerformanceData): string {
       String(staff.totalBallsProduced),
       "total balls",
     ]);
-
-    // Phase 74 — Attendance section (per-day breakdown). Additive; legacy
-    // consumers that only read the 5-column [Staff/Type/Item/Quantity/Unit]
-    // header see new rows typed as Type="Attendance" and can ignore them.
-    const perDayBreakdown = staff.perDayBreakdown ?? [];
-    if (perDayBreakdown.length > 0) {
-      for (const day of perDayBreakdown) {
-        const flaggedCount = day.sessions.filter((s) => s.isFlagged).length;
-        rows.push([
-          staff.chefName,
-          "Attendance",
-          `${day.date} (${day.sessions.length} session${day.sessions.length === 1 ? "" : "s"}${flaggedCount > 0 ? `, ${flaggedCount} flagged` : ""})`,
-          day.hoursWorked.toFixed(2),
-          "hours",
-        ]);
-      }
-      // Attendance subtotal row — hours + days attended + flagged
-      rows.push([
-        staff.chefName,
-        "Attendance Summary",
-        `${staff.daysAttended ?? 0} days attended / ${staff.flaggedShiftCount ?? 0} flagged`,
-        (staff.totalHoursWorked ?? 0).toFixed(2),
-        "total hours",
-      ]);
-    }
   }
 
   // Footer metadata
