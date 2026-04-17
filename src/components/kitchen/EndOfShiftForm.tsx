@@ -151,9 +151,6 @@ export function EndOfShiftForm({
   const [submittedProduced, setSubmittedProduced] = useState<ProducedItem[]>([]);
   const [submittedWaste, setSubmittedWaste] = useState<WasteEntry[]>([]);
 
-  // Chef selector
-  const [selectedChefId, setSelectedChefId] = useState<string>("");
-
   // Inline error from mutation failure on review screen
   const [confirmError, setConfirmError] = useState<string | null>(null);
 

@@ -448,7 +448,7 @@ export function KitchenViewV2() {
       {/* Phase 74: Clock-out nudge dialog */}
       <ClockOutNudgeDialog
         open={nudgeOpen}
-        onClose={() => setNudgeOpen(false)}
+        onOpenChange={setNudgeOpen}
         attendanceId={openShift?._id ?? null}
       />
     </div>
