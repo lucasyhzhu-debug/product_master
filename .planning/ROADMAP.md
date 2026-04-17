@@ -12,7 +12,7 @@
 - [x] **v1.7 Expense & Accounting** - Phases 41-54 (shipped 2026-03-16)
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
-- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80 (in progress)
+- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80.1 (in progress)
 
 ## Phases
 
@@ -187,6 +187,8 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
 - [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
 - [x] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron (completed 2026-04-14)
+- [x] **Phase 80: Unit Economics Analytics Dashboard** - New /analytics page with 13 widgets across 6 lenses answering unit-economics questions (completed 2026-04-15)
+- [ ] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route
 
 ## Phase Details
 
@@ -382,10 +384,43 @@ Plans:
 - Plan addendum: `docs/superpowers/plans/2026-04-13-unit-economics-analytics-dashboard-ADDENDUM.md`
 - Staff review: `docs/reviews/staffreview-unit-economics-analytics-dashboard-2026-04-13.md`
 
+### Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)
+
+**Goal**: Eliminate reactive fan-out on `/analytics` (11 Convex subscriptions → 3 grouped snapshots), enforce WCAG-AA tooltip contrast + non-clipping axis labels across all 13 widgets via shared chart primitives, and adopt `@nivo/heatmap` lazy-loaded behind the route to replace hand-rolled heatmaps.
+
+**Depends on**: Phase 80 (closes out deferred work from 80's staff review — I-04 reactive fan-out, plus readability defects R1/R2 surfaced during 80.1 brainstorming)
+
+**Why inserted**: Phase 80 shipped with the staff review explicitly flagging I-04 (11 subscriptions × 2 loadFilteredData calls for KPI/momentum = 22-scan burst per filter click; `orders` writes invalidate all 11 subs) with two mitigation options deferred to a perf follow-up phase. Plus two UX defects caught post-ship: SkuParetoChart X-axis labels truncate with no hover recovery, and chart tooltips fail WCAG AA contrast against the dark page chrome (light-green `Cumulative %` ~2.1:1, light-orange `Revenue` ~3.0:1).
+
+**Success Criteria** (what must be TRUE):
+  1. `/analytics` uses exactly 3 Convex subscriptions (`kpiAndChannelSnapshot`, `timeSeriesSnapshot`, `skuSnapshot`) covering all 13 widgets — verified by call-counter regression test asserting `loadFilteredData` fires 4 times per filter click (3 current + 1 prior-period), not 13
+  2. `precomputeBomMaps` runs once per snapshot invocation — guards against future unfactoring via regression test
+  3. Shared `ChartFrame` + `ChartAxis` + `ChartTooltip` primitives in `src/lib/chartPrimitives.tsx` absorb per-widget boilerplate and centrally enforce R1 (no-clip axis labels with hover-reveal for truncated strings) and R2 (tooltip dark background + light text, WCAG AA contrast ≥4.5:1, category colors as swatches only)
+  4. Automated tooltip-contrast test passes (jsdom + inline WCAG luminance compute, asserts ≥4.5:1 on title + every value row)
+  5. `@nivo/heatmap` powers `DayHourHeatmap` + `SkuChannelHeatmap` (~280 hand-rolled LOC → ~110)
+  6. `/analytics` is `React.lazy` — Nivo chunk only loads when the route is visited (verified via build output and DevTools Network)
+  7. 11 deprecated per-widget query wrappers removed from `convex/reports/unitEconomics.ts`; consumers migrated to the 3 snapshots
+  8. `npm run type-check` + `npm run build` (within vendor-bundle cap) + `npm run test` all pass
+  9. HUMAN-UAT: every chart label, every tooltip on production data passes the readability checklist at `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`
+
+**Plans:** 24 tasks across 3 waves
+
+Plans:
+- [ ] Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
+- [ ] Wave B Frontend (Tasks 10-18): `truncateWithTooltip`, `formatCurrencyCompact`, `ChartTooltip` with WCAG contrast test, `ChartFrame` + `CHART_MARGIN` + `X_AXIS_STRING_LABEL_PROPS`, rewrite `useAnalytics.ts` hooks as 3 snapshots + field selectors, migrate `SkuParetoChart` first (R1/R2 screenshot subject), then 7 remaining Recharts widgets
+- [ ] Wave C Nivo + cleanup (Tasks 19-24): install `@nivo/core` + `@nivo/heatmap`, migrate `DayHourHeatmap` + `SkuChannelHeatmap`, `React.lazy` the `/analytics` route, delete deprecated query wrappers, docs + HUMAN-UAT checklist
+
+**UI hint**: yes
+
+**Source artifacts**:
+- Spec: `docs/superpowers/specs/2026-04-17-analytics-perf-consolidation-design.md`
+- Plan: `docs/superpowers/plans/2026-04-17-analytics-perf-consolidation.md`
+- Upstream staff review flagging I-04/M-02/M-03: `docs/reviews/staffreview-gsd-phase-80-unit-economics-analytics-dashboard-2026-04-15.md`
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80 -> 80.1
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -400,6 +435,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
+| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 0/3 waves (24 tasks) | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -413,7 +449,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-80 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80.1 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
@@ -455,6 +491,16 @@ Plans:
 
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 1000: Unified Channel Integration Architecture
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 999
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 1000 to break down)
 
 ---
 

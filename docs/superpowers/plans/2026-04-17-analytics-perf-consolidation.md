@@ -10,13 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-04-17-analytics-perf-consolidation-design.md`
 
-**Branch:** `gsd/phase-999.5-analytics-perf-consolidation` — branch from `main` after `main` contains Phase 74.
+**Branch:** `gsd/phase-80.1-analytics-perf-consolidation` — branch from `main` after `main` contains Phase 74.
 
 ---
 
 ## Git Workflow
 
-**Branch:** `gsd/phase-999.5-analytics-perf-consolidation`
+**Branch:** `gsd/phase-80.1-analytics-perf-consolidation`
 **Checkpoints:**
 - After Wave A (backend queries + hoisted loader)
 - After Wave B (frontend primitives + widget migration)
@@ -36,7 +36,7 @@ Install Nivo, migrate 2 heatmaps, add `React.lazy` for `/analytics`, delete the 
 ## Documentation Updates
 - [ ] `docs/CHANGELOG.md` (always)
 - [ ] `docs/API_REFERENCE.md` (new snapshot queries, wrapper removals)
-- [ ] `docs/ROADMAP.md` (mark 999.5 complete)
+- [ ] `docs/ROADMAP.md` (mark 80.1 complete)
 
 ## Success Criteria
 See spec §"Success Criteria". Bundle-cap, tooltip-contrast, label-recovery, call-count regression all enforced by tests in this plan.
@@ -79,7 +79,7 @@ See spec §"Success Criteria". Bundle-cap, tooltip-contrast, label-recovery, cal
 | Create | `tests/convex/unitEconomicsSnapshots.test.ts` | Snapshot query tests + call-counter regression |
 | Create | `tests/components/chartPrimitives.test.tsx` | `truncateWithTooltip`, `formatCurrencyCompact`, tooltip contrast |
 | Modify | `tests/convex/unitEconomics.test.ts` | Keep during migration; remove deprecated-wrapper tests in Task 22 |
-| Create | `.planning/phases/999.5-analytics-perf-consolidation/999.5-HUMAN-UAT.md` | 10-item UAT checklist (after all code lands) |
+| Create | `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md` | 10-item UAT checklist (after all code lands) |
 
 ---
 
@@ -227,7 +227,7 @@ Expected: PASS (all pre-existing KPI tests still green).
 
 ```bash
 git add tests/convex/unitEconomicsReducers.test.ts convex/reports/unitEconomics.ts
-git commit -m "refactor(999.5): extract reduceKpi as pure function"
+git commit -m "refactor(80.1): extract reduceKpi as pure function"
 ```
 
 ---
@@ -382,7 +382,7 @@ Expected: PASS (all pre-existing tests still green because queries still produce
 
 ```bash
 git add tests/convex/unitEconomicsReducers.test.ts convex/reports/unitEconomics.ts
-git commit -m "refactor(999.5): extract remaining 11 analytics widget reducers"
+git commit -m "refactor(80.1): extract remaining 11 analytics widget reducers"
 ```
 
 ---
@@ -491,7 +491,7 @@ Expected: PASS.
 
 ```bash
 git add convex/reports/unitEconomics.ts tests/convex/unitEconomicsSnapshots.test.ts
-git commit -m "feat(999.5): add precomputeBomMaps + loadPriorPeriodFilteredData helpers"
+git commit -m "feat(80.1): add precomputeBomMaps + loadPriorPeriodFilteredData helpers"
 ```
 
 ---
@@ -566,7 +566,7 @@ npm run test -- tests/convex/unitEconomicsSnapshots.test.ts
 
 ```bash
 git add convex/reports/unitEconomics.ts convex/_generated/ tests/convex/unitEconomicsSnapshots.test.ts
-git commit -m "feat(999.5): add kpiAndChannelSnapshot query"
+git commit -m "feat(80.1): add kpiAndChannelSnapshot query"
 ```
 
 ---
@@ -640,7 +640,7 @@ Expected: PASS.
 
 ```bash
 git add convex/reports/unitEconomics.ts convex/_generated/ tests/convex/unitEconomicsSnapshots.test.ts
-git commit -m "feat(999.5): add timeSeriesSnapshot query with both granularities precomputed"
+git commit -m "feat(80.1): add timeSeriesSnapshot query with both granularities precomputed"
 ```
 
 ---
@@ -706,7 +706,7 @@ npm run test -- tests/convex/unitEconomicsSnapshots.test.ts
 
 ```bash
 git add convex/reports/unitEconomics.ts convex/_generated/ tests/convex/unitEconomicsSnapshots.test.ts
-git commit -m "feat(999.5): add skuSnapshot query with fixed top-20 cap"
+git commit -m "feat(80.1): add skuSnapshot query with fixed top-20 cap"
 ```
 
 ---
@@ -814,7 +814,7 @@ If any test fails, the wrapper is projecting a wrong field or shape — adjust. 
 
 ```bash
 git add convex/reports/unitEconomics.ts
-git commit -m "refactor(999.5): convert 11 existing analytics queries to thin snapshot wrappers"
+git commit -m "refactor(80.1): convert 11 existing analytics queries to thin snapshot wrappers"
 ```
 
 ---
@@ -892,7 +892,7 @@ npm run test -- tests/convex/unitEconomicsSnapshots.test.ts
 
 ```bash
 git add tests/convex/unitEconomicsSnapshots.test.ts
-git commit -m "test(999.5): add call-counter regression tests for snapshot queries"
+git commit -m "test(80.1): add call-counter regression tests for snapshot queries"
 ```
 
 ---
@@ -931,13 +931,13 @@ Expected: PASS.
 
 ```bash
 git add convex/reports/unitEconomics.ts
-git commit -m "refactor(999.5): inline jakartaHour alias — use getWibComponents directly"
+git commit -m "refactor(80.1): inline jakartaHour alias — use getWibComponents directly"
 ```
 
 **End of Wave A. Push branch + checkpoint.**
 
 ```bash
-git push -u origin gsd/phase-999.5-analytics-perf-consolidation
+git push -u origin gsd/phase-80.1-analytics-perf-consolidation
 ```
 
 ---
@@ -1042,7 +1042,7 @@ export function formatCurrencyCompact(value: number): string {
 
 ```bash
 git add src/lib/chartPrimitives.tsx tests/components/chartPrimitives.test.tsx
-git commit -m "feat(999.5): add truncateWithTooltip + formatCurrencyCompact helpers"
+git commit -m "feat(80.1): add truncateWithTooltip + formatCurrencyCompact helpers"
 ```
 
 ---
@@ -1207,7 +1207,7 @@ npm run test -- tests/components/chartPrimitives.test.tsx
 
 ```bash
 git add src/lib/chartPrimitives.tsx tests/components/chartPrimitives.test.tsx
-git commit -m "feat(999.5): add ChartTooltip with WCAG AA contrast + swatch-only category colors"
+git commit -m "feat(80.1): add ChartTooltip with WCAG AA contrast + swatch-only category colors"
 ```
 
 ---
@@ -1328,7 +1328,7 @@ export const X_AXIS_STRING_LABEL_PROPS = {
 
 ```bash
 git add src/lib/chartPrimitives.tsx tests/components/chartPrimitives.test.tsx
-git commit -m "feat(999.5): add ChartFrame + CHART_MARGIN + X_AXIS_STRING_LABEL_PROPS constants"
+git commit -m "feat(80.1): add ChartFrame + CHART_MARGIN + X_AXIS_STRING_LABEL_PROPS constants"
 ```
 
 ---
@@ -1422,7 +1422,7 @@ Expected: PASS. If any widget test breaks due to hook rename, file a TODO but co
 
 ```bash
 git add src/hooks/convex/useAnalytics.ts
-git commit -m "refactor(999.5): rewrite useAnalytics hooks as 3 snapshots + field selectors"
+git commit -m "refactor(80.1): rewrite useAnalytics hooks as 3 snapshots + field selectors"
 ```
 
 ---
@@ -1556,7 +1556,7 @@ npm run test
 
 ```bash
 git add src/components/analytics/SkuParetoChart.tsx
-git commit -m "feat(999.5): migrate SkuParetoChart to shared primitives (R1+R2)"
+git commit -m "feat(80.1): migrate SkuParetoChart to shared primitives (R1+R2)"
 ```
 
 ---
@@ -1645,7 +1645,7 @@ npm run type-check && npm run test
 
 ```bash
 git add src/components/analytics/UnitsByTypeStackedBars.tsx src/components/analytics/TypeMixOverTime.tsx
-git commit -m "feat(999.5): migrate UnitsByType + TypeMixOverTime to shared primitives"
+git commit -m "feat(80.1): migrate UnitsByType + TypeMixOverTime to shared primitives"
 ```
 
 ---
@@ -1688,7 +1688,7 @@ Open `/analytics`. Verify all three charts:
 
 ```bash
 git add src/components/analytics/RevPerUnitChart.tsx src/components/analytics/RollingTrendChart.tsx src/components/analytics/WeekdayDualAxisChart.tsx
-git commit -m "feat(999.5): migrate RevPerUnit + RollingTrend + WeekdayDualAxis to shared primitives"
+git commit -m "feat(80.1): migrate RevPerUnit + RollingTrend + WeekdayDualAxis to shared primitives"
 ```
 
 ---
@@ -1713,7 +1713,7 @@ npm run type-check && npm run test
 
 ```bash
 git add src/components/analytics/UnitsPerTxnByChannel.tsx src/components/analytics/AovByChannel.tsx
-git commit -m "feat(999.5): migrate UnitsPerTxn + AovByChannel to shared primitives"
+git commit -m "feat(80.1): migrate UnitsPerTxn + AovByChannel to shared primitives"
 ```
 
 ---
@@ -1752,7 +1752,7 @@ npm run type-check && npm run test
 
 ```bash
 git diff --stat src/components/analytics/
-# If changes: git add && git commit -m "fix(999.5): tidy non-chart widgets for consistency"
+# If changes: git add && git commit -m "fix(80.1): tidy non-chart widgets for consistency"
 ```
 
 **End of Wave B. Push checkpoint.**
@@ -1799,7 +1799,7 @@ Expected: succeeds. If `vite-plugin-bundlesize` fails, note current vendor-chunk
 
 ```bash
 git add package.json package-lock.json vite.config.ts 2>/dev/null
-git commit -m "chore(999.5): add @nivo/core + @nivo/heatmap for /analytics heatmaps"
+git commit -m "chore(80.1): add @nivo/core + @nivo/heatmap for /analytics heatmaps"
 ```
 
 ---
@@ -1898,7 +1898,7 @@ npm run type-check && npm run test
 
 ```bash
 git add src/components/analytics/DayHourHeatmap.tsx
-git commit -m "feat(999.5): migrate DayHourHeatmap to @nivo/heatmap"
+git commit -m "feat(80.1): migrate DayHourHeatmap to @nivo/heatmap"
 ```
 
 ---
@@ -1930,7 +1930,7 @@ npm run type-check && npm run test
 
 ```bash
 git add src/components/analytics/SkuChannelHeatmap.tsx
-git commit -m "feat(999.5): migrate SkuChannelHeatmap to @nivo/heatmap"
+git commit -m "feat(80.1): migrate SkuChannelHeatmap to @nivo/heatmap"
 ```
 
 ---
@@ -1992,7 +1992,7 @@ Open DevTools Network tab. Navigate to `/dashboard` first. Confirm no Nivo-relat
 
 ```bash
 git add src/App.tsx
-git commit -m "perf(999.5): lazy-load /analytics route (Nivo chunk deferred)"
+git commit -m "perf(80.1): lazy-load /analytics route (Nivo chunk deferred)"
 ```
 
 ---
@@ -2050,7 +2050,7 @@ All PASS expected. If tests fail because they referenced deleted queries, remove
 
 ```bash
 git add convex/reports/unitEconomics.ts convex/_generated/ tests/convex/unitEconomics.test.ts
-git commit -m "refactor(999.5): remove deprecated 11 analytics query wrappers"
+git commit -m "refactor(80.1): remove deprecated 11 analytics query wrappers"
 ```
 
 ---
@@ -2061,13 +2061,13 @@ git commit -m "refactor(999.5): remove deprecated 11 analytics query wrappers"
 - Modify: `docs/CHANGELOG.md`
 - Modify: `docs/API_REFERENCE.md`
 - Modify: `docs/ROADMAP.md`
-- Create: `.planning/phases/999.5-analytics-perf-consolidation/999.5-HUMAN-UAT.md`
+- Create: `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`
 
 - [ ] **Step 24.1: Update `docs/CHANGELOG.md`**
 
 Append under the current unreleased or latest-version heading:
 ```markdown
-## Phase 999.5 — Analytics Dashboard Perf & Chart Primitives Consolidation (2026-04-XX)
+## Phase 80.1 — Analytics Dashboard Perf & Chart Primitives Consolidation (2026-04-XX)
 
 - **Perf:** `/analytics` now uses 3 grouped snapshot queries (`kpiAndChannelSnapshot`, `timeSeriesSnapshot`, `skuSnapshot`) instead of 11 per-widget queries. Filter changes trigger 3 subscriptions, not 11. `orders`-write re-invalidation surface cut by ~73%.
 - **UX:** Shared `ChartFrame` / `ChartTooltip` / `ChartAxis` primitives enforce WCAG-AA tooltip contrast + no-clip axis labels + truncation-with-hover-reveal across all 13 analytics widgets.
@@ -2088,22 +2088,20 @@ Find the `convex/reports/unitEconomics.ts` section. Document the 3 new snapshot 
 - `timeSeriesSnapshot(fromTs, toTs, channels?, menuProductIds?)` → `{ byWeekday, rollingTrend, dayHourHeatmap, volumeByType: { day, week }, typeMixOverTime: { day, week } }`
 - `skuSnapshot(fromTs, toTs, channels?, menuProductIds?)` → `{ skuTop, skuChannelMatrix, revPerUnit, unitsByTypeStackedBars }` — `skuTop` is capped at 20 rows; client slices for display topN.
 
-**Removed in Phase 999.5:** `kpiSummary`, `channelEconomics`, `channelMomentum`, `byWeekday`, `rollingTrend`, `dayHourHeatmap`, `volumeByType`, `typeMixOverTime`, `unitsPerTxnByChannel`, `aovByChannel`, `skuPareto`, `skuChannelMatrix`. Consumers migrate to the 3 snapshots above.
+**Removed in Phase 80.1:** `kpiSummary`, `channelEconomics`, `channelMomentum`, `byWeekday`, `rollingTrend`, `dayHourHeatmap`, `volumeByType`, `typeMixOverTime`, `unitsPerTxnByChannel`, `aovByChannel`, `skuPareto`, `skuChannelMatrix`. Consumers migrate to the 3 snapshots above.
 ```
 
 - [ ] **Step 24.3: Update `docs/ROADMAP.md`**
 
-Find the Backlog section. Either remove the 999.5 entry (now complete) or add a "Completed" checkmark + date matching other phases' format.
-
-Find the milestone v2.0 table. Add a row for 999.5 if appropriate.
+Find the Phase 80.1 entry (inserted in v2.0 milestone pre-implementation). Mark it complete: flip the checkbox from `[ ]` to `[x]`, flip the Progress-table row from "Not started" to "Complete", and add the completion date to match other phases' format.
 
 - [ ] **Step 24.4: Create HUMAN-UAT file**
 
-Create `.planning/phases/999.5-analytics-perf-consolidation/999.5-HUMAN-UAT.md`:
+Create `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`:
 ```markdown
 ---
 status: pending
-phase: 999.5-analytics-perf-consolidation
+phase: 80.1-analytics-perf-consolidation
 started: 2026-04-XX
 ---
 
@@ -2153,8 +2151,8 @@ result: [pending]
 - [ ] **Step 24.5: Commit docs**
 
 ```bash
-git add docs/CHANGELOG.md docs/API_REFERENCE.md docs/ROADMAP.md .planning/phases/999.5-analytics-perf-consolidation/999.5-HUMAN-UAT.md
-git commit -m "docs(999.5): document snapshot queries + changelog + HUMAN-UAT checklist"
+git add docs/CHANGELOG.md docs/API_REFERENCE.md docs/ROADMAP.md .planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md
+git commit -m "docs(80.1): document snapshot queries + changelog + HUMAN-UAT checklist"
 ```
 
 ---
@@ -2194,7 +2192,7 @@ git push
 
 - [ ] **Ready for PR**
 
-Branch: `gsd/phase-999.5-analytics-perf-consolidation`. Title: `feat(999.5): analytics dashboard perf + chart primitives consolidation`. Body summarizes the 3 waves + bundle-cap delta.
+Branch: `gsd/phase-80.1-analytics-perf-consolidation`. Title: `feat(80.1): analytics dashboard perf + chart primitives consolidation`. Body summarizes the 3 waves + bundle-cap delta.
 
 ---
 

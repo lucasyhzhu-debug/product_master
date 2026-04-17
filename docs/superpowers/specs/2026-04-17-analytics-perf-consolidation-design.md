@@ -1,6 +1,6 @@
 # Analytics Dashboard Perf & Chart Primitives Consolidation — Design Spec
 
-**Phase:** 999.5 (promoted from backlog)
+**Phase:** 80.1 (promoted from backlog)
 **Date:** 2026-04-17
 **Author:** Brainstormed with Lucas
 **Related:**
@@ -355,7 +355,7 @@ See "HUMAN-UAT Items" section below.
 - **Nivo heatmap smoke tests:** Render `DayHourHeatmap` + `SkuChannelHeatmap` with fixture data, assert cell count matches data length
 - **No visual regression:** Out of scope per project convention; heatmaps covered by HUMAN-UAT
 
-### HUMAN-UAT items (persist to `.planning/phases/999.5-analytics-perf-consolidation/999.5-HUMAN-UAT.md`)
+### HUMAN-UAT items (persist to `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`)
 
 1. Open `/analytics` on production data — date range change refreshes all widgets smoothly with no flicker
 2. Channel filter change — dashboard re-renders in under 1s on production data
@@ -372,7 +372,7 @@ See "HUMAN-UAT Items" section below.
 
 ## Migration / Rollout
 
-Single phase, three commits on `gsd/phase-999.5-analytics-perf-consolidation`:
+Single phase, three commits on `gsd/phase-80.1-analytics-perf-consolidation`:
 
 1. **Commit 1 — Backend snapshot queries + shared loader hoist.** Backward-compatible; 11 wrappers preserved. Safe to ship alone.
 2. **Commit 2 — Frontend hooks migration + shared chart primitives + contrast/readability fixes.** Swaps imports; heatmaps still hand-rolled but now styled via shared primitives. Safe to ship alone.
@@ -415,4 +415,4 @@ Each commit is independently deployable — Convex + Vercel can ship any subset.
 
 - `docs/CHANGELOG.md` — always required
 - `docs/API_REFERENCE.md` — document 3 new snapshot queries; mark 11 wrappers deprecated-then-removed
-- `docs/ROADMAP.md` — move Phase 999.5 from Backlog section into the v2.0 milestone completion row (or leave in v2.0 if promoted mid-milestone)
+- `docs/ROADMAP.md` — move Phase 80.1 from Backlog section into the v2.0 milestone completion row (or leave in v2.0 if promoted mid-milestone)
