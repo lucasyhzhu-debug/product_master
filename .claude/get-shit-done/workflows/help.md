@@ -134,23 +134,25 @@ Usage: `/gsd-do I want to start a new milestone`
 
 ### Quick Mode
 
-**`/gsd-quick [--quick] [--discuss]`**
-Execute small, ad-hoc tasks with full quality gates by default (plan-checking, verification, triple-review, simplify).
+**`/gsd-quick [--full] [--validate] [--discuss] [--research]`**
+Execute small, ad-hoc tasks with GSD guarantees but skip optional agents.
 
 Quick mode uses the same system with a shorter path:
-- Default: full quality pipeline including plan-checking, verification, triple-review, and simplify
+- Spawns planner + executor (skips researcher, checker, verifier by default)
 - Quick tasks live in `.planning/quick/` separate from planned phases
 - Updates STATE.md tracking (not ROADMAP.md)
 
-Flags:
-- `--quick` — Skip optional quality agents (researcher, checker, verifier, triple-review, simplify). Spawns planner + executor only.
+Flags enable additional quality steps:
+- `--full` — Complete quality pipeline: discussion + research + plan-checking + verification
+- `--validate` — Plan-checking (max 2 iterations) and post-execution verification only
 - `--discuss` — Lightweight discussion to surface gray areas before planning
+- `--research` — Focused research agent investigates approaches before planning
 
-Composable flags: `--quick --discuss` gives discussion + fast execution.
+Granular flags are composable: `--discuss --research --validate` gives the same as `--full`.
 
 Usage: `/gsd-quick`
-Usage: `/gsd-quick --quick`
-Usage: `/gsd-quick --discuss`
+Usage: `/gsd-quick --full`
+Usage: `/gsd-quick --research --validate`
 Result: Creates `.planning/quick/NNN-slug/PLAN.md`, `.planning/quick/NNN-slug/SUMMARY.md`
 
 ---
@@ -231,9 +233,6 @@ Usage: `/gsd-complete-milestone 1.0.0`
 **`/gsd-progress`**
 Check project status and intelligently route to next action.
 
-- Dispatches 3 parallel sub-agents for fast data gathering
-- Shows Phase Overview table with per-phase status (complete/in-progress/planned)
-- Identifies parallelizable phases and suggests commands
 - Shows visual progress bar and completion percentage
 - Summarizes recent work from SUMMARY files
 - Displays current position and what's next
@@ -346,7 +345,7 @@ Usage: `/gsd-ship 4` or `/gsd-ship 4 --draft`
 
 ---
 
-**`/gsd-review --phase N [--gemini] [--claude] [--codex] [--coderabbit] [--all]`**
+**`/gsd-review --phase N [--gemini] [--claude] [--codex] [--coderabbit] [--opencode] [--qwen] [--cursor] [--all]`**
 Cross-AI peer review — invoke external AI CLIs to independently review phase plans.
 
 - Detects available CLIs (gemini, claude, codex, coderabbit)

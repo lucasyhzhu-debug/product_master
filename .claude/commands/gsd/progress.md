@@ -6,7 +6,6 @@ allowed-tools:
   - Bash
   - Grep
   - Glob
-  - Agent
   - SlashCommand
 ---
 <objective>

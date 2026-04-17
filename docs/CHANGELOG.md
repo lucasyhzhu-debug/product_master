@@ -16,6 +16,24 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Chore: GSD — reapply local patches 1-5 against v1.36.0 -- 2026-04-17
+
+**For the team:** The GSD 1.34.2 → 1.36.0 clean install yesterday wiped all local workflow customizations (11 patches). Five of those have been reapplied against v1.36.0 so automated quality gates and PR-merge ceremony are back in every GSD workflow that produces code changes. The other six were evaluated as obsolete or no longer wanted and dropped from `PATCHES.md`.
+
+**What shipped:**
+- `get-shit-done/workflows/execute-phase.md` — new `triple_review`, `simplify`, and `document_and_merge` steps between `update_project_md` and `offer_next`. Phase merges now auto-update `CHANGELOG.md`, open a PR, squash-merge, and sync `main`.
+- `get-shit-done/workflows/quick.md` — new Steps 6.3 (triple review), 6.4 (simplify), and 9 (document & merge) for `--full` mode quick tasks.
+- `commands/gsd/debug.md` — new Steps 5 (quality gates: triple review + simplify) and 6 (document & merge) after a debug session applies a fix. Skipped on `--diagnose` and `ABANDONED` sessions.
+- `get-shit-done/workflows/plan-phase.md` — new Step 12.6 "Staff Review Gate" after Plan Bounce. Routes the COMPLETE tiered findings list (Critical + Important + Refinements + Minor + Nitpick) back through the revision loop — not just Critical. Step 11 and Step 12 exits renumbered accordingly.
+- `gsd-local-patches/PATCHES.md` — rewritten to document only the 5 surviving patches. Dropped entries retained in a traceability table.
+
+**Config gates added (all opt-in, default `false` where marked):**
+- `workflow.triple_review` — runs `/triple-review` skill after code changes
+- `workflow.simplify` — runs `/simplify` skill after code changes
+- `workflow.staffreview` (default `true`) — runs `/staffreview` skill on plan-phase output
+
+**Dropped patches:** `--quick` default inversion, parallel `/gsd-progress`, auto-reapply on update, auto-run Convex seeds, explicit TaskCreate task tree. See `PATCHES.md` traceability table.
+
 ### Chore: CI — run Deploy workflow on PRs for pre-merge gating -- 2026-04-17
 
 **For the team:** Broken TypeScript (or any build failure) now blocks the PR merge button, not just the post-merge deploy. PRs targeting `main` will show a red "Deploy" check if lint or `npm run build` fails.

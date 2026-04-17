@@ -1,9 +1,7 @@
 <purpose>
 Execute small, ad-hoc tasks with GSD guarantees (atomic commits, STATE.md tracking). Quick mode spawns gsd-planner (quick mode) + gsd-executor(s), tracks tasks in `.planning/quick/`, and updates STATE.md's "Quick Tasks Completed" table.
 
-By default: the complete quality pipeline is enabled — discussion + research + plan-checking + verification + triple-review + simplify.
-
-With `--quick` flag: skips quality gates (plan-checking, verification, triple-review, simplify) for fast execution. Use when the task is trivial and you want speed over thoroughness.
+With `--full` flag: enables the complete quality pipeline — discussion + research + plan-checking + verification. One flag for everything.
 
 With `--validate` flag: enables plan-checking (max 2 iterations) and post-execution verification only. Use when you want quality guarantees without discussion or research.
 
@@ -11,7 +9,7 @@ With `--discuss` flag: lightweight discussion phase before planning. Surfaces as
 
 With `--research` flag: spawns a focused research agent before planning. Investigates implementation approaches, library options, and pitfalls. Use when you're unsure how to approach a task.
 
-Granular flags are composable: `--discuss --quick` gives discussion but skips quality gates.
+Granular flags are composable: `--discuss --research --validate` gives the same result as `--full`.
 </purpose>
 
 <required_reading>
@@ -32,15 +30,16 @@ Valid GSD subagent types (use exact names — do not fall back to 'general-purpo
 **Step 1: Parse arguments and get task description**
 
 Parse `$ARGUMENTS` for:
-- `--quick` flag → store `$QUICK_MODE=true`
+- `--full` flag → store `$FULL_MODE=true`, `$DISCUSS_MODE=true`, `$RESEARCH_MODE=true`, `$VALIDATE_MODE=true`
 - `--validate` flag → store `$VALIDATE_MODE=true`
 - `--discuss` flag → store `$DISCUSS_MODE=true`
 - `--research` flag → store `$RESEARCH_MODE=true`
-- Derive: `$FULL_MODE = NOT $QUICK_MODE` (true by default — quality gates on unless `--quick` is passed)
-- When `$FULL_MODE`: implicitly set `$DISCUSS_MODE=true`, `$RESEARCH_MODE=true`, `$VALIDATE_MODE=true`
 - Remaining text → use as `$DESCRIPTION` if non-empty
 
 If `$DESCRIPTION` is empty after parsing, prompt user interactively:
+
+
+**Text mode (`workflow.text_mode: true` in config or `--text` flag):** Set `TEXT_MODE=true` if `--text` is present in `$ARGUMENTS` OR `text_mode` from init JSON is `true`. When TEXT_MODE is active, replace every `AskUserQuestion` call with a plain-text numbered list and ask the user to type their choice number. This is required for non-Claude runtimes (OpenAI Codex, Gemini CLI, etc.) where `AskUserQuestion` is not available.
 
 ```
 AskUserQuestion(
@@ -56,25 +55,16 @@ If still empty, re-prompt: "Please provide a task description."
 
 Display banner based on active flags:
 
-If `$FULL_MODE` (default — quality gates enabled):
+If `$FULL_MODE` (all phases enabled — `--full` or all granular flags):
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK
+ GSD ► QUICK TASK (FULL)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-◆ Plan checking + verification enabled (default)
+◆ Discussion + research + plan checking + verification enabled
 ```
 
-If `$QUICK_MODE` (quality gates skipped — `--quick` flag):
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► QUICK TASK (FAST)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-◆ Quality gates skipped — fast execution
-```
-
-If `$DISCUSS_MODE` and `$RESEARCH_MODE` and `$VALIDATE_MODE` and `$QUICK_MODE` (composed granularly with --quick):
+If `$DISCUSS_MODE` and `$RESEARCH_MODE` and `$VALIDATE_MODE` (no `$FULL_MODE` — composed granularly):
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► QUICK TASK (DISCUSS + RESEARCH + VALIDATE)
@@ -154,6 +144,15 @@ Parse JSON for: `planner_model`, `executor_model`, `checker_model`, `verifier_mo
 
 ```bash
 USE_WORKTREES=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.use_worktrees 2>/dev/null || echo "true")
+```
+
+If the project uses git submodules, worktree isolation is skipped:
+
+```bash
+if [ -f .gitmodules ]; then
+  echo "[worktree] Submodule project detected (.gitmodules exists) — falling back to sequential execution"
+  USE_WORKTREES=false
+fi
 ```
 
 **If `roadmap_exists` is false:** Error — Quick mode requires an active project with ROADMAP.md. Run `/gsd-new-project` first.
@@ -562,22 +561,6 @@ Offer: 1) Force proceed, 2) Abort
 
 ---
 
-**Task tree:** Before spawning the executor, create explicit tasks for ALL execution phases using `TaskCreate`. This ensures every quality gate is visible in the task tree:
-
-```
-TaskCreate("Execute quick task")
-TaskCreate("Code review", blockedBy: [executor_task])           # Step 6.25 (if $FULL_MODE)
-TaskCreate("Verification", blockedBy: [code_review_task])       # Step 6.5 (if $VALIDATE_MODE)
-TaskCreate("Triple review (/triple-review)", blockedBy: [verification_task])  # Step 6.1 (if $FULL_MODE)
-TaskCreate("Simplify (/simplify)", blockedBy: [triple_review_task])           # Step 6.2 (if $FULL_MODE)
-TaskCreate("Update state and commit", blockedBy: [simplify_task])             # Steps 7-8
-TaskCreate("Document and merge", blockedBy: [state_task])                     # Step 9 (if on feature branch)
-```
-
-Only create tasks for steps that will actually run (based on `$FULL_MODE`, `$VALIDATE_MODE`, and branch). Update each task's status to `in_progress` when starting and `completed` when done. If a step is skipped (config disabled), mark its task `completed` with a skip note.
-
----
-
 **Step 6: Spawn executor**
 
 Capture current HEAD before spawning (used for worktree branch check):
@@ -596,8 +579,10 @@ ${USE_WORKTREES !== "false" ? `
 <worktree_branch_check>
 FIRST ACTION before any other work: verify this worktree branch is based on the correct commit.
 Run: git merge-base HEAD ${EXPECTED_BASE}
-If the result differs from ${EXPECTED_BASE}, run: git reset --soft ${EXPECTED_BASE}
-This corrects a known issue on Windows where EnterWorktree creates branches from main instead of the feature branch HEAD.
+If the result differs from ${EXPECTED_BASE}, hard-reset to the correct base (safe — runs before any agent work):
+  git reset --hard ${EXPECTED_BASE}
+Then verify: if [ "$(git rev-parse HEAD)" != "${EXPECTED_BASE}" ]; then echo "ERROR: Could not correct worktree base"; exit 1; fi
+This corrects a known issue where EnterWorktree creates branches from main instead of the feature branch HEAD (affects all platforms).
 </worktree_branch_check>
 ` : ''}
 
@@ -637,8 +622,8 @@ After executor returns:
        # Backup STATE.md and ROADMAP.md before merge (main always wins)
        STATE_BACKUP=$(mktemp)
        ROADMAP_BACKUP=$(mktemp)
-       git show HEAD:.planning/STATE.md > "$STATE_BACKUP" 2>/dev/null || true
-       git show HEAD:.planning/ROADMAP.md > "$ROADMAP_BACKUP" 2>/dev/null || true
+       [ -f .planning/STATE.md ] && cp .planning/STATE.md "$STATE_BACKUP" || true
+       [ -f .planning/ROADMAP.md ] && cp .planning/ROADMAP.md "$ROADMAP_BACKUP" || true
 
        # Snapshot files on main to detect resurrections
        PRE_MERGE_FILES=$(git ls-files .planning/)
@@ -738,6 +723,58 @@ If review produces findings, display advisory message. **Error handling:** Failu
 
 ---
 
+**Step 6.3: Triple review (only when `$FULL_MODE`)**
+
+Skip this step entirely if `$FULL_MODE` is false.
+
+**Config gate:**
+```bash
+TRIPLE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+```
+If `"false"`, skip with message `"Triple review skipped (workflow.triple_review=false)"`.
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► TRIPLE REVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+Invoke triple-review:
+```
+Skill(skill="triple-review", args="${QUICK_DIR}/${quick_id}-PLAN.md")
+```
+
+**Handle results — ALL findings route to fix, not just Critical.**
+
+triple-review returns tiered feedback: Critical + Important + Refinements + Minor + Nitpick. Route the COMPLETE tiered list back to the fixer — do not filter by tier. Every finding is addressed.
+
+If findings exist: spawn gsd-executor to apply fixes, commit as `fix(quick-${quick_id}): address triple-review findings`. Re-run triple-review once if new Critical findings surface; surface to user.
+
+**Non-blocking error handling:** Skill failure logs a warning and proceeds to Step 6.4.
+
+---
+
+**Step 6.4: Simplify (only when `$FULL_MODE`)**
+
+Skip this step entirely if `$FULL_MODE` is false.
+
+**Config gate:**
+```bash
+SIMPLIFY_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "false")
+```
+If `"false"`, skip with message `"Simplify skipped (workflow.simplify=false)"`.
+
+```
+Skill(skill="simplify")
+```
+
+If the skill proposes changes, apply them and commit as `refactor(quick-${quick_id}): simplify after review`.
+
+**Non-blocking error handling:** Skill failure logs a warning and proceeds.
+
+---
+
 **Step 6.5: Verification (only when `$VALIDATE_MODE`)**
 
 Skip this step entirely if NOT `$VALIDATE_MODE`.
@@ -779,87 +816,9 @@ Store as `$VERIFICATION_STATUS`.
 
 | Status | Action |
 |--------|--------|
-| `passed` | Store `$VERIFICATION_STATUS = "Verified"`, continue to step 6.1 (triple review) |
+| `passed` | Store `$VERIFICATION_STATUS = "Verified"`, continue to step 7 |
 | `human_needed` | Display items needing manual check, store `$VERIFICATION_STATUS = "Needs Review"`, continue |
 | `gaps_found` | Display gap summary, offer: 1) Re-run executor to fix gaps, 2) Accept as-is. Store `$VERIFICATION_STATUS = "Gaps"` |
-
----
-
-**Step 6.1: Triple review (only when `$FULL_MODE`)**
-
-Skip this step entirely if NOT `$FULL_MODE`.
-
-**Config gate:**
-```bash
-TRIPLE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
-```
-If `"false"`, skip with message "Triple review skipped (workflow.triple_review=false)".
-
-Display banner:
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► TRIPLE REVIEW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-◆ Reviewing ALL findings (Critical + Important + Minor + Nitpick)...
-```
-
-Spawn triple-review sub-agent:
-
-```
-Task(
-  prompt="Triple-review the quick task implementation.
-  Task: ${DESCRIPTION}
-  Directory: ${QUICK_DIR}
-  Review ALL findings (Critical + Important + Minor + Nitpick) and fix every issue before proceeding.",
-  subagent_type="gsd-code-reviewer",
-  model="{executor_model}",
-  description="Triple review: ${DESCRIPTION}"
-)
-```
-
-After triple-review returns:
-1. If findings were reported, fix ALL findings (Critical + Important + Minor + Nitpick) before proceeding
-2. Commit all fixes atomically
-3. Report: "Triple review complete — all findings resolved"
-
----
-
-**Step 6.2: Simplify (only when `$FULL_MODE`)**
-
-Skip this step entirely if NOT `$FULL_MODE`.
-
-**Config gate:**
-```bash
-SIMPLIFY_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.simplify 2>/dev/null || echo "true")
-```
-If `"false"`, skip with message "Simplify skipped (workflow.simplify=false)".
-
-Display banner:
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► SIMPLIFY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-◆ Reviewing for reuse, quality, and efficiency...
-```
-
-Spawn simplify sub-agent:
-
-```
-Task(
-  prompt="Review changed code for reuse, quality, and efficiency, then fix any issues found.
-  Task: ${DESCRIPTION}
-  Directory: ${QUICK_DIR}",
-  subagent_type="gsd-executor",
-  model="{executor_model}",
-  description="Simplify: ${DESCRIPTION}"
-)
-```
-
-After simplify returns:
-1. If fixes were made, commit them atomically
-2. Report: "Simplify complete"
 
 ---
 
@@ -891,7 +850,7 @@ Insert after `### Blockers/Concerns` section:
 |---|-------------|------|--------|-----------|
 ```
 
-**Note:** If the table already exists, match its existing column format. If adding `--validate` (or running in default full mode) to a project that already has quick tasks without a Status column, add the Status column to the header and separator rows, and leave Status empty for the new row's predecessors.
+**Note:** If the table already exists, match its existing column format. If adding `--validate` (or `--full`) to a project that already has quick tasks without a Status column, add the Status column to the header and separator rows, and leave Status empty for the new row's predecessors.
 
 **7c. Append new row to table:**
 
@@ -990,56 +949,56 @@ Ready for next task: /gsd-quick ${GSD_WS}
 
 **Step 9: Document and merge (only when on a feature branch)**
 
-Check current branch:
+Skip if the current branch is `main` or if `branch_name` from init was empty.
+
 ```bash
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 ```
 
-If `$CURRENT_BRANCH` is `main` or `master`, skip this step entirely with message: "On main — skipping document & merge step."
+If `CURRENT_BRANCH` equals `main`, skip this step.
 
-**9a. Update CHANGELOG.md:**
+**1. Update CHANGELOG.md:**
 
-Add a quick task entry to `docs/CHANGELOG.md`:
-```markdown
-- Quick task ${quick_id}: ${DESCRIPTION}
-```
+Read `docs/CHANGELOG.md` (skip if missing). Add a one-line entry under `[Unreleased]` derived from `${DESCRIPTION}` and the SUMMARY.md.
 
 Commit:
 ```bash
-git add docs/CHANGELOG.md
-node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs: update CHANGELOG for quick task ${quick_id}" --files docs/CHANGELOG.md
+node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" commit "docs(quick-${quick_id}): add changelog entry" --files docs/CHANGELOG.md
 ```
 
-**9b. Push and create PR:**
+**2. Push branch and create PR:**
 
 ```bash
 git push origin "${CURRENT_BRANCH}" -u
+PR_URL=$(gh pr create \
+  --title "${DESCRIPTION}" \
+  --body "Quick task ${quick_id}. See ${QUICK_DIR}/${quick_id}-SUMMARY.md for details.")
+PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
 ```
 
-Create PR using `gh`:
+If `gh pr create` fails, surface the error with the branch name and stop — do not attempt merge.
+
+**3. Squash-merge PR and sync main:**
+
 ```bash
-gh pr create --title "Quick task ${quick_id}: ${DESCRIPTION}" --body "Quick task executed via GSD quick workflow.
-
-Summary: ${QUICK_DIR}/${quick_id}-SUMMARY.md"
+gh pr merge "${PR_NUMBER}" --squash --delete-branch
+git checkout main && git pull origin main
 ```
 
-**9c. Squash-merge and sync:**
-
-```bash
-gh pr merge --squash --auto
-git switch main
-git pull origin main
+**Report:**
+```
+✓ Quick task ${quick_id} merged to main via PR #${PR_NUMBER}
 ```
 
-Report: "PR created and auto-merge enabled for ${CURRENT_BRANCH}"
+**Non-blocking error handling:** If any post-PR step fails, report the PR URL so the user can finish the merge manually.
 
 </process>
 
 <success_criteria>
 - [ ] ROADMAP.md validation passes
 - [ ] User provides task description
-- [ ] `--quick`, `--validate`, `--discuss`, and `--research` flags parsed from arguments when present
-- [ ] `$FULL_MODE` is true by default (quality gates on); `--quick` sets `$QUICK_MODE=true` and `$FULL_MODE=false` (default, skip with --quick)
+- [ ] `--full`, `--validate`, `--discuss`, and `--research` flags parsed from arguments when present
+- [ ] `--full` sets all booleans (`$FULL_MODE`, `$DISCUSS_MODE`, `$RESEARCH_MODE`, `$VALIDATE_MODE`)
 - [ ] Slug generated (lowercase, hyphens, max 40 chars)
 - [ ] Quick ID generated (YYMMDD-xxx format, 2s Base36 precision)
 - [ ] Directory created at `.planning/quick/YYMMDD-xxx-slug/`
@@ -1050,8 +1009,5 @@ Report: "PR created and auto-merge enabled for ${CURRENT_BRANCH}"
 - [ ] `${quick_id}-SUMMARY.md` created by executor
 - [ ] (--validate) `${quick_id}-VERIFICATION.md` created by verifier
 - [ ] STATE.md updated with quick task row (Status column when --validate)
-- [ ] (default, skip with --quick) Triple review spawned, ALL findings (Critical + Important + Minor + Nitpick) fixed
-- [ ] (default, skip with --quick) Simplify agent spawned, fixes committed
-- [ ] (on feature branch) CHANGELOG.md updated, PR created, squash-merged
 - [ ] Artifacts committed
 </success_criteria>

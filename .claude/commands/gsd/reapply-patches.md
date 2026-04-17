@@ -120,44 +120,6 @@ after modifying any GSD workflow, command, or agent files.
 ```
 Exit.
 
-## Step 1.5: Load PATCHES.md (intent-aware merge metadata)
-
-Check for a `PATCHES.md` file in the patches directory:
-
-```bash
-PATCHES_MD="$PATCHES_DIR/PATCHES.md"
-if [ -f "$PATCHES_MD" ]; then
-  HAS_PATCHES_MD=true
-fi
-```
-
-If `PATCHES.md` exists, parse it into structured patch data. Each patch section follows this format:
-
-```markdown
-## Patch N: {purpose}
-- **File:** {relative_path}
-- **Insertion anchor:** {text or regex to locate insertion point}
-- **Position:** {before|after|replace} anchor
-- **Dependencies:** {comma-separated patch IDs, or "none"}
-- **Verify:** {bash command to confirm patch applied correctly}
-
-```
-{patch content}
-```
-```
-
-Parse each `## Patch N:` section into structured data:
-- `patch_id` — the patch number
-- `file` — target file path (relative to config directory)
-- `purpose` — human-readable description from the heading
-- `insertion_anchor` — text/regex to locate where content goes
-- `position` — whether to insert before, after, or replace the anchor
-- `content` — the fenced code block contents
-- `dependencies` — list of patch IDs that must be applied first
-- `verify_command` — bash command to verify successful application
-
-Store as an ordered list for dependency-aware application in Step 4.
-
 ## Step 2: Determine baseline for three-way comparison
 
 The quality of the merge depends on having a **pristine baseline** — the original unmodified version of each file from the pre-update GSD release. This enables three-way comparison:
@@ -230,18 +192,6 @@ Compare the three versions to isolate changes:
 - Sections changed by both → flag as CONFLICT, show both, ask user
 - Sections unchanged by either → use new version (identical to all three)
 
-
-### Intent-aware merge (when PATCHES.md is available)
-
-For files that have corresponding entries in `PATCHES.md`, use **anchor-based insertion** instead of blind line-by-line diffing:
-
-1. **Locate the anchor** in the newly installed file using the `insertion_anchor` field
-2. **Verify anchor exists** — if the anchor text is not found (upstream restructured the file), fall back to three-way or two-way merge and flag as CONFLICT
-3. **Apply the patch content** at the specified `position` (before/after/replace) relative to the anchor
-4. **Mark as intent-applied** — these patches are higher confidence than diff-based merges because the user explicitly documented what goes where
-
-**Priority:** When both PATCHES.md entries and diff-based customizations exist for the same file, apply PATCHES.md entries first (they are authoritative), then layer any remaining diff-based customizations that don't overlap.
-
 ### Two-way merge (fallback when no baseline)
 
 When no pristine baseline is available, use these **strengthened heuristics**:
@@ -280,57 +230,61 @@ After writing each merged file, verify that user modifications survived the merg
      - Missing hunk near line {N}: "{first_line_preview}..." ({line_count} lines)
      - Backup available: {patches_dir}/{file_path}
    ```
-4. **Track verification status** — add to per-file report: `Merged (verified)` vs `Merged (⚠ {N} hunks may be missing)`
+4. **Produce a Hunk Verification Table** — one row per hunk per file. This table is **mandatory output** and must be produced before Step 5 can proceed. Format:
 
-### Dependency checking
+   | file | hunk_id | signature_line | line_count | verified |
+   |------|---------|----------------|------------|----------|
+   | {file_path} | {N} | {first_significant_line} | {count} | yes |
+   | {file_path} | {N} | {first_significant_line} | {count} | no |
 
-After all files are merged, verify patch dependencies are satisfied:
+   - `hunk_id` — sequential integer per file (1, 2, 3…)
+   - `signature_line` — first non-blank, non-comment line of the user-added section
+   - `line_count` — total lines in the hunk
+   - `verified` — `yes` if the signature_line is present in the merged output, `no` otherwise
 
-1. **Build dependency graph** from PATCHES.md `dependencies` fields
-2. **Topological sort** — confirm patches were applied in dependency order
-3. **Cross-patch validation** — for each patch with dependencies, verify the dependent content exists in the merged output (not just that the patch was applied, but that the content it depends on is present)
-4. **Report dependency issues:**
-   ```
-   Dependency check: {passed_count}/{total_count} patches have satisfied dependencies
-   {If any failed:}
-   WARNING: Patch {N} depends on Patch {M}, but Patch {M} content not found in {file}
-   ```
+5. **Track verification status** — add to per-file report: `Merged (verified)` vs `Merged (⚠ {N} hunks may be missing)`
 
-5. **Report status per file:**
+6. **Report status per file:**
    - `Merged` — user modifications applied cleanly (show summary of what was preserved)
    - `Conflict` — user reviewed and chose resolution
    - `Incorporated` — user's modification was already adopted upstream (only valid when pristine baseline confirms this)
 
 **Never report `Skipped — no custom content`.** If a file is in the backup, it has custom content.
 
-## Step 5: Cleanup option
+## Step 5: Hunk Verification Gate
+
+Before proceeding to cleanup, evaluate the Hunk Verification Table produced in Step 4.
+
+**If the Hunk Verification Table is absent** (Step 4 did not produce it), STOP immediately and report to the user:
+```
+ERROR: Hunk Verification Table is missing. Post-merge verification was not completed.
+Rerun /gsd-reapply-patches to retry with full verification.
+```
+
+**If any row in the Hunk Verification Table shows `verified: no`**, STOP and report to the user:
+```
+ERROR: {N} hunk(s) failed verification — content may have been dropped during merge.
+
+Unverified hunks:
+  {file} hunk {hunk_id}: signature line "{signature_line}" not found in merged output
+
+The backup is preserved at: {patches_dir}/{file}
+Review the merged file manually, then either:
+  (a) Re-merge the missing content by hand, or
+  (b) Restore from backup: cp {patches_dir}/{file} {installed_path}
+```
+
+Do not proceed to cleanup until the user confirms they have resolved all unverified hunks.
+
+**Only when all rows show `verified: yes`** (or when all files had zero user-added hunks) may execution continue to Step 6.
+
+## Step 6: Cleanup option
 
 Ask user:
 - "Keep patch backups for reference?" → preserve `gsd-local-patches/`
 - "Clean up patch backups?" → remove `gsd-local-patches/` directory
 
-## Step 5.5: Run verification commands
-
-If PATCHES.md was loaded in Step 1.5, run each patch's `verify_command`:
-
-```
-## Patch Verification
-
-| Patch | File | Verify Command | Result |
-|-------|------|---------------|--------|
-| 1 | {file} | {command} | PASS/FAIL |
-| 2 | {file} | {command} | PASS/FAIL |
-```
-
-For each verification command:
-1. Run the bash command from the `verify` field
-2. Exit code 0 = PASS, non-zero = FAIL
-3. On FAIL, show the command output and flag the patch for manual review
-4. Continue running all verification commands even if some fail
-
-If no PATCHES.md was loaded, skip this step.
-
-## Step 6: Report
+## Step 7: Report
 
 ```
 ## Patches Reapplied
@@ -354,8 +308,4 @@ If no PATCHES.md was loaded, skip this step.
 - [ ] Conflicts surfaced to user with both versions shown
 - [ ] Status reported for each file with summary of what was preserved
 - [ ] Post-merge verification checks each file for dropped hunks and warns if content appears missing
-- [ ] PATCHES.md loaded and parsed when present in patches directory
-- [ ] Intent-aware (anchor-based) merge used for files with PATCHES.md entries
-- [ ] Patch dependencies verified after all merges complete
-- [ ] Verification commands from PATCHES.md executed and results reported
 </success_criteria>
