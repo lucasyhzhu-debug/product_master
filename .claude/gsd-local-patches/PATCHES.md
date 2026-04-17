@@ -8,31 +8,75 @@ Frollie Recipe Master customizations to GSD workflows. These modifications add q
 
 ---
 
-## Patch 1: execute-phase — Triple-review, simplify, document & merge
+## Patch 1: execute-phase — Quad review, simplify, document & merge
 
-**File:** `get-shit-done/workflows/execute-phase.md`
-**Purpose:** After phase verification and roadmap update, run quality gates (triple-review, simplify) and close the loop with automated CHANGELOG update, PR creation, squash-merge, and main sync. Eliminates manual post-phase merge ceremony.
-**Insertion anchor:** Three new steps between `</step>` closing `update_project_md` and `<step name="offer_next">`, in order: `triple_review` → `simplify` → `document_and_merge`.
+**Files:**
+- `get-shit-done/workflows/execute-phase.md`
+- `.claude/commands/triple-review.md` (external-review arg support)
+
+**Purpose:** Consolidate the upstream `code_review_gate` step (runs `gsd:code-review`, writes `REVIEW.md`) with our multi-perspective review into a single `quad_review` step that runs both, then folds `REVIEW.md` into triple-review's synthesis as a 4th reviewer. Eliminates running a standalone code review and a separate triple-review over the same code. Also adds `simplify` and `document_and_merge` steps after verification.
+
+**Insertion anchors:**
+- `execute-phase.md`: REPLACE the upstream `<step name="code_review_gate" required="true">...</step>` block (positioned between `handle_partial_wave_execution` and `close_parent_artifacts`) with a new `<step name="quad_review">`. This runs BEFORE `verify_phase_goal` so fixes get verified.
+- `execute-phase.md`: INSERT `<step name="simplify">` and `<step name="document_and_merge">` between `</step>` closing `update_project_md` and `<step name="offer_next">`.
+- `triple-review.md`: Add `--external-review=PATH` arg parsing in Step 0 and fold the referenced file into Step 4 synthesis.
+
 **Dependencies:**
 - `docs/CHANGELOG.md` (must exist; skipped with warning if missing)
 - `gh` CLI authenticated
+- `workflow.code_review` config key (default `true` upstream; still respected)
 - `workflow.triple_review` config key (default `false`, opt-in)
 - `workflow.simplify` config key (default `false`, opt-in)
 - Git `branching_strategy` in `.planning/config.json` is not `"none"`
 - `.claude/commands/triple-review.md` skill
+- `.claude/get-shit-done/workflows/code-review.md` (upstream skill that produces REVIEW.md)
 
 **Content summary:**
-- `triple_review` step: config-gated, runs `Skill(triple-review, PHASE_NUMBER)`. Routes ALL tiered findings (Critical + Important + Refinements + Minor + Nitpick) to gsd-executor for fixes. Non-blocking on skill failure.
+- `quad_review` step replaces `code_review_gate`: runs `gsd:code-review` (produces REVIEW.md) then `triple-review --external-review=${REVIEW_FILE}` to synthesize 4 reviewer perspectives into a single tiered report. Degrades gracefully:
+  - both `code_review` + `triple_review` enabled → full quad review
+  - only `code_review` enabled → code review only (upstream behavior preserved)
+  - only `triple_review` enabled → 3-reviewer synthesis (no REVIEW.md)
+  - both disabled → skipped entirely
+  - if `gsd:code-review` fails, falls back to 3-reviewer synthesis without REVIEW.md
+- Routes ALL tiered findings (Critical + Important + Refinements + Minor + Nitpick) to gsd-executor for fixes. Non-blocking on skill failure.
 - `simplify` step: config-gated, runs `Skill(simplify)`. Commits cleanup as `refactor(phase-N): simplify after review`.
 - `document_and_merge` step: updates CHANGELOG, pushes branch, `gh pr create`, `gh pr merge --squash --delete-branch`, syncs main. Skips when `branching_strategy=none`. Surfaces PR URL on any post-PR failure so the user can complete the merge manually.
 
+**triple-review.md changes:**
+- `<context>` block: documents `--external-review=PATH` arg
+- Step 0: parses `--external-review=` from `$ARGUMENTS` into `$EXTERNAL_REVIEW`, validates file exists (falls back to 3-reviewer mode if not)
+- Step 4: when `$EXTERNAL_REVIEW` is set, parses its findings (with severity-vocabulary mapping for foreign formats) and treats them as a 4th reviewer vote when cross-referencing. Report header reads "Quad Review" and names `gsd-code-reviewer` alongside the three live agents.
+
 **Verification:**
 ```bash
-grep -c "triple_review" .claude/get-shit-done/workflows/execute-phase.md
-# Expected: >= 2 (step name + narrative reference)
-grep -c "document_and_merge" .claude/get-shit-done/workflows/execute-phase.md
+# New quad_review step exists
+grep -c '<step name="quad_review">' .claude/get-shit-done/workflows/execute-phase.md
 # Expected: >= 1
+
+# Upstream code_review_gate STEP TAG must be gone (narrative mentions inside quad_review are OK)
+grep -c '<step name="code_review_gate"' .claude/get-shit-done/workflows/execute-phase.md
+# Expected: 0
+
+# Old late-position triple_review step must be gone (now consolidated into quad_review)
+grep -c '<step name="triple_review">' .claude/get-shit-done/workflows/execute-phase.md
+# Expected: 0
+
+# Simplify + document_and_merge steps remain late-position
+grep -c '<step name="simplify">' .claude/get-shit-done/workflows/execute-phase.md
+# Expected: >= 1
+grep -c '<step name="document_and_merge">' .claude/get-shit-done/workflows/execute-phase.md
+# Expected: >= 1
+
+# Tier-handling rule preserved
 grep -c "Route the COMPLETE tiered list" .claude/get-shit-done/workflows/execute-phase.md
+# Expected: >= 1
+
+# triple-review skill changes
+grep -c "external-review" .claude/commands/triple-review.md
+# Expected: >= 3 (arg docs + parser + synthesis)
+grep -c "EXTERNAL_REVIEW" .claude/commands/triple-review.md
+# Expected: >= 3
+grep -c "Quad Review" .claude/commands/triple-review.md
 # Expected: >= 1
 ```
 

@@ -11,16 +11,35 @@ Dispatch 3 independent code review agents in parallel, synthesize their findings
 
 <context>
 Arguments: $ARGUMENTS
-- First arg (optional): base branch for diff (default: `origin/main`)
-- Remaining args (optional): plan file path(s) to pass to reviewers
+- First positional arg (optional): base branch for diff (default: `origin/main`)
+- `--external-review=PATH`: path to a pre-computed review file (e.g., gsd-code-review REVIEW.md) to fold into the synthesis as a 4th reviewer perspective. When set, the unified report becomes a "quad review" covering 3 live agents + 1 pre-computed review.
+- Remaining positional args (optional): plan file path(s) to pass to reviewers
 </context>
 
 <process>
 
 ## 0. Gather Git Context
 
+Parse arguments first:
 ```bash
-BASE=${1:-origin/main}
+BASE=""
+EXTERNAL_REVIEW=""
+POSITIONAL_ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --external-review=*)
+      EXTERNAL_REVIEW="${arg#--external-review=}"
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$arg")
+      ;;
+  esac
+done
+BASE="${POSITIONAL_ARGS[0]:-origin/main}"
+```
+
+Then gather context:
+```bash
 BRANCH=$(git branch --show-current)
 SLUG=$(echo "$BRANCH" | tr '/' '-')
 TODAY=$(date +%Y-%m-%d)
@@ -29,7 +48,17 @@ git rev-parse ${BASE} HEAD
 git diff --stat ${BASE}..HEAD -- '*.ts' '*.tsx'
 ```
 
-Extract: `branch`, `slug`, `base_sha`, `head_sha`, `commit_list`, `changed_files`.
+Extract: `branch`, `slug`, `base_sha`, `head_sha`, `commit_list`, `changed_files`, `external_review` (path or empty).
+
+If `$EXTERNAL_REVIEW` is set, verify the file exists:
+```bash
+if [ -n "$EXTERNAL_REVIEW" ] && [ ! -f "$EXTERNAL_REVIEW" ]; then
+  echo "Warning: --external-review path not found: $EXTERNAL_REVIEW — continuing as triple review (3 reviewers)"
+  EXTERNAL_REVIEW=""
+fi
+```
+
+If not found or empty, the skill runs as a standard triple review. If found, it runs as a quad review (3 live agents + 1 pre-computed perspective).
 
 ## 1. Auto-detect Supporting Files
 
@@ -218,11 +247,26 @@ Do not proceed until all three return `## [REVIEWER] COMPLETE` signals. If any a
 
 ## 4. Synthesize Findings
 
-Cross-reference all three result sets:
+Cross-reference all result sets:
+- Agent 1 (requirements-reviewer) findings
+- Agent 2 (code-quality-reviewer) findings
+- Agent 3 (staffreview) findings
+- **If `$EXTERNAL_REVIEW` is set:** parse the external review file and treat its findings as a 4th reviewer ("gsd-code-reviewer")
+
+**Parsing the external review file:**
+
+Most external review formats (including `gsd:code-review` output) produce a YAML frontmatter block with counts, followed by markdown sections like "Critical", "Important", "Minor", "Nitpick", or "Findings" with structured items. Read the file and extract each finding into the same tiered buckets used by the live agents. If the external file uses a different severity vocabulary (e.g. "blocker"/"warning"/"suggestion"), map it:
+- `blocker`, `security`, `auth-missing` → Critical
+- `warning`, `performance`, `pattern-deviation` → Important
+- `suggestion`, `clarity`, `convention` → Minor
+- `nitpick`, `style` → Nitpick
+
+If parsing fails, log a warning and fall back to 3-reviewer synthesis — do not block.
 
 **Priority rules:**
-- Flagged by 2+ reviewers → bump to highest tier claimed
+- Flagged by 2+ reviewers → bump to highest tier claimed across sources
 - Only 1 reviewer → keep at claimed tier
+- External review findings count as 1 reviewer vote when cross-referencing
 
 **Severity tiers (output order):**
 1. **Critical** — bugs, missing auth, plan violations, incorrect calculations. Must fix before merge.
@@ -230,12 +274,12 @@ Cross-reference all three result sets:
 3. **Minor** — clarity, minor gaps, style. Fix if quick; document if deferred.
 4. **Nitpick** — preferences, optional polish. Mention only, do not block.
 
-Present unified report:
+Present unified report. The header changes based on whether an external review was included:
 
 ```
-## Triple Review — {branch}
+## {Quad Review if $EXTERNAL_REVIEW else Triple Review} — {branch}
 Date: {today}
-Reviewers: requirements-reviewer · code-quality-reviewer · staffreview
+Reviewers: requirements-reviewer · code-quality-reviewer · staffreview{if $EXTERNAL_REVIEW: ` · gsd-code-reviewer (from ${EXTERNAL_REVIEW})`}
 
 ### Critical ({n})
 - [C1] {finding} — flagged by: {reviewers}

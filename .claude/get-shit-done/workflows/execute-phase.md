@@ -1003,37 +1003,69 @@ Selected wave finished successfully. This phase still has incomplete plans, so p
 - this means the selected wave happened to be the last remaining work in the phase
 </step>
 
-<step name="code_review_gate" required="true">
-**This step is REQUIRED and must not be skipped.** Auto-invoke code review on the phase's source changes. Advisory only — never blocks execution flow.
+<step name="quad_review">
+**Consolidated code review + multi-perspective review.** Replaces the upstream `code_review_gate` step by running `gsd:code-review` and `triple-review` as a single quad-review pass. REVIEW.md produced by `gsd:code-review` is fed into triple-review's synthesis as a 4th reviewer perspective.
 
-**Config gate:**
+**This step replaces the upstream `code_review_gate` step** — do not run code review separately. If you see a `code_review_gate` step in this file after a GSD update, it was re-added by the installer; the patch reapply process should delete it again.
+
+**Config gates:**
 ```bash
 CODE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.code_review 2>/dev/null || echo "true")
+TRIPLE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
 ```
 
-If `CODE_REVIEW_ENABLED` is `"false"`: display "Code review skipped (workflow.code_review=false)" and proceed to next step.
+**Config matrix:**
+- `code_review=true` AND `triple_review=true` → full quad review (recommended)
+- `code_review=true` AND `triple_review=false` → code review only (upstream behavior)
+- `code_review=false` AND `triple_review=true` → triple review only (no REVIEW.md produced)
+- both false → skip entirely, display `"Review skipped (both workflow.code_review and workflow.triple_review are false)"`
 
-**Invoke review:**
+**1. Invoke gsd:code-review (if enabled):**
 ```
 Skill(skill="gsd:code-review", args="${PHASE_NUMBER}")
 ```
 
-**Check results using deterministic path (not glob):**
+This writes `${PHASE_DIR}/${PADDED}-REVIEW.md` with YAML frontmatter containing `status` and finding counts.
+
 ```bash
 PADDED=$(printf "%02d" "${PHASE_NUMBER}")
 REVIEW_FILE="${PHASE_DIR}/${PADDED}-REVIEW.md"
-REVIEW_STATUS=$(sed -n '/^---$/,/^---$/p' "$REVIEW_FILE" | grep "^status:" | head -1 | cut -d: -f2 | tr -d ' ')
+REVIEW_STATUS=$(sed -n '/^---$/,/^---$/p' "$REVIEW_FILE" 2>/dev/null | grep "^status:" | head -1 | cut -d: -f2 | tr -d ' ')
 ```
 
-If REVIEW_STATUS is not "clean" and not "skipped" and not empty, display:
+If `gsd:code-review` fails or the file is missing, clear `REVIEW_FILE` (treat as if not produced) and log a warning. Do not block.
+
+**2. Invoke triple-review (if enabled), passing REVIEW.md as the 4th perspective:**
+
+When both the REVIEW.md exists AND triple_review is enabled, pass `--external-review`:
 ```
-Code review found issues. Consider running:
+Skill(skill="triple-review", args="--external-review=${REVIEW_FILE} ${PHASE_NUMBER}")
+```
+
+When REVIEW.md is missing but triple_review is enabled, run standard 3-reviewer synthesis:
+```
+Skill(skill="triple-review", args="${PHASE_NUMBER}")
+```
+
+triple-review's synthesis produces a unified tiered report (Critical + Important + Refinements + Minor + Nitpick) covering all reviewers, with consensus issues (2+ reviewers agreeing) called out explicitly.
+
+**3. Handle results — ALL findings route to fix, not just Critical.**
+
+triple-review returns tiered feedback. Route the COMPLETE tiered list back to the fixer — do not filter by tier. Every finding is addressed.
+
+If findings exist: spawn gsd-executor to apply fixes, commit as `fix(phase-${PHASE_NUMBER}): address quad-review findings`.
+
+**4. Advisory routing (from upstream code_review_gate behavior):**
+
+If `REVIEW_STATUS` is set and not "clean" and not "skipped", surface the fix command as a fallback:
+```
+Code review findings available at ${REVIEW_FILE}. If you want to apply code-review-only fixes in isolation:
 /gsd-code-review-fix ${PHASE_NUMBER}
 ```
 
-**Error handling:** If the Skill invocation fails or throws, catch the error, display "Code review encountered an error (non-blocking): {error}" and proceed to next step. Review failures must never block execution.
+**Non-blocking error handling:** Failures in either skill are non-blocking. Log warnings and proceed. Review failures must never block execution.
 
-Regardless of review result, ALWAYS proceed to close_parent_artifacts → regression_gate → verify_phase_goal.
+Regardless of review outcome, ALWAYS proceed to close_parent_artifacts → regression_gate → verify_phase_goal. Verification runs on post-fix code so that triple-review corrections get verified.
 </step>
 
 <step name="close_parent_artifacts">
@@ -1420,30 +1452,6 @@ node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-too
 ```
 
 **Skip this step if** `.planning/PROJECT.md` does not exist.
-</step>
-
-<step name="triple_review">
-**Run triple-review on source files changed during this phase.** Non-blocking — surfaces findings; does not stop the flow on its own.
-
-**Skip if:** `workflow.triple_review` config is `false`, or `--gaps-only` flag was set (gap-closure phases already narrow scope).
-
-```bash
-TRIPLE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
-```
-
-If `"false"`, skip with message `"Triple review skipped (workflow.triple_review=false)"`.
-
-```
-Skill(skill="triple-review", args="${PHASE_NUMBER}")
-```
-
-**Handle results — ALL findings route to fix, not just Critical.**
-
-triple-review produces tiered feedback: Critical + Important + Refinements + Minor + Nitpick. Route the COMPLETE tiered list to the fixer — do not filter by tier. Every finding is addressed, so that review output is not silently discarded.
-
-If findings exist: spawn gsd-executor to apply fixes, commit as `fix(phase-${PHASE_NUMBER}): address triple-review findings`. Re-run triple-review once; if new Critical findings surface, stop and surface to user.
-
-**Non-blocking error handling:** If the skill fails or is unavailable, log a warning and proceed to `simplify`.
 </step>
 
 <step name="simplify">

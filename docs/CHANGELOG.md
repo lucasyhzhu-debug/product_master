@@ -16,6 +16,27 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Chore: GSD — consolidate code_review_gate + triple_review into quad_review -- 2026-04-17
+
+**For the team:** Phase execution used to run two overlapping review passes — first the upstream `gsd:code-review` skill (producing `REVIEW.md`), then later our triple-review — both reading the same changed files and reporting against the same codebase. Now they run as one consolidated `quad_review` step that fires before verification: `gsd:code-review` runs first to produce REVIEW.md, then triple-review consumes that file as a 4th reviewer perspective alongside its three live agents, and the synthesis produces a single unified tiered report covering all four perspectives.
+
+**What shipped:**
+- `get-shit-done/workflows/execute-phase.md` — deleted upstream `code_review_gate` step; replaced with new `quad_review` step positioned where `code_review_gate` used to be (before `close_parent_artifacts` → `verify_phase_goal`), so review fixes get verified. Removed the late-position `triple_review` step I added last patch cycle — it's now consolidated into `quad_review`. `simplify` and `document_and_merge` stay late (after verification passes).
+- `.claude/commands/triple-review.md` — accepts new `--external-review=PATH` argument. When set, parses the referenced review file (handling YAML frontmatter + section-based finding lists with severity-vocabulary mapping for formats that use "blocker"/"warning"/"suggestion"/etc.) and folds its findings into the synthesis as a 4th reviewer vote. Report header reads "Quad Review" and names `gsd-code-reviewer` alongside the three live agents. Graceful fallback: if the external file is missing or unparseable, the skill runs as a standard 3-reviewer triple review without blocking.
+- `gsd-local-patches/PATCHES.md` — Patch 1 entry rewritten to document the consolidation; verification greps tightened to match step tags specifically rather than narrative mentions.
+
+**Config matrix (all three supported):**
+- `workflow.code_review=true` + `workflow.triple_review=true` → full quad review (recommended)
+- `workflow.code_review=true` + `workflow.triple_review=false` → code review only (upstream behavior)
+- `workflow.code_review=false` + `workflow.triple_review=true` → 3-reviewer synthesis only
+- both false → skipped entirely
+
+**Why better:** (1) Eliminates redundant work — one pass reads changed files, not two. (2) Triple-review synthesis now benefits from the gsd-code-reviewer's structured finding output as a 4th vote when applying the "flagged by 2+ reviewers → bump tier" consensus rule. (3) Moving the review step BEFORE verification means fixes get verified — the verifier sees post-fix code, not pre-fix. (4) Failure of either skill is non-blocking and degrades gracefully to the other.
+
+### Chore: GSD — remove startup hook that scans for broken hooks -- 2026-04-17
+
+**For the team:** The `gsd-hooks-health.js` SessionStart hook printed a "BROKEN HOOKS DETECTED" banner at every session start while settings.json referenced hook files that didn't exist. The 1.36.0 clean install restored all referenced hook files so the banner no longer fires — and the scanner itself is now vestigial. Removed both the script and its SessionStart entry.
+
 ### Chore: GSD — reapply local patches 1-5 against v1.36.0 -- 2026-04-17
 
 **For the team:** The GSD 1.34.2 → 1.36.0 clean install yesterday wiped all local workflow customizations (11 patches). Five of those have been reapplied against v1.36.0 so automated quality gates and PR-merge ceremony are back in every GSD workflow that produces code changes. The other six were evaluated as obsolete or no longer wanted and dropped from `PATCHES.md`.
