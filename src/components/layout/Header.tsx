@@ -74,15 +74,22 @@ function UserInitials({ name, role, className }: { name: string; role: UserRole;
 
 type PermissionKey = keyof (typeof ROLE_PERMISSIONS)["admin"];
 
-type NavItem = {
-  path?: string;
-  label?: string;
-  icon?: React.ComponentType<{ className?: string }>;
+type NavLink = {
+  kind?: 'link';
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
   permission?: PermissionKey;
   rolesAllowed?: UserRole[];
   preload?: () => void;
-  separator?: boolean;
 };
+
+type NavSeparator = { kind: 'separator' };
+
+type NavItem = NavLink | NavSeparator;
+
+const isSeparator = (item: NavItem): item is NavSeparator =>
+  item.kind === 'separator';
 
 // Prefetch factories for hover prefetching — fire-and-forget dynamic imports
 const _prefetchOrders = () => import('@/pages/OrderManager');
@@ -122,7 +129,7 @@ const financeItems: NavItem[] = [
   { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
   { path: '/staff-performance', label: 'Staff Perf.', icon: UserCheck, permission: 'canAccessDashboard' },
-  { separator: true },
+  { kind: 'separator' },
   { path: '/journal', label: 'Journal Entry', icon: BookMarked, permission: 'canManageReimbursements' },
   { path: '/accounts', label: 'Chart of Accounts', icon: Landmark, permission: 'canManageReimbursements' },
   { path: '/bank-accounts', label: 'Bank Accounts', icon: Landmark, permission: 'canManageReimbursements' },
@@ -135,14 +142,14 @@ const financeItems: NavItem[] = [
 // Config dropdown - Help + configuration + admin items (separators between groups)
 const configItems: NavItem[] = [
   { path: '/help', label: 'Help', icon: CircleHelp },
-  { separator: true },
+  { kind: 'separator' },
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
   { path: '/ingredients', label: 'Ingredients', icon: Leaf, permission: 'canAccessIngredients' },
   { path: '/inventory/locations', label: 'Locations', icon: MapPin, permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' },
   { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessOrders' },
   { path: '/bulk-price-update', label: 'Bulk Prices', icon: Calculator, permission: 'canAccessIngredients' },
-  { separator: true },
+  { kind: 'separator' },
   { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
@@ -153,14 +160,13 @@ const configItems: NavItem[] = [
 function trimSeparators(items: NavItem[]): NavItem[] {
   const out: NavItem[] = [];
   for (const it of items) {
-    if (it.separator) {
-      if (out.length === 0 || out[out.length - 1].separator) continue;
-      out.push(it);
-    } else {
-      out.push(it);
+    if (isSeparator(it)) {
+      const prev = out[out.length - 1];
+      if (!prev || isSeparator(prev)) continue;
     }
+    out.push(it);
   }
-  while (out.length && out[out.length - 1].separator) out.pop();
+  while (out.length && isSeparator(out[out.length - 1])) out.pop();
   return out;
 }
 
@@ -175,7 +181,7 @@ export function Header() {
     if (!user) return [];
     return trimSeparators(
       items.filter(item => {
-        if (item.separator) return true;
+        if (isSeparator(item)) return true;
         if (item.permission && !hasPermission(item.permission)) return false;
         if (item.rolesAllowed && !item.rolesAllowed.includes(user.role)) return false;
         return true;
@@ -193,10 +199,10 @@ export function Header() {
     location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
 
   const isDropdownActive = (items: NavItem[]) =>
-    items.some(item => !item.separator && item.path && isActive(item.path));
+    items.some(item => !isSeparator(item) && isActive(item.path));
 
   // Count non-separator items for "should we render this dropdown?" decisions
-  const hasRealItems = (items: NavItem[]) => items.some(i => !i.separator);
+  const hasRealItems = (items: NavItem[]) => items.some(item => !isSeparator(item));
 
   return (
     <motion.header
@@ -249,7 +255,9 @@ export function Header() {
                   {/* Orders (top-level) */}
                   {hasRealItems(visibleMainItems) && (
                     <div className="pt-3">
-                      {visibleMainItems.map((item) => renderMobileItem(item, isActive, () => setMobileMenuOpen(false)))}
+                      {visibleMainItems.map((item) =>
+                        isSeparator(item) ? null : renderMobileItem(item, isActive, () => setMobileMenuOpen(false))
+                      )}
                     </div>
                   )}
 
@@ -345,7 +353,7 @@ export function Header() {
 
               {/* Orders (top-level) */}
               {visibleMainItems.map((item) => {
-                if (item.separator || !item.path || !item.icon || !item.label) return null;
+                if (isSeparator(item)) return null;
                 const Icon = item.icon;
                 return (
                   <Link
@@ -469,10 +477,9 @@ function DesktopDropdown({ label, triggerIcon: TriggerIcon, items, isActive, isD
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         {items.map((item, idx) => {
-          if (item.separator) {
+          if (isSeparator(item)) {
             return <DropdownMenuSeparator key={`sep-${idx}`} />;
           }
-          if (!item.path || !item.icon || !item.label) return null;
           const Icon = item.icon;
           return (
             <DropdownMenuItem key={item.path} asChild>
@@ -510,7 +517,7 @@ function MobileSection({ title, items, isActive, onNavigate }: MobileSectionProp
         {title}
       </div>
       {items.map((item, idx) => {
-        if (item.separator) {
+        if (isSeparator(item)) {
           return <div key={`sep-${idx}`} className="h-px bg-border my-1 mx-3" />;
         }
         return renderMobileItem(item, isActive, onNavigate);
@@ -519,8 +526,7 @@ function MobileSection({ title, items, isActive, onNavigate }: MobileSectionProp
   );
 }
 
-function renderMobileItem(item: NavItem, isActive: (path: string) => boolean, onNavigate: () => void) {
-  if (item.separator || !item.path || !item.icon || !item.label) return null;
+function renderMobileItem(item: NavLink, isActive: (path: string) => boolean, onNavigate: () => void) {
   const Icon = item.icon;
   return (
     <Link
