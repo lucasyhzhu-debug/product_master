@@ -16,6 +16,14 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Chore: CI — run Deploy workflow on PRs for pre-merge gating -- 2026-04-17
+
+**For the team:** Broken TypeScript (or any build failure) now blocks the PR merge button, not just the post-merge deploy. PRs targeting `main` will show a red "Deploy" check if lint or `npm run build` fails.
+
+**What shipped:** Added `pull_request: branches: [main]` trigger to `.github/workflows/deploy.yml`. The `lint-convex` and `build-frontend` jobs run on every PR. Deploy jobs (`check-convex-changes`, `deploy-convex`, `trigger-vercel`) are gated on `github.event_name != 'pull_request'` so nothing deploys from a PR context.
+
+**To fully enforce:** Add the "Deploy / build-frontend" and "Deploy / lint-convex" checks as **required status checks** in GitHub branch protection rules for `main`. Without branch protection, the red check is advisory.
+
 ### Chore: CI — add `npm run build` gate before Convex deploy -- 2026-04-17
 
 **For the team:** Prevents split-brain deploys where Convex ships but Vercel can't. If the frontend won't compile, neither system deploys — you'll see a red build on the PR merge commit and main stays on the last good deploy.
