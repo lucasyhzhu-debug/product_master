@@ -164,6 +164,7 @@ describe("revenueGapByPeriod", () => {
     const grabfood = result.rows.find((r: { channels: string[] }) =>
       r.channels.includes("grabfood"),
     );
+    expect(grabfood).toBeDefined();
     expect(grabfood!.bankCr).toBe(500_000);
   });
 
@@ -181,6 +182,7 @@ describe("revenueGapByPeriod", () => {
     const gopay = result.rows.find((r: { channels: string[] }) =>
       r.channels.includes("gopay"),
     );
+    expect(gopay).toBeDefined();
     expect(gopay!.source).toBe("gobiz");
     expect(gopay!.extRev).toBe(900_000);
     expect(gopay!.diff).toBe(100_000);
@@ -189,6 +191,7 @@ describe("revenueGapByPeriod", () => {
     const grabfood = result.rows.find((r: { channels: string[] }) =>
       r.channels.includes("grabfood"),
     );
+    expect(grabfood).toBeDefined();
     expect(grabfood!.source).toBe("grabfood");
     expect(grabfood!.extRev).toBe(500_000);
     expect(grabfood!.diff).toBe(0);
@@ -208,6 +211,7 @@ describe("revenueGapByPeriod", () => {
     const unallocated = result.rows.find(
       (r: { unallocated?: boolean }) => r.unallocated === true,
     );
+    expect(unallocated).toBeDefined();
     expect(unallocated!.extRev).toBeNull();
     expect(unallocated!.diffPct).toBeNull();
   });
@@ -224,7 +228,7 @@ describe("revenueGapByPeriod", () => {
     });
 
     expect(Array.isArray(result.unmappedRows)).toBe(true);
-    const ovo = result.unmappedRows.find((r) => r.channel === "ovo");
+    const ovo = result.unmappedRows.find((r: { channel: string }) => r.channel === "ovo");
     expect(ovo).toBeDefined();
     expect(ovo!.bankCr).toBe(200_000);
     expect(ovo!.extRev).toBeNull();
@@ -232,8 +236,10 @@ describe("revenueGapByPeriod", () => {
     expect(ovo!.diffPct).toBeNull();
     expect(ovo!.unmapped).toBe(true);
 
-    // ovo MUST NOT appear in rows
-    expect(result.rows.find((r) => r.channels.includes("ovo"))).toBeUndefined();
+    // ovo MUST NOT appear in rows (rows use channels: string[], not channel: string)
+    expect(
+      result.rows.find((r: { channels: string[] }) => r.channels.includes("ovo")),
+    ).toBeUndefined();
   });
 
   it("(unallocated) row has extRev=null and stays in rows (not unmappedRows)", async () => {
@@ -252,7 +258,7 @@ describe("revenueGapByPeriod", () => {
     expect(unallocated).toBeDefined();
     expect(unallocated!.extRev).toBeNull();
     expect(
-      result.unmappedRows.find((r) => r.channel === "(unallocated)"),
+      result.unmappedRows.find((r: { channel: string }) => r.channel === "(unallocated)"),
     ).toBeUndefined();
   });
 

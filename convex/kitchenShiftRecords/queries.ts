@@ -14,7 +14,6 @@ import type { QueryCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import { requireRole } from "../lib/auth";
-import { aggregateStaffPerformance } from "../staffAttendance/aggregation";
 
 /**
  * Enrich shift record produced/waste entries with product names.
@@ -27,14 +26,13 @@ async function enrichRecord(
     date: string;
     submittedAt: number;
     submittedBy: string;
-    // Phase 21-08: Actual cook fields
     chefName?: string;
     chefUserId?: string;
     produced: Array<{ menuProductId: string; quantity: number }>;
     waste: Array<{ menuProductId: string; reason: string; quantity: number }>;
-    // Phase 69: Component production data
-    componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number }>;
-    componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number }>;
+    // unit is optional; legacy records have no unit and default to "g" on read
+    componentProduced?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; grams: number; unit?: "g" | "pcs" }>;
+    componentWaste?: Array<{ kitchenComponentCode: string; kitchenComponentName: string; reason: string; grams: number; unit?: "g" | "pcs" }>;
     editedAt?: number;
     editedBy?: string;
     editNote?: string;
@@ -62,7 +60,6 @@ async function enrichRecord(
     date: record.date,
     submittedAt: record.submittedAt,
     submittedBy: record.submittedBy,
-    // Phase 21-08: Actual cook fields (pass through, may be undefined)
     chefName: record.chefName,
     chefUserId: record.chefUserId,
     produced: record.produced.map((p) => ({
@@ -76,7 +73,6 @@ async function enrichRecord(
       reason: w.reason,
       quantity: w.quantity,
     })),
-    // Phase 69: Component production data (pass through)
     componentProduced: record.componentProduced ?? [],
     componentWaste: record.componentWaste ?? [],
     editedAt: record.editedAt,
@@ -123,7 +119,6 @@ export const getShiftRecordsByDate = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
-          // Phase 69: Pass through component production data
           componentProduced: record.componentProduced,
           componentWaste: record.componentWaste,
           editedAt: record.editedAt,
@@ -138,7 +133,7 @@ export const getShiftRecordsByDate = query({
 /**
  * getDailyComponentSummary — Aggregate component production across all shift records for a date.
  *
- * Returns per-component totals with per-person attribution (Phase 69).
+ * Returns per-component totals with per-person attribution.
  * No auth required — kitchen staff need to view daily summaries.
  */
 export const getDailyComponentSummary = query({
@@ -149,12 +144,15 @@ export const getDailyComponentSummary = query({
       .withIndex("by_date", (q) => q.eq("date", args.date))
       .collect();
 
-    // Aggregate per component
+    // Aggregate per component and track the display unit. If two records for
+    // the same code carry different units (rare — would only happen if a
+    // manager changes the unit config mid-day), the last-seen unit wins.
     const componentMap = new Map<
       string,
       {
         code: string;
         name: string;
+        unit: "g" | "pcs";
         totalProducedGrams: number;
         totalWasteGrams: number;
         perPerson: Array<{
@@ -178,12 +176,16 @@ export const getDailyComponentSummary = query({
             componentMap.set(item.kitchenComponentCode, {
               code: item.kitchenComponentCode,
               name: item.kitchenComponentName,
+              unit: item.unit ?? "g",
               totalProducedGrams: 0,
               totalWasteGrams: 0,
               perPerson: [],
             });
           }
           const entry = componentMap.get(item.kitchenComponentCode)!;
+          // Prefer an explicit stored unit over the default (g) so newer records
+          // can upgrade the unit if the first record seen had no unit field.
+          if (item.unit) entry.unit = item.unit;
           entry.totalProducedGrams += item.grams;
 
           // Per-person attribution
@@ -212,12 +214,14 @@ export const getDailyComponentSummary = query({
             componentMap.set(item.kitchenComponentCode, {
               code: item.kitchenComponentCode,
               name: item.kitchenComponentName,
+              unit: item.unit ?? "g",
               totalProducedGrams: 0,
               totalWasteGrams: 0,
               perPerson: [],
             });
           }
           const entry = componentMap.get(item.kitchenComponentCode)!;
+          if (item.unit) entry.unit = item.unit;
           entry.totalWasteGrams += item.grams;
 
           // Per-person waste attribution
@@ -306,7 +310,6 @@ export const getShiftHistory = query({
             reason: w.reason,
             quantity: w.quantity,
           })),
-          // Phase 69: Pass through component production data
           componentProduced: record.componentProduced,
           componentWaste: record.componentWaste,
           editedAt: record.editedAt,
@@ -321,31 +324,12 @@ export const getShiftHistory = query({
 /**
  * getStaffPerformanceSummary — Aggregate production data per staff member over a date range.
  *
- * Manager/admin only. Returns per-staff totals for BOM-resolved balls produced
- * (totalBallsProduced), component grams (produced + waste), product waste,
- * shift count, and days worked. Designed for monthly payment reporting.
+ * Manager/admin only. Returns per-staff totals for BOM-resolved balls produced,
+ * component grams (produced + waste), product waste, shift count, and days worked.
+ * Designed for monthly payment reporting.
  *
  * Ball counting follows Business Rule 10/13: resolves BOM via menuProductComponents +
  * componentTypes (category="production") to count actual Big Ball + Mid Ball, not product units.
- *
- * Phase 74: aggregation was factored into `convex/staffAttendance/aggregation.ts`
- * (neutral module) so `getMyPerformance` can reuse it with a userIdFilter
- * (T-74-03 info-disclosure mitigation). The return shape is ADDITIVELY
- * extended with the following per-staff fields:
- *   - totalHoursWorked:   sum of closed durationMs / 3_600_000 (open shifts = 0)
- *   - daysAttended:       distinct dates with ≥1 clock-in
- *   - flaggedShiftCount:  sessions triggering any D-18 flag reason
- *   - perDayBreakdown[]:  per-date { hoursWorked, sessions[], componentTotals[], ballsProduced }
- *
- * componentTotals[] respects each component's native unit via the D-14 adapter
- * which reads either `kitchenConfig.componentTracking` (worktree merged) or
- * falls back to componentTypes (production → "pcs") + kitchenComponents ("g")
- * tables directly. Production components drive `ballsProduced`; grams flow
- * through from kitchenShiftRecords.componentProduced.
- *
- * Existing consumers (`useStaffPerformance`, `StaffPerformance.tsx`,
- * `staffPerformanceExport`) remain fully compatible — additive fields
- * propagate through TypeScript inference without manual type updates.
  */
 export const getStaffPerformanceSummary = query({
   args: {
@@ -355,9 +339,243 @@ export const getStaffPerformanceSummary = query({
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
-    return await aggregateStaffPerformance(ctx, {
+
+    const records = await ctx.db
+      .query("kitchenShiftRecords")
+      .withIndex("by_date", (q) =>
+        q.gte("date", args.startDate).lte("date", args.endDate)
+      )
+      .collect();
+
+    // Collect all unique menu product IDs for name + BOM enrichment
+    const allProductIds = new Set<string>();
+    for (const record of records) {
+      for (const p of record.produced) allProductIds.add(String(p.menuProductId));
+      for (const w of record.waste) allProductIds.add(String(w.menuProductId));
+    }
+
+    // Pre-fetch componentTypes once (small, stable table) to avoid N+1 reads
+    const allComponentTypes = await ctx.db.query("componentTypes").collect();
+    const componentTypeMap = new Map(
+      allComponentTypes.map((ct) => [ct._id.toString(), ct])
+    );
+
+    // Fetch product names and BOM ball counts in parallel
+    const productNameMap = new Map<string, string>();
+    const productBallCountMap = new Map<string, number>();
+    await Promise.all(
+      Array.from(allProductIds).map(async (id) => {
+        // Fetch product name and BOM components concurrently
+        const [product, components] = await Promise.all([
+          ctx.db.get(id as Id<"menuProducts">),
+          ctx.db
+            .query("menuProductComponents")
+            .withIndex("by_menu_product", (q) => q.eq("menuProductId", id as Id<"menuProducts">))
+            .collect(),
+        ]);
+
+        productNameMap.set(id, product?.name ?? id);
+
+        // Resolve BOM: count production components (balls) using pre-fetched lookup
+        let ballCount = 0;
+        for (const comp of components) {
+          const compType = componentTypeMap.get(comp.componentTypeId.toString());
+          if (compType?.category === "production") {
+            ballCount += comp.quantity;
+          }
+        }
+        // Fall back to 1 if no BOM (legacy product without components)
+        productBallCountMap.set(id, ballCount > 0 ? ballCount : 1);
+      })
+    );
+
+    // Aggregate per staff member. Split component totals by unit (grams vs
+    // pieces) so pcs entries do not pollute gram totals. componentBreakdown
+    // stores per-code grams and pieces separately with the unit tag.
+    const staffMap = new Map<
+      string,
+      {
+        staffKey: string;
+        chefName: string;
+        chefUserId: string | null;
+        totalBallsProduced: number;
+        productBreakdown: Map<string, { name: string; quantity: number; ballCount: number }>;
+        totalComponentGrams: number;
+        totalComponentPieces: number;
+        componentBreakdown: Map<string, { name: string; grams: number; unit: "g" | "pcs" }>;
+        totalComponentWasteGrams: number;
+        totalComponentWastePieces: number;
+        componentWasteBreakdown: Map<string, { name: string; grams: number; unit: "g" | "pcs" }>;
+        totalWaste: number;
+        wasteByReason: Map<string, number>;
+        wasteProductBreakdown: Map<string, { name: string; quantity: number }>;
+        shiftCount: number;
+        daysWorked: Set<string>;
+      }
+    >();
+
+    for (const record of records) {
+      // Use chefName/chefUserId if available, fall back to submittedBy
+      const name = record.chefName ?? record.submittedBy;
+      const userId = record.chefUserId ? String(record.chefUserId) : null;
+      const staffKey = userId ?? name;
+
+      if (!staffMap.has(staffKey)) {
+        staffMap.set(staffKey, {
+          staffKey,
+          chefName: name,
+          chefUserId: userId,
+          totalBallsProduced: 0,
+          productBreakdown: new Map(),
+          totalComponentGrams: 0,
+          totalComponentPieces: 0,
+          componentBreakdown: new Map(),
+          totalComponentWasteGrams: 0,
+          totalComponentWastePieces: 0,
+          componentWasteBreakdown: new Map(),
+          totalWaste: 0,
+          wasteByReason: new Map(),
+          wasteProductBreakdown: new Map(),
+          shiftCount: 0,
+          daysWorked: new Set(),
+        });
+      }
+
+      const staff = staffMap.get(staffKey)!;
+      staff.shiftCount++;
+      staff.daysWorked.add(record.date);
+
+      // Aggregate produced — resolve BOM ball count per product
+      for (const p of record.produced) {
+        const pid = String(p.menuProductId);
+        const ballsPerUnit = productBallCountMap.get(pid) ?? 1;
+        const totalBalls = p.quantity * ballsPerUnit;
+        staff.totalBallsProduced += totalBalls;
+
+        const existing = staff.productBreakdown.get(pid);
+        if (existing) {
+          existing.quantity += p.quantity;
+          existing.ballCount += totalBalls;
+        } else {
+          staff.productBreakdown.set(pid, {
+            name: productNameMap.get(pid) ?? pid,
+            quantity: p.quantity,
+            ballCount: totalBalls,
+          });
+        }
+      }
+
+      // Aggregate product-level waste
+      for (const w of record.waste) {
+        staff.totalWaste += w.quantity;
+        const reason = w.reason;
+        staff.wasteByReason.set(reason, (staff.wasteByReason.get(reason) ?? 0) + w.quantity);
+        const wid = String(w.menuProductId);
+        const existingWaste = staff.wasteProductBreakdown.get(wid);
+        if (existingWaste) {
+          existingWaste.quantity += w.quantity;
+        } else {
+          staff.wasteProductBreakdown.set(wid, {
+            name: productNameMap.get(wid) ?? wid,
+            quantity: w.quantity,
+          });
+        }
+      }
+
+      // Aggregate component production — split totals by unit.
+      if (record.componentProduced) {
+        for (const c of record.componentProduced) {
+          if (c.grams <= 0) continue;
+          const unit: "g" | "pcs" = c.unit ?? "g";
+          if (unit === "g") staff.totalComponentGrams += c.grams;
+          else staff.totalComponentPieces += c.grams;
+          const existing = staff.componentBreakdown.get(c.kitchenComponentCode);
+          if (existing) {
+            existing.grams += c.grams;
+            // Prefer an explicit unit (newer record) over the default.
+            if (c.unit) existing.unit = c.unit;
+          } else {
+            staff.componentBreakdown.set(c.kitchenComponentCode, {
+              name: c.kitchenComponentName,
+              grams: c.grams,
+              unit,
+            });
+          }
+        }
+      }
+
+      // Aggregate component waste — split totals by unit.
+      if (record.componentWaste) {
+        for (const c of record.componentWaste) {
+          if (c.grams <= 0) continue;
+          const unit: "g" | "pcs" = c.unit ?? "g";
+          if (unit === "g") staff.totalComponentWasteGrams += c.grams;
+          else staff.totalComponentWastePieces += c.grams;
+          const existing = staff.componentWasteBreakdown.get(c.kitchenComponentCode);
+          if (existing) {
+            existing.grams += c.grams;
+            if (c.unit) existing.unit = c.unit;
+          } else {
+            staff.componentWasteBreakdown.set(c.kitchenComponentCode, {
+              name: c.kitchenComponentName,
+              grams: c.grams,
+              unit,
+            });
+          }
+        }
+      }
+    }
+
+    // Convert Maps/Sets to serializable arrays and sort by total produced desc
+    const results = Array.from(staffMap.values()).map((s) => ({
+      staffKey: s.staffKey,
+      chefName: s.chefName,
+      chefUserId: s.chefUserId,
+      totalBallsProduced: s.totalBallsProduced,
+      productBreakdown: Array.from(s.productBreakdown.entries()).map(([id, val]) => ({
+        menuProductId: id,
+        name: val.name,
+        quantity: val.quantity,
+        ballCount: val.ballCount,
+      })),
+      // Per-unit totals for honest aggregation.
+      totalComponentGrams: s.totalComponentGrams,
+      totalComponentPieces: s.totalComponentPieces,
+      componentBreakdown: Array.from(s.componentBreakdown.entries()).map(([code, val]) => ({
+        code,
+        name: val.name,
+        grams: val.grams,
+        unit: val.unit,
+      })),
+      totalComponentWasteGrams: s.totalComponentWasteGrams,
+      totalComponentWastePieces: s.totalComponentWastePieces,
+      componentWasteBreakdown: Array.from(s.componentWasteBreakdown.entries()).map(([code, val]) => ({
+        code,
+        name: val.name,
+        grams: val.grams,
+        unit: val.unit,
+      })),
+      totalWaste: s.totalWaste,
+      wasteByReason: Array.from(s.wasteByReason.entries()).map(([reason, qty]) => ({
+        reason,
+        quantity: qty,
+      })),
+      wasteProductBreakdown: Array.from(s.wasteProductBreakdown.entries()).map(([id, val]) => ({
+        menuProductId: id,
+        name: val.name,
+        quantity: val.quantity,
+      })),
+      shiftCount: s.shiftCount,
+      daysWorked: s.daysWorked.size,
+    }));
+
+    results.sort((a, b) => b.totalBallsProduced - a.totalBallsProduced);
+
+    return {
       startDate: args.startDate,
       endDate: args.endDate,
-    });
+      totalRecords: records.length,
+      staff: results,
+    };
   },
 });
