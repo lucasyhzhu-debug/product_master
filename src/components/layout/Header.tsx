@@ -91,6 +91,13 @@ type NavItem = NavLink | NavSeparator;
 const isSeparator = (item: NavItem): item is NavSeparator =>
   item.kind === 'separator';
 
+type NavGroup = {
+  label: string;
+  mobileTitle?: string;  // Override the label for the mobile section heading (used when desktop needs a compact alias)
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavItem[];
+};
+
 // Prefetch factories for hover prefetching — fire-and-forget dynamic imports
 const _prefetchOrders = () => import('@/pages/OrderManager');
 const _prefetchKitchen = () => import('@/pages/KitchenViewV2');
@@ -190,10 +197,15 @@ export function Header() {
   };
 
   const visibleMainItems = filterItems(mainNavItems);
-  const visibleDashboardItems = filterItems(dashboardItems);
-  const visibleOpsItems = filterItems(opsItems);
-  const visibleFinanceItems = filterItems(financeItems);
-  const visibleConfigItems = filterItems(configItems);
+
+  // Dropdown groups - rendered in this order on desktop (Orders link is interleaved after Dashboards)
+  // and as vertical sections on mobile.
+  const navGroups: NavGroup[] = [
+    { label: 'Dashboards', icon: LayoutDashboard, items: filterItems(dashboardItems) },
+    { label: 'Ops', icon: Boxes, items: filterItems(opsItems) },
+    { label: 'Finance', mobileTitle: 'Finances & Accounting', icon: Landmark, items: filterItems(financeItems) },
+    { label: 'Config', icon: Settings, items: filterItems(configItems) },
+  ];
 
   const isActive = (path: string) =>
     location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
@@ -242,17 +254,16 @@ export function Header() {
                 )}
 
                 <nav className="flex flex-col space-y-1 mt-4 flex-1 overflow-y-auto">
-                  {/* Dashboards section */}
-                  {hasRealItems(visibleDashboardItems) && (
+                  {/* Dashboards first, then Orders (top-level), then Ops / Finance / Config */}
+                  {hasRealItems(navGroups[0].items) && (
                     <MobileSection
-                      title="Dashboards"
-                      items={visibleDashboardItems}
+                      title={navGroups[0].mobileTitle ?? navGroups[0].label}
+                      items={navGroups[0].items}
                       isActive={isActive}
                       onNavigate={() => setMobileMenuOpen(false)}
                     />
                   )}
 
-                  {/* Orders (top-level) */}
                   {hasRealItems(visibleMainItems) && (
                     <div className="pt-3">
                       {visibleMainItems.map((item) =>
@@ -261,34 +272,16 @@ export function Header() {
                     </div>
                   )}
 
-                  {/* Ops section */}
-                  {hasRealItems(visibleOpsItems) && (
-                    <MobileSection
-                      title="Ops"
-                      items={visibleOpsItems}
-                      isActive={isActive}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
-                  )}
-
-                  {/* Finances & Accounting section */}
-                  {hasRealItems(visibleFinanceItems) && (
-                    <MobileSection
-                      title="Finances & Accounting"
-                      items={visibleFinanceItems}
-                      isActive={isActive}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
-                  )}
-
-                  {/* Config section */}
-                  {hasRealItems(visibleConfigItems) && (
-                    <MobileSection
-                      title="Config"
-                      items={visibleConfigItems}
-                      isActive={isActive}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                    />
+                  {navGroups.slice(1).map(group =>
+                    hasRealItems(group.items) && (
+                      <MobileSection
+                        key={group.label}
+                        title={group.mobileTitle ?? group.label}
+                        items={group.items}
+                        isActive={isActive}
+                        onNavigate={() => setMobileMenuOpen(false)}
+                      />
+                    )
                   )}
                 </nav>
 
@@ -340,18 +333,17 @@ export function Header() {
           {/* Desktop Navigation */}
           {user && (
             <nav className="hidden md:flex items-center space-x-5 text-sm font-medium ml-4">
-              {/* Dashboards dropdown */}
-              {hasRealItems(visibleDashboardItems) && (
+              {/* Dashboards first, then Orders top-level link, then remaining dropdowns */}
+              {hasRealItems(navGroups[0].items) && (
                 <DesktopDropdown
-                  label="Dashboards"
-                  triggerIcon={LayoutDashboard}
-                  items={visibleDashboardItems}
+                  label={navGroups[0].label}
+                  triggerIcon={navGroups[0].icon}
+                  items={navGroups[0].items}
                   isActive={isActive}
                   isDropdownActive={isDropdownActive}
                 />
               )}
 
-              {/* Orders (top-level) */}
               {visibleMainItems.map((item) => {
                 if (isSeparator(item)) return null;
                 const Icon = item.icon;
@@ -372,37 +364,17 @@ export function Header() {
                 );
               })}
 
-              {/* Ops dropdown */}
-              {hasRealItems(visibleOpsItems) && (
-                <DesktopDropdown
-                  label="Ops"
-                  triggerIcon={Boxes}
-                  items={visibleOpsItems}
-                  isActive={isActive}
-                  isDropdownActive={isDropdownActive}
-                />
-              )}
-
-              {/* Finances & Accounting dropdown */}
-              {hasRealItems(visibleFinanceItems) && (
-                <DesktopDropdown
-                  label="Finance"
-                  triggerIcon={Landmark}
-                  items={visibleFinanceItems}
-                  isActive={isActive}
-                  isDropdownActive={isDropdownActive}
-                />
-              )}
-
-              {/* Config dropdown */}
-              {hasRealItems(visibleConfigItems) && (
-                <DesktopDropdown
-                  label="Config"
-                  triggerIcon={Settings}
-                  items={visibleConfigItems}
-                  isActive={isActive}
-                  isDropdownActive={isDropdownActive}
-                />
+              {navGroups.slice(1).map(group =>
+                hasRealItems(group.items) && (
+                  <DesktopDropdown
+                    key={group.label}
+                    label={group.label}
+                    triggerIcon={group.icon}
+                    items={group.items}
+                    isActive={isActive}
+                    isDropdownActive={isDropdownActive}
+                  />
+                )
               )}
             </nav>
           )}
