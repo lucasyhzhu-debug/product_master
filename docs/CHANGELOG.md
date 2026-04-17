@@ -16,6 +16,12 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Quick task 260417-hyv -- Nav bar simplification -- 2026-04-17
+
+**For the team:** The top nav bar is now much less cluttered. Collapsed from 8 top-level items + 5 dropdowns to just **Dashboards ▾ Orders Ops ▾ Finance ▾ Config ▾**. Sales/Analytics now live under Dashboards; Kitchen/Inventory/Planner/My Perf/K3 Mart/GoFood/GrabFood under Ops; Financials+Accounting merged into Finance; Help and Admin folded into Config. Every page you could reach before is still reachable — just one extra click for items that moved into a dropdown.
+
+**What shipped:** `src/components/layout/Header.tsx` 688 → 519 lines (−169). NavItem restructured as a discriminated union; `navGroups[]` drives both desktop and mobile rendering. All 35 routes preserved, permissions unchanged.
+
 ### Feat: Phase 74 -- Staff Attendance -- 2026-04-17
 
 **For the team:** Kitchen staff now clock in/out with one tap. Gate screen at `/kitchen/clock`, running timer, clock-out nudge after shift submission. Managers see hours, flagged shifts, per-day breakdowns on `/staff-performance`. Staff view own data at `/my-performance`. Manager correction dialog with audit trail.
