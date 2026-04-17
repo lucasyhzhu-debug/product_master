@@ -250,6 +250,7 @@ export async function aggregateStaffPerformance(
   }
   for (const record of records) {
     if (record.chefUserId) allStaffUserIds.add(String(record.chefUserId));
+    if (record.submittedByUserId) allStaffUserIds.add(String(record.submittedByUserId));
   }
   const userDocs = await Promise.all(
     Array.from(allStaffUserIds).map((id) =>
@@ -282,7 +283,13 @@ export async function aggregateStaffPerformance(
 
   for (const record of records) {
     const name = record.chefName ?? record.submittedBy;
-    const userId = record.chefUserId ? String(record.chefUserId) : null;
+    // Prefer chefUserId (explicit chef selection); fall back to
+    // submittedByUserId (self-submission) so production links to attendance.
+    const userId = record.chefUserId
+      ? String(record.chefUserId)
+      : record.submittedByUserId
+        ? String(record.submittedByUserId)
+        : null;
     const staffKey = userId ?? name;
 
     if (!staffMap.has(staffKey)) {
