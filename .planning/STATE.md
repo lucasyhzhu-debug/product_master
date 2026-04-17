@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 Phase: 75
 Plan: Ready to execute (5 plans, 4 waves)
 Status: Phase 74 complete (2026-04-17), Phase 75 planned and ready
-Last activity: 2026-04-17 - Phase 74 Staff Attendance complete (4/4 plans, UAT approved)
+Last activity: 2026-04-17 - Completed quick task 260417-hyv: nav bar simplification (5 top-level slots)
 
 Progress: [���█████████] 100%
 
@@ -59,6 +59,7 @@ No new decisions yet for v2.0.
 | Phase 70.1 P01 | 4min | 2 tasks | 1 files |
 | 260411-ovn | Add editable paid date to consignment Paid button | 2026-04-11 | 60dd66e5 | Verified | [260411-ovn-add-editable-paid-date-to-consignment-pa](./quick/260411-ovn-add-editable-paid-date-to-consignment-pa/) |
 | 260416-jm7 | Fix 17 test debt failures per spec (gobizAdapter, k3martCockpit, bigsellerOrders, csvImportValidation) | 2026-04-16 | ea63000b | Verified | [260416-jm7-fix-17-test-debt-failures-per-planning-s](./quick/260416-jm7-fix-17-test-debt-failures-per-planning-s/) |
+| 260417-hyv | Simplify nav bar: collapse to 5 top-level slots (Dashboards / Orders / Ops / Finance / Config) | 2026-04-17 | 0530a610 | Verified | [260417-hyv-move-sales-analytics-into-dashboards-mov](./quick/260417-hyv-move-sales-analytics-into-dashboards-mov/) |
 
 ### Roadmap Evolution
 
