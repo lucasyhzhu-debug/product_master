@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
 import { utcToWibTimeStr } from "@/lib/dateUtils";
+import { formatHoursMinutes } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 interface Session {
@@ -154,7 +155,7 @@ export function PerDayBreakdownTable({
                 </div>
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {day.hoursWorked.toFixed(1)}
+                {formatHoursMinutes(day.hoursWorked)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 {day.sessions.length}
@@ -190,7 +191,7 @@ export function PerDayBreakdownTable({
         <TableRow className="border-t-2 font-semibold">
           <TableCell>TOTAL</TableCell>
           <TableCell className="text-right tabular-nums">
-            {totals.totalHours.toFixed(1)}
+            {formatHoursMinutes(totals.totalHours)}
           </TableCell>
           <TableCell />
           <TableCell className="text-right tabular-nums">

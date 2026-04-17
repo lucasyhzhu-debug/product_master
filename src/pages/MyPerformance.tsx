@@ -20,6 +20,7 @@ import { useMyPerformance } from "@/hooks/convex/useAttendance";
 import { PerDayBreakdownTable } from "@/components/staffAttendance";
 import { getCurrentWibMonth } from "@/lib/dateUtils";
 import { MONTH_NAMES } from "@/lib/financialHelpers";
+import { formatHoursMinutes } from "@/lib/utils";
 import {
   downloadDetailedStaffCSV,
 } from "@/lib/staffPerformanceExport";
@@ -131,11 +132,11 @@ export function MyPerformance() {
             Summary
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <div>
             <div className="text-xs text-muted-foreground">Hours</div>
             <div className="text-xl font-semibold tabular-nums">
-              {(me.totalHoursWorked ?? 0).toFixed(1)}
+              {formatHoursMinutes(me.totalHoursWorked ?? 0)}
             </div>
           </div>
           <div>
@@ -156,6 +157,14 @@ export function MyPerformance() {
               {me.shiftCount}
             </div>
           </div>
+          {(me.totalComponentGrams ?? 0) > 0 && (
+            <div>
+              <div className="text-xs text-muted-foreground">Components</div>
+              <div className="text-xl font-semibold tabular-nums">
+                {((me.totalComponentGrams ?? 0) / 1000).toFixed(1)} kg
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
