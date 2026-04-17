@@ -674,27 +674,39 @@ Note: For quick tasks producing multiple plans (rare), spawn executors in parall
 
 ---
 
-**Step 6.25: Code review (auto)**
+**Step 6.3: Quad review (only when `$FULL_MODE`)**
 
 Skip this step entirely if `$FULL_MODE` is false.
 
-**Config gate:**
+Consolidates code review + multi-perspective review into a single pass. `gsd-code-reviewer` produces `${QUICK_DIR}/${quick_id}-REVIEW.md`, which is then fed to triple-review's synthesis as a 4th reviewer perspective alongside its three live agents.
+
+**Config gates:**
 ```bash
 CODE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.code_review 2>/dev/null || echo "true")
+TRIPLE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
 ```
-If `"false"`, skip with message "Code review skipped (workflow.code_review=false)".
 
-**Scope files from executor's commits:**
+**Config matrix:**
+- `code_review=true` AND `triple_review=true` → full quad review (recommended)
+- `code_review=true` AND `triple_review=false` → code review only
+- `code_review=false` AND `triple_review=true` → triple review only (no REVIEW.md)
+- both false → skip entirely, display `"Review skipped (both workflow.code_review and workflow.triple_review are false)"`
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► QUAD REVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**1. Scope files from executor's commits (only if code_review enabled):**
 ```bash
 # Find the diff base: last commit before quick task started
-# Use git log to find commits referencing the quick task id, then take the parent of the oldest
 QUICK_COMMITS=$(git log --oneline --format="%H" --grep="${quick_id}" 2>/dev/null)
 if [ -n "$QUICK_COMMITS" ]; then
   DIFF_BASE=$(echo "$QUICK_COMMITS" | tail -1)^
-  # Verify parent exists (guard against first commit in repo)
   git rev-parse "${DIFF_BASE}" >/dev/null 2>&1 || DIFF_BASE=$(echo "$QUICK_COMMITS" | tail -1)
 else
-  # No commits found for this quick task — skip review
   DIFF_BASE=""
 fi
 
@@ -703,55 +715,45 @@ if [ -n "$DIFF_BASE" ]; then
 else
   CHANGED_FILES=""
 fi
+
+REVIEW_FILE="${QUICK_DIR}/${quick_id}-REVIEW.md"
 ```
 
-If `CHANGED_FILES` is empty, skip with "No source files changed — skipping code review."
-
-**Invoke review:**
+**2. Invoke gsd-code-reviewer (if code_review enabled AND CHANGED_FILES is non-empty):**
 ```
 Task(
   prompt="Review these files for bugs, security issues, and code quality.
   Files: ${CHANGED_FILES}
-  Output: ${QUICK_DIR}/${quick_id}-REVIEW.md
+  Output: ${REVIEW_FILE}
   Depth: quick",
   subagent_type="gsd-code-reviewer",
   model="{executor_model}"
 )
 ```
 
-If review produces findings, display advisory message. **Error handling:** Failures are non-blocking — catch and proceed.
+If `CHANGED_FILES` is empty, skip the code-review sub-step with "No source files changed — skipping code review." Clear `REVIEW_FILE` (treat as if not produced).
 
----
+If gsd-code-reviewer fails or the file is missing afterward, clear `REVIEW_FILE` and log a warning. Do not block.
 
-**Step 6.3: Triple review (only when `$FULL_MODE`)**
+**3. Invoke triple-review (if triple_review enabled), passing REVIEW.md as the 4th perspective:**
 
-Skip this step entirely if `$FULL_MODE` is false.
-
-**Config gate:**
-```bash
-TRIPLE_REVIEW_ENABLED=$(node "D:/Claude/Product Manager/product_master/.claude/get-shit-done/bin/gsd-tools.cjs" config-get workflow.triple_review 2>/dev/null || echo "false")
+When REVIEW.md exists AND triple_review is enabled, pass `--external-review`:
 ```
-If `"false"`, skip with message `"Triple review skipped (workflow.triple_review=false)"`.
-
-Display banner:
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- GSD ► TRIPLE REVIEW
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Skill(skill="triple-review", args="--external-review=${REVIEW_FILE} ${QUICK_DIR}/${quick_id}-PLAN.md")
 ```
 
-Invoke triple-review:
+When REVIEW.md is missing but triple_review is enabled, run standard 3-reviewer synthesis:
 ```
 Skill(skill="triple-review", args="${QUICK_DIR}/${quick_id}-PLAN.md")
 ```
 
-**Handle results — ALL findings route to fix, not just Critical.**
+**4. Handle results — ALL findings route to fix, not just Critical.**
 
 triple-review returns tiered feedback: Critical + Important + Refinements + Minor + Nitpick. Route the COMPLETE tiered list back to the fixer — do not filter by tier. Every finding is addressed.
 
-If findings exist: spawn gsd-executor to apply fixes, commit as `fix(quick-${quick_id}): address triple-review findings`. Re-run triple-review once if new Critical findings surface; surface to user.
+If findings exist: spawn gsd-executor to apply fixes, commit as `fix(quick-${quick_id}): address quad-review findings`. Re-run quad-review once if new Critical findings surface; surface to user.
 
-**Non-blocking error handling:** Skill failure logs a warning and proceeds to Step 6.4.
+**Non-blocking error handling:** Failures in either skill are non-blocking. Log warnings and proceed to Step 6.4.
 
 ---
 

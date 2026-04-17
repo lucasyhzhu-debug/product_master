@@ -16,6 +16,20 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Chore: GSD — extend quad_review consolidation to /gsd:quick --full -- 2026-04-17
+
+**For the team:** The quad_review consolidation applied to phase execution earlier today also applies to `/gsd:quick --full` — that workflow also had a sequential code-review-then-triple-review pattern (Step 6.25 followed by Step 6.3). Collapsed them into a single `Step 6.3: Quad review` that writes REVIEW.md via `gsd-code-reviewer` and then feeds it into triple-review's synthesis as a 4th reviewer.
+
+**What shipped:**
+- `get-shit-done/workflows/quick.md` — deleted old `Step 6.25: Code review (auto)` and old `Step 6.3: Triple review` blocks; replaced with a single `Step 6.3: Quad review` step that runs both skills and wires REVIEW.md into triple-review via `--external-review=${QUICK_DIR}/${quick_id}-REVIEW.md`. Same config-matrix degradation as execute-phase: supports full quad, code-only, triple-only, and both-disabled. Fix commits renamed from `fix(quick-N): address triple-review findings` to `fix(quick-N): address quad-review findings`.
+- `gsd-local-patches/PATCHES.md` — Patch 2 entry rewritten from "Triple-review, simplify, document & merge" to "Quad review, simplify, document & merge". Verification greps tightened to confirm the old step headers are gone and the new consolidated step is present.
+
+**Scope of consolidation:**
+- `execute-phase.md` — done in previous commit (`quad_review` step before `verify_phase_goal`)
+- `quick.md` — done in this commit (`Step 6.3: Quad review` before verification)
+- `debug.md` — NOT applicable (no upstream code-review step before our triple review)
+- `plan-phase.md` — NOT applicable (uses `staffreview` on plans, a different skill targeting different artifacts)
+
 ### Chore: GSD — consolidate code_review_gate + triple_review into quad_review -- 2026-04-17
 
 **For the team:** Phase execution used to run two overlapping review passes — first the upstream `gsd:code-review` skill (producing `REVIEW.md`), then later our triple-review — both reading the same changed files and reporting against the same codebase. Now they run as one consolidated `quad_review` step that fires before verification: `gsd:code-review` runs first to produce REVIEW.md, then triple-review consumes that file as a 4th reviewer perspective alongside its three live agents, and the synthesis produces a single unified tiered report covering all four perspectives.

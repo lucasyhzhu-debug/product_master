@@ -82,30 +82,46 @@ grep -c "Quad Review" .claude/commands/triple-review.md
 
 ---
 
-## Patch 2: quick — Triple-review, simplify, document & merge
+## Patch 2: quick — Quad review, simplify, document & merge
 
 **File:** `get-shit-done/workflows/quick.md`
-**Purpose:** Brings quick tasks to the same quality bar as full phase execution when `--full` is passed. Adds tiered-findings routing, simplify pass, and automated PR merge for feature branches.
+**Purpose:** Brings quick tasks to the same quality bar as full phase execution when `--full` is passed. Consolidates the upstream `Step 6.25: Code review` (runs `gsd-code-reviewer`, writes REVIEW.md) with our triple-review into a single `Step 6.3: Quad review` — same consolidation pattern as Patch 1's execute-phase `quad_review`. Adds tiered-findings routing, simplify pass, and automated PR merge for feature branches.
+
 **Insertion anchors:**
-- Steps 6.3 (triple review) and 6.4 (simplify): between `Step 6.25: Code review (auto)` (ends after "Error handling: Failures are non-blocking — catch and proceed.") and `**Step 6.5: Verification**`
-- Step 9 (document and merge): between final `Ready for next task: /gsd-quick ${GSD_WS}` block and the closing `</process>` / `<success_criteria>`
+- Step 6.3 (quad review) REPLACES the upstream `Step 6.25: Code review (auto)` block AND the original Step 6.3 triple-review block — everything between "Note: For quick tasks producing multiple plans..." and `**Step 6.4: Simplify**` is collapsed into one consolidated step.
+- Step 6.4 (simplify): inserted between the new Step 6.3 and `**Step 6.5: Verification**`.
+- Step 9 (document and merge): between final `Ready for next task: /gsd-quick ${GSD_WS}` block and the closing `</process>` / `<success_criteria>`.
 
 **Dependencies:**
-- `workflow.triple_review` config key
-- `workflow.simplify` config key
+- `workflow.code_review` config key (default `true` upstream; still respected)
+- `workflow.triple_review` config key (default `false`, opt-in)
+- `workflow.simplify` config key (default `false`, opt-in)
 - `docs/CHANGELOG.md` (skipped with warning if missing)
 - `gh` CLI authenticated
-- `.claude/commands/triple-review.md` skill
+- `.claude/commands/triple-review.md` skill (must support `--external-review=PATH`, see Patch 1)
 
 **Content summary:**
-- Step 6.3: `$FULL_MODE` and `workflow.triple_review` gated. `Skill(triple-review, ${QUICK_DIR}/${quick_id}-PLAN.md)`. Routes ALL tiered findings to fixer. Commits as `fix(quick-${quick_id}): address triple-review findings`.
-- Step 6.4: `$FULL_MODE` and `workflow.simplify` gated. `Skill(simplify)`. Commits as `refactor(quick-${quick_id}): simplify after review`.
-- Step 9: Skip if on main or if `branch_name` was empty. Updates CHANGELOG, pushes branch, `gh pr create`, squash-merge, sync main.
+- Step 6.3 (Quad review): `$FULL_MODE` gated. Scopes `CHANGED_FILES` via `git log --grep=${quick_id}` + `git diff`. Invokes `gsd-code-reviewer` (if `code_review` enabled) to produce `${QUICK_DIR}/${quick_id}-REVIEW.md`, then invokes `Skill(triple-review, --external-review=${REVIEW_FILE} ${QUICK_DIR}/${quick_id}-PLAN.md)` (if `triple_review` enabled). Degrades gracefully when either skill fails or one config is disabled. Routes ALL tiered findings to fixer. Commits as `fix(quick-${quick_id}): address quad-review findings`.
+- Step 6.4 (Simplify): `$FULL_MODE` and `workflow.simplify` gated. `Skill(simplify)`. Commits as `refactor(quick-${quick_id}): simplify after review`.
+- Step 9 (Document and merge): Skip if on main or if `branch_name` was empty. Updates CHANGELOG, pushes branch, `gh pr create`, squash-merge, sync main.
 
 **Verification:**
 ```bash
-grep -c "Step 6.3: Triple review" .claude/get-shit-done/workflows/quick.md
+# New quad review step exists
+grep -c "Step 6.3: Quad review" .claude/get-shit-done/workflows/quick.md
 # Expected: >= 1
+
+# Old separate code review + triple review steps must be gone
+grep -c "Step 6.25: Code review" .claude/get-shit-done/workflows/quick.md
+# Expected: 0
+grep -c "Step 6.3: Triple review" .claude/get-shit-done/workflows/quick.md
+# Expected: 0
+
+# External review wiring present
+grep -c "external-review=\${REVIEW_FILE}" .claude/get-shit-done/workflows/quick.md
+# Expected: >= 1
+
+# Other patch elements unchanged
 grep -c "Step 6.4: Simplify" .claude/get-shit-done/workflows/quick.md
 # Expected: >= 1
 grep -c "Step 9: Document and merge" .claude/get-shit-done/workflows/quick.md
