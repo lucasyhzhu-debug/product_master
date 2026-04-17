@@ -33,6 +33,14 @@ After merging any code change, add a new entry with:
 - `staffAttendance` table with 8 fields (userId, date, clockIn, clockOut?, durationMs?, corrections?, deletedAt?, deletedBy?) and 3 indexes.
 - `corrections[]` audit array preserves full multi-correction history (D-17): `{ correctedAt, correctedBy, correctedByUserId, correctionNote, previousClockIn?, previousClockOut?, previousUserId?, action: "edit_timestamps"|"add_missed"|"reassign"|"delete" }`.
 
+**UAT fixes (2026-04-17):**
+- Fixed `aggregateStaffPerformance` join — fallback to `submittedByUserId` when `chefUserId` not set (was showing 0 balls in My Performance).
+- Hours displayed as h:mm instead of decimal across all performance views.
+- Added "Components" summary card (kg) to My Performance page.
+- ShiftEditDialog chef field changed from text input to user dropdown.
+- EndOfShiftForm hides chef selector when user is clocked in.
+- "My Performance" link added to kitchen page header (accessible to all roles).
+
 **Requirements satisfied:** ATT-01, ATT-02, ATT-03, ATT-04.
 
 **Files added (highlights):**
