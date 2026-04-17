@@ -17,7 +17,6 @@ import {
   Store,
   CalendarRange,
   Settings,
-  Shield,
   ChevronDown,
   Sun,
   Moon,
@@ -39,6 +38,8 @@ import {
   FileUp,
   ClipboardCheck,
   UserCheck,
+  LayoutDashboard,
+  Boxes,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -74,12 +75,13 @@ function UserInitials({ name, role, className }: { name: string; role: UserRole;
 type PermissionKey = keyof (typeof ROLE_PERMISSIONS)["admin"];
 
 type NavItem = {
-  path: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  path?: string;
+  label?: string;
+  icon?: React.ComponentType<{ className?: string }>;
   permission?: PermissionKey;
   rolesAllowed?: UserRole[];
   preload?: () => void;
+  separator?: boolean;
 };
 
 // Prefetch factories for hover prefetching — fire-and-forget dynamic imports
@@ -89,20 +91,30 @@ const _prefetchInventory = () => import('@/pages/InventoryManager');
 const _prefetchRestock = () => import('@/pages/DispatchPlanner');
 const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 
-// Main nav items - visible based on individual permissions
+// Main nav items - top-level tabs (Orders only)
 const mainNavItems: NavItem[] = [
-  { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'canAccessDashboard' },
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
-  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
-  { path: '/my-performance', label: 'My Perf.', icon: UserCheck, permission: 'canAccessKitchen', rolesAllowed: ['kitchen', 'order_staff'] },
-  { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
-  { path: '/restock-planner', label: 'Planner', icon: CalendarRange, permission: 'canAccessDashboard', preload: _prefetchRestock },
-  { path: '/help', label: 'Help', icon: CircleHelp },
 ];
 
-// Financials dropdown - grouped financial pages
-const financialItems: NavItem[] = [
+// Dashboards dropdown - sales & analytics
+const dashboardItems: NavItem[] = [
+  { path: '/sales', label: 'Sales', icon: TrendingUp, permission: 'canAccessSalesAnalytics' },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3, permission: 'canAccessDashboard' },
+];
+
+// Ops dropdown - kitchen, inventory, planner, my-performance, depot surfaces
+const opsItems: NavItem[] = [
+  { path: '/kitchen', label: 'Kitchen', icon: UtensilsCrossed, permission: 'canAccessKitchen', preload: _prefetchKitchen },
+  { path: '/my-performance', label: 'My Performance', icon: UserCheck, permission: 'canAccessKitchen', rolesAllowed: ['kitchen', 'order_staff'] },
+  { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
+  { path: '/restock-planner', label: 'Planner', icon: CalendarRange, permission: 'canAccessDashboard', preload: _prefetchRestock },
+  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
+  { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard', preload: _prefetchGoFood },
+  { path: '/grabfood', label: 'GrabFood', icon: UtensilsCrossed, permission: 'canAccessSalesAnalytics' },
+];
+
+// Finances & Accounting dropdown - merged financial + accounting pages
+const financeItems: NavItem[] = [
   { path: '/financials', label: 'Income Statement', icon: FileText, permission: 'canAccessDashboard' },
   { path: '/expenses', label: 'Expenses', icon: Receipt, permission: 'canSubmitExpenses' },
   { path: '/expenses/approve', label: 'Approvals', icon: ClipboardCheck, permission: 'canApproveExpenses' },
@@ -110,10 +122,7 @@ const financialItems: NavItem[] = [
   { path: '/reimbursements', label: 'Reimburse', icon: HandCoins, permission: 'canManageReimbursements' },
   { path: '/payroll', label: 'Payroll', icon: DollarSign, permission: 'canManageReimbursements' },
   { path: '/staff-performance', label: 'Staff Perf.', icon: UserCheck, permission: 'canAccessDashboard' },
-];
-
-// Accounting dropdown - journal & ledger pages
-const accountingItems: NavItem[] = [
+  { separator: true },
   { path: '/journal', label: 'Journal Entry', icon: BookMarked, permission: 'canManageReimbursements' },
   { path: '/accounts', label: 'Chart of Accounts', icon: Landmark, permission: 'canManageReimbursements' },
   { path: '/bank-accounts', label: 'Bank Accounts', icon: Landmark, permission: 'canManageReimbursements' },
@@ -123,30 +132,37 @@ const accountingItems: NavItem[] = [
   { path: '/assets', label: 'Asset Register', icon: Building2, permission: 'canAccessAssets' },
 ];
 
-// Depot Management dropdown - Manager + Admin
-const depotItems: NavItem[] = [
-  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
-  { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard', preload: _prefetchGoFood },
-  { path: '/grabfood', label: 'GrabFood', icon: UtensilsCrossed, permission: 'canAccessSalesAnalytics' },
-];
-
-// Configurations dropdown - Manager + Admin
+// Config dropdown - Help + configuration + admin items (separators between groups)
 const configItems: NavItem[] = [
+  { path: '/help', label: 'Help', icon: CircleHelp },
+  { separator: true },
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
   { path: '/ingredients', label: 'Ingredients', icon: Leaf, permission: 'canAccessIngredients' },
   { path: '/inventory/locations', label: 'Locations', icon: MapPin, permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', label: 'WhatsApp', icon: MessageSquare, permission: 'canManageWhatsAppTemplates' },
   { path: '/customers', label: 'Customers', icon: Users, permission: 'canAccessOrders' },
   { path: '/bulk-price-update', label: 'Bulk Prices', icon: Calculator, permission: 'canAccessIngredients' },
-];
-
-// Admin dropdown - Admin only
-const adminItems: NavItem[] = [
+  { separator: true },
   { path: '/menu-products', label: 'Products', icon: Tag, permission: 'canAccessMenuProducts' },
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
   { path: '/settings/business', label: 'Settings', icon: Settings, permission: 'canAccessBusinessSettings' },
 ];
+
+// Collapse adjacent separators and strip leading/trailing ones after permission filtering
+function trimSeparators(items: NavItem[]): NavItem[] {
+  const out: NavItem[] = [];
+  for (const it of items) {
+    if (it.separator) {
+      if (out.length === 0 || out[out.length - 1].separator) continue;
+      out.push(it);
+    } else {
+      out.push(it);
+    }
+  }
+  while (out.length && out[out.length - 1].separator) out.pop();
+  return out;
+}
 
 export function Header() {
   const location = useLocation();
@@ -155,45 +171,32 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isVisible = useScrollDirection();
 
-  const visibleMainItems = user
-    ? mainNavItems.filter(item => {
-        if (item.permission && !hasPermission(item.permission)) return false;
-        // R-4 (staff review 2026-04-16): honour rolesAllowed on mainNavItems
-        // so My Performance only surfaces for kitchen/order_staff roles.
-        if (item.rolesAllowed && !item.rolesAllowed.includes(user.role)) return false;
-        return true;
-      })
-    : [];
-
-  const visibleDepotItems = user
-    ? depotItems.filter(item => !item.permission || hasPermission(item.permission))
-    : [];
-
-  const visibleFinancialItems = user
-    ? financialItems.filter(item => !item.permission || hasPermission(item.permission))
-    : [];
-
-  const visibleAccountingItems = user
-    ? accountingItems.filter(item => {
+  const filterItems = (items: NavItem[]): NavItem[] => {
+    if (!user) return [];
+    return trimSeparators(
+      items.filter(item => {
+        if (item.separator) return true;
         if (item.permission && !hasPermission(item.permission)) return false;
         if (item.rolesAllowed && !item.rolesAllowed.includes(user.role)) return false;
         return true;
-      })
-    : [];
+      }),
+    );
+  };
 
-  const visibleConfigItems = user
-    ? configItems.filter(item => !item.permission || hasPermission(item.permission))
-    : [];
-
-  const visibleAdminItems = user
-    ? adminItems.filter(item => !item.permission || hasPermission(item.permission))
-    : [];
+  const visibleMainItems = filterItems(mainNavItems);
+  const visibleDashboardItems = filterItems(dashboardItems);
+  const visibleOpsItems = filterItems(opsItems);
+  const visibleFinanceItems = filterItems(financeItems);
+  const visibleConfigItems = filterItems(configItems);
 
   const isActive = (path: string) =>
     location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
 
   const isDropdownActive = (items: NavItem[]) =>
-    items.some(item => isActive(item.path));
+    items.some(item => !item.separator && item.path && isActive(item.path));
+
+  // Count non-separator items for "should we render this dropdown?" decisions
+  const hasRealItems = (items: NavItem[]) => items.some(i => !i.separator);
 
   return (
     <motion.header
@@ -233,157 +236,51 @@ export function Header() {
                 )}
 
                 <nav className="flex flex-col space-y-1 mt-4 flex-1 overflow-y-auto">
-                  {/* Main items */}
-                  {visibleMainItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={() => setMobileMenuOpen(false)}
-                        onMouseEnter={() => item.preload?.()}
-                        onFocus={() => item.preload?.()}
-                        className={cn(
-                          "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-                          isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-
-                  {/* Financials section */}
-                  {visibleFinancialItems.length > 0 && (
-                    <>
-                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                        Financials
-                      </div>
-                      {visibleFinancialItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={cn(
-                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </>
+                  {/* Dashboards section */}
+                  {hasRealItems(visibleDashboardItems) && (
+                    <MobileSection
+                      title="Dashboards"
+                      items={visibleDashboardItems}
+                      isActive={isActive}
+                      onNavigate={() => setMobileMenuOpen(false)}
+                    />
                   )}
 
-                  {/* Accounting section */}
-                  {visibleAccountingItems.length > 0 && (
-                    <>
-                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                        Accounting
-                      </div>
-                      {visibleAccountingItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={cn(
-                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </>
+                  {/* Orders (top-level) */}
+                  {hasRealItems(visibleMainItems) && (
+                    <div className="pt-3">
+                      {visibleMainItems.map((item) => renderMobileItem(item, isActive, () => setMobileMenuOpen(false)))}
+                    </div>
                   )}
 
-                  {/* Depot Management section */}
-                  {visibleDepotItems.length > 0 && (
-                    <>
-                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                        Depot Management
-                      </div>
-                      {visibleDepotItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => setMobileMenuOpen(false)}
-                            onMouseEnter={() => item.preload?.()}
-                            onFocus={() => item.preload?.()}
-                            className={cn(
-                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </>
+                  {/* Ops section */}
+                  {hasRealItems(visibleOpsItems) && (
+                    <MobileSection
+                      title="Ops"
+                      items={visibleOpsItems}
+                      isActive={isActive}
+                      onNavigate={() => setMobileMenuOpen(false)}
+                    />
                   )}
 
-                  {/* Configurations section */}
-                  {visibleConfigItems.length > 0 && (
-                    <>
-                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                        Configurations
-                      </div>
-                      {visibleConfigItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={cn(
-                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </>
+                  {/* Finances & Accounting section */}
+                  {hasRealItems(visibleFinanceItems) && (
+                    <MobileSection
+                      title="Finances & Accounting"
+                      items={visibleFinanceItems}
+                      isActive={isActive}
+                      onNavigate={() => setMobileMenuOpen(false)}
+                    />
                   )}
 
-                  {/* Admin section */}
-                  {visibleAdminItems.length > 0 && (
-                    <>
-                      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                        Admin
-                      </div>
-                      {visibleAdminItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={cn(
-                              "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
-                              isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
-                            )}
-                          >
-                            <Icon className="h-5 w-5" />
-                            <span>{item.label}</span>
-                          </Link>
-                        );
-                      })}
-                    </>
+                  {/* Config section */}
+                  {hasRealItems(visibleConfigItems) && (
+                    <MobileSection
+                      title="Config"
+                      items={visibleConfigItems}
+                      isActive={isActive}
+                      onNavigate={() => setMobileMenuOpen(false)}
+                    />
                   )}
                 </nav>
 
@@ -435,8 +332,20 @@ export function Header() {
           {/* Desktop Navigation */}
           {user && (
             <nav className="hidden md:flex items-center space-x-5 text-sm font-medium ml-4">
-              {/* Main nav items */}
+              {/* Dashboards dropdown */}
+              {hasRealItems(visibleDashboardItems) && (
+                <DesktopDropdown
+                  label="Dashboards"
+                  triggerIcon={LayoutDashboard}
+                  items={visibleDashboardItems}
+                  isActive={isActive}
+                  isDropdownActive={isDropdownActive}
+                />
+              )}
+
+              {/* Orders (top-level) */}
               {visibleMainItems.map((item) => {
+                if (item.separator || !item.path || !item.icon || !item.label) return null;
                 const Icon = item.icon;
                 return (
                   <Link
@@ -455,191 +364,37 @@ export function Header() {
                 );
               })}
 
-              {/* Financials dropdown */}
-              {visibleFinancialItems.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={cn(
-                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
-                        isDropdownActive(visibleFinancialItems) ? "text-foreground" : "text-foreground/60"
-                      )}
-                    >
-                      <FileText className="h-4 w-4" />
-                      <span>Financials</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {visibleFinancialItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <DropdownMenuItem key={item.path} asChild>
-                          <Link
-                            to={item.path}
-                            className={cn(
-                              "flex items-center space-x-2 w-full",
-                              isActive(item.path) && "font-medium"
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span>{item.label}</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              {/* Ops dropdown */}
+              {hasRealItems(visibleOpsItems) && (
+                <DesktopDropdown
+                  label="Ops"
+                  triggerIcon={Boxes}
+                  items={visibleOpsItems}
+                  isActive={isActive}
+                  isDropdownActive={isDropdownActive}
+                />
               )}
 
-              {/* Accounting dropdown */}
-              {visibleAccountingItems.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={cn(
-                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
-                        isDropdownActive(visibleAccountingItems) ? "text-foreground" : "text-foreground/60"
-                      )}
-                    >
-                      <Calculator className="h-4 w-4" />
-                      <span>Accounting</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {visibleAccountingItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <DropdownMenuItem key={item.path} asChild>
-                          <Link
-                            to={item.path}
-                            className={cn(
-                              "flex items-center space-x-2 w-full",
-                              isActive(item.path) && "font-medium"
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span>{item.label}</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              {/* Finances & Accounting dropdown */}
+              {hasRealItems(visibleFinanceItems) && (
+                <DesktopDropdown
+                  label="Finance"
+                  triggerIcon={Landmark}
+                  items={visibleFinanceItems}
+                  isActive={isActive}
+                  isDropdownActive={isDropdownActive}
+                />
               )}
 
-              {/* Depot Management dropdown */}
-              {visibleDepotItems.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={cn(
-                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
-                        isDropdownActive(visibleDepotItems) ? "text-foreground" : "text-foreground/60"
-                      )}
-                    >
-                      <Truck className="h-4 w-4" />
-                      <span>Depots</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {visibleDepotItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <DropdownMenuItem key={item.path} asChild>
-                          <Link
-                            to={item.path}
-                            onMouseEnter={() => item.preload?.()}
-                            onFocus={() => item.preload?.()}
-                            className={cn(
-                              "flex items-center space-x-2 w-full",
-                              isActive(item.path) && "font-medium"
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span>{item.label}</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Configurations dropdown */}
-              {visibleConfigItems.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={cn(
-                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
-                        isDropdownActive(visibleConfigItems) ? "text-foreground" : "text-foreground/60"
-                      )}
-                    >
-                      <Settings className="h-4 w-4" />
-                      <span>Config</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {visibleConfigItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <DropdownMenuItem key={item.path} asChild>
-                          <Link
-                            to={item.path}
-                            className={cn(
-                              "flex items-center space-x-2 w-full",
-                              isActive(item.path) && "font-medium"
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span>{item.label}</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Admin dropdown */}
-              {visibleAdminItems.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={cn(
-                        "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
-                        isDropdownActive(visibleAdminItems) ? "text-foreground" : "text-foreground/60"
-                      )}
-                    >
-                      <Shield className="h-4 w-4" />
-                      <span>Admin</span>
-                      <ChevronDown className="h-3 w-3" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    {visibleAdminItems.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <DropdownMenuItem key={item.path} asChild>
-                          <Link
-                            to={item.path}
-                            className={cn(
-                              "flex items-center space-x-2 w-full",
-                              isActive(item.path) && "font-medium"
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            <span>{item.label}</span>
-                          </Link>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+              {/* Config dropdown */}
+              {hasRealItems(visibleConfigItems) && (
+                <DesktopDropdown
+                  label="Config"
+                  triggerIcon={Settings}
+                  items={visibleConfigItems}
+                  isActive={isActive}
+                  isDropdownActive={isDropdownActive}
+                />
               )}
             </nav>
           )}
@@ -684,5 +439,103 @@ export function Header() {
         )}
       </div>
     </motion.header>
+  );
+}
+
+// ---- Local presentational helpers ---------------------------------------
+
+type DesktopDropdownProps = {
+  label: string;
+  triggerIcon: React.ComponentType<{ className?: string }>;
+  items: NavItem[];
+  isActive: (path: string) => boolean;
+  isDropdownActive: (items: NavItem[]) => boolean;
+};
+
+function DesktopDropdown({ label, triggerIcon: TriggerIcon, items, isActive, isDropdownActive }: DesktopDropdownProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            "flex items-center space-x-1.5 transition-colors hover:text-foreground/80 outline-none",
+            isDropdownActive(items) ? "text-foreground" : "text-foreground/60"
+          )}
+        >
+          <TriggerIcon className="h-4 w-4" />
+          <span>{label}</span>
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {items.map((item, idx) => {
+          if (item.separator) {
+            return <DropdownMenuSeparator key={`sep-${idx}`} />;
+          }
+          if (!item.path || !item.icon || !item.label) return null;
+          const Icon = item.icon;
+          return (
+            <DropdownMenuItem key={item.path} asChild>
+              <Link
+                to={item.path}
+                onMouseEnter={() => item.preload?.()}
+                onFocus={() => item.preload?.()}
+                className={cn(
+                  "flex items-center space-x-2 w-full",
+                  isActive(item.path) && "font-medium"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{item.label}</span>
+              </Link>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+type MobileSectionProps = {
+  title: string;
+  items: NavItem[];
+  isActive: (path: string) => boolean;
+  onNavigate: () => void;
+};
+
+function MobileSection({ title, items, isActive, onNavigate }: MobileSectionProps) {
+  return (
+    <>
+      <div className="pt-3 pb-1 px-3 text-xs font-semibold text-muted-foreground/60 uppercase tracking-wider">
+        {title}
+      </div>
+      {items.map((item, idx) => {
+        if (item.separator) {
+          return <div key={`sep-${idx}`} className="h-px bg-border my-1 mx-3" />;
+        }
+        return renderMobileItem(item, isActive, onNavigate);
+      })}
+    </>
+  );
+}
+
+function renderMobileItem(item: NavItem, isActive: (path: string) => boolean, onNavigate: () => void) {
+  if (item.separator || !item.path || !item.icon || !item.label) return null;
+  const Icon = item.icon;
+  return (
+    <Link
+      key={item.path}
+      to={item.path}
+      onClick={onNavigate}
+      onMouseEnter={() => item.preload?.()}
+      onFocus={() => item.preload?.()}
+      className={cn(
+        "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors hover:bg-accent",
+        isActive(item.path) ? "bg-accent text-accent-foreground font-medium" : "text-muted-foreground"
+      )}
+    >
+      <Icon className="h-5 w-5" />
+      <span>{item.label}</span>
+    </Link>
   );
 }
