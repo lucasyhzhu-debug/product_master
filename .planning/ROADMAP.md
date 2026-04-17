@@ -492,18 +492,6 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 1000: Unified Channel Integration Architecture
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 999
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 1000 to break down)
-
----
-
 ### Phase 1000: Unified Channel Integration Architecture (promoted from 999.4, folded in 999.5)
 
 **Goal:** Build a single coherent pipeline from external sale events to inventory transactions so all channels (GoFood, Shopee, TikTok, BigSeller, K3Mart, internal) flow through one atomic `saveRevenueItems` + admin-configurable routing table, with backfilled historical deductions.
