@@ -38,8 +38,10 @@ export function SkuParetoChart({ topN = 10 }: { topN?: number }) {
 
   return (
     <ChartFrame title="SKU Pareto (top products by revenue)" height={360}>
+      {/* overflow-visible prevents SVG from clipping rotated x-axis tick labels at chart edges */}
+      <div className="h-full w-full [&>div>svg]:overflow-visible">
       <ResponsiveContainer width="100%" height="100%" minWidth={320}>
-        <ComposedChart data={chartData} margin={CHART_MARGIN}>
+        <ComposedChart data={chartData} margin={{ ...CHART_MARGIN, left: 80 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
           <XAxis dataKey="displayName" {...X_AXIS_STRING_LABEL_PROPS} />
           <YAxis
@@ -80,6 +82,7 @@ export function SkuParetoChart({ topN = 10 }: { topN?: number }) {
           />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </ChartFrame>
   );
 }

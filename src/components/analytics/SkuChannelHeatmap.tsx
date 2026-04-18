@@ -10,9 +10,14 @@ import {
 export function SkuChannelHeatmap({ topN = 8 }: { topN?: number }) {
   const data = useSkuChannelMatrix(topN);
 
-  const { transformed, fullNameById } = useMemo(() => {
+  const { transformed, fullNameById, maxVal } = useMemo(() => {
     const fullNameById = new Map<string, string>();
-    if (!data) return { transformed: [] as Array<{ id: string; data: Array<{ x: string; y: number }> }>, fullNameById };
+    if (!data)
+      return {
+        transformed: [] as Array<{ id: string; data: Array<{ x: string; y: number }> }>,
+        fullNameById,
+        maxVal: 1,
+      };
     const transformed = data.matrix.map((row) => {
       const { display, full } = truncateWithTooltip(row.product, 22);
       fullNameById.set(display, full);
@@ -24,7 +29,11 @@ export function SkuChannelHeatmap({ topN = 8 }: { topN?: number }) {
         })),
       };
     });
-    return { transformed, fullNameById };
+    const maxVal = Math.max(
+      ...data.matrix.flatMap((row) => row.channels.map((c) => c.pctOfChannel)),
+      1,
+    );
+    return { transformed, fullNameById, maxVal };
   }, [data]);
 
   if (data === undefined) {
@@ -39,16 +48,16 @@ export function SkuChannelHeatmap({ topN = 8 }: { topN?: number }) {
     <ChartFrame title="Product SKU × Channel heatmap (% of channel)" height={400}>
       <ResponsiveHeatMap
         data={transformed}
-        margin={{ top: 20, right: 30, bottom: 60, left: 180 }}
+        margin={{ top: 60, right: 30, bottom: 20, left: 180 }}
         valueFormat={(v) => `${Math.round(Number(v))}%`}
-        axisTop={null}
-        axisRight={null}
-        axisBottom={{
+        axisTop={{
           tickRotation: -30,
           legend: "Channel",
           legendPosition: "middle",
-          legendOffset: 48,
+          legendOffset: -48,
         }}
+        axisBottom={null}
+        axisRight={null}
         axisLeft={{
           legend: "Product",
           legendPosition: "middle",
@@ -56,7 +65,9 @@ export function SkuChannelHeatmap({ topN = 8 }: { topN?: number }) {
         }}
         colors={{ type: "quantize", scheme: "purples", steps: 5 }}
         emptyColor="hsl(var(--muted))"
-        labelTextColor={{ from: "color", modifiers: [["darker", 3]] }}
+        labelTextColor={(cell) =>
+          Number(cell.value ?? 0) / maxVal > 0.4 ? "#ffffff" : "#1e293b"
+        }
         tooltip={({ cell }) => (
           <ChartTooltip
             active
@@ -75,9 +86,10 @@ export function SkuChannelHeatmap({ topN = 8 }: { topN?: number }) {
         theme={{
           text: { fill: "hsl(var(--foreground))" },
           axis: {
-            ticks: { text: { fill: "hsl(var(--muted-foreground))" } },
-            legend: { text: { fill: "hsl(var(--foreground))" } },
+            ticks: { text: { fill: "hsl(var(--muted-foreground))", fontSize: 11 } },
+            legend: { text: { fill: "hsl(var(--muted-foreground))", fontSize: 11 } },
           },
+          labels: { text: { fontSize: 11, fontWeight: 500 } },
         }}
       />
     </ChartFrame>
