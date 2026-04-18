@@ -92,17 +92,23 @@ export function DayHourHeatmap() {
             {Array.from({ length: numDays }).map((_, di) => {
               const val = collapsed.grid[di][hi];
               const pct = max === 0 ? 0 : Math.round((val / max) * 100);
-              const tooltip =
+              const label =
                 val === 0
                   ? `${dayLabels[di]} · ${hourLabel} · Rp 0`
-                  : `${dayLabels[di]} · ${hourLabel} · ${formatCurrency(val)} · ${pct}% of weekly peak`;
+                  : `${dayLabels[di]} · ${hourLabel} · ${formatCurrency(val)} · ${pct}% of peak`;
               return (
                 <div
                   key={`${hi}-${di}`}
-                  className={`aspect-square rounded ${intensityClass(val, max)}`}
-                  title={tooltip}
-                  aria-label={tooltip}
-                />
+                  className="relative group aspect-square"
+                >
+                  <div
+                    className={`w-full h-full rounded ${intensityClass(val, max)}`}
+                    aria-label={label}
+                  />
+                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 hidden group-hover:block whitespace-nowrap rounded bg-popover text-popover-foreground border border-border px-2 py-1 text-xs shadow-md">
+                    {label}
+                  </div>
+                </div>
               );
             })}
           </Fragment>

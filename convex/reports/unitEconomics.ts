@@ -61,6 +61,8 @@ export type NormalizedOrder = {
   // (default 1) so rolled-up rows don't undercount.
   orderWeight: number;
   status?: string;
+  /** Platform commission from externalRevenue.commission (GoFood, Shopee, etc.) */
+  commission?: number;
 };
 
 export type NormalizedItem = {
@@ -242,6 +244,7 @@ async function loadExternalStream(
       orderDate: ts,
       orderWeight: weight,
       status: "Complete",
+      commission: r.commission ?? 0,
     });
   }
 
@@ -550,6 +553,7 @@ export function reduceChannelEconomics(current: WindowData, pre: Precomputed) {
     {
       gross: number;
       discount: number;
+      commission: number;
       units: number;
       orderCount: number;
     }
@@ -557,13 +561,15 @@ export function reduceChannelEconomics(current: WindowData, pre: Precomputed) {
 
   function bucket(ch: DisplayChannel) {
     if (!byChannel.has(ch)) {
-      byChannel.set(ch, { gross: 0, discount: 0, units: 0, orderCount: 0 });
+      byChannel.set(ch, { gross: 0, discount: 0, commission: 0, units: 0, orderCount: 0 });
     }
     return byChannel.get(ch)!;
   }
 
   for (const o of current.orders) {
-    bucket(o.channel).orderCount += o.orderWeight;
+    const b = bucket(o.channel);
+    b.orderCount += o.orderWeight;
+    b.commission += o.commission ?? 0;
   }
   for (const it of current.items) {
     const o = orderById.get(it.orderId);
@@ -575,8 +581,8 @@ export function reduceChannelEconomics(current: WindowData, pre: Precomputed) {
   }
 
   const rows = Array.from(byChannel.entries()).map(([channel, b]) => {
-    const net = b.gross - b.discount;
-    const fees = 0;
+    const fees = b.commission;
+    const net = b.gross - b.discount - fees;
     return {
       channel,
       gross: b.gross,

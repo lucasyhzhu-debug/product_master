@@ -40,10 +40,12 @@ export function SkuChannelHeatmap() {
                 {row.channels.map((c) => (
                   <td
                     key={c.channel}
-                    className={`px-1 py-1 text-center ${intensityClass(c.pctOfChannel)}`}
-                    title={`${row.product} · ${c.channel} · ${formatCurrency(c.revenue)} · ${c.pctOfChannel.toFixed(1)}% of channel`}
+                    className={`relative group px-1 py-1 text-center ${intensityClass(c.pctOfChannel)}`}
                   >
                     {c.pctOfChannel.toFixed(0)}%
+                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1 z-50 hidden group-hover:block whitespace-nowrap rounded bg-popover text-popover-foreground border border-border px-2 py-1 text-xs shadow-md">
+                      {row.product} · {c.channel} · {formatCurrency(c.revenue)} · {c.pctOfChannel.toFixed(1)}% of channel
+                    </div>
                   </td>
                 ))}
               </tr>

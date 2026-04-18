@@ -57,9 +57,13 @@ export const useTypeMixOverTime = (g: "day" | "week") =>
   useTimeSeriesSnapshot()?.typeMixOverTime[g];
 
 export const useSkuPareto = (topN = 10) =>
-  useSkuSnapshot()?.skuTop.slice(0, topN);
-export const useSkuChannelMatrix = (topN = 8) =>
-  useSkuSnapshot()?.skuChannelMatrix.slice(0, topN);
+  useSkuSnapshot()?.skuTop?.rows?.slice(0, topN);
+export const useSkuChannelMatrix = (topN = 8) => {
+  const snap = useSkuSnapshot();
+  if (!snap) return undefined;
+  const { products, channels, matrix } = snap.skuChannelMatrix;
+  return { products: products.slice(0, topN), channels, matrix: matrix.slice(0, topN) };
+};
 
 // unitsPerTxnByChannel + aovByChannel were subset selectors of channelEconomics
 // in the legacy API. Widgets calling them receive the channelEconomics array.
