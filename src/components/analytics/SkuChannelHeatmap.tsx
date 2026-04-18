@@ -1,56 +1,97 @@
-import { Card } from "@/components/ui/card";
+import { useMemo } from "react";
+import { ResponsiveHeatMap } from "@nivo/heatmap";
 import { useSkuChannelMatrix } from "@/hooks/convex/useAnalytics";
-import { formatCurrency } from "@/lib/utils";
+import {
+  ChartFrame,
+  ChartTooltip,
+  truncateWithTooltip,
+} from "@/lib/chartPrimitives";
 
-function intensityClass(pct: number): string {
-  if (pct < 5) return "bg-purple-500/10";
-  if (pct < 15) return "bg-purple-500/30";
-  if (pct < 30) return "bg-purple-500/50";
-  if (pct < 50) return "bg-purple-500/75";
-  return "bg-purple-500";
-}
+export function SkuChannelHeatmap({ topN = 8 }: { topN?: number }) {
+  const data = useSkuChannelMatrix(topN);
 
-export function SkuChannelHeatmap() {
-  const data = useSkuChannelMatrix(8);
-  if (data === undefined) return <Card className="h-64 animate-pulse p-4" />;
+  const { transformed, fullNameById, maxVal } = useMemo(() => {
+    const fullNameById = new Map<string, string>();
+    if (!data)
+      return {
+        transformed: [] as Array<{ id: string; data: Array<{ x: string; y: number }> }>,
+        fullNameById,
+        maxVal: 1,
+      };
+    const transformed = data.matrix.map((row) => {
+      const { display, full } = truncateWithTooltip(row.product, 22);
+      fullNameById.set(display, full);
+      return {
+        id: display,
+        data: row.channels.map((c) => ({
+          x: c.channel,
+          y: c.pctOfChannel,
+        })),
+      };
+    });
+    const maxVal = Math.max(
+      ...data.matrix.flatMap((row) => row.channels.map((c) => c.pctOfChannel)),
+      1,
+    );
+    return { transformed, fullNameById, maxVal };
+  }, [data]);
+
+  if (data === undefined) {
+    return (
+      <ChartFrame title="Product SKU × Channel heatmap (% of channel)" height={400} loading>
+        {null}
+      </ChartFrame>
+    );
+  }
+
   return (
-    <Card className="p-4">
-      <h4 className="mb-2 text-sm font-semibold">Product SKU × Channel heatmap (% of channel)</h4>
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr>
-              <th className="py-1 text-left text-muted-foreground">Product</th>
-              {data.channels.map((c) => (
-                <th key={c} className="px-2 text-center text-muted-foreground">
-                  {c}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.matrix.map((row) => (
-              <tr key={row.productKey}>
-                <td
-                  className="max-w-[12rem] truncate py-1 pr-2"
-                  title={row.product}
-                >
-                  {row.product}
-                </td>
-                {row.channels.map((c) => (
-                  <td
-                    key={c.channel}
-                    className={`px-1 py-1 text-center ${intensityClass(c.pctOfChannel)}`}
-                    title={`${row.product} · ${c.channel} · ${formatCurrency(c.revenue)} · ${c.pctOfChannel.toFixed(1)}% of channel`}
-                  >
-                    {c.pctOfChannel.toFixed(0)}%
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+    <ChartFrame title="Product SKU × Channel heatmap (% of channel)" height={400}>
+      <ResponsiveHeatMap
+        data={transformed}
+        margin={{ top: 60, right: 30, bottom: 20, left: 180 }}
+        valueFormat={(v) => `${Math.round(Number(v))}%`}
+        axisTop={{
+          tickRotation: -30,
+          legend: "Channel",
+          legendPosition: "middle",
+          legendOffset: -48,
+        }}
+        axisBottom={null}
+        axisRight={null}
+        axisLeft={{
+          legend: "Product",
+          legendPosition: "middle",
+          legendOffset: -160,
+        }}
+        colors={{ type: "quantize", scheme: "purples", steps: 5 }}
+        emptyColor="hsl(var(--muted))"
+        labelTextColor={(cell) =>
+          Number(cell.value ?? 0) / maxVal > 0.4 ? "#ffffff" : "#1e293b"
+        }
+        tooltip={({ cell }) => (
+          <ChartTooltip
+            active
+            label={fullNameById.get(String(cell.serieId)) ?? String(cell.serieId)}
+            payload={[
+              {
+                name: String(cell.data.x),
+                value: Number(cell.value ?? 0),
+              },
+            ]}
+            valueFormatter={(v) =>
+              typeof v === "number" ? `${v.toFixed(1)}% of channel` : String(v)
+            }
+          />
+        )}
+        theme={{
+          text: { fill: "hsl(var(--foreground))" },
+          axis: {
+            ticks: { text: { fill: "hsl(var(--muted-foreground))", fontSize: 11 } },
+            legend: { text: { fill: "hsl(var(--muted-foreground))", fontSize: 11 } },
+          },
+          labels: { text: { fontSize: 11, fontWeight: 500 } },
+        }}
+      />
+    </ChartFrame>
   );
 }

@@ -1,0 +1,1112 @@
+
+> frontend@0.0.0 build
+> tsc -b && vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+Found 2 warnings while optimizing generated CSS:
+
+Issue #1:
+[2m│   }[22m
+[2m│   .bg-\[var\(--color-kitchen-\*\)\] {[22m
+[2m│[22m     background-color: var(--color-kitchen-*);
+[2m┆[22m                                           [33m[2m^--[22m Unexpected token Delim('*')[39m
+[2m┆[22m
+[2m│   }[22m
+[2m│   .bg-\[var\(--color-kitchen-critical\)\] {[22m
+
+Issue #2:
+[2m│   }[22m
+[2m│   .text-\[var\(--color-station-\*\)\] {[22m
+[2m│[22m     color: var(--color-station-*);
+[2m┆[22m                                [33m[2m^--[22m Unexpected token Delim('*')[39m
+[2m┆[22m
+[2m│   }[22m
+[2m│   .text-\[var\(--color-station-boxing\)\] {[22m
+
+[32m✓[39m 3678 modules transformed.
+rendering chunks...
+[33m[esbuild css minify]
+▲ [WARNING] "file" is not a known CSS property [unsupported-css-property]
+
+    <stdin>:2:121828:
+      2 │ ...-select:none}.\[file\:lines\]{file:lines}.ring-inset{--tw-ring-i...
+        │                                  ~~~~
+        ╵                                  flex
+
+  Did you mean "flex" instead?
+
+[39m
+computing gzip size...
+[2mdist/[22m[32mindex.html                                      [39m[1m[2m  1.22 kB[22m[1m[22m[2m │ gzip:   0.51 kB[22m
+[2mdist/[22m[35massets/index-DkL3NL8k.css                       [39m[1m[2m186.73 kB[22m[1m[22m[2m │ gzip:  27.00 kB[22m
+[2mdist/[22m[36massets/collapsible-BJl3TL8I.js                  [39m[1m[2m  0.11 kB[22m[1m[22m[2m │ gzip:   0.11 kB[22m[2m │ map:     0.71 kB[22m
+[2mdist/[22m[36massets/skeleton-XdusKkRM.js                     [39m[1m[2m  0.22 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m[2m │ map:     0.63 kB[22m
+[2mdist/[22m[36massets/scroll-area-QhnyFwdL.js                  [39m[1m[2m  0.27 kB[22m[1m[22m[2m │ gzip:   0.22 kB[22m[2m │ map:     0.87 kB[22m
+[2mdist/[22m[36massets/useJournalImport-CO5XrMrO.js             [39m[1m[2m  0.29 kB[22m[1m[22m[2m │ gzip:   0.19 kB[22m[2m │ map:     1.32 kB[22m
+[2mdist/[22m[36massets/formatters-CsYndIP3.js                   [39m[1m[2m  0.30 kB[22m[1m[22m[2m │ gzip:   0.23 kB[22m[2m │ map:     2.04 kB[22m
+[2mdist/[22m[36massets/LoadingState-DaGFqiFb.js                 [39m[1m[2m  0.32 kB[22m[1m[22m[2m │ gzip:   0.24 kB[22m[2m │ map:     1.12 kB[22m
+[2mdist/[22m[36massets/useProtectedMutation-D30kD17-.js         [39m[1m[2m  0.33 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m[2m │ map:     2.76 kB[22m
+[2mdist/[22m[36massets/label-BPvY1jVr.js                        [39m[1m[2m  0.37 kB[22m[1m[22m[2m │ gzip:   0.27 kB[22m[2m │ map:     1.24 kB[22m
+[2mdist/[22m[36massets/useManualJournal-BNKkKOJA.js             [39m[1m[2m  0.39 kB[22m[1m[22m[2m │ gzip:   0.26 kB[22m[2m │ map:     1.87 kB[22m
+[2mdist/[22m[36massets/createMutationHook-DcHMKaoK.js           [39m[1m[2m  0.39 kB[22m[1m[22m[2m │ gzip:   0.26 kB[22m[2m │ map:     2.31 kB[22m
+[2mdist/[22m[36massets/separator-DRaZ_eit.js                    [39m[1m[2m  0.41 kB[22m[1m[22m[2m │ gzip:   0.28 kB[22m[2m │ map:     1.37 kB[22m
+[2mdist/[22m[36massets/expenseAnalyticsPeriod-Ddqk3TFz.js       [39m[1m[2m  0.43 kB[22m[1m[22m[2m │ gzip:   0.26 kB[22m[2m │ map:     3.53 kB[22m
+[2mdist/[22m[36massets/useAccounts-lKb1qwQc.js                  [39m[1m[2m  0.45 kB[22m[1m[22m[2m │ gzip:   0.25 kB[22m[2m │ map:     2.69 kB[22m
+[2mdist/[22m[36massets/progress-BCZzMQrE.js                     [39m[1m[2m  0.47 kB[22m[1m[22m[2m │ gzip:   0.33 kB[22m[2m │ map:     1.44 kB[22m
+[2mdist/[22m[36massets/textarea-vOV7um2I.js                     [39m[1m[2m  0.50 kB[22m[1m[22m[2m │ gzip:   0.35 kB[22m[2m │ map:     1.10 kB[22m
+[2mdist/[22m[36massets/input-BB3pb9TL.js                        [39m[1m[2m  0.60 kB[22m[1m[22m[2m │ gzip:   0.38 kB[22m[2m │ map:     1.24 kB[22m
+[2mdist/[22m[36massets/helpers-B0SFeNUN.js                      [39m[1m[2m  0.62 kB[22m[1m[22m[2m │ gzip:   0.39 kB[22m[2m │ map:     7.99 kB[22m
+[2mdist/[22m[36massets/useComponentTypes-B726K64l.js            [39m[1m[2m  0.65 kB[22m[1m[22m[2m │ gzip:   0.29 kB[22m[2m │ map:     5.90 kB[22m
+[2mdist/[22m[36massets/EmptyState-zQvsbZ-A.js                   [39m[1m[2m  0.67 kB[22m[1m[22m[2m │ gzip:   0.40 kB[22m[2m │ map:     1.90 kB[22m
+[2mdist/[22m[36massets/ConfirmDialog-B6Y_rDg1.js                [39m[1m[2m  0.70 kB[22m[1m[22m[2m │ gzip:   0.40 kB[22m[2m │ map:     2.79 kB[22m
+[2mdist/[22m[36massets/checkbox-yuU1NQk-.js                     [39m[1m[2m  0.76 kB[22m[1m[22m[2m │ gzip:   0.44 kB[22m[2m │ map:     1.74 kB[22m
+[2mdist/[22m[36massets/useAttendance-BRmw-cmL.js                [39m[1m[2m  0.77 kB[22m[1m[22m[2m │ gzip:   0.34 kB[22m[2m │ map:     4.85 kB[22m
+[2mdist/[22m[36massets/badge-7nXyQymq.js                        [39m[1m[2m  0.80 kB[22m[1m[22m[2m │ gzip:   0.42 kB[22m[2m │ map:     1.77 kB[22m
+[2mdist/[22m[36massets/popover-CQd25djK.js                      [39m[1m[2m  0.81 kB[22m[1m[22m[2m │ gzip:   0.43 kB[22m[2m │ map:     2.05 kB[22m
+[2mdist/[22m[36massets/PageHeader-n28615AP.js                   [39m[1m[2m  0.83 kB[22m[1m[22m[2m │ gzip:   0.42 kB[22m[2m │ map:     2.37 kB[22m
+[2mdist/[22m[36massets/radio-group-DhrvL4SE.js                  [39m[1m[2m  0.83 kB[22m[1m[22m[2m │ gzip:   0.44 kB[22m[2m │ map:     2.42 kB[22m
+[2mdist/[22m[36massets/switch-D46BdRgr.js                       [39m[1m[2m  0.86 kB[22m[1m[22m[2m │ gzip:   0.46 kB[22m[2m │ map:     1.73 kB[22m
+[2mdist/[22m[36massets/useProductionRecipes-BOMOuqSJ.js         [39m[1m[2m  0.87 kB[22m[1m[22m[2m │ gzip:   0.32 kB[22m[2m │ map:     4.50 kB[22m
+[2mdist/[22m[36massets/useProductInventory-QbCYJWuw.js          [39m[1m[2m  0.94 kB[22m[1m[22m[2m │ gzip:   0.39 kB[22m[2m │ map:     6.65 kB[22m
+[2mdist/[22m[36massets/alert-CwyPtVY5.js                        [39m[1m[2m  1.00 kB[22m[1m[22m[2m │ gzip:   0.51 kB[22m[2m │ map:     2.75 kB[22m
+[2mdist/[22m[36massets/tabs-G2duwgrJ.js                         [39m[1m[2m  1.14 kB[22m[1m[22m[2m │ gzip:   0.48 kB[22m[2m │ map:     2.92 kB[22m
+[2mdist/[22m[36massets/VoidReasonDialog-i2b1iLyv.js             [39m[1m[2m  1.24 kB[22m[1m[22m[2m │ gzip:   0.66 kB[22m[2m │ map:     5.31 kB[22m
+[2mdist/[22m[36massets/dateUtils-CUPnBcK-.js                    [39m[1m[2m  1.46 kB[22m[1m[22m[2m │ gzip:   0.67 kB[22m[2m │ map:     7.43 kB[22m
+[2mdist/[22m[36massets/useFixedAssets-BUSDsBFH.js               [39m[1m[2m  1.50 kB[22m[1m[22m[2m │ gzip:   0.54 kB[22m[2m │ map:     5.89 kB[22m
+[2mdist/[22m[36massets/table-C1h3KQo5.js                        [39m[1m[2m  1.60 kB[22m[1m[22m[2m │ gzip:   0.56 kB[22m[2m │ map:     4.95 kB[22m
+[2mdist/[22m[36massets/useBankAccounts-BXdupA5m.js              [39m[1m[2m  1.75 kB[22m[1m[22m[2m │ gzip:   0.61 kB[22m[2m │ map:     8.86 kB[22m
+[2mdist/[22m[36massets/SearchableSelect-B4IUMPjQ.js             [39m[1m[2m  1.77 kB[22m[1m[22m[2m │ gzip:   0.92 kB[22m[2m │ map:     6.27 kB[22m
+[2mdist/[22m[36massets/alert-dialog-CquUtFuy.js                 [39m[1m[2m  2.05 kB[22m[1m[22m[2m │ gzip:   0.75 kB[22m[2m │ map:     7.06 kB[22m
+[2mdist/[22m[36massets/useExpenses-oSbIKPd0.js                  [39m[1m[2m  2.09 kB[22m[1m[22m[2m │ gzip:   0.65 kB[22m[2m │ map:     9.31 kB[22m
+[2mdist/[22m[36massets/dialog-D8Mo6iJu.js                       [39m[1m[2m  2.23 kB[22m[1m[22m[2m │ gzip:   0.87 kB[22m[2m │ map:     6.02 kB[22m
+[2mdist/[22m[36massets/CustomersManager-CQiGlFWh.js             [39m[1m[2m  2.28 kB[22m[1m[22m[2m │ gzip:   1.11 kB[22m[2m │ map:     4.78 kB[22m
+[2mdist/[22m[36massets/GrabFoodCredentialsDialog-VYFCO_pE.js    [39m[1m[2m  2.38 kB[22m[1m[22m[2m │ gzip:   1.11 kB[22m[2m │ map:     7.39 kB[22m
+[2mdist/[22m[36massets/useExternalData-imXijkKw.js              [39m[1m[2m  2.42 kB[22m[1m[22m[2m │ gzip:   0.89 kB[22m[2m │ map:    17.59 kB[22m
+[2mdist/[22m[36massets/useVouchers-DgiReKH_.js                  [39m[1m[2m  2.49 kB[22m[1m[22m[2m │ gzip:   0.74 kB[22m[2m │ map:    13.95 kB[22m
+[2mdist/[22m[36massets/BankAccountsManager-YbRQvTUI.js          [39m[1m[2m  2.71 kB[22m[1m[22m[2m │ gzip:   1.23 kB[22m[2m │ map:     6.02 kB[22m
+[2mdist/[22m[36massets/LocationsManager-DkXejm3x.js             [39m[1m[2m  2.86 kB[22m[1m[22m[2m │ gzip:   1.30 kB[22m[2m │ map:     6.10 kB[22m
+[2mdist/[22m[36massets/select-2Aofx5Pr.js                       [39m[1m[2m  3.07 kB[22m[1m[22m[2m │ gzip:   1.14 kB[22m[2m │ map:     8.92 kB[22m
+[2mdist/[22m[36massets/ClockInGate-CCuceaXK.js                  [39m[1m[2m  3.09 kB[22m[1m[22m[2m │ gzip:   1.38 kB[22m[2m │ map:     9.86 kB[22m
+[2mdist/[22m[36massets/useBulkPriceUpdate-DOZFUttp.js           [39m[1m[2m  3.27 kB[22m[1m[22m[2m │ gzip:   0.89 kB[22m[2m │ map:    19.58 kB[22m
+[2mdist/[22m[36massets/useOrders-DgvGr64j.js                    [39m[1m[2m  3.57 kB[22m[1m[22m[2m │ gzip:   1.22 kB[22m[2m │ map:    29.72 kB[22m
+[2mdist/[22m[36massets/financialHelpers-CaHHzxAf.js             [39m[1m[2m  3.76 kB[22m[1m[22m[2m │ gzip:   1.44 kB[22m[2m │ map:    13.23 kB[22m
+[2mdist/[22m[36massets/ExpenseSubmit-5zSWKva7.js                [39m[1m[2m  3.93 kB[22m[1m[22m[2m │ gzip:   1.63 kB[22m[2m │ map:    13.34 kB[22m
+[2mdist/[22m[36massets/MyPerformance-wt_gGeTT.js                [39m[1m[2m  4.11 kB[22m[1m[22m[2m │ gzip:   1.51 kB[22m[2m │ map:    11.22 kB[22m
+[2mdist/[22m[36massets/AccountsManager-BMYafb8y.js              [39m[1m[2m  4.12 kB[22m[1m[22m[2m │ gzip:   1.81 kB[22m[2m │ map:     9.03 kB[22m
+[2mdist/[22m[36massets/platformColors-C02z_TR_.js               [39m[1m[2m  4.50 kB[22m[1m[22m[2m │ gzip:   0.73 kB[22m[2m │ map:     8.53 kB[22m
+[2mdist/[22m[36massets/useMenuProducts-DbTo3kWw.js              [39m[1m[2m  4.76 kB[22m[1m[22m[2m │ gzip:   1.13 kB[22m[2m │ map:    21.39 kB[22m
+[2mdist/[22m[36massets/useBankReconciliation-DH8XFzkP.js        [39m[1m[2m  4.78 kB[22m[1m[22m[2m │ gzip:   0.89 kB[22m[2m │ map:    21.58 kB[22m
+[2mdist/[22m[36massets/PackagingView-qylpPR5W.js                [39m[1m[2m  5.14 kB[22m[1m[22m[2m │ gzip:   1.93 kB[22m[2m │ map:    15.49 kB[22m
+[2mdist/[22m[36massets/staffPerformanceExport-u2VXbqDB.js       [39m[1m[2m  5.58 kB[22m[1m[22m[2m │ gzip:   1.96 kB[22m[2m │ map:    20.65 kB[22m
+[2mdist/[22m[36massets/IngredientsManager-UWC4rTZY.js           [39m[1m[2m  6.71 kB[22m[1m[22m[2m │ gzip:   2.67 kB[22m[2m │ map:    18.09 kB[22m
+[2mdist/[22m[36massets/StockCount-EI5Gvfpg.js                   [39m[1m[2m  6.76 kB[22m[1m[22m[2m │ gzip:   2.54 kB[22m[2m │ map:    21.68 kB[22m
+[2mdist/[22m[36massets/csvExport-DOlHU1hq.js                    [39m[1m[2m  6.97 kB[22m[1m[22m[2m │ gzip:   1.89 kB[22m[2m │ map:    27.34 kB[22m
+[2mdist/[22m[36massets/BulkPriceUpdate-C0Fzl83B.js              [39m[1m[2m  7.19 kB[22m[1m[22m[2m │ gzip:   2.47 kB[22m[2m │ map:    25.49 kB[22m
+[2mdist/[22m[36massets/MyExpenses-DBeTq7zo.js                   [39m[1m[2m  7.91 kB[22m[1m[22m[2m │ gzip:   2.77 kB[22m[2m │ map:    24.36 kB[22m
+[2mdist/[22m[36massets/ManualJournalEntry-I4tlmEJ_.js           [39m[1m[2m  7.94 kB[22m[1m[22m[2m │ gzip:   2.76 kB[22m[2m │ map:    27.76 kB[22m
+[2mdist/[22m[36massets/BusinessSettings-BOel3Z27.js             [39m[1m[2m  9.74 kB[22m[1m[22m[2m │ gzip:   3.12 kB[22m[2m │ map:    31.60 kB[22m
+[2mdist/[22m[36massets/PayrollManager-C74KUltP.js               [39m[1m[2m  9.95 kB[22m[1m[22m[2m │ gzip:   3.45 kB[22m[2m │ map:    32.68 kB[22m
+[2mdist/[22m[36massets/UsersManager-DyYJBMZe.js                 [39m[1m[2m 10.98 kB[22m[1m[22m[2m │ gzip:   3.19 kB[22m[2m │ map:    36.43 kB[22m
+[2mdist/[22m[36massets/ExpenseSubmitForm-cetbV616.js            [39m[1m[2m 11.09 kB[22m[1m[22m[2m │ gzip:   3.65 kB[22m[2m │ map:    36.26 kB[22m
+[2mdist/[22m[36massets/ExpenseAnalytics-Ds0pszBB.js             [39m[1m[2m 12.13 kB[22m[1m[22m[2m │ gzip:   3.30 kB[22m[2m │ map:    40.93 kB[22m
+[2mdist/[22m[36massets/ExpenseApproval-DCWegDWu.js              [39m[1m[2m 12.26 kB[22m[1m[22m[2m │ gzip:   3.51 kB[22m[2m │ map:    38.81 kB[22m
+[2mdist/[22m[36massets/ApprovalActions-D9f0WN03.js              [39m[1m[2m 15.29 kB[22m[1m[22m[2m │ gzip:   4.74 kB[22m[2m │ map:    63.08 kB[22m
+[2mdist/[22m[36massets/EntityManager-DOxiM9XU.js                [39m[1m[2m 15.51 kB[22m[1m[22m[2m │ gzip:   5.23 kB[22m[2m │ map:    68.65 kB[22m
+[2mdist/[22m[36massets/vendor-convex-Do_ASGSw.js                [39m[1m[2m 15.71 kB[22m[1m[22m[2m │ gzip:   5.84 kB[22m[2m │ map:   112.46 kB[22m
+[2mdist/[22m[36massets/ReimbursementManager-Vdp7AZQi.js         [39m[1m[2m 16.02 kB[22m[1m[22m[2m │ gzip:   4.69 kB[22m[2m │ map:    59.04 kB[22m
+[2mdist/[22m[36massets/WhatsAppTemplatesManager-rXfra48i.js     [39m[1m[2m 16.07 kB[22m[1m[22m[2m │ gzip:   5.61 kB[22m[2m │ map:    49.18 kB[22m
+[2mdist/[22m[36massets/BankRulesManager-DJ4qGuE5.js             [39m[1m[2m 18.08 kB[22m[1m[22m[2m │ gzip:   5.52 kB[22m[2m │ map:    60.44 kB[22m
+[2mdist/[22m[36massets/GrabFoodMenuSimulator-B3I-gdOj.js        [39m[1m[2m 18.54 kB[22m[1m[22m[2m │ gzip:   5.39 kB[22m[2m │ map:    66.08 kB[22m
+[2mdist/[22m[36massets/StaffPerformance-BEBh6ysG.js             [39m[1m[2m 18.68 kB[22m[1m[22m[2m │ gzip:   4.97 kB[22m[2m │ map:    65.31 kB[22m
+[2mdist/[22m[36massets/GoFoodDepotManager-Bqb1dJZE.js           [39m[1m[2m 19.43 kB[22m[1m[22m[2m │ gzip:   5.68 kB[22m[2m │ map:    69.55 kB[22m
+[2mdist/[22m[36massets/OrderManager-Cmq9zltm.js                 [39m[1m[2m 20.88 kB[22m[1m[22m[2m │ gzip:   6.28 kB[22m[2m │ map:    71.70 kB[22m
+[2mdist/[22m[36massets/VouchersManager-Dnzl8uJg.js              [39m[1m[2m 22.44 kB[22m[1m[22m[2m │ gzip:   5.53 kB[22m[2m │ map:    72.02 kB[22m
+[2mdist/[22m[36massets/OrderDetail-CqssmGko.js                  [39m[1m[2m 23.27 kB[22m[1m[22m[2m │ gzip:   6.38 kB[22m[2m │ map:    74.62 kB[22m
+[2mdist/[22m[36massets/GrabFoodManager-NAV0iGr8.js              [39m[1m[2m 23.35 kB[22m[1m[22m[2m │ gzip:   6.82 kB[22m[2m │ map:    90.42 kB[22m
+[2mdist/[22m[36massets/FinancialStatement-xG9obeYX.js           [39m[1m[2m 24.08 kB[22m[1m[22m[2m │ gzip:   6.64 kB[22m[2m │ map:    85.20 kB[22m
+[2mdist/[22m[36massets/InvoicePage-Q20Z00bR.js                  [39m[1m[2m 24.23 kB[22m[1m[22m[2m │ gzip:   5.26 kB[22m[2m │ map:    73.55 kB[22m
+[2mdist/[22m[36massets/HistoricalImportPage-Bi7WCSwu.js         [39m[1m[2m 24.99 kB[22m[1m[22m[2m │ gzip:   7.39 kB[22m[2m │ map:   100.19 kB[22m
+[2mdist/[22m[36massets/AnalyticsDashboard-BvIoSuhu.js           [39m[1m[2m 27.53 kB[22m[1m[22m[2m │ gzip:   7.47 kB[22m[2m │ map:   101.79 kB[22m
+[2mdist/[22m[36massets/orderConstants-CSRP4pRD.js               [39m[1m[2m 28.62 kB[22m[1m[22m[2m │ gzip:   7.69 kB[22m[2m │ map:   108.36 kB[22m
+[2mdist/[22m[36massets/ProductionComponentsManager-Yq9rIQqg.js  [39m[1m[2m 30.47 kB[22m[1m[22m[2m │ gzip:   7.00 kB[22m[2m │ map:   105.39 kB[22m
+[2mdist/[22m[36massets/DispatchPlanner-g0RWS1ra.js              [39m[1m[2m 32.85 kB[22m[1m[22m[2m │ gzip:   9.58 kB[22m[2m │ map:   133.55 kB[22m
+[2mdist/[22m[36massets/OrderCreate-DsjPF5EV.js                  [39m[1m[2m 38.83 kB[22m[1m[22m[2m │ gzip:  10.74 kB[22m[2m │ map:   133.53 kB[22m
+[2mdist/[22m[36massets/vendor-icons-B7nf80Hg.js                 [39m[1m[2m 39.18 kB[22m[1m[22m[2m │ gzip:  12.45 kB[22m[2m │ map:   161.36 kB[22m
+[2mdist/[22m[36massets/AssetRegister-CYnCiOm5.js                [39m[1m[2m 39.47 kB[22m[1m[22m[2m │ gzip:  10.58 kB[22m[2m │ map:   134.02 kB[22m
+[2mdist/[22m[36massets/MenuProductsManager-Dl-nqQcl.js          [39m[1m[2m 45.66 kB[22m[1m[22m[2m │ gzip:  11.79 kB[22m[2m │ map:   163.05 kB[22m
+[2mdist/[22m[36massets/vendor-dnd-7bbT-Hg2.js                   [39m[1m[2m 47.37 kB[22m[1m[22m[2m │ gzip:  15.79 kB[22m[2m │ map:   219.09 kB[22m
+[2mdist/[22m[36massets/K3MartCockpit-DlT5AZwF.js                [39m[1m[2m 60.05 kB[22m[1m[22m[2m │ gzip:  15.10 kB[22m[2m │ map:   212.75 kB[22m
+[2mdist/[22m[36massets/KitchenViewV2-Dbbum9tP.js                [39m[1m[2m 74.70 kB[22m[1m[22m[2m │ gzip:  17.48 kB[22m[2m │ map:   282.26 kB[22m
+[2mdist/[22m[36massets/BankReconciliationPage-BFijXbex.js       [39m[1m[2m 78.40 kB[22m[1m[22m[2m │ gzip:  20.95 kB[22m[2m │ map:   293.64 kB[22m
+[2mdist/[22m[36massets/SalesAnalytics-BJP_XZWA.js               [39m[1m[2m 90.06 kB[22m[1m[22m[2m │ gzip:  21.65 kB[22m[2m │ map:   311.23 kB[22m
+[2mdist/[22m[36massets/InventoryManager-BhiexDWm.js             [39m[1m[2m106.27 kB[22m[1m[22m[2m │ gzip:  23.54 kB[22m[2m │ map:   389.21 kB[22m
+[2mdist/[22m[36massets/index-ONLksExN.js                        [39m[1m[2m114.31 kB[22m[1m[22m[2m │ gzip:  30.30 kB[22m[2m │ map:   337.23 kB[22m
+[2mdist/[22m[36massets/vendor-motion-Bj3lBsp3.js                [39m[1m[2m115.07 kB[22m[1m[22m[2m │ gzip:  38.40 kB[22m[2m │ map:   643.23 kB[22m
+[2mdist/[22m[36massets/vendor-ui-Bwbh5Fv_.js                    [39m[1m[2m156.06 kB[22m[1m[22m[2m │ gzip:  47.81 kB[22m[2m │ map:   789.36 kB[22m
+[2mdist/[22m[36massets/vendor-react-D7SR3yHX.js                 [39m[1m[2m229.72 kB[22m[1m[22m[2m │ gzip:  73.60 kB[22m[2m │ map: 1,332.77 kB[22m
+[2mdist/[22m[36massets/vendor-charts-DY1KJLdk.js                [39m[1m[2m316.09 kB[22m[1m[22m[2m │ gzip:  86.27 kB[22m[2m │ map: 1,477.81 kB[22m
+[2mdist/[22m[36massets/vendor-vQ38wKTh.js                       [39m[1m[33m542.93 kB[39m[22m[2m │ gzip: 180.78 kB[22m[2m │ map: 2,627.66 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 27.02s[39m
+⚡ vite-plugin-bundlesize
+   v0.3.0
+
+! Entry "assets/IngredientsManager-UWC4rTZY.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/OrderManager-Cmq9zltm.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/OrderCreate-DsjPF5EV.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/OrderDetail-CqssmGko.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/orderConstants-CSRP4pRD.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useOrders-DgvGr64j.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/KitchenViewV2-Dbbum9tP.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/PackagingView-qylpPR5W.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/MenuProductsManager-Dl-nqQcl.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/WhatsAppTemplatesManager-rXfra48i.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/VouchersManager-Dnzl8uJg.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useVouchers-DgiReKH_.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useMenuProducts-DbTo3kWw.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/InventoryManager-BhiexDWm.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/LocationsManager-DkXejm3x.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ProductionComponentsManager-Yq9rIQqg.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useProductionRecipes-BOMOuqSJ.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useComponentTypes-B726K64l.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/CustomersManager-CQiGlFWh.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/UsersManager-DyYJBMZe.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/DispatchPlanner-g0RWS1ra.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/GoFoodDepotManager-Bqb1dJZE.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/SalesAnalytics-BJP_XZWA.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/FinancialStatement-xG9obeYX.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/K3MartCockpit-DlT5AZwF.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useExternalData-imXijkKw.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/GrabFoodManager-NAV0iGr8.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/GrabFoodCredentialsDialog-VYFCO_pE.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/GrabFoodMenuSimulator-B3I-gdOj.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/AccountsManager-BMYafb8y.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ExpenseSubmit-5zSWKva7.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/MyExpenses-DBeTq7zo.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ExpenseApproval-DCWegDWu.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ApprovalActions-D9f0WN03.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ReimbursementManager-Vdp7AZQi.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/collapsible-BJl3TL8I.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/BankAccountsManager-YbRQvTUI.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/EntityManager-DOxiM9XU.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/EmptyState-zQvsbZ-A.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/PayrollManager-C74KUltP.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/VoidReasonDialog-i2b1iLyv.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ExpenseAnalytics-Ds0pszBB.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/HistoricalImportPage-Bi7WCSwu.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/switch-D46BdRgr.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/BusinessSettings-BOel3Z27.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useBulkPriceUpdate-DOZFUttp.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useAccounts-lKb1qwQc.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useExpenses-oSbIKPd0.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useBankAccounts-BXdupA5m.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useJournalImport-CO5XrMrO.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useManualJournal-BNKkKOJA.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useFixedAssets-BUSDsBFH.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/badge-7nXyQymq.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/input-BB3pb9TL.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/checkbox-yuU1NQk-.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/dialog-D8Mo6iJu.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/table-C1h3KQo5.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/PageHeader-n28615AP.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ConfirmDialog-B6Y_rDg1.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/createMutationHook-DcHMKaoK.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/label-BPvY1jVr.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/textarea-vOV7um2I.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/select-2Aofx5Pr.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/separator-DRaZ_eit.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/skeleton-XdusKkRM.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/scroll-area-QhnyFwdL.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/alert-dialog-CquUtFuy.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/alert-CwyPtVY5.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useProtectedMutation-D30kD17-.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/LoadingState-DaGFqiFb.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/tabs-G2duwgrJ.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/progress-BCZzMQrE.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/radio-group-DhrvL4SE.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/dateUtils-CUPnBcK-.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useAttendance-BRmw-cmL.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/popover-CQd25djK.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useProductInventory-QbCYJWuw.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/formatters-CsYndIP3.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/platformColors-C02z_TR_.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/csvExport-DOlHU1hq.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/financialHelpers-CaHHzxAf.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ExpenseSubmitForm-cetbV616.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/helpers-B0SFeNUN.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/expenseAnalyticsPeriod-Ddqk3TFz.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/SearchableSelect-B4IUMPjQ.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/InvoicePage-Q20Z00bR.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ManualJournalEntry-I4tlmEJ_.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/AssetRegister-CYnCiOm5.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/useBankReconciliation-DH8XFzkP.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/StockCount-EI5Gvfpg.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/BulkPriceUpdate-C0Fzl83B.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/StaffPerformance-BEBh6ysG.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/staffPerformanceExport-u2VXbqDB.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/ClockInGate-CCuceaXK.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/MyPerformance-wt_gGeTT.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/BankReconciliationPage-BFijXbex.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/BankRulesManager-DJ4qGuE5.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+! Entry "assets/AnalyticsDashboard-BvIoSuhu.js" not matched by any patterns in bundlesize.limits. Using default size of 150 kB.
+All chunks within size limit!
+✔  assets/vendor-react-D7SR3yHX.js (chunk)                 229.7 / 500 kB
+✔  assets/vendor-convex-Do_ASGSw.js (chunk)                 15.7 / 600 kB
+✔  assets/vendor-vQ38wKTh.js (chunk)                       542.9 / 600 kB
+✔  assets/vendor-ui-Bwbh5Fv_.js (chunk)                    156.1 / 600 kB
+✔  assets/vendor-motion-Bj3lBsp3.js (chunk)                115.1 / 600 kB
+✔  assets/vendor-icons-B7nf80Hg.js (chunk)                  39.2 / 600 kB
+✔  assets/vendor-dnd-7bbT-Hg2.js (chunk)                    47.4 / 600 kB
+✔  assets/vendor-charts-DY1KJLdk.js (chunk)                316.1 / 600 kB
+✔  assets/index-ONLksExN.js (entry)                        107.2 / 500 kB
+✔  assets/IngredientsManager-UWC4rTZY.js (chunk)             6.7 / 150 kB
+✔  assets/OrderManager-Cmq9zltm.js (chunk)                  20.9 / 150 kB
+✔  assets/OrderCreate-DsjPF5EV.js (chunk)                   38.8 / 150 kB
+✔  assets/OrderDetail-CqssmGko.js (chunk)                   23.3 / 150 kB
+✔  assets/orderConstants-CSRP4pRD.js (chunk)                28.6 / 150 kB
+✔  assets/useOrders-DgvGr64j.js (chunk)                      3.6 / 150 kB
+✔  assets/KitchenViewV2-Dbbum9tP.js (chunk)                 74.7 / 150 kB
+✔  assets/PackagingView-qylpPR5W.js (chunk)                  5.1 / 150 kB
+✔  assets/MenuProductsManager-Dl-nqQcl.js (chunk)           45.7 / 150 kB
+✔  assets/WhatsAppTemplatesManager-rXfra48i.js (chunk)      16.1 / 150 kB
+✔  assets/VouchersManager-Dnzl8uJg.js (chunk)               22.4 / 150 kB
+✔  assets/useVouchers-DgiReKH_.js (chunk)                    2.5 / 150 kB
+✔  assets/useMenuProducts-DbTo3kWw.js (chunk)                4.8 / 150 kB
+✔  assets/InventoryManager-BhiexDWm.js (chunk)             106.3 / 150 kB
+✔  assets/LocationsManager-DkXejm3x.js (chunk)               2.9 / 150 kB
+✔  assets/ProductionComponentsManager-Yq9rIQqg.js (chunk)   30.5 / 150 kB
+✔  assets/useProductionRecipes-BOMOuqSJ.js (chunk)           0.9 / 150 kB
+✔  assets/useComponentTypes-B726K64l.js (chunk)              0.6 / 150 kB
+✔  assets/CustomersManager-CQiGlFWh.js (chunk)               2.3 / 150 kB
+✔  assets/UsersManager-DyYJBMZe.js (chunk)                    11 / 150 kB
+✔  assets/DispatchPlanner-g0RWS1ra.js (chunk)               32.9 / 150 kB
+✔  assets/GoFoodDepotManager-Bqb1dJZE.js (chunk)            19.4 / 150 kB
+✔  assets/SalesAnalytics-BJP_XZWA.js (chunk)                90.1 / 150 kB
+✔  assets/FinancialStatement-xG9obeYX.js (chunk)            24.1 / 150 kB
+✔  assets/K3MartCockpit-DlT5AZwF.js (chunk)                 60.1 / 150 kB
+✔  assets/useExternalData-imXijkKw.js (chunk)                2.4 / 150 kB
+✔  assets/GrabFoodManager-NAV0iGr8.js (chunk)               23.3 / 150 kB
+✔  assets/GrabFoodCredentialsDialog-VYFCO_pE.js (chunk)      2.4 / 150 kB
+✔  assets/GrabFoodMenuSimulator-B3I-gdOj.js (chunk)         18.5 / 150 kB
+✔  assets/AccountsManager-BMYafb8y.js (chunk)                4.1 / 150 kB
+✔  assets/ExpenseSubmit-5zSWKva7.js (chunk)                  3.9 / 150 kB
+✔  assets/MyExpenses-DBeTq7zo.js (chunk)                     7.9 / 150 kB
+✔  assets/ExpenseApproval-DCWegDWu.js (chunk)               12.3 / 150 kB
+✔  assets/ApprovalActions-D9f0WN03.js (chunk)               15.3 / 150 kB
+✔  assets/ReimbursementManager-Vdp7AZQi.js (chunk)            16 / 150 kB
+✔  assets/collapsible-BJl3TL8I.js (chunk)                    0.1 / 150 kB
+✔  assets/BankAccountsManager-YbRQvTUI.js (chunk)            2.7 / 150 kB
+✔  assets/EntityManager-DOxiM9XU.js (chunk)                 15.5 / 150 kB
+✔  assets/EmptyState-zQvsbZ-A.js (chunk)                     0.7 / 150 kB
+✔  assets/PayrollManager-C74KUltP.js (chunk)                 9.9 / 150 kB
+✔  assets/VoidReasonDialog-i2b1iLyv.js (chunk)               1.2 / 150 kB
+✔  assets/ExpenseAnalytics-Ds0pszBB.js (chunk)              12.1 / 150 kB
+✔  assets/HistoricalImportPage-Bi7WCSwu.js (chunk)            25 / 150 kB
+✔  assets/switch-D46BdRgr.js (chunk)                         0.9 / 150 kB
+✔  assets/BusinessSettings-BOel3Z27.js (chunk)               9.7 / 150 kB
+✔  assets/useBulkPriceUpdate-DOZFUttp.js (chunk)             3.3 / 150 kB
+✔  assets/useAccounts-lKb1qwQc.js (chunk)                    0.5 / 150 kB
+✔  assets/useExpenses-oSbIKPd0.js (chunk)                    2.1 / 150 kB
+✔  assets/useBankAccounts-BXdupA5m.js (chunk)                1.7 / 150 kB
+✔  assets/useJournalImport-CO5XrMrO.js (chunk)               0.3 / 150 kB
+✔  assets/useManualJournal-BNKkKOJA.js (chunk)               0.4 / 150 kB
+✔  assets/useFixedAssets-BUSDsBFH.js (chunk)                 1.5 / 150 kB
+✔  assets/badge-7nXyQymq.js (chunk)                          0.8 / 150 kB
+✔  assets/input-BB3pb9TL.js (chunk)                          0.6 / 150 kB
+✔  assets/checkbox-yuU1NQk-.js (chunk)                       0.8 / 150 kB
+✔  assets/dialog-D8Mo6iJu.js (chunk)                         2.2 / 150 kB
+✔  assets/table-C1h3KQo5.js (chunk)                          1.6 / 150 kB
+✔  assets/PageHeader-n28615AP.js (chunk)                     0.8 / 150 kB
+✔  assets/ConfirmDialog-B6Y_rDg1.js (chunk)                  0.7 / 150 kB
+✔  assets/createMutationHook-DcHMKaoK.js (chunk)             0.4 / 150 kB
+✔  assets/label-BPvY1jVr.js (chunk)                          0.4 / 150 kB
+✔  assets/textarea-vOV7um2I.js (chunk)                       0.5 / 150 kB
+✔  assets/select-2Aofx5Pr.js (chunk)                         3.1 / 150 kB
+✔  assets/separator-DRaZ_eit.js (chunk)                      0.4 / 150 kB
+✔  assets/skeleton-XdusKkRM.js (chunk)                       0.2 / 150 kB
+✔  assets/scroll-area-QhnyFwdL.js (chunk)                    0.3 / 150 kB
+✔  assets/alert-dialog-CquUtFuy.js (chunk)                   2.1 / 150 kB
+✔  assets/alert-CwyPtVY5.js (chunk)                            1 / 150 kB
+✔  assets/useProtectedMutation-D30kD17-.js (chunk)           0.3 / 150 kB
+✔  assets/LoadingState-DaGFqiFb.js (chunk)                   0.3 / 150 kB
+✔  assets/tabs-G2duwgrJ.js (chunk)                           1.1 / 150 kB
+✔  assets/progress-BCZzMQrE.js (chunk)                       0.5 / 150 kB
+✔  assets/radio-group-DhrvL4SE.js (chunk)                    0.8 / 150 kB
+✔  assets/dateUtils-CUPnBcK-.js (chunk)                      1.5 / 150 kB
+✔  assets/useAttendance-BRmw-cmL.js (chunk)                  0.8 / 150 kB
+✔  assets/popover-CQd25djK.js (chunk)                        0.8 / 150 kB
+✔  assets/useProductInventory-QbCYJWuw.js (chunk)            0.9 / 150 kB
+✔  assets/formatters-CsYndIP3.js (chunk)                     0.3 / 150 kB
+✔  assets/platformColors-C02z_TR_.js (chunk)                 4.5 / 150 kB
+✔  assets/csvExport-DOlHU1hq.js (chunk)                        7 / 150 kB
+✔  assets/financialHelpers-CaHHzxAf.js (chunk)               3.8 / 150 kB
+✔  assets/ExpenseSubmitForm-cetbV616.js (chunk)             11.1 / 150 kB
+✔  assets/helpers-B0SFeNUN.js (chunk)                        0.6 / 150 kB
+✔  assets/expenseAnalyticsPeriod-Ddqk3TFz.js (chunk)         0.4 / 150 kB
+✔  assets/SearchableSelect-B4IUMPjQ.js (chunk)               1.8 / 150 kB
+✔  assets/InvoicePage-Q20Z00bR.js (chunk)                   24.2 / 150 kB
+✔  assets/ManualJournalEntry-I4tlmEJ_.js (chunk)             7.9 / 150 kB
+✔  assets/AssetRegister-CYnCiOm5.js (chunk)                 39.5 / 150 kB
+✔  assets/useBankReconciliation-DH8XFzkP.js (chunk)          4.8 / 150 kB
+✔  assets/StockCount-EI5Gvfpg.js (chunk)                     6.8 / 150 kB
+✔  assets/BulkPriceUpdate-C0Fzl83B.js (chunk)                7.2 / 150 kB
+✔  assets/StaffPerformance-BEBh6ysG.js (chunk)              18.7 / 150 kB
+✔  assets/staffPerformanceExport-u2VXbqDB.js (chunk)         5.6 / 150 kB
+✔  assets/ClockInGate-CCuceaXK.js (chunk)                    3.1 / 150 kB
+✔  assets/MyPerformance-wt_gGeTT.js (chunk)                  4.1 / 150 kB
+✔  assets/BankReconciliationPage-BFijXbex.js (chunk)        78.4 / 150 kB
+✔  assets/BankRulesManager-DJ4qGuE5.js (chunk)              18.1 / 150 kB
+✔  assets/AnalyticsDashboard-BvIoSuhu.js (chunk)            27.5 / 150 kB
+
+✔  assets/vendor-react-D7SR3yHX.js (chunk)
+│  229.7 / 500 kB
+│  - node_modules      0 kB (uncompressed)
+│  - local         229.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/vendor-convex-Do_ASGSw.js (chunk)
+│  15.7 / 600 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         15.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/vendor-vQ38wKTh.js (chunk)
+│  542.9 / 600 kB
+│  - node_modules      0 kB (uncompressed)
+│  - local         542.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/vendor-ui-Bwbh5Fv_.js (chunk)
+│  156.1 / 600 kB
+│  - node_modules      0 kB (uncompressed)
+│  - local         156.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/vendor-motion-Bj3lBsp3.js (chunk)
+│  115.1 / 600 kB
+│  - node_modules      0 kB (uncompressed)
+│  - local         115.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/vendor-icons-B7nf80Hg.js (chunk)
+│  39.2 / 600 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         39.2 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/vendor-dnd-7bbT-Hg2.js (chunk)
+│  47.4 / 600 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         47.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/vendor-charts-DY1KJLdk.js (chunk)
+│  316.1 / 600 kB
+│  - node_modules      0 kB (uncompressed)
+│  - local         316.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/index-ONLksExN.js (entry)
+│  107.2 / 500 kB
+│  - node_modules      0 kB (uncompressed)
+│  - local         107.2 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/IngredientsManager-UWC4rTZY.js (chunk)
+│  6.7 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         6.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/OrderManager-Cmq9zltm.js (chunk)
+│  20.9 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         20.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/OrderCreate-DsjPF5EV.js (chunk)
+│  38.8 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         38.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/OrderDetail-CqssmGko.js (chunk)
+│  23.3 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         23.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/orderConstants-CSRP4pRD.js (chunk)
+│  28.6 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         28.6 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useOrders-DgvGr64j.js (chunk)
+│  3.6 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         3.6 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/KitchenViewV2-Dbbum9tP.js (chunk)
+│  74.7 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         74.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/PackagingView-qylpPR5W.js (chunk)
+│  5.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         5.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/MenuProductsManager-Dl-nqQcl.js (chunk)
+│  45.7 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         45.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/WhatsAppTemplatesManager-rXfra48i.js (chunk)
+│  16.1 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         16.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/VouchersManager-Dnzl8uJg.js (chunk)
+│  22.4 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         22.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useVouchers-DgiReKH_.js (chunk)
+│  2.5 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useMenuProducts-DbTo3kWw.js (chunk)
+│  4.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         4.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/InventoryManager-BhiexDWm.js (chunk)
+│  106.3 / 150 kB
+│  - node_modules      0 kB (uncompressed)
+│  - local         106.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/LocationsManager-DkXejm3x.js (chunk)
+│  2.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ProductionComponentsManager-Yq9rIQqg.js (chunk)
+│  30.5 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         30.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useProductionRecipes-BOMOuqSJ.js (chunk)
+│  0.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useComponentTypes-B726K64l.js (chunk)
+│  0.6 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.6 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/CustomersManager-CQiGlFWh.js (chunk)
+│  2.3 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/UsersManager-DyYJBMZe.js (chunk)
+│  11 / 150 kB
+│  - node_modules   0 kB (uncompressed)
+│  - local         11 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/DispatchPlanner-g0RWS1ra.js (chunk)
+│  32.9 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         32.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/GoFoodDepotManager-Bqb1dJZE.js (chunk)
+│  19.4 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         19.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/SalesAnalytics-BJP_XZWA.js (chunk)
+│  90.1 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         90.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/FinancialStatement-xG9obeYX.js (chunk)
+│  24.1 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         24.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/K3MartCockpit-DlT5AZwF.js (chunk)
+│  60.1 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         60.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useExternalData-imXijkKw.js (chunk)
+│  2.4 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/GrabFoodManager-NAV0iGr8.js (chunk)
+│  23.3 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         23.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/GrabFoodCredentialsDialog-VYFCO_pE.js (chunk)
+│  2.4 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/GrabFoodMenuSimulator-B3I-gdOj.js (chunk)
+│  18.5 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         18.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/AccountsManager-BMYafb8y.js (chunk)
+│  4.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         4.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ExpenseSubmit-5zSWKva7.js (chunk)
+│  3.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         3.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/MyExpenses-DBeTq7zo.js (chunk)
+│  7.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         7.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ExpenseApproval-DCWegDWu.js (chunk)
+│  12.3 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         12.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ApprovalActions-D9f0WN03.js (chunk)
+│  15.3 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         15.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ReimbursementManager-Vdp7AZQi.js (chunk)
+│  16 / 150 kB
+│  - node_modules   0 kB (uncompressed)
+│  - local         16 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/collapsible-BJl3TL8I.js (chunk)
+│  0.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/BankAccountsManager-YbRQvTUI.js (chunk)
+│  2.7 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/EntityManager-DOxiM9XU.js (chunk)
+│  15.5 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         15.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/EmptyState-zQvsbZ-A.js (chunk)
+│  0.7 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/PayrollManager-C74KUltP.js (chunk)
+│  9.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         9.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/VoidReasonDialog-i2b1iLyv.js (chunk)
+│  1.2 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         1.2 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ExpenseAnalytics-Ds0pszBB.js (chunk)
+│  12.1 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         12.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/HistoricalImportPage-Bi7WCSwu.js (chunk)
+│  25 / 150 kB
+│  - node_modules   0 kB (uncompressed)
+│  - local         25 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/switch-D46BdRgr.js (chunk)
+│  0.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/BusinessSettings-BOel3Z27.js (chunk)
+│  9.7 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         9.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useBulkPriceUpdate-DOZFUttp.js (chunk)
+│  3.3 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         3.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useAccounts-lKb1qwQc.js (chunk)
+│  0.5 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useExpenses-oSbIKPd0.js (chunk)
+│  2.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useBankAccounts-BXdupA5m.js (chunk)
+│  1.7 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         1.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useJournalImport-CO5XrMrO.js (chunk)
+│  0.3 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useManualJournal-BNKkKOJA.js (chunk)
+│  0.4 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useFixedAssets-BUSDsBFH.js (chunk)
+│  1.5 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         1.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/badge-7nXyQymq.js (chunk)
+│  0.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/input-BB3pb9TL.js (chunk)
+│  0.6 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.6 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/checkbox-yuU1NQk-.js (chunk)
+│  0.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/dialog-D8Mo6iJu.js (chunk)
+│  2.2 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.2 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/table-C1h3KQo5.js (chunk)
+│  1.6 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         1.6 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/PageHeader-n28615AP.js (chunk)
+│  0.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ConfirmDialog-B6Y_rDg1.js (chunk)
+│  0.7 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/createMutationHook-DcHMKaoK.js (chunk)
+│  0.4 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/label-BPvY1jVr.js (chunk)
+│  0.4 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/textarea-vOV7um2I.js (chunk)
+│  0.5 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/select-2Aofx5Pr.js (chunk)
+│  3.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         3.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/separator-DRaZ_eit.js (chunk)
+│  0.4 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/skeleton-XdusKkRM.js (chunk)
+│  0.2 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.2 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/scroll-area-QhnyFwdL.js (chunk)
+│  0.3 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/alert-dialog-CquUtFuy.js (chunk)
+│  2.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         2.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/alert-CwyPtVY5.js (chunk)
+│  1 / 150 kB
+│  - node_modules  0 kB (uncompressed)
+│  - local         1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useProtectedMutation-D30kD17-.js (chunk)
+│  0.3 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/LoadingState-DaGFqiFb.js (chunk)
+│  0.3 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/tabs-G2duwgrJ.js (chunk)
+│  1.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         1.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/progress-BCZzMQrE.js (chunk)
+│  0.5 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/radio-group-DhrvL4SE.js (chunk)
+│  0.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/dateUtils-CUPnBcK-.js (chunk)
+│  1.5 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         1.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useAttendance-BRmw-cmL.js (chunk)
+│  0.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/popover-CQd25djK.js (chunk)
+│  0.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useProductInventory-QbCYJWuw.js (chunk)
+│  0.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/formatters-CsYndIP3.js (chunk)
+│  0.3 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.3 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/platformColors-C02z_TR_.js (chunk)
+│  4.5 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         4.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/csvExport-DOlHU1hq.js (chunk)
+│  7 / 150 kB
+│  - node_modules  0 kB (uncompressed)
+│  - local         7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/financialHelpers-CaHHzxAf.js (chunk)
+│  3.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         3.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ExpenseSubmitForm-cetbV616.js (chunk)
+│  11.1 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         11.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/helpers-B0SFeNUN.js (chunk)
+│  0.6 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.6 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/expenseAnalyticsPeriod-Ddqk3TFz.js (chunk)
+│  0.4 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         0.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/SearchableSelect-B4IUMPjQ.js (chunk)
+│  1.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         1.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/InvoicePage-Q20Z00bR.js (chunk)
+│  24.2 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         24.2 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ManualJournalEntry-I4tlmEJ_.js (chunk)
+│  7.9 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         7.9 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/AssetRegister-CYnCiOm5.js (chunk)
+│  39.5 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         39.5 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/useBankReconciliation-DH8XFzkP.js (chunk)
+│  4.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         4.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/StockCount-EI5Gvfpg.js (chunk)
+│  6.8 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         6.8 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/BulkPriceUpdate-C0Fzl83B.js (chunk)
+│  7.2 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         7.2 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/StaffPerformance-BEBh6ysG.js (chunk)
+│  18.7 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         18.7 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/staffPerformanceExport-u2VXbqDB.js (chunk)
+│  5.6 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         5.6 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/ClockInGate-CCuceaXK.js (chunk)
+│  3.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         3.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/MyPerformance-wt_gGeTT.js (chunk)
+│  4.1 / 150 kB
+│  - node_modules    0 kB (uncompressed)
+│  - local         4.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/BankReconciliationPage-BFijXbex.js (chunk)
+│  78.4 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         78.4 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/BankRulesManager-DJ4qGuE5.js (chunk)
+│  18.1 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         18.1 kB (uncompressed)
+│  
+│  
+│  
+✔  assets/AnalyticsDashboard-BvIoSuhu.js (chunk)
+│  27.5 / 150 kB
+│  - node_modules     0 kB (uncompressed)
+│  - local         27.5 kB (uncompressed)
+│  

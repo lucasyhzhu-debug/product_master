@@ -16,6 +16,30 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 80.1 — Analytics Dashboard Perf & Chart Primitives Consolidation -- 2026-04-18
+
+**For the team:** `/analytics` now loads faster and is visually consistent. Filter changes (date range, channel, product) trigger 3 backend queries instead of 12 — roughly 75% less write-invalidation traffic. Chart axis labels never silently hide, every truncated label reveals its full text on hover, and every tooltip has dark-background / light-text (WCAG-AA) with category colors rendered as small swatches instead of colored value text.
+
+**Performance:**
+- `/analytics` consolidated 12 per-widget Convex queries into 3 grouped snapshot queries (`kpiAndChannelSnapshot`, `timeSeriesSnapshot`, `skuSnapshot`). Filter changes trigger 3 subscriptions, not 12. `orders`-write re-invalidation surface cut by ~75%. Call-counter regression test locks the invariant (kpiAndChannel=2 loads, time=1, sku=1, precomputeBomMaps=1 per invocation).
+- `/analytics` route is lazy-loaded (existing `lazyWithPreload` wrap preserved) — Nivo chunk (`vendor-nivo-*.js`) only loads when the page is visited. Verified via build output + DevTools Network.
+
+**UX (R1 — no-clip + hover-reveal):** Shared `ChartFrame` / `CHART_MARGIN` / `X_AXIS_STRING_LABEL_PROPS` / `truncateWithTooltip` primitives in `src/lib/chartPrimitives.tsx` enforce non-clipping axis labels across 8 Recharts widgets. Every truncated label (e.g. long SKU name in SkuPareto or SkuChannelHeatmap) now reveals the full text via tooltip hover.
+
+**UX (R2 — WCAG-AA tooltips):** Shared `ChartTooltip` primitive enforces dark-popover + light-text contrast (≥4.5:1 verified by inline luminance test). Category colors render as small swatches only — never as value text color.
+
+**UX (R3 — heatmaps transposed + contrast-adaptive labels):** `DayHourHeatmap` now displays days (Mon–Sun) across the top axis and hour bins as rows; cell values show % share of that day's revenue (raw IDR in tooltip). `SkuChannelHeatmap` channels axis moved to top. Both heatmaps use contrast-adaptive `labelTextColor` (white text on dark cells, dark text on light cells) — `hsl(var(...))` CSS variables replaced with plain hex so react-spring animation doesn't crash. `SkuParetoChart` x-axis labels no longer clip at chart edges (SVG `overflow-visible` + wider left margin).
+
+**Library:** Added pinned `@nivo/core` + `@nivo/heatmap` (0.99.0, no caret). `manualChunks` splits `@nivo/*` + `@react-spring/*` into `vendor-nivo` chunk (~111 kB uncompressed) so the main vendor bundle stays under the 600 kB cap.
+
+**Cleanup:** Deleted 12 deprecated per-widget query wrappers from `convex/reports/unitEconomics.ts` (`kpiSummary`, `channelEconomics`, `channelMomentum`, `byWeekday`, `rollingTrend`, `dayHourHeatmap`, `volumeByType`, `typeMixOverTime`, `unitsPerTxnByChannel`, `aovByChannel`, `skuPareto`, `skuChannelMatrix`). All 25 tests in `tests/convex/unitEconomics.test.ts` ported to call the 3 snapshot queries. Safety grep (src/ + tests/ + convex/) confirmed zero remaining references before deletion.
+
+**Files modified:** `convex/reports/unitEconomics.ts`, `src/components/analytics/DayHourHeatmap.tsx`, `src/components/analytics/SkuChannelHeatmap.tsx`, `src/lib/chartPrimitives.tsx` (existing from Wave B), `src/hooks/convex/useAnalytics.ts` (existing from Wave B), 8 migrated chart widgets (existing from Wave B), `tests/convex/unitEconomics.test.ts`, `tests/convex/unitEconomicsSnapshots.test.ts`, `package.json`, `package-lock.json`, `vite.config.ts`.
+
+**Breaking change:** External Convex clients calling the 12 deprecated paths must migrate to the 3 snapshot paths. Frollie Recipe Master has no external clients — internal impact only.
+
+---
+
 ### Chore: GSD — extend quad_review consolidation to /gsd:quick --full -- 2026-04-17
 
 **For the team:** The quad_review consolidation applied to phase execution earlier today also applies to `/gsd:quick --full` — that workflow also had a sequential code-review-then-triple-review pattern (Step 6.25 followed by Step 6.3). Collapsed them into a single `Step 6.3: Quad review` that writes REVIEW.md via `gsd-code-reviewer` and then feeds it into triple-review's synthesis as a 4th reviewer.
