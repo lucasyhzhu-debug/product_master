@@ -44,7 +44,11 @@ export const useKpiSummary = () => useKpiAndChannelSnapshot()?.kpi;
 export const useChannelEconomics = () => useKpiAndChannelSnapshot()?.channelEconomics;
 export const useChannelMomentum = () => useKpiAndChannelSnapshot()?.channelMomentum;
 
-export const useByWeekday = () => useTimeSeriesSnapshot()?.byWeekday;
+export const useByWeekday = (mode: "weekday" | "rolling" = "weekday") => {
+  const snap = useTimeSeriesSnapshot();
+  if (snap === undefined) return undefined;
+  return mode === "rolling" ? snap.byWeekdayRolling : snap.byWeekday;
+};
 export const useRollingTrend = () => useTimeSeriesSnapshot()?.rollingTrend;
 export const useDayHourHeatmap = () => useTimeSeriesSnapshot()?.dayHourHeatmap;
 export const useVolumeByType = (g: "day" | "week") =>

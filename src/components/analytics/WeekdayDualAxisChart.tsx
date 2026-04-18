@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { useByWeekday } from "@/hooks/convex/useAnalytics";
 import {
   ComposedChart,
   Bar,
@@ -12,6 +10,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { useByWeekday } from "@/hooks/convex/useAnalytics";
+import {
+  ChartFrame,
+  CHART_MARGIN,
+  X_AXIS_STRING_LABEL_PROPS,
+} from "@/lib/chartPrimitives";
 
 type Mode = "weekday" | "rolling";
 
@@ -42,9 +46,12 @@ function WeekdayTooltip({
   const upo = p.unitsPerOrder ?? 0;
   const prefix = mode === "rolling" ? label : `${label}`;
   return (
-    <div className="rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm">
-      <div className="font-medium">{prefix}</div>
-      <div className="text-muted-foreground">
+    <div
+      data-chart-tooltip
+      className="rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md"
+    >
+      <div className="mb-1 font-medium">{prefix}</div>
+      <div data-tooltip-value className="text-xs tabular-nums">
         {orders} orders · {units} units · {upo.toFixed(2)} u/txn
       </div>
     </div>
@@ -63,9 +70,16 @@ export function WeekdayDualAxisChart() {
   const [mode, setMode] = useState<Mode>("weekday");
   const data = useByWeekday(mode);
   if (data === undefined) {
-    return <Card className="h-64 animate-pulse p-4" />;
+    return (
+      <ChartFrame
+        title="Orders, Units & Units/Order per weekday"
+        loading
+      >
+        {null}
+      </ChartFrame>
+    );
   }
-  const chartData = data.labels.map((label, i) => {
+  const chartData = data.labels.map((label: string, i: number) => {
     const orders = data.orders[i];
     const units = data.units[i];
     const upo = orders > 0 ? units / orders : 0;
@@ -77,20 +91,22 @@ export function WeekdayDualAxisChart() {
     };
   });
 
-  // For rolling mode, compute a sensible X-axis interval to avoid label crowding.
-  const xAxisInterval =
-    mode === "rolling" && chartData.length > 14
-      ? Math.ceil(chartData.length / 12)
-      : 0;
+  // In weekday mode we have 7 ticks max — always show all of them per R1.
+  // In rolling mode the series can grow long; use Recharts' auto-interval.
+  const axisProps =
+    mode === "weekday"
+      ? X_AXIS_STRING_LABEL_PROPS
+      : { tick: { fontSize: 11 } as const };
 
   return (
-    <Card className="p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-sm font-semibold">
-          {mode === "weekday"
-            ? "Orders, Units & Units/Order per weekday"
-            : "Orders, Units & Units/Order (rolling)"}
-        </h4>
+    <ChartFrame
+      title={
+        mode === "weekday"
+          ? "Orders, Units & Units/Order per weekday"
+          : "Orders, Units & Units/Order (rolling)"
+      }
+    >
+      <div className="mb-2 flex items-center justify-end gap-1">
         <div className="inline-flex rounded-md border bg-muted/40 p-0.5 text-xs">
           <button
             type="button"
@@ -114,18 +130,19 @@ export function WeekdayDualAxisChart() {
           </button>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={240}>
-        <ComposedChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="day" interval={xAxisInterval} />
+      <ResponsiveContainer width="100%" height="100%" minWidth={320}>
+        <ComposedChart data={chartData} margin={CHART_MARGIN}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="day" {...axisProps} />
           {/* Left axis carries both Orders and Units (same count-like scale). */}
-          <YAxis yAxisId="left" />
+          <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
           {/* Right axis dedicated to Units/Order ratio (fewer ticks). */}
           <YAxis
             yAxisId="right"
             orientation="right"
             stroke="#22d3ee"
             tickCount={4}
+            tick={{ fontSize: 11 }}
           />
           <Tooltip content={<WeekdayTooltip mode={mode} />} />
           <Legend />
@@ -142,6 +159,6 @@ export function WeekdayDualAxisChart() {
           />
         </ComposedChart>
       </ResponsiveContainer>
-    </Card>
+    </ChartFrame>
   );
 }

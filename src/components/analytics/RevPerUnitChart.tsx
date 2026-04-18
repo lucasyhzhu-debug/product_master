@@ -1,5 +1,3 @@
-import { Card } from "@/components/ui/card";
-import { useChannelEconomics } from "@/hooks/convex/useAnalytics";
 import {
   BarChart,
   Bar,
@@ -10,8 +8,15 @@ import {
   CartesianGrid,
   Cell,
 } from "recharts";
-import { formatCurrency } from "@/lib/utils";
+import { useChannelEconomics } from "@/hooks/convex/useAnalytics";
 import { getPlatformPalette } from "@/lib/platformColors";
+import { formatCurrency } from "@/lib/utils";
+import {
+  ChartFrame,
+  CHART_MARGIN,
+  X_AXIS_STRING_LABEL_PROPS,
+  formatCurrencyCompact,
+} from "@/lib/chartPrimitives";
 
 type RevPerUnitRow = {
   channel: string;
@@ -21,6 +26,8 @@ type RevPerUnitRow = {
   takePct: number;
 };
 
+// Channel-based RevPerUnit tooltip — preserves rich info (gross/net/take%) that a
+// single-value ChartTooltip can't express. Uses popover tokens for R2 contrast.
 function RevPerUnitTooltip({
   active,
   payload,
@@ -32,12 +39,15 @@ function RevPerUnitTooltip({
   const p = payload[0]?.payload;
   if (!p) return null;
   return (
-    <div className="rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm">
-      <div className="font-medium">{p.channel}</div>
-      <div className="text-muted-foreground">
+    <div
+      data-chart-tooltip
+      className="rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md"
+    >
+      <div className="mb-1 font-medium">{p.channel}</div>
+      <div data-tooltip-value className="text-xs tabular-nums">
         Rev/Unit {formatCurrency(p.value)}
       </div>
-      <div className="text-muted-foreground">
+      <div className="text-xs text-muted-foreground tabular-nums">
         Gross {formatCurrency(p.gross)} · Net {formatCurrency(p.net)} · Take{" "}
         {p.takePct.toFixed(0)}%
       </div>
@@ -47,7 +57,13 @@ function RevPerUnitTooltip({
 
 export function RevPerUnitChart() {
   const data = useChannelEconomics();
-  if (data === undefined) return <Card className="h-56 animate-pulse p-4" />;
+  if (data === undefined) {
+    return (
+      <ChartFrame title="Revenue per unit by channel" loading>
+        {null}
+      </ChartFrame>
+    );
+  }
   const rows: RevPerUnitRow[] = data.map((r) => ({
     channel: r.channel,
     value: r.revPerUnit,
@@ -55,22 +71,14 @@ export function RevPerUnitChart() {
     net: r.net,
     takePct: r.takePct,
   }));
-  const rotate = rows.length > 4;
+
   return (
-    <Card className="p-4">
-      <h4 className="mb-2 text-sm font-semibold">Revenue per unit by channel</h4>
-      <ResponsiveContainer width="100%" height={rotate ? 240 : 200}>
-        <BarChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: rotate ? 24 : 0 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="channel"
-            angle={rotate ? -30 : 0}
-            textAnchor={rotate ? "end" : "middle"}
-            height={rotate ? 60 : 30}
-            interval={0}
-            tick={{ fontSize: 11 }}
-          />
-          <YAxis tickFormatter={(v) => formatCurrency(v)} />
+    <ChartFrame title="Revenue per unit by channel">
+      <ResponsiveContainer width="100%" height="100%" minWidth={320}>
+        <BarChart data={rows} margin={CHART_MARGIN}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="channel" {...X_AXIS_STRING_LABEL_PROPS} />
+          <YAxis tickFormatter={formatCurrencyCompact} tick={{ fontSize: 11 }} />
           <Tooltip content={<RevPerUnitTooltip />} />
           <Bar dataKey="value">
             {rows.map((r) => (
@@ -79,6 +87,6 @@ export function RevPerUnitChart() {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    </Card>
+    </ChartFrame>
   );
 }
