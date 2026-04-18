@@ -60,6 +60,7 @@ import type * as externalData_actions from "../externalData/actions.js";
 import type * as externalData_helpers_dashboardHelpers from "../externalData/helpers/dashboardHelpers.js";
 import type * as externalData_helpers_lifetimeHelpers from "../externalData/helpers/lifetimeHelpers.js";
 import type * as externalData_helpers_restockHelpers from "../externalData/helpers/restockHelpers.js";
+import type * as externalData_helpers_revenueItemsHelpers from "../externalData/helpers/revenueItemsHelpers.js";
 import type * as externalData_helpers_sellThroughHelpers from "../externalData/helpers/sellThroughHelpers.js";
 import type * as externalData_helpers_timeSeriesHelpers from "../externalData/helpers/timeSeriesHelpers.js";
 import type * as externalData_mutations from "../externalData/mutations.js";
@@ -302,6 +303,7 @@ declare const fullApi: ApiFromModules<{
   "externalData/helpers/dashboardHelpers": typeof externalData_helpers_dashboardHelpers;
   "externalData/helpers/lifetimeHelpers": typeof externalData_helpers_lifetimeHelpers;
   "externalData/helpers/restockHelpers": typeof externalData_helpers_restockHelpers;
+  "externalData/helpers/revenueItemsHelpers": typeof externalData_helpers_revenueItemsHelpers;
   "externalData/helpers/sellThroughHelpers": typeof externalData_helpers_sellThroughHelpers;
   "externalData/helpers/timeSeriesHelpers": typeof externalData_helpers_timeSeriesHelpers;
   "externalData/mutations": typeof externalData_mutations;
