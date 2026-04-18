@@ -188,7 +188,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
 - [x] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron (completed 2026-04-14)
 - [x] **Phase 80: Unit Economics Analytics Dashboard** - New /analytics page with 13 widgets across 6 lenses answering unit-economics questions (completed 2026-04-15)
-- [ ] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route
+- [x] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route (completed 2026-04-18)
 - [ ] **Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)** - Eliminate the `(Unlinked)` bucket in SKU Pareto / SKU Channel Matrix reports caused by two independent bugs: K3Mart mapping cascade not covering `source="k3mart"` (737/737 parents affected) and syncInternalOrders skipping child-item creation on historical re-syncs (219/262 Direct parents affected)
 - [ ] **Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)** - Fix the Analytics `/analytics` loader double-counting every Direct/WhatsApp/Instagram order: `loadExternalStream` in `convex/reports/unitEconomics.ts` unions native `orders` + `externalRevenue[source="internal"]` mirror of those same orders, inflating Direct-channel revenue/units/orders ~2×. Single-line R5 skip rule (spec'd in Phase 80 Task 4b staff-review addendum but never committed to code — ghost commit `59069988`) plus symmetric regression-test coverage across all 10+ queries calling `loadFilteredData`.
 
@@ -410,7 +410,7 @@ Plans:
 Plans:
 - [x] 80.1-01-PLAN.md -- Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
 - [x] 80.1-02-PLAN.md -- Wave B Frontend (Tasks 10-18): `truncateWithTooltip`, `formatCurrencyCompact`, `ChartTooltip` with WCAG contrast test, `ChartFrame` + `CHART_MARGIN` + `X_AXIS_STRING_LABEL_PROPS`, rewrite `useAnalytics.ts` hooks as 3 snapshots + field selectors, migrate `SkuParetoChart` first (R1/R2 screenshot subject), then 7 remaining Recharts widgets
-- [ ] 80.1-03-PLAN.md -- Wave C Nivo + cleanup (Tasks 19-24): install `@nivo/core` + `@nivo/heatmap`, migrate `DayHourHeatmap` + `SkuChannelHeatmap`, verify `/analytics` lazy-load, delete deprecated query wrappers, docs + HUMAN-UAT checklist
+- [x] 80.1-03-PLAN.md -- Wave C Nivo + cleanup (Tasks 19-24): install `@nivo/core` + `@nivo/heatmap`, migrate `DayHourHeatmap` + `SkuChannelHeatmap`, verify `/analytics` lazy-load, delete deprecated query wrappers, docs + HUMAN-UAT checklist (completed 2026-04-18)
 
 **UI hint**: yes
 
@@ -505,7 +505,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
-| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 2/3 | In Progress|  |
+| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete   | 2026-04-18 |
 | 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 0/4 plans | Not started | - |
 | 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 0/1 plans (3 waves) | Not started | - |
 
