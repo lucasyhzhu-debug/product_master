@@ -4,6 +4,9 @@ import {
   truncateWithTooltip,
   formatCurrencyCompact,
   ChartTooltip,
+  ChartFrame,
+  CHART_MARGIN,
+  X_AXIS_STRING_LABEL_PROPS,
 } from "@/lib/chartPrimitives";
 
 describe("truncateWithTooltip", () => {
@@ -97,5 +100,42 @@ describe("ChartTooltip contrast", () => {
   it("renders nothing when inactive", () => {
     const { container } = render(<ChartTooltip active={false} payload={[]} />);
     expect(container.firstChild).toBeNull();
+  });
+});
+
+describe("ChartFrame", () => {
+  it("renders title + children with default height 320", () => {
+    const { getByText, container } = render(
+      <ChartFrame title="Test Chart">
+        <div>inner</div>
+      </ChartFrame>,
+    );
+    expect(getByText("Test Chart")).toBeTruthy();
+    expect(getByText("inner")).toBeTruthy();
+    const frame = container.querySelector("[data-chart-frame]") as HTMLElement;
+    expect(frame.style.height).toBe("320px");
+  });
+
+  it("renders loading state when loading=true and NOT the children", () => {
+    const { container, queryByText } = render(
+      <ChartFrame title="Test" loading>
+        <div>inner</div>
+      </ChartFrame>,
+    );
+    expect(queryByText("inner")).toBeNull();
+    expect(container.querySelector("[data-chart-skeleton]")).toBeTruthy();
+  });
+});
+
+describe("chart constants", () => {
+  it("CHART_MARGIN uses 64px bottom + left for non-clipping axis labels", () => {
+    expect(CHART_MARGIN).toEqual({ top: 16, right: 48, bottom: 64, left: 64 });
+  });
+
+  it("X_AXIS_STRING_LABEL_PROPS rotates -35deg, forces interval 0, height 80", () => {
+    expect(X_AXIS_STRING_LABEL_PROPS.angle).toBe(-35);
+    expect(X_AXIS_STRING_LABEL_PROPS.textAnchor).toBe("end");
+    expect(X_AXIS_STRING_LABEL_PROPS.interval).toBe(0);
+    expect(X_AXIS_STRING_LABEL_PROPS.height).toBe(80);
   });
 });

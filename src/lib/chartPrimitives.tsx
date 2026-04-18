@@ -30,6 +30,8 @@ export function formatCurrencyCompact(value: number): string {
 }
 
 import { formatCurrency } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ReactNode } from "react";
 
 type TooltipEntry = {
   name?: string;
@@ -93,3 +95,76 @@ export function ChartTooltip({
     </div>
   );
 }
+
+export type ChartFrameProps = {
+  title: string;
+  subtitle?: string;
+  loading?: boolean;
+  error?: string | null;
+  height?: number;
+  children: ReactNode;
+};
+
+/**
+ * R1 enforcement: default margin + height ensure labels don't clip.
+ * Every analytics chart wraps its <ResponsiveContainer> with <ChartFrame>.
+ * loading renders an animate-pulse skeleton INSIDE the fixed-size frame so no layout shift.
+ */
+export function ChartFrame({
+  title,
+  subtitle,
+  loading,
+  error,
+  height = 320,
+  children,
+}: ChartFrameProps) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        {subtitle && (
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div data-chart-frame style={{ height: `${height}px` }}>
+          {loading ? (
+            <div
+              data-chart-skeleton
+              className="h-full w-full animate-pulse rounded bg-muted"
+            />
+          ) : error ? (
+            <div className="flex h-full items-center justify-center text-sm text-destructive">
+              {error}
+            </div>
+          ) : (
+            children
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Default chart margins. R1: 64px bottom + left ensure rotated string X-axis labels
+ * and full-width Y-axis tick formatters never clip.
+ *
+ * Together with X_AXIS_STRING_LABEL_PROPS below, CHART_MARGIN is the
+ * "ChartAxis primitive" referenced by ROADMAP success criterion #3.
+ * Spread-constants are preferred over a wrapper component — less indirection,
+ * same enforcement via grep in task acceptance criteria. Locked by CONTEXT.md D-06.
+ */
+export const CHART_MARGIN = { top: 16, right: 48, bottom: 64, left: 64 } as const;
+
+/**
+ * Apply to every string-dataKey <XAxis>. interval=0 disables Recharts' auto-hide
+ * (which hides ticks silently when crowded — the defect R1 fixes).
+ */
+export const X_AXIS_STRING_LABEL_PROPS = {
+  angle: -35,
+  textAnchor: "end" as const,
+  interval: 0,
+  height: 80,
+  tick: { fontSize: 11 },
+};
