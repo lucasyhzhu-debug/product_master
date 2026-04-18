@@ -14,6 +14,7 @@ import { computeLifetimeTotals, computePiecesSold } from "./helpers/lifetimeHelp
 import { countDayTypes, buildSellThroughProducts } from "./helpers/sellThroughHelpers";
 import type { ProductAnalysis } from "./helpers/sellThroughHelpers";
 import { buildK3MartOutletProducts, buildDemandProducts } from "./helpers/restockHelpers";
+import { hasExternalRevenueItems } from "./helpers/revenueItemsHelpers";
 
 const sourceValidator = externalSource;
 
@@ -116,6 +117,20 @@ export const getRevenueById = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db.get(args.revenueId);
   },
+});
+
+/**
+ * Internal-query wrapper for hasExternalRevenueItems. Needed by the
+ * syncInternalOrders ACTION (convex/integrations/internal/adapter.ts:126)
+ * because actions cannot call helpers directly — they must go through
+ * ctx.runQuery.
+ *
+ * Pattern reference: getLatestSnapshotBatch / getOutletNameToIdMap in this
+ * same file — same wrapping idiom.
+ */
+export const hasExternalRevenueItemsQuery = internalQuery({
+  args: { revenueId: v.id("externalRevenue") },
+  handler: async (ctx, args) => hasExternalRevenueItems(ctx, args.revenueId),
 });
 
 // ─── PUBLIC QUERIES (called from frontend) ───
