@@ -1137,7 +1137,9 @@ export default defineSchema({
     // OI-11: removed by_product -- zero withIndex references
     .index("by_source_txn", ["source", "externalTransactionId"])
     // Phase 72: amount-first index for bank auto-match Layer B scan
-    .index("by_amount_transactionDate", ["revenueGross", "transactionDate"]),
+    .index("by_amount_transactionDate", ["revenueGross", "transactionDate"])
+    // Phase 80.2: K3Mart retroactive mapping cascade by [source, externalProductCode]
+    .index("by_source_productCode", ["source", "externalProductCode"]),
 
   externalRevenueItems: defineTable({
     revenueId: v.id("externalRevenue"),
@@ -1174,6 +1176,7 @@ export default defineSchema({
     ),
     productsCount: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
+    summary: v.optional(v.string()),
     durationMs: v.optional(v.number()),
     triggeredBy: v.optional(v.string()),
     timestamp: v.number(),
