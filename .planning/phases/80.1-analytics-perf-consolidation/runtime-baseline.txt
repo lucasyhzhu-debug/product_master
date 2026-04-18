@@ -1,0 +1,4 @@
+# Generated 2026-04-18T10:47:07.512Z — 500 orders, jsdom harness
+kpiAndChannel: 1508ms
+timeSeries: 1294ms
+sku: 1230ms
