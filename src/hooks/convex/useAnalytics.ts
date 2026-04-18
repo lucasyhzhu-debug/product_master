@@ -36,7 +36,7 @@ export function useSkuSnapshot() {
 // 11 backward-compatible field selectors — preserve every existing hook name so
 // widget files keep working. `undefined` while loading; optional-chain propagates.
 //
-// NOTE: useChannelSparklines is NOT included — channelSparklines was dropped from
+// NOTE: no sparkline-specific selector — channelSparklines was dropped from
 // kpiAndChannelSnapshot (data is redundant with channelMomentum.channels[].sparklines).
 // -----------------------------------------------------------------------------
 
