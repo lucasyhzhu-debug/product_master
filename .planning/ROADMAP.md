@@ -439,11 +439,11 @@ Plans:
   9. Post-prod-backfill visual verification: Unit Economics SKU Pareto / SKU Channel Matrix reports show no `(Unlinked)` bucket for K3Mart or Direct channels
  10. Rollback procedure documented and tested (Convex export as point-in-time restore before prod run)
 
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 - [x] 80.2-01-PLAN.md — Wave 1: Schema + K3Mart cascade + sync-time linking (4 tasks, autonomous)
-- [ ] 80.2-02-PLAN.md — Wave 2: Direct historical backfill mutation + re-sync heal (4 tasks, autonomous, NOVEL paginated-WRITE pattern flagged)
+- [x] 80.2-02-PLAN.md — Wave 2: Direct historical backfill mutation + re-sync heal (4 tasks, autonomous, NOVEL paginated-WRITE pattern flagged)
 - [ ] 80.2-03-PLAN.md — Wave 3: Tests — 5 new test files (5 tasks, autonomous; sync-linking test refactored to pure-helper test per PATTERNS.md)
 - [ ] 80.2-04-PLAN.md — Wave 4: Verification + prod backfill + docs (11 tasks, NOT autonomous — user checkpoint at 4.4)
 
@@ -506,7 +506,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 | 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete    | 2026-04-18 |
-| 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 1/4 | In Progress|  |
+| 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 2/4 | In Progress|  |
 | 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 0/1 plans (3 waves) | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
