@@ -405,7 +405,7 @@ Plans:
   8. `npm run type-check` + `npm run build` (within vendor-bundle cap) + `npm run test` all pass
   9. HUMAN-UAT: every chart label, every tooltip on production data passes the readability checklist at `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 80.1-01-PLAN.md -- Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
@@ -505,7 +505,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
-| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete   | 2026-04-18 |
+| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete    | 2026-04-18 |
 | 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 0/4 plans | Not started | - |
 | 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 0/1 plans (3 waves) | Not started | - |
 
