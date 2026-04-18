@@ -12,7 +12,7 @@
 - [x] **v1.7 Expense & Accounting** - Phases 41-54 (shipped 2026-03-16)
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
-- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80.2 (in progress)
+- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80.3 (in progress)
 
 ## Phases
 
@@ -190,6 +190,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 80: Unit Economics Analytics Dashboard** - New /analytics page with 13 widgets across 6 lenses answering unit-economics questions (completed 2026-04-15)
 - [ ] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route
 - [ ] **Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)** - Eliminate the `(Unlinked)` bucket in SKU Pareto / SKU Channel Matrix reports caused by two independent bugs: K3Mart mapping cascade not covering `source="k3mart"` (737/737 parents affected) and syncInternalOrders skipping child-item creation on historical re-syncs (219/262 Direct parents affected)
+- [ ] **Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)** - Fix the Analytics `/analytics` loader double-counting every Direct/WhatsApp/Instagram order: `loadExternalStream` in `convex/reports/unitEconomics.ts` unions native `orders` + `externalRevenue[source="internal"]` mirror of those same orders, inflating Direct-channel revenue/units/orders ~2×. Single-line R5 skip rule (spec'd in Phase 80 Task 4b staff-review addendum but never committed to code — ghost commit `59069988`) plus symmetric regression-test coverage across all 10+ queries calling `loadFilteredData`.
 
 ## Phase Details
 
@@ -450,10 +451,43 @@ Plans:
 - Staff-reviewed plan v2: `.planning/phases/80.2-unlinked-products-fix/80.2-01-PLAN.md`
 - Context: `.planning/phases/80.2-unlinked-products-fix/80.2-CONTEXT.md`
 
+### Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)
+
+**Goal**: Fix Analytics page double-counting every Direct/WhatsApp/Instagram order — `loadExternalStream` in `convex/reports/unitEconomics.ts` reads BOTH the native `orders`+`orderItems` stream AND the `externalRevenue[source="internal"]` mirror of those same orders (created by `syncInternalOrders` so the Sales Aggregation page can count them). The R5 dedup rule was specified in the Phase 80 Task 4b staff-review addendum and referenced in commit `59069988`, but that commit only modified plan docs — the code change was never shipped. This phase ships the rule plus regression-test coverage across every query that calls `loadFilteredData`.
+
+**Depends on**: Phase 80 (primary bug is in Phase 80's loader). Compatible with Phase 80.1 in progress — if 80.1 ships first, the fix should be re-validated against the grouped-snapshot query shape. Compatible with Phase 80.2 — no file overlap (80.2 fixes `externalData/mutations.ts` + `integrations/*/adapter.ts`; 80.3 fixes `reports/unitEconomics.ts`).
+
+**Why inserted**: Debug session on 2026-04-17 (`.planning/debug/analytics-sales-mismatch.md`) confirmed Analytics headline KPIs are inflated 2× for Direct-channel orders vs the canonical Sales Aggregation page (`/k3mart-cockpit` Overview tab) over matching date ranges. Deltas are internally consistent: 265 duplicate orders × Rp 129,936,000 native `lineTotal` × 617 BOM-expanded balls, all produced by the same double-count through `externalRevenue[source="internal"]`. The Phase 80 staff-review addendum (`docs/reviews/staffreview-phase-80-task-4b-addendum-2026-04-14.md` lines 26-72) already wrote the exact rule needed (`if (parentRev.source === "internal") continue;`) and commit `59069988 fix(80): apply Task 4b staff-review fixes — gobiz is GoFood, R5 skip internal only` (on main) claims to apply it — but `git show --stat 59069988` shows only plan doc changes and `git grep 'source === "internal"' convex/reports/unitEconomics.ts` returns 0 hits. Business impact: every Direct-channel KPI (revenue, units, AOV, units/txn, channel mix ranking, WoW/MoM momentum) is currently inflated; Sales Aggregation + Income Statement + Bank Reconciliation are unaffected (they read `externalRevenue` correctly with internal-mirror awareness).
+
+**Success Criteria** (what must be TRUE):
+  1. `loadExternalStream` in `convex/reports/unitEconomics.ts` skips `source === "internal"` rows — verified by grep
+  2. Analytics `/analytics` page headline KPIs (Revenue, Units, Orders, AOV) match Sales Aggregation page within 1% on identical date ranges for the All-Time window
+  3. The 6 observed deltas collapse to zero: Revenue ≈ Rp 387M (not Rp 517M), Units ≈ 8,876 (not 9,493), Orders ≈ 2,364 (not 2,629)
+  4. Test 12 (internal skip): insert a native direct order, run `syncInternalOrders`, assert `kpiSummary.orders === 1` (not 2)
+  5. Test 12b (gobiz contributes — negative regression test): insert a `source="gobiz"` externalRevenue row, assert it IS counted
+  6. Test 17 (internal-skip symmetry): every query that calls `loadFilteredData` (11 known: `kpiSummary`, `byWeekday`, `dayHourHeatmap`, `channelEconomics`, `volumeByType`, `unitsPerTxnByChannel`, `aovByChannel`, `skuPareto`, `skuChannelMatrix`, `channelMomentum`, `rollingTrend`) returns zero internal-source rows
+  7. `npm run type-check` + `npm run lint` + `npm run build` + `npm run test` all pass
+  8. No regression in Phase 80.1 grouped-snapshot query shape (if 80.1 ships first)
+  9. CHANGELOG.md updated with user-visible note explaining why Direct-channel KPIs dropped in Analytics after the fix
+ 10. Triple-review executed on 80.3-01-PLAN.md before implementation starts
+
+**Plans:** 1 plan covering research-driven implementation
+
+Plans:
+- [ ] 80.3-01-PLAN.md — Wave 1 Single-line R5 skip in `loadExternalStream`; Wave 2 Regression tests (12, 12b, 17 symmetry across all `loadFilteredData` callers); Wave 3 Verification (type-check/build/test) + post-deploy parity check against Sales Aggregation
+
+**UI hint**: no (backend-only aggregation fix; Analytics numbers simply drop to correct values on next reactive query)
+
+**Source artifacts**:
+- Debug session: `.planning/debug/analytics-sales-mismatch.md` (math verification, eliminated hypotheses, confirmed root cause, file pointers)
+- Originating staff-review (R5 spec): `docs/reviews/staffreview-phase-80-task-4b-addendum-2026-04-14.md` lines 26-72
+- Context: `.planning/phases/80.3-analytics-internal-mirror-dedup/80.3-CONTEXT.md`
+- Ghost commit: `59069988` (claims R5 applied; touches only plan docs)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80 -> 80.1 -> 80.2
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80 -> 80.1 -> 80.2 -> 80.3
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -470,6 +504,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 | 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 0/3 waves (24 tasks) | Not started | - |
 | 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 0/1 plans (4 waves) | Not started | - |
+| 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 0/1 plans (3 waves) | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -483,7 +518,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-80.2 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80.3 | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
