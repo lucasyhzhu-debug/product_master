@@ -28,7 +28,7 @@ After merging any code change, add a new entry with:
 
 **UX (R2 — WCAG-AA tooltips):** Shared `ChartTooltip` primitive enforces dark-popover + light-text contrast (≥4.5:1 verified by inline luminance test). Category colors render as small swatches only — never as value text color.
 
-**UX (R3 — auto-adapting heatmap labels):** `DayHourHeatmap` + `SkuChannelHeatmap` migrated from hand-rolled Tailwind grid + HTML table to `@nivo/heatmap` `ResponsiveHeatMap`. `labelTextColor={{ from: "color", modifiers: [["darker", 3]] }}` keeps cell labels legible across the entire color ramp.
+**UX (R3 — heatmaps transposed + contrast-adaptive labels):** `DayHourHeatmap` now displays days (Mon–Sun) across the top axis and hour bins as rows; cell values show % share of that day's revenue (raw IDR in tooltip). `SkuChannelHeatmap` channels axis moved to top. Both heatmaps use contrast-adaptive `labelTextColor` (white text on dark cells, dark text on light cells) — `hsl(var(...))` CSS variables replaced with plain hex so react-spring animation doesn't crash. `SkuParetoChart` x-axis labels no longer clip at chart edges (SVG `overflow-visible` + wider left margin).
 
 **Library:** Added pinned `@nivo/core` + `@nivo/heatmap` (0.99.0, no caret). `manualChunks` splits `@nivo/*` + `@react-spring/*` into `vendor-nivo` chunk (~111 kB uncompressed) so the main vendor bundle stays under the 600 kB cap.
 
