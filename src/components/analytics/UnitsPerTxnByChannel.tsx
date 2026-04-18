@@ -1,5 +1,3 @@
-import { Card } from "@/components/ui/card";
-import { useUnitsPerTxnByChannel } from "@/hooks/convex/useAnalytics";
 import {
   BarChart,
   Bar,
@@ -11,53 +9,71 @@ import {
   LabelList,
   Cell,
 } from "recharts";
+import { useUnitsPerTxnByChannel } from "@/hooks/convex/useAnalytics";
 import { getPlatformPalette } from "@/lib/platformColors";
+import {
+  ChartFrame,
+  CHART_MARGIN,
+  X_AXIS_STRING_LABEL_PROPS,
+} from "@/lib/chartPrimitives";
+
+type Row = {
+  channel: string;
+  unitsPerTxn: number;
+  units: number;
+  orderCount: number;
+};
+
+function UnitsPerTxnTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: Row }>;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const p = payload[0]?.payload;
+  if (!p) return null;
+  return (
+    <div
+      data-chart-tooltip
+      className="rounded-md border border-border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md"
+    >
+      <div className="mb-1 font-medium">{p.channel}</div>
+      <div data-tooltip-value className="text-xs tabular-nums">
+        {p.units} units · {p.orderCount} txns · {p.unitsPerTxn.toFixed(2)} u/txn
+      </div>
+    </div>
+  );
+}
 
 export function UnitsPerTxnByChannel() {
   const data = useUnitsPerTxnByChannel();
-  if (data === undefined) return <Card className="h-56 animate-pulse p-4" />;
-  const rows = data.map((r) => ({
-    channel: r.channel,
-    unitsPerTxn: Number(r.unitsPerTxn.toFixed(2)),
-    units: r.units,
-    orderCount: r.orderCount,
-  }));
-  const rotate = rows.length > 4;
+  if (data === undefined) {
+    return (
+      <ChartFrame title="Units per transaction (by channel)" loading>
+        {null}
+      </ChartFrame>
+    );
+  }
+  // channelEconomics rows carry raw totals; compute unitsPerTxn client-side.
+  const rows: Row[] = data
+    .map((r) => ({
+      channel: r.channel,
+      units: r.units,
+      orderCount: r.orderCount,
+      unitsPerTxn:
+        r.orderCount === 0 ? 0 : Number((r.units / r.orderCount).toFixed(2)),
+    }))
+    .sort((a, b) => b.unitsPerTxn - a.unitsPerTxn);
   return (
-    <Card className="p-4">
-      <h4 className="mb-2 text-sm font-semibold">Units per transaction (by channel)</h4>
-      <ResponsiveContainer width="100%" height={rotate ? 240 : 200}>
-        <BarChart data={rows} margin={{ top: 10, right: 8, left: 0, bottom: rotate ? 24 : 0 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="channel"
-            angle={rotate ? -30 : 0}
-            textAnchor={rotate ? "end" : "middle"}
-            height={rotate ? 60 : 30}
-            interval={0}
-            tick={{ fontSize: 11 }}
-          />
-          <YAxis />
-          <Tooltip
-            content={({ active, payload }) => {
-              if (!active || !payload || payload.length === 0) return null;
-              const p = payload[0]?.payload as {
-                channel: string;
-                unitsPerTxn: number;
-                units: number;
-                orderCount: number;
-              } | undefined;
-              if (!p) return null;
-              return (
-                <div className="rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-sm">
-                  <div className="font-medium">{p.channel}</div>
-                  <div className="text-muted-foreground">
-                    {p.units} units · {p.orderCount} txns · {p.unitsPerTxn.toFixed(2)} u/txn
-                  </div>
-                </div>
-              );
-            }}
-          />
+    <ChartFrame title="Units per transaction (by channel)">
+      <ResponsiveContainer width="100%" height="100%" minWidth={320}>
+        <BarChart data={rows} margin={CHART_MARGIN}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="channel" {...X_AXIS_STRING_LABEL_PROPS} />
+          <YAxis tick={{ fontSize: 11 }} />
+          <Tooltip content={<UnitsPerTxnTooltip />} />
           <Bar dataKey="unitsPerTxn">
             {rows.map((r) => (
               <Cell key={r.channel} fill={getPlatformPalette(r.channel).hex} />
@@ -66,6 +82,6 @@ export function UnitsPerTxnByChannel() {
           </Bar>
         </BarChart>
       </ResponsiveContainer>
-    </Card>
+    </ChartFrame>
   );
 }
