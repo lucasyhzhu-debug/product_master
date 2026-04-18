@@ -405,12 +405,12 @@ Plans:
   8. `npm run type-check` + `npm run build` (within vendor-bundle cap) + `npm run test` all pass
   9. HUMAN-UAT: every chart label, every tooltip on production data passes the readability checklist at `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`
 
-**Plans:** 24 tasks across 3 waves
+**Plans:** 3 plans (24 tasks) across 3 waves
 
 Plans:
-- [ ] Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
-- [ ] Wave B Frontend (Tasks 10-18): `truncateWithTooltip`, `formatCurrencyCompact`, `ChartTooltip` with WCAG contrast test, `ChartFrame` + `CHART_MARGIN` + `X_AXIS_STRING_LABEL_PROPS`, rewrite `useAnalytics.ts` hooks as 3 snapshots + field selectors, migrate `SkuParetoChart` first (R1/R2 screenshot subject), then 7 remaining Recharts widgets
-- [ ] Wave C Nivo + cleanup (Tasks 19-24): install `@nivo/core` + `@nivo/heatmap`, migrate `DayHourHeatmap` + `SkuChannelHeatmap`, `React.lazy` the `/analytics` route, delete deprecated query wrappers, docs + HUMAN-UAT checklist
+- [ ] 80.1-01-PLAN.md -- Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
+- [ ] 80.1-02-PLAN.md -- Wave B Frontend (Tasks 10-18): `truncateWithTooltip`, `formatCurrencyCompact`, `ChartTooltip` with WCAG contrast test, `ChartFrame` + `CHART_MARGIN` + `X_AXIS_STRING_LABEL_PROPS`, rewrite `useAnalytics.ts` hooks as 3 snapshots + field selectors, migrate `SkuParetoChart` first (R1/R2 screenshot subject), then 7 remaining Recharts widgets
+- [ ] 80.1-03-PLAN.md -- Wave C Nivo + cleanup (Tasks 19-24): install `@nivo/core` + `@nivo/heatmap`, migrate `DayHourHeatmap` + `SkuChannelHeatmap`, verify `/analytics` lazy-load, delete deprecated query wrappers, docs + HUMAN-UAT checklist
 
 **UI hint**: yes
 
@@ -439,10 +439,13 @@ Plans:
   9. Post-prod-backfill visual verification: Unit Economics SKU Pareto / SKU Channel Matrix reports show no `(Unlinked)` bucket for K3Mart or Direct channels
  10. Rollback procedure documented and tested (Convex export as point-in-time restore before prod run)
 
-**Plans:** 1 plan covering 4 sequential waves
+**Plans:** 4 plans (one per wave) — SPLIT per v1.36.0 rigor replan 2026-04-18. Wave 4 has human checkpoint → needs `autonomous: false` on its own; clean dependency chain between waves made split cleaner than unified.
 
 Plans:
-- [ ] 80.2-01-PLAN.md — Wave 1 Schema + K3Mart cascade + sync-time linking; Wave 2 Direct backfill mutation + re-sync heal; Wave 3 Tests (5 files); Wave 4 Verification + prod data backfill with user checkpoint at 4.4
+- [ ] 80.2-01-PLAN.md — Wave 1: Schema + K3Mart cascade + sync-time linking (4 tasks, autonomous)
+- [ ] 80.2-02-PLAN.md — Wave 2: Direct historical backfill mutation + re-sync heal (4 tasks, autonomous, NOVEL paginated-WRITE pattern flagged)
+- [ ] 80.2-03-PLAN.md — Wave 3: Tests — 5 new test files (5 tasks, autonomous; sync-linking test refactored to pure-helper test per PATTERNS.md)
+- [ ] 80.2-04-PLAN.md — Wave 4: Verification + prod backfill + docs (11 tasks, NOT autonomous — user checkpoint at 4.4)
 
 **UI hint**: no (backend-only data-attribution fix)
 
@@ -503,7 +506,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 | 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 0/3 waves (24 tasks) | Not started | - |
-| 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 0/1 plans (4 waves) | Not started | - |
+| 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 0/4 plans | Not started | - |
 | 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 0/1 plans (3 waves) | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
