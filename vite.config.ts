@@ -43,6 +43,9 @@ export default defineConfig({
           if (!id.includes('node_modules')) return;
           // Charts: recharts + its d3 sub-packages (d3-scale, d3-shape, etc.)
           if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          // Nivo (heatmaps only on /analytics) — isolate to its own chunk so it
+          // stays out of the main vendor bundle and only loads with AnalyticsDashboard.
+          if (id.includes('@nivo') || id.includes('@react-spring')) return 'vendor-nivo';
           // Animation: framer-motion
           if (id.includes('framer-motion')) return 'vendor-motion';
           // React core + DOM + router + scheduler: stable across app changes
