@@ -405,10 +405,10 @@ Plans:
   8. `npm run type-check` + `npm run build` (within vendor-bundle cap) + `npm run test` all pass
   9. HUMAN-UAT: every chart label, every tooltip on production data passes the readability checklist at `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`
 
-**Plans:** 3 plans (24 tasks) across 3 waves
+**Plans:** 1/3 plans executed
 
 Plans:
-- [ ] 80.1-01-PLAN.md -- Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
+- [x] 80.1-01-PLAN.md -- Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
 - [ ] 80.1-02-PLAN.md -- Wave B Frontend (Tasks 10-18): `truncateWithTooltip`, `formatCurrencyCompact`, `ChartTooltip` with WCAG contrast test, `ChartFrame` + `CHART_MARGIN` + `X_AXIS_STRING_LABEL_PROPS`, rewrite `useAnalytics.ts` hooks as 3 snapshots + field selectors, migrate `SkuParetoChart` first (R1/R2 screenshot subject), then 7 remaining Recharts widgets
 - [ ] 80.1-03-PLAN.md -- Wave C Nivo + cleanup (Tasks 19-24): install `@nivo/core` + `@nivo/heatmap`, migrate `DayHourHeatmap` + `SkuChannelHeatmap`, verify `/analytics` lazy-load, delete deprecated query wrappers, docs + HUMAN-UAT checklist
 
@@ -505,7 +505,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
-| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 0/3 waves (24 tasks) | Not started | - |
+| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 1/3 | In Progress|  |
 | 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 0/4 plans | Not started | - |
 | 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 0/1 plans (3 waves) | Not started | - |
 
