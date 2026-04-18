@@ -11,60 +11,53 @@ function buildArgs(f: AnalyticsFilters) {
   };
 }
 
-export function useKpiSummary() {
+// -----------------------------------------------------------------------------
+// Snapshot hooks — 3 subscriptions cover all 13 widgets. Convex dedupes identical
+// useQuery calls within the same React tree, so widgets calling the selectors
+// below share these subscriptions automatically.
+// -----------------------------------------------------------------------------
+
+export function useKpiAndChannelSnapshot() {
   const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.kpiSummary, buildArgs(filters));
+  return useQuery(api.reports.unitEconomics.kpiAndChannelSnapshot, buildArgs(filters));
 }
 
-export function useByWeekday(mode: "weekday" | "rolling" = "weekday") {
+export function useTimeSeriesSnapshot() {
   const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.byWeekday, { ...buildArgs(filters), mode });
+  return useQuery(api.reports.unitEconomics.timeSeriesSnapshot, buildArgs(filters));
 }
 
-export function useDayHourHeatmap() {
+export function useSkuSnapshot() {
   const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.dayHourHeatmap, buildArgs(filters));
+  return useQuery(api.reports.unitEconomics.skuSnapshot, buildArgs(filters));
 }
 
-export function useChannelEconomics() {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.channelEconomics, buildArgs(filters));
-}
+// -----------------------------------------------------------------------------
+// 11 backward-compatible field selectors — preserve every existing hook name so
+// widget files keep working. `undefined` while loading; optional-chain propagates.
+//
+// NOTE: useChannelSparklines is NOT included — channelSparklines was dropped from
+// kpiAndChannelSnapshot (data is redundant with channelMomentum.channels[].sparklines).
+// -----------------------------------------------------------------------------
 
-export function useVolumeByType(granularity: "day" | "week") {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.volumeByType, {
-    ...buildArgs(filters),
-    granularity,
-  });
-}
+export const useKpiSummary = () => useKpiAndChannelSnapshot()?.kpi;
+export const useChannelEconomics = () => useKpiAndChannelSnapshot()?.channelEconomics;
+export const useChannelMomentum = () => useKpiAndChannelSnapshot()?.channelMomentum;
 
-export function useUnitsPerTxnByChannel() {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.unitsPerTxnByChannel, buildArgs(filters));
-}
+export const useByWeekday = () => useTimeSeriesSnapshot()?.byWeekday;
+export const useRollingTrend = () => useTimeSeriesSnapshot()?.rollingTrend;
+export const useDayHourHeatmap = () => useTimeSeriesSnapshot()?.dayHourHeatmap;
+export const useVolumeByType = (g: "day" | "week") =>
+  useTimeSeriesSnapshot()?.volumeByType[g];
+export const useTypeMixOverTime = (g: "day" | "week") =>
+  useTimeSeriesSnapshot()?.typeMixOverTime[g];
 
-export function useAovByChannel() {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.aovByChannel, buildArgs(filters));
-}
+export const useSkuPareto = (topN = 10) =>
+  useSkuSnapshot()?.skuTop.slice(0, topN);
+export const useSkuChannelMatrix = (topN = 8) =>
+  useSkuSnapshot()?.skuChannelMatrix.slice(0, topN);
 
-export function useSkuPareto(topN = 10) {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.skuPareto, { ...buildArgs(filters), topN });
-}
-
-export function useSkuChannelMatrix(topN = 8) {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.skuChannelMatrix, { ...buildArgs(filters), topN });
-}
-
-export function useChannelMomentum() {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.channelMomentum, buildArgs(filters));
-}
-
-export function useRollingTrend() {
-  const { filters } = useAnalyticsFilters();
-  return useQuery(api.reports.unitEconomics.rollingTrend, buildArgs(filters));
-}
+// unitsPerTxnByChannel + aovByChannel were subset selectors of channelEconomics
+// in the legacy API. Widgets calling them receive the channelEconomics array.
+export const useUnitsPerTxnByChannel = () => useKpiAndChannelSnapshot()?.channelEconomics;
+export const useAovByChannel = () => useKpiAndChannelSnapshot()?.channelEconomics;
