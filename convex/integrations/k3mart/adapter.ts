@@ -24,6 +24,7 @@ import {
   buildDedupKey,
   resolveOutletExternalId,
   transformProductDetailEntry,
+  attachLinkedMenuProductId,
 } from "./helpers";
 import { getWeekNumber } from "../../k3martCockpit/helpers";
 
@@ -539,6 +540,19 @@ export const syncK3MartSales = action({
         { source: "k3mart" }
       ) as Record<string, string>;
 
+      // Pre-fetch K3Mart SKU -> menuProductId map once per sync. Mapped records
+      // receive linkedMenuProductId at insert time; unmapped records stay
+      // undefined (same behavior as pre-fix). Heals "new unlinked K3Mart
+      // records appear on every sync" bug (Phase 80.2 fix 1b).
+      const k3martMappingRecord = await ctx.runQuery(
+        internal.integrations.k3mart.queries.getK3MartMappingBySkuQuery,
+        {}
+      ) as Record<string, string>;
+      const k3martMappingMap = new Map<string, Id<"menuProducts">>();
+      for (const [k, vm] of Object.entries(k3martMappingRecord)) {
+        k3martMappingMap.set(k, vm as unknown as Id<"menuProducts">);
+      }
+
       // Process transactions in batches of 100
       for (let i = 0; i < transactions.length; i += 100) {
         const batch = transactions.slice(i, i + 100);
@@ -554,7 +568,7 @@ export const syncK3MartSales = action({
           // Link to outlet doc if mapping exists
           const outletDocId = outletNameMap[txn.outletName];
 
-          return {
+          const rec = {
             outletId: outletDocId ? (outletDocId as Id<"externalOutlets">) : undefined,
             source: "k3mart" as const,
             externalProductCode: txn.productCode,
@@ -573,6 +587,7 @@ export const syncK3MartSales = action({
             transactionCount: 1,
             syncLogId,
           };
+          return attachLinkedMenuProductId(rec, k3martMappingMap);
         });
 
         const batchResults = await ctx.runMutation(

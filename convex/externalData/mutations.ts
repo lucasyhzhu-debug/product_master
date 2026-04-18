@@ -463,7 +463,7 @@ async function applyRetroactiveProductMappingImpl(
     externalProductName: string;
     menuProductId: Id<"menuProducts"> | undefined;
   }
-): Promise<{ updatedItems: number; bigsellerUpdated: number }> {
+): Promise<{ updatedItems: number; bigsellerUpdated: number; externalRevenueUpdated: number }> {
   // 1) Legacy by-name cascade (non-Shopee sources rely on this; also catches
   //    pre-Plan-03 Shopee rows where productName was set to the SKU code).
   const itemsByName = await ctx.db
@@ -592,7 +592,32 @@ async function applyRetroactiveProductMappingImpl(
     }
   }
 
-  return { updatedItems: patchedItemIds.size, bigsellerUpdated };
+  // 3) K3Mart cascade by externalProductCode on parent externalRevenue rows.
+  //    K3Mart has no child externalRevenueItems (parent-only today), so the
+  //    patch lands on parents directly via the by_source_productCode index.
+  //    The Shopee/TikTok branch above uses dominantSku on children; this
+  //    branch does not need that logic because K3Mart parents already carry
+  //    externalProductCode 1:1.
+  let externalRevenueUpdated = 0;
+  if (args.source === "k3mart") {
+    const parents = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source_productCode", (q) =>
+        q.eq("source", "k3mart").eq("externalProductCode", args.externalProductCode),
+      )
+      .take(4000); // Convex write safety cap -- match the Shopee branch limit
+    for (const p of parents) {
+      if (p.linkedMenuProductId === args.menuProductId) continue; // idempotency
+      await ctx.db.patch(p._id, { linkedMenuProductId: args.menuProductId });
+      externalRevenueUpdated++;
+    }
+  }
+
+  return {
+    updatedItems: patchedItemIds.size,
+    bigsellerUpdated,
+    externalRevenueUpdated,
+  };
 }
 
 /**

@@ -100,6 +100,7 @@ import type * as integrations_internal_queries from "../integrations/internal/qu
 import type * as integrations_k3mart_adapter from "../integrations/k3mart/adapter.js";
 import type * as integrations_k3mart_config from "../integrations/k3mart/config.js";
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
+import type * as integrations_k3mart_queries from "../integrations/k3mart/queries.js";
 import type * as integrations_registry from "../integrations/registry.js";
 import type * as integrityChecks_mutations from "../integrityChecks/mutations.js";
 import type * as integrityChecks_queries from "../integrityChecks/queries.js";
@@ -341,6 +342,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/adapter": typeof integrations_k3mart_adapter;
   "integrations/k3mart/config": typeof integrations_k3mart_config;
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
+  "integrations/k3mart/queries": typeof integrations_k3mart_queries;
   "integrations/registry": typeof integrations_registry;
   "integrityChecks/mutations": typeof integrityChecks_mutations;
   "integrityChecks/queries": typeof integrityChecks_queries;

@@ -1,9 +1,14 @@
 /**
- * K3Mart pure helper functions.
- * Extracted from adapter for testability.
+ * K3Mart helpers (pure + ctx-dependent).
+ * Extracted from adapter for testability and cross-caller reuse.
+ * - Pure: parseK3MartDate, formatDate, buildDedupKey, resolveOutletName,
+ *   resolveOutletExternalId, transformProductDetailEntry, attachLinkedMenuProductId.
+ * - Ctx-dependent: getK3MartMappingBySku.
  */
 
 import type { K3MartProductDetailEntry } from "./config";
+import type { QueryCtx, MutationCtx } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
 
 /**
  * Parse K3Mart date format "07 Feb 2026, 14:23" to epoch ms.
@@ -100,4 +105,61 @@ export function transformProductDetailEntry(
     price: entry.price ?? 0,
     capital: entry.capital ?? 0,
   };
+}
+
+/**
+ * Returns a Map<externalProductCode, menuProductId> of all active K3Mart mappings
+ * with a non-null menuProductId. Used by:
+ *   - applyRetroactiveProductMappingImpl (K3Mart branch) -- to patch existing parents
+ *   - syncK3MartSales -- to set linkedMenuProductId at sync time
+ *
+ * Queries externalProductMappings via the by_source_code prefix index on
+ * source="k3mart". Prefix-only eq inside .withIndex() is the canonical Convex
+ * pattern for source-scoped scans (see CLAUDE.md pitfall #11 -- never inline
+ * the "k3mart" literal in a NEW validator; this function consumes the
+ * shared externalSource values and is safe).
+ */
+export async function getK3MartMappingBySku(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Map<string, Id<"menuProducts">>> {
+  const rows = await ctx.db
+    .query("externalProductMappings")
+    .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+    .collect();
+  const map = new Map<string, Id<"menuProducts">>();
+  for (const r of rows) {
+    if (r.menuProductId) map.set(r.externalProductCode, r.menuProductId);
+  }
+  return map;
+}
+
+/**
+ * Pure record shape used by both syncK3MartSales and the unit test for the
+ * mapping-attachment step. Mirrors the literal shape built in the adapter's
+ * batch.map at k3mart/adapter.ts:545-576 (excluding the ctx-sourced fields
+ * outletId and syncLogId which are already present on the record).
+ */
+export type K3MartMappableRecord = {
+  externalProductCode?: string;
+  linkedMenuProductId?: Id<"menuProducts">;
+  [key: string]: unknown;
+};
+
+/**
+ * Returns a shallow copy of `record` with `linkedMenuProductId` set when the
+ * record's externalProductCode is present in `mappingMap`. Records without a
+ * matching mapping (or without externalProductCode) are returned unchanged --
+ * `linkedMenuProductId` stays undefined, matching today's behavior.
+ *
+ * Pure function -- no ctx, no db, no fetch. Tested directly in
+ * k3mart/__tests__/helpers-attach-linking.test.ts (Wave 3).
+ */
+export function attachLinkedMenuProductId<T extends K3MartMappableRecord>(
+  record: T,
+  mappingMap: Map<string, Id<"menuProducts">>,
+): T {
+  if (!record.externalProductCode) return record;
+  const mapped = mappingMap.get(record.externalProductCode);
+  if (!mapped) return record;
+  return { ...record, linkedMenuProductId: mapped };
 }
