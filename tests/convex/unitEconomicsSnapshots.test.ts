@@ -232,78 +232,10 @@ describe("skuSnapshot", () => {
 });
 
 // ============================================================================
-// Task 7.5: D-19 wrapper-snapshot parity
+// D-19 wrapper-snapshot parity — REMOVED in Phase 80.1 Task 23 after the 12
+// legacy wrappers were deleted. Parity was verified during Wave A; the wrappers
+// are gone now so snapshot queries ARE the source of truth.
 // ============================================================================
-
-describe("D-19 wrapper-snapshot parity", () => {
-  const BASE_WINDOW = 30 * 86400000;
-
-  it("kpiSummary wrapper output == snapshot.kpi", async () => {
-    const t = convexTest(schema, modules);
-    await seedBaseFixtures(t);
-    const args = { fromTs: Date.now() - BASE_WINDOW, toTs: Date.now() + 1000 };
-    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, args);
-    const wrapper = await t.query(api.reports.unitEconomics.kpiSummary, args);
-    expect(wrapper).toEqual(snap.kpi);
-  });
-
-  it("channelEconomics wrapper == snapshot.channelEconomics", async () => {
-    const t = convexTest(schema, modules);
-    await seedBaseFixtures(t);
-    const args = { fromTs: Date.now() - BASE_WINDOW, toTs: Date.now() + 1000 };
-    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, args);
-    const wrapper = await t.query(api.reports.unitEconomics.channelEconomics, args);
-    expect(wrapper).toEqual(snap.channelEconomics);
-  });
-
-  it("channelMomentum wrapper == snapshot.channelMomentum", async () => {
-    const t = convexTest(schema, modules);
-    await seedBaseFixtures(t);
-    const args = { fromTs: Date.now() - BASE_WINDOW, toTs: Date.now() + 1000 };
-    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, args);
-    const wrapper = await t.query(api.reports.unitEconomics.channelMomentum, args);
-    expect(wrapper).toEqual(snap.channelMomentum);
-  });
-
-  it("byWeekday (weekday mode) wrapper == snapshot.byWeekday", async () => {
-    const t = convexTest(schema, modules);
-    await seedBaseFixtures(t);
-    const args = { fromTs: Date.now() - BASE_WINDOW, toTs: Date.now() + 1000 };
-    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, args);
-    const wrapper = await t.query(api.reports.unitEconomics.byWeekday, args);
-    expect(wrapper).toEqual(snap.byWeekday);
-  });
-
-  it("rollingTrend wrapper == snapshot.rollingTrend", async () => {
-    const t = convexTest(schema, modules);
-    await seedBaseFixtures(t);
-    const args = { fromTs: Date.now() - BASE_WINDOW, toTs: Date.now() + 1000 };
-    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, args);
-    const wrapper = await t.query(api.reports.unitEconomics.rollingTrend, args);
-    expect(wrapper).toEqual(snap.rollingTrend);
-  });
-
-  it("dayHourHeatmap wrapper == snapshot.dayHourHeatmap", async () => {
-    const t = convexTest(schema, modules);
-    await seedBaseFixtures(t);
-    const args = { fromTs: Date.now() - BASE_WINDOW, toTs: Date.now() + 1000 };
-    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, args);
-    const wrapper = await t.query(api.reports.unitEconomics.dayHourHeatmap, args);
-    expect(wrapper).toEqual(snap.dayHourHeatmap);
-  });
-
-  it("volumeByType(day) wrapper == snapshot.volumeByType.day", async () => {
-    const t = convexTest(schema, modules);
-    await seedBaseFixtures(t);
-    const args = { fromTs: Date.now() - BASE_WINDOW, toTs: Date.now() + 1000 };
-    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, args);
-    const wrapper = await t.query(api.reports.unitEconomics.volumeByType, {
-      ...args,
-      granularity: "day",
-    });
-    expect(wrapper).toEqual(snap.volumeByType.day);
-  });
-});
 
 // ============================================================================
 // Task 8: call-counter regression via dependency injection
