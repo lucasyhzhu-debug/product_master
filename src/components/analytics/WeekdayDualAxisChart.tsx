@@ -44,7 +44,7 @@ function WeekdayTooltip({
   const orders = p.orders ?? 0;
   const units = p.units ?? 0;
   const upo = p.unitsPerOrder ?? 0;
-  const prefix = mode === "rolling" ? label : `${label}`;
+  const prefix = label;
   return (
     <div
       data-chart-tooltip

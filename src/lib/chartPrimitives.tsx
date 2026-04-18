@@ -5,6 +5,10 @@
 //   R2 — tooltips use --popover/--popover-foreground for WCAG-AA contrast
 //   R3 — category colors appear as swatches, never as value text color
 
+import { formatCurrency } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ReactNode } from "react";
+
 export function truncateWithTooltip(
   label: string,
   max = 22,
@@ -28,10 +32,6 @@ export function formatCurrencyCompact(value: number): string {
   }
   return `Rp ${sign}${Math.round(abs)}`;
 }
-
-import { formatCurrency } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ReactNode } from "react";
 
 type TooltipEntry = {
   name?: string;

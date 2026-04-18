@@ -30,6 +30,12 @@ import { getWibComponents } from "../lib/periodRange";
 // accepting pre-loaded WindowData + Precomputed.
 // ============================================================================
 
+/** Max days a row's transactionDate can precede its periodStart index key. */
+const EXTERNAL_LOOKBACK_MS = 31 * 86400000;
+
+/** Sentinel key for external revenue items without a linked menuProductId. */
+const UNLINKED_KEY = "__unlinked__";
+
 const filterArgs = {
   fromTs: v.number(),
   toTs: v.number(),
@@ -138,7 +144,7 @@ async function loadExternalStream(
   //
   // Use the by_period index (periodStart) as an outer-bound to trim the
   // scan to rows that _might_ fall in the window.
-  const scanFrom = args.fromTs - 31 * 86400000; // allow 31-day lookback for rows using transactionDate<<periodStart
+  const scanFrom = args.fromTs - EXTERNAL_LOOKBACK_MS; // allow 31-day lookback for rows using transactionDate<<periodStart
   const byPeriod = await ctx.db
     .query("externalRevenue")
     .withIndex("by_period", (q) => q.gte("periodStart", scanFrom))
@@ -256,14 +262,14 @@ async function loadExternalStream(
  * Uses by_completed_at (primary) + by_order_date (legacy fallback) to avoid full-table scans.
  * Also unions in externalRevenue + externalRevenueItems via loadExternalStream.
  *
- * `preloadedUnitsPerProduct` lets callers share a single units-per-product map across
+ * `_preloadedUnitsPerProduct` lets callers share a single units-per-product map across
  * multiple loadFilteredData() calls (e.g. current + prior period). Skips an internal
  * fetch when provided (M4).
  */
 async function loadFilteredData(
   ctx: QueryCtx,
   args: FilterArgs,
-  preloadedUnitsPerProduct?: Map<Id<"menuProducts">, number>,
+  _preloadedUnitsPerProduct?: Map<Id<"menuProducts">, number>,
 ): Promise<WindowData> {
   if (args.fromTs >= args.toTs) {
     return {
@@ -363,11 +369,11 @@ async function loadFilteredData(
   const orders: NormalizedOrder[] = [...normalizedNative, ...external.orders];
   const items: NormalizedItem[] = [...nativeItems, ...external.items];
 
-  // preloadedUnitsPerProduct is kept in the signature for backwards-compat —
+  // _preloadedUnitsPerProduct is kept in the signature for backwards-compat —
   // reducers consume `pre` (Precomputed) directly, but this flag lets the
   // caller signal that map fetches can be deduped.
   // (Intentional: parameter is currently advisory; reducers read from `pre`.)
-  void preloadedUnitsPerProduct;
+  void _preloadedUnitsPerProduct;
 
   return { orders, items };
 }
@@ -762,8 +768,9 @@ function reduceByWeekdayRolling(
     labels.push(`${y}-${m}-${d}`);
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
-  for (const k of orderCountByDay.keys()) if (!labels.includes(k)) labels.push(k);
-  for (const k of unitCountByDay.keys()) if (!labels.includes(k)) labels.push(k);
+  const labelSet = new Set(labels);
+  for (const k of orderCountByDay.keys()) if (!labelSet.has(k)) { labels.push(k); labelSet.add(k); }
+  for (const k of unitCountByDay.keys()) if (!labelSet.has(k)) { labels.push(k); labelSet.add(k); }
   labels.sort();
   const ordersArr = labels.map((k) => orderCountByDay.get(k) ?? 0);
   const unitsArr = labels.map((k) => unitCountByDay.get(k) ?? 0);
@@ -892,9 +899,6 @@ export function reduceTypeMixOverTime(
   pre: Precomputed,
   granularity: "day" | "week",
 ) {
-  if (current.orders.length === 0) {
-    return { buckets: [] as string[], series: [] as Array<{ code: string; name: string; values: number[] }> };
-  }
   return reduceVolumeByType(current, pre, granularity);
 }
 
@@ -908,7 +912,6 @@ export function reduceSkuTop(
   topN: number,
 ) {
   const orderById = buildOrderById(current.orders);
-  const UNLINKED_KEY = "__unlinked__";
   const byProduct = new Map<string, { key: string; name: string; revenue: number }>();
   for (const it of current.items) {
     const o = orderById.get(it.orderId);
@@ -977,7 +980,6 @@ export function reduceSkuChannelMatrix(
   const cell = new Map<string, Map<DisplayChannel, number>>();
   const channelTotals = new Map<DisplayChannel, number>();
 
-  const UNLINKED_KEY = "__unlinked__";
   for (const it of current.items) {
     const o = orderById.get(it.orderId);
     if (!o) continue;

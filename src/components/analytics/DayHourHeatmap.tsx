@@ -18,14 +18,16 @@ function collapseOvernight(
   const OVERNIGHT_IDX = colLabels
     .map((l, i) => ({ l, i }))
     .filter(({ l }) => {
-      const [start] = l.split("-").map(Number);
+      const start = Number(l.split("-")[0]);
+      if (isNaN(start)) return false; // skip malformed labels
       return start < 9;
     })
     .map(({ i }) => i);
   const keepIdx = colLabels
     .map((l, i) => ({ l, i }))
     .filter(({ l }) => {
-      const [start] = l.split("-").map(Number);
+      const start = Number(l.split("-")[0]);
+      if (isNaN(start)) return false; // skip malformed labels
       return start >= 9;
     });
   const newLabels = ["Overnight (0-9)", ...keepIdx.map(({ l }) => l)];
@@ -41,7 +43,7 @@ export function DayHourHeatmap() {
   const data = useDayHourHeatmap();
 
   const transformed = useMemo(() => {
-    if (!data) return [];
+    if (data === undefined) return [];
     const { grid, rowLabels, colLabels } = data;
     const collapsed = collapseOvernight(grid, colLabels);
     // Nivo shape: Array<{ id: string; data: Array<{ x: string; y: number }> }>

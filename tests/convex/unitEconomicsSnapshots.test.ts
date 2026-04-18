@@ -253,20 +253,6 @@ describe("snapshot call-count regression (via DI)", () => {
       // same ctx.db. We re-import via dynamic import to avoid circular
       // bundling issues with the DI counter.
       const mod = await import("../../convex/reports/unitEconomics");
-      const spy = async (...args: Parameters<typeof mod.loadPriorPeriodFilteredData>) => {
-        loadCount++;
-        // We count calls to loadFilteredData via the DI path.
-        // Delegate to a fresh direct loader by calling the real helper under mod.
-        // Since loadFilteredData is not exported publicly, we reach in through
-        // loadPriorPeriodFilteredData which wraps it — but that would count 2.
-        // Alternative: use the spy directly — it is wired into SnapshotDeps.
-        return (mod as any)._loadFilteredData
-          ? (mod as any)._loadFilteredData(...args)
-          : // Fallback: implement the spy as a noop + empty data; the DI
-            // contract lets the snapshot still run since the returned shape
-            // is a valid WindowData.
-            { orders: [], items: [] };
-      };
       // Use a minimal spy that returns an empty WindowData — we only care about count
       const countingSpy: any = async () => {
         loadCount++;

@@ -56,12 +56,21 @@ export const useVolumeByType = (g: "day" | "week") =>
 export const useTypeMixOverTime = (g: "day" | "week") =>
   useTimeSeriesSnapshot()?.typeMixOverTime[g];
 
-export const useSkuPareto = (topN = 10) =>
-  useSkuSnapshot()?.skuTop?.rows?.slice(0, topN);
+export const useSkuPareto = (topN = 10) => {
+  const snap = useSkuSnapshot();
+  if (!snap) return undefined;
+  return {
+    rows: snap.skuTop?.rows?.slice(0, topN) ?? [],
+    totalRevenue: snap.skuTop?.totalRevenue ?? 0,
+  };
+};
 export const useSkuChannelMatrix = (topN = 8) => {
   const snap = useSkuSnapshot();
   if (!snap) return undefined;
   const { products, channels, matrix } = snap.skuChannelMatrix;
+  // NOTE: `channels` is the full sorted channel list and is NOT sliced to match matrix rows.
+  // Consumers must use per-row `row.channels` (index into matrix[i]) for alignment,
+  // not the top-level channels array as a positional index.
   return { products: products.slice(0, topN), channels, matrix: matrix.slice(0, topN) };
 };
 

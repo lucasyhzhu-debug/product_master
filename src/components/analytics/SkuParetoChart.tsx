@@ -29,28 +29,17 @@ export function SkuParetoChart({ topN = 10 }: { topN?: number }) {
     );
   }
 
-  // Compute cumulative % client-side from the sliced top-N.
-  // skuSnapshot returns rows shaped { productKey, name, revenue, cumulativePct };
-  // we recompute cumulativePct over the sliced top-N to keep semantics correct.
-  const totalRevenue = data.reduce(
-    (sum: number, d: { revenue: number }) => sum + d.revenue,
-    0,
-  );
-  let running = 0;
-  const withCumulative = data.map((d: { name: string; revenue: number }) => {
-    running += d.revenue;
-    return {
-      ...d,
-      displayName: truncateWithTooltip(d.name, 22).display,
-      fullName: d.name,
-      cumulativePct: totalRevenue > 0 ? (running / totalRevenue) * 100 : 0,
-    };
-  });
+  // Use server-computed cumulativePct directly from reduceSkuTop — no client recompute.
+  const chartData = data.rows.map((d: { name: string; revenue: number; cumulativePct: number }) => ({
+    ...d,
+    displayName: truncateWithTooltip(d.name, 22).display,
+    fullName: d.name,
+  }));
 
   return (
     <ChartFrame title="SKU Pareto (top products by revenue)" height={360}>
       <ResponsiveContainer width="100%" height="100%" minWidth={320}>
-        <ComposedChart data={withCumulative} margin={CHART_MARGIN}>
+        <ComposedChart data={chartData} margin={CHART_MARGIN}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
           <XAxis dataKey="displayName" {...X_AXIS_STRING_LABEL_PROPS} />
           <YAxis
