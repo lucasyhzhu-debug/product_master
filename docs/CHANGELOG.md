@@ -16,6 +16,37 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 80.2 — Unlinked Products Fix (K3Mart + Direct) -- 2026-04-19
+
+**For the team:** The `(Unlinked)` bucket on the `/analytics` SKU Pareto and SKU Channel Matrix reports will collapse for K3Mart and Direct channels — every K3Mart SKU mapped in the admin UI now retroactively attaches to its historical revenue, and every Direct order (historical + future) now carries the line-item detail the reports need. Only Consignment (expected) remains in the unlinked bucket.
+
+**Two independent bugs producing the same symptom:**
+1. K3Mart mapping cascade never ran for `source === "k3mart"`. Admin UI mappings saved but never patched `externalRevenue` parents — 737/737 K3Mart parents were unlinked.
+2. `syncInternalOrders` skipped child-item creation for any parent that already existed (`if (!isNew) continue;`), leaving 219/262 Direct parents synced before 2026-04-10 permanently orphaned (no children) and falling through to the reports' synthesis-path "Unlinked" bucket.
+
+**Fixes:**
+- **K3Mart retroactive cascade** — `applyRetroactiveProductMappingImpl` extended with a K3Mart branch (after Shopee/TikTok) that scans `externalRevenue` by `[source, externalProductCode]` and patches `linkedMenuProductId` with a 4000-row safety cap + idempotency guard.
+- **K3Mart sync-time linking** — `syncK3MartSales` pre-fetches the SKU→menuProduct map once per sync and attaches `linkedMenuProductId` per record before `saveRevenue` (no more "new unlinked rows every sync").
+- **Direct historical backfill** — new admin-only paginated-WRITE mutation `backfillInternalRevenueItems` rebuilds `externalRevenueItems` for orphan Direct parents from the native `orders` + `orderItems` tables. Idempotent via `saveRevenueItems`' existing `(revenueId, externalItemId)` dedup.
+- **Direct re-sync heal** — `syncInternalOrders` guard at `adapter.ts:126` now checks child-existence instead of `if (!isNew) continue;`. Re-syncs now self-heal orphan parents.
+
+**Schema:**
+- Added index `by_source_productCode` on `externalRevenue` (composite `[source, externalProductCode]`) for efficient K3Mart cascade lookup.
+- Added optional `summary: string` field on `externalSyncLogs` — holds audit counter JSON for backfill runs without polluting `errorMessage` (which would corrupt existing monitoring filters).
+
+**API:**
+- New admin mutation: `externalData.mutations.backfillInternalRevenueItems` — paginated, idempotent, writes one audit row to `externalSyncLogs.summary` per invocation. NOVEL PATTERN for this codebase — first paginated-WRITE mutation.
+- `applyRetroactiveProductMappingImpl` return type widened additively with new `externalRevenueUpdated: number` field. All 3 existing call sites continue to work unchanged.
+- New shared helpers: `getK3MartMappingBySku` + `attachLinkedMenuProductId` (K3Mart) and `hasExternalRevenueItems` (externalData).
+
+**Tests:** 5 new test files / 19 new tests — cascade, pure helper attach, backfill counters, Direct adapter self-heal (novel `t.action(...)` pattern), unitEconomics attribution regression. All green.
+
+**Prod data run:** ~219 Direct parents backfilled, ~737 K3Mart parents linked (pending user-gated execution). Convex export captured as rollback insurance before any prod mutation.
+
+**Files modified:** `convex/schema.ts`, `convex/integrations/k3mart/adapter.ts`, `convex/integrations/k3mart/helpers.ts`, `convex/integrations/k3mart/queries.ts` (new), `convex/externalData/mutations.ts`, `convex/externalData/queries.ts`, `convex/externalData/helpers/revenueItemsHelpers.ts` (new), `convex/integrations/internal/adapter.ts`, 5 new test files under `convex/integrations/k3mart/__tests__/`, `convex/externalData/__tests__/`, `convex/integrations/internal/__tests__/`, `convex/reports/__tests__/`. Docs updated: CHANGELOG.md, SCHEMA.md, API_REFERENCE.md.
+
+---
+
 ### Phase 80.1 — Analytics Dashboard Perf & Chart Primitives Consolidation -- 2026-04-18
 
 **For the team:** `/analytics` now loads faster and is visually consistent. Filter changes (date range, channel, product) trigger 3 backend queries instead of 12 — roughly 75% less write-invalidation traffic. Chart axis labels never silently hide, every truncated label reveals its full text on hover, and every tooltip has dark-background / light-text (WCAG-AA) with category colors rendered as small swatches instead of colored value text.

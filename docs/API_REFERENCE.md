@@ -1517,6 +1517,52 @@ Returns a map of outlet display name to document ID for a given platform source.
 
 Used by `syncK3MartSales` to link revenue records to outlet docs by matching `txn.outletName`.
 
+### Admin Mutations (Phase 80.2 — Unlinked Products Fix)
+
+#### `externalData.mutations.backfillInternalRevenueItems` (admin-only)
+
+Paginated-WRITE mutation that repairs orphan Direct (source=`internal`) `externalRevenue` parents by rebuilding their `externalRevenueItems` children from the native `orders` + `orderItems` tables. Idempotent via `saveRevenueItems`' existing `(revenueId, externalItemId)` dedup — re-runs on already-backfilled data return all-zero counters. Writes one audit row to `externalSyncLogs.summary` per invocation.
+
+Fixes the 219/262 Direct parents synced before 2026-04-10 that were permanently orphaned because `syncInternalOrders` had an unconditional skip-if-not-new guard before `saveRevenueItems` was added to the flow.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Admin session token (enforced via `requireRole(ctx, token, ["admin"])`) |
+| cursor | string? \| null | Pagination cursor — null or omit for first call |
+| limit | number? | Page size (default 200, hard cap `Math.min(limit, 4000)` — matches Convex per-mutation write ceiling) |
+
+**Returns:**
+
+```typescript
+{
+  parentsScanned: number;         // total externalRevenue[source=internal] rows visited in this page
+  parentsBackfilled: number;      // orphan parents that received new children in this page
+  itemsInserted: number;          // total externalRevenueItems rows inserted in this page
+  skippedHasChildren: number;     // parents with children already — no-op skip
+  skippedMissingOrder: number;    // parents whose native order was deleted since sync
+  skippedEmptyOrderItems: number; // parents whose native order has no items
+  continueCursor: string | null;  // pass back into next invocation until isDone=true
+  isDone: boolean;                // true when no more pages remain
+}
+```
+
+**Idempotency guarantee:** second run on the same data returns `{ parentsBackfilled: 0, itemsInserted: 0, skippedHasChildren: <total> }`. Safe to re-invoke after partial failure.
+
+**Usage — CLI:**
+```bash
+npx convex run externalData:mutations:backfillInternalRevenueItems --prod '{"token": "<admin-token>", "limit": 500}'
+# If isDone: false, loop with returned cursor:
+npx convex run externalData:mutations:backfillInternalRevenueItems --prod '{"token": "<admin-token>", "cursor": "<cursor>", "limit": 500}'
+```
+
+**Phase:** 80.2 Unlinked Products Fix (2026-04-19) — first paginated-WRITE mutation in this codebase.
+
+#### `externalData.mutations.applyRetroactiveProductMapping` (admin-only)
+
+Existing cascade mutation — extended in Phase 80.2 with a K3Mart branch (after Shopee/TikTok). Return type widened additively with new `externalRevenueUpdated: number` field. Idempotent via `linkedMenuProductId` equality check.
+
+**New field in return object:** `externalRevenueUpdated: number` — count of `externalRevenue` parent rows patched in the K3Mart cascade branch (0 for Shopee/TikTok/other sources). All 3 existing call sites (admin UI mapping save handlers) continue to work unchanged — the change is purely additive.
+
 ### Migration Mutations (one-time, run from dashboard)
 
 #### `externalData.mutations.seedK3MartOutletNames`
