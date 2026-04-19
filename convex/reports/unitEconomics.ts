@@ -152,6 +152,15 @@ async function loadExternalStream(
 
   const revenueRows: Doc<"externalRevenue">[] = [];
   for (const r of byPeriod) {
+    // R5 — skip the internal mirror. Rows with the `internal` source are a
+    // projection of the `orders` table (see
+    // `convex/integrations/internal/adapter.ts` — every revenue-countable
+    // order is mirrored into externalRevenue for the Sales Aggregation
+    // pipeline). Every such row has a native `orders`+`orderItems` twin
+    // that's loaded above in loadFilteredData; including internal rows
+    // here would double-count every Direct/WhatsApp/Instagram order.
+    // Authoritative spec: docs/reviews/staffreview-phase-80-task-4b-addendum-2026-04-14.md.
+    if (r.source === "internal") continue;
     // Skip returns & delta_inferred; we only want realized sales.
     if (r.transactionType && r.transactionType !== "sales") continue;
     const ts = r.transactionDate ?? r.periodStart;
