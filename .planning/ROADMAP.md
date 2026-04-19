@@ -182,6 +182,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07) (completed 2026-04-13)
 - [x] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking (completed 2026-04-15)
 - [x] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries (completed 2026-04-17)
+- [ ] **Phase 74.5: Unified Channel Integration Architecture (INSERTED 2026-04-19, promoted from Phase 1000)** - Build a single coherent pipeline from external sale events to inventory transactions so all channels (GoFood, Shopee, TikTok, BigSeller, K3Mart, internal) flow through one atomic `saveRevenueItems` + admin-configurable routing table, with backfilled historical deductions. Depends on 78/79/80 (all complete). Runs after Phase 80.3 merges. Pre-planned spec + 12-task implementation plan in `docs/superpowers/`.
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
@@ -286,6 +287,66 @@ Plans:
 - [x] 74-03-PLAN.md -- Frontend: /staff-performance hours column + flagged-shifts banner + per-day breakdown + AttendanceCorrectionDialog + /my-performance
 - [x] 74-04-PLAN.md -- Tests: mutation + summary integration tests + Playwright E2E scaffold + SCHEMA/API_REFERENCE/CHANGELOG docs + verification gate
 **UI hint**: yes
+
+### Phase 74.5: Unified Channel Integration Architecture (INSERTED 2026-04-19, promoted from Phase 1000)
+**Goal**: Build a single coherent pipeline from external sale events to inventory transactions so all channels (GoFood, Shopee, TikTok, BigSeller, K3Mart, internal) flow through one atomic `saveRevenueItems` + admin-configurable routing table, with backfilled historical deductions.
+
+**Why promoted into v2.0 (2026-04-19)**: Was parked as Phase 1000 ("post-milestone strategic work"). Promoted into v2.0 to run between Phase 80.3 and Phase 75 because (a) all three dependencies (78/79/80) are now complete, (b) every additional week of divergent inventory deductions means another week of drift that the Phase 77 Data Health Dashboard will surface as bugs, (c) Phase 75's Free Cash Flow math silently trusts inventory COGS — running 74.5 first keeps those numbers honest.
+
+**Depends on**:
+- Phase 78 (substitution + stock tracker) — ✓ complete
+- Phase 79 (Shopee item pipeline with `linkedMenuProductId` populated) — ✓ complete
+- Phase 80 (`externalSourceToDisplayChannel` + `channelTaxonomy.ts` — reuse, do not reinvent) — ✓ complete
+- Phase 80.3 (must merge first — avoids conflict with `loadExternalStream` edits) — 🟡 in review
+
+**Load-bearing references (read before planning/executing)**:
+- Design spec: `docs/superpowers/specs/2026-04-17-unified-channel-integration-architecture-design.md` (15 sections, 500 LOC)
+- Implementation plan: `docs/superpowers/plans/2026-04-17-unified-channel-integration.md` (12 tasks, 3376 LOC, TDD rhythm)
+- Phase README: `.planning/phases/74.5-unified-channel-integration/README.md`
+- Feature branch with pre-existing spec work: `feature/999.4-channel-integration-spec`
+
+**Scope (α + 999.5 folded in)**:
+1. `ChannelAdapter` interface + `ChannelSaleEvent` canonical type (new contract)
+2. `channelRouting` table with 3-tier precedence (source / source+outlet / source+product)
+3. `saveRevenueItems` becomes single atomic revenue-write + inventory-deduction entry
+4. Audit + curation workbench gates historical backfill (5 issue types: unmapped_sku, stale_mapping, malformed_item, duplicate_transaction, orphan_item)
+5. Historical deduction backfill preserves original sale timestamps (analytics-grade ledger)
+6. Refactor all 5 adapters (gobiz, bigseller, internal, k3mart, grabfood) to emit `ChannelSaleEvent[]`
+7. Two new admin pages: `ChannelRoutingManager`, `ChannelAuditWorkbench`
+8. Negative stock allowed universally (all channels = post-sale); `channel_sale` transaction type + `source` column replace per-source literals
+
+**Deferred to follow-on phases (documented in spec)**:
+- 999.6 / future — pricing consolidation (`menuProductChannelPricing` table; deprecate scattered pricing fields)
+- 999.7 / future — SKU resolver auto-match service with confidence threshold + manager review queue
+- 999.8 / future — channel onboarding recipe in `docs/CHANNEL_INTEGRATION.md`
+
+**Success Criteria (what must be TRUE)**:
+1. Every channel's inventory deduction flows through one mutation (no per-channel deduct functions remain)
+2. Admin can reassign `{source → storageLocation}` via UI without a code deploy; change takes effect on next sale event
+3. Historical deduction backfill is idempotent and preserves original sale timestamps for analytics
+4. Audit workbench surfaces all 5 issue types and blocks backfill until curated
+5. Shopee and TikTok sales deduct inventory for the first time (fixes the daily drift)
+6. `npm run build` + full test suite green; no behavioral regression on existing GoFood deductions
+
+**Estimated size**: 12 tasks, ~4 weeks, refactors 5 adapters; highest-risk integration phase in v2.0.
+
+**Recommended execution pipeline**:
+1. `/gsd-spec-phase 74.5` — lock falsifiable success criteria with ambiguity scoring
+2. `/gsd-discuss-phase 74.5` — gray-area advisor on routing-table schema, backfill window, feature-flag rollout, coexistence with `processGofoodSales` during transition
+3. `/gsd-research-phase 74.5` — codify the four current paths as a migration matrix
+4. **Split into sub-phases** (mirrors 80 → 80.1/80.2/80.3 pattern):
+   - `74.5.1` routing-table schema + admin UI (read-only correctness gate)
+   - `74.5.2` centralised deduct mutation + per-adapter refactor (behind feature flag)
+   - `74.5.3` historical backfill + retire legacy paths
+5. `/gsd-plan-phase 74.5.x` per sub-phase, with `/triple-review` before executing each plan
+6. `/gsd-execute-phase 74.5.x`
+
+**Plans**: TBD (pre-existing 12-task implementation plan may be reused or re-decomposed into sub-phase PLAN files during `/gsd-plan-phase`).
+
+Plans:
+- [ ] TBD (spec + discuss + research first; then decompose into 74.5.1 / 74.5.2 / 74.5.3)
+
+**UI hint**: yes (two new admin pages: `ChannelRoutingManager`, `ChannelAuditWorkbench`)
 
 ### Phase 75: Full P&L Extension
 **Goal**: Income Statement shows the complete path from Revenue to Free Cash Flow with per-channel detail
@@ -490,7 +551,9 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80 -> 80.1 -> 80.2 -> 80.3
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 78 -> 79 -> 80 -> 80.1 -> 80.2 -> 80.3 -> **74.5** -> 75 -> 76 -> 77
+
+Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Phase 1000 into v2.0 on 2026-04-19. It runs after Phase 80.3 merges (all its dependencies — 78/79/80 — are complete) and before Phase 75 so the Full P&L Extension's FCF math rests on honest inventory COGS.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -499,6 +562,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
+| 74.5. Unified Channel Integration Architecture (PROMOTED 2026-04-19) | v2.0 | 0/TBD | Not started — ready for `/gsd-spec-phase` after 80.3 merges | - |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
@@ -521,7 +585,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-80.3 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80.3 (+ 74.5 promoted 2026-04-19 from Phase 1000) | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
@@ -564,46 +628,9 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
-### Phase 1000: Unified Channel Integration Architecture (promoted from 999.4, folded in 999.5)
+### Phase 999.4: Unified Cross-Channel Inventory Deduction (PROMOTED 2026-04-17 → Phase 1000 → 2026-04-19 → Phase 74.5)
 
-**Goal:** Build a single coherent pipeline from external sale events to inventory transactions so all channels (GoFood, Shopee, TikTok, BigSeller, K3Mart, internal) flow through one atomic `saveRevenueItems` + admin-configurable routing table, with backfilled historical deductions.
-
-**Why:** Today's external-sync channels use three different wiring patterns. Inventory deduction exists for GoFood only; Shopee and TikTok drift daily. K3Mart has a custom path. Adding a new channel requires replicating ad-hoc patterns. This phase centralises the spine so future channels plug in at a well-defined contract.
-
-**References (load-bearing — read before planning/executing):**
-- Design spec: `docs/superpowers/specs/2026-04-17-unified-channel-integration-architecture-design.md` (15 sections, 500 LOC)
-- Implementation plan: `docs/superpowers/plans/2026-04-17-unified-channel-integration.md` (12 tasks, 3376 LOC)
-- Feature branch: `feature/999.4-channel-integration-spec` (spec + plan already committed)
-
-**Scope (α + 999.5 folded in):**
-1. `ChannelAdapter` interface + `ChannelSaleEvent` canonical type (new contract)
-2. `channelRouting` table with 3-tier precedence (source / source+outlet / source+product)
-3. `saveRevenueItems` becomes single atomic revenue-write + inventory-deduction entry
-4. Audit + curation workbench gates historical backfill (5 issue types: unmapped_sku, stale_mapping, malformed_item, duplicate_transaction, orphan_item)
-5. Historical deduction backfill preserves original sale timestamps (analytics-grade ledger)
-6. Refactor all 5 adapters (gobiz, bigseller, internal, k3mart, grabfood) to emit `ChannelSaleEvent[]`
-7. Two new admin pages: `ChannelRoutingManager`, `ChannelAuditWorkbench`
-8. Negative stock allowed universally (all channels = post-sale); `channel_sale` transaction type + `source` column replace per-source literals
-
-**Deferred to follow-on phases (documented in spec):**
-- 999.6 / future — pricing consolidation (`menuProductChannelPricing` table; deprecate scattered pricing fields)
-- 999.7 / future — SKU resolver auto-match service with confidence threshold + manager review queue
-- 999.8 / future — channel onboarding recipe in `docs/CHANNEL_INTEGRATION.md`
-
-**Depends on:** Phase 78 (substitution + stock tracker), Phase 79 (Shopee item pipeline with `linkedMenuProductId`), Phase 80 (`externalSourceToDisplayChannel` + `channelTaxonomy.ts` — reuse, do not reinvent).
-
-**Estimated size:** 12 tasks, ~4 weeks, refactors 5 adapters; highest-risk integration in the v2.0 milestone.
-
-**Plans:** TBD (run `/gsd-plan-phase 1000` to materialise plans from the implementation plan doc)
-
-Plans:
-- [ ] TBD (tasks 1-12 from implementation plan will become PLAN-NN.md files on `/gsd-plan-phase 1000`)
-
----
-
-### Phase 999.4: Unified Cross-Channel Inventory Deduction (PROMOTED 2026-04-17 → Phase 1000)
-
-**Status:** Promoted to Phase 1000 with scope expanded (adapter refactor 999.5 folded in). See Phase 1000 above for the active entry. The content below is preserved for historical context.
+**Status:** Promoted through two steps. First promoted to Phase 1000 on 2026-04-17 with scope expanded (adapter refactor 999.5 folded in). Then on 2026-04-19 promoted again into milestone v2.0 as **Phase 74.5 Unified Channel Integration Architecture** so it runs after Phase 80.3 merges and before Phase 75 (see `## Phase Details → ### Phase 74.5` above for the active entry). The content below is preserved for historical context only.
 
 ---
 
