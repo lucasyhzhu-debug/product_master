@@ -507,7 +507,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 | 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete    | 2026-04-18 |
 | 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 4/4 | Complete   | 2026-04-18 |
-| 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 0/1 plans (3 waves) | Not started | - |
+| 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 1/1 plans (Waves 1-3 automated) | In Review — awaiting HUMAN-UAT + triple-review + merge | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
