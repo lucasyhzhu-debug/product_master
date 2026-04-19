@@ -1121,7 +1121,10 @@ async function backfillInternalRevenueItemsPageImpl(
  * Args:
  *   - token: admin session token
  *   - cursor: null for first page, or the returned continueCursor for loops
- *   - limit: default 200, max 4000 (Convex per-mutation write cap)
+ *   - limit: default 200, max 500 (NOT 4000 — each parent costs up to
+ *     1 + 1 + N reads and up to N writes where N = items per order. At
+ *     avg 5 items/order, limit=500 ≈ 3500 reads + 2500 writes, comfortably
+ *     under Convex's 16k-read / 8k-write per-mutation limits.)
  *
  * Returns per-page counters + continueCursor + isDone. Caller loops until
  * isDone=true. For the current 262-parent prod dataset at limit 500, completes
@@ -1141,7 +1144,7 @@ export const backfillInternalRevenueItems = mutation({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
 
-    const limit = Math.min(args.limit ?? 200, 4000);
+    const limit = Math.min(args.limit ?? 200, 500);
     const cursor = args.cursor ?? null;
     const startedAt = Date.now();
 
@@ -1210,7 +1213,23 @@ export const cascadeAllK3MartMappings = mutation({
     const perMapping: Array<{ externalProductCode: string; updated: number }> =
       [];
 
+    // Convex per-mutation write cap is 8,192. Guard below that so a mapping
+    // that pushes us over doesn't throw mid-loop with partial state. If this
+    // trips, re-run — already-patched parents are idempotent no-ops the next
+    // time around, so the cascade converges over 1-2 invocations.
+    const WRITE_BUDGET = 6000;
+
     for (const m of activeMappings) {
+      if (externalRevenueUpdatedTotal >= WRITE_BUDGET) {
+        throw new Error(
+          `cascadeAllK3MartMappings: write budget (${WRITE_BUDGET}) reached after ` +
+            `${mappingsProcessed}/${activeMappings.length} mappings ` +
+            `(${externalRevenueUpdatedTotal} parents patched). ` +
+            `Re-run the cascade — patched parents are idempotent, so the next ` +
+            `invocation will resume with the remaining mappings. If this trips ` +
+            `repeatedly, switch to a scheduled chained design.`
+        );
+      }
       const result = await applyRetroactiveProductMappingImpl(ctx, {
         source: "k3mart",
         externalProductCode: m.externalProductCode,

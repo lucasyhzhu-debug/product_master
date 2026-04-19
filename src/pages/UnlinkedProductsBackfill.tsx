@@ -9,7 +9,7 @@
  *   2. Direct Backfill — backfill externalRevenueItems for Direct orphan parents (paginated)
  *   3. Preflight Stats — reactive counts of what's pending
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Database, Loader2, Play, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,7 +27,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   useBackfillInternalRevenueItems,
   useCascadeAllK3MartMappings,
-  useUnlinkedBackfillStats,
+  useDirectBackfillStats,
+  useK3MartBackfillStats,
   type BackfillPageResult,
   type CascadeK3MartResult,
 } from "@/hooks/convex";
@@ -102,12 +103,27 @@ export function UnlinkedProductsBackfill() {
   const { user } = useAuth();
   const token = user?.token ?? "";
 
-  const stats = useUnlinkedBackfillStats();
+  // Split queries run in parallel — each has its own per-query read budget.
+  const k3martStats = useK3MartBackfillStats();
+  const directStats = useDirectBackfillStats();
   const cascadeK3Mart = useCascadeAllK3MartMappings();
   const backfillDirect = useBackfillInternalRevenueItems();
 
+  // ─── Mount tracking for cursor-loop safety (N1) ───
+  // If the admin navigates away mid-backfill, we stop setState-ing and drop
+  // remaining iterations. The backend side-effects already-started remain
+  // committed (each iteration is its own mutation).
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // ─── K3Mart cascade state ───
   const [cascadeRunning, setCascadeRunning] = useState(false);
+  const [cascadeCooldown, setCascadeCooldown] = useState(false);
   const [cascadeResult, setCascadeResult] =
     useState<CascadeK3MartResult | null>(null);
 
@@ -143,6 +159,7 @@ export function UnlinkedProductsBackfill() {
     setCascadeResult(null);
     try {
       const result = await cascadeK3Mart({ token });
+      if (!mountedRef.current) return;
       setCascadeResult(result);
       toast.success(
         `Cascade complete: ${result.mappingsProcessed} mappings, ${result.externalRevenueUpdatedTotal} parents patched`
@@ -152,12 +169,21 @@ export function UnlinkedProductsBackfill() {
         `${result.mappingsProcessed} mappings processed, ${result.externalRevenueUpdatedTotal} parents patched in ${result.durationMs}ms`
       );
     } catch (error) {
+      if (!mountedRef.current) return;
       const message =
         error instanceof Error ? error.message : "Cascade failed";
       toast.error(message);
       appendLog("K3Mart Cascade", message, true);
     } finally {
-      setCascadeRunning(false);
+      if (mountedRef.current) {
+        setCascadeRunning(false);
+        // 5s cooldown prevents rapid re-clicks; the cascade is idempotent
+        // but re-runs still pay the full read cost.
+        setCascadeCooldown(true);
+        setTimeout(() => {
+          if (mountedRef.current) setCascadeCooldown(false);
+        }, 5000);
+      }
     }
   }, [token, cascadeK3Mart, appendLog]);
 
@@ -186,12 +212,19 @@ export function UnlinkedProductsBackfill() {
     let loopDone = false;
     try {
       while (iterations < MAX_ITERATIONS) {
+        // N1: bail out if component unmounted (user navigated away). Backend
+        // side effects from completed iterations remain committed; remaining
+        // iterations are dropped and the user can resume by clicking again.
+        if (!mountedRef.current) return;
+
         iterations += 1;
         const page: BackfillPageResult = await backfillDirect({
           token,
           cursor,
           limit: BATCH_LIMIT,
         });
+
+        if (!mountedRef.current) return;
 
         cumulative.parentsScanned += page.parentsScanned;
         cumulative.parentsBackfilled += page.parentsBackfilled;
@@ -218,6 +251,8 @@ export function UnlinkedProductsBackfill() {
         cursor = nextCursor;
       }
 
+      if (!mountedRef.current) return;
+
       if (!loopDone) {
         const msg = `Stopped after ${iterations} iterations (safety cap). Run again to continue.`;
         toast.error(msg);
@@ -234,6 +269,7 @@ export function UnlinkedProductsBackfill() {
         `Completed in ${iterations} iteration(s) — scanned ${cumulative.parentsScanned}, backfilled ${cumulative.parentsBackfilled}, inserted ${cumulative.itemsInserted}, skipped (hasChildren=${cumulative.skippedHasChildren}, missingOrder=${cumulative.skippedMissingOrder}, emptyItems=${cumulative.skippedEmptyOrderItems})`
       );
     } catch (error) {
+      if (!mountedRef.current) return;
       const message =
         error instanceof Error ? error.message : "Backfill failed";
       toast.error(message);
@@ -250,9 +286,10 @@ export function UnlinkedProductsBackfill() {
   }, [token, backfillDirect, appendLog]);
 
   // ─── Derived display values ───
-  const k3mart = stats?.k3mart;
-  const direct = stats?.direct;
-  const statsLoading = stats === undefined;
+  const k3mart = k3martStats;
+  const direct = directStats;
+  const k3martLoading = k3martStats === undefined;
+  const directLoading = directStats === undefined;
 
   const orphanParents = direct?.orphanParents ?? 0;
   const directRemaining = Math.max(0, orphanParents - directLoop.parentsScanned);
@@ -282,88 +319,92 @@ export function UnlinkedProductsBackfill() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {statsLoading ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-40 w-full" />
-            </div>
-          ) : (
-            <>
-              {/* Warnings */}
-              {(k3mart?.scanCapReached || direct?.scanCapReached) && (
-                <WarningBanner>
-                  Scan limit reached — counts may be incomplete.
-                </WarningBanner>
-              )}
-              {k3mart && k3mart.nullProductCodeParents > 0 && (
-                <WarningBanner>
-                  {k3mart.nullProductCodeParents} K3Mart parent(s) have no
-                  productCode — these cannot be cascaded and must be fixed
-                  manually.
-                </WarningBanner>
-              )}
-
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* K3Mart sub-section */}
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    K3Mart
-                  </h3>
-                  <div className="rounded-md border p-3">
-                    <StatRow
-                      label="Total parents"
-                      value={k3mart?.totalParents ?? 0}
-                    />
-                    <StatRow
-                      label="Linked parents"
-                      value={k3mart?.linkedParents ?? 0}
-                    />
-                    <StatRow
-                      label="Unlinked parents"
-                      value={k3mart?.unlinkedParents ?? 0}
-                    />
-                    <StatRow
-                      label="Null productCode"
-                      value={k3mart?.nullProductCodeParents ?? 0}
-                    />
-                    <StatRow
-                      label="Total mappings"
-                      value={k3mart?.totalMappings ?? 0}
-                    />
-                    <StatRow
-                      label="Active mappings"
-                      value={k3mart?.activeMappings ?? 0}
-                    />
-                  </div>
-                </div>
-
-                {/* Direct sub-section */}
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    Direct (internal)
-                  </h3>
-                  <div className="rounded-md border p-3">
-                    <StatRow
-                      label="Total parents"
-                      value={direct?.totalParents ?? 0}
-                    />
-                    <StatRow
-                      label="Parents with children"
-                      value={direct?.parentsWithChildren ?? 0}
-                    />
-                    <StatRow
-                      label="Orphan parents"
-                      value={direct?.orphanParents ?? 0}
-                    />
-                    <StatRow
-                      label="Total children"
-                      value={direct?.totalChildren ?? 0}
-                    />
-                  </div>
-                </div>
-              </div>
-            </>
+          {/* Per-section warnings (each query has its own scanCapReached flag) */}
+          {k3mart?.scanCapReached && (
+            <WarningBanner>
+              K3Mart scan limit reached — counts may be incomplete.
+            </WarningBanner>
           )}
+          {direct?.scanCapReached && (
+            <WarningBanner>
+              Direct scan limit reached — counts may be incomplete.
+            </WarningBanner>
+          )}
+          {k3mart && k3mart.nullProductCodeParents > 0 && (
+            <WarningBanner>
+              {k3mart.nullProductCodeParents} K3Mart parent(s) have no
+              productCode — these cannot be cascaded and must be fixed
+              manually.
+            </WarningBanner>
+          )}
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* K3Mart sub-section */}
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                K3Mart
+              </h3>
+              {k3martLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : (
+                <div className="rounded-md border p-3">
+                  <StatRow
+                    label="Total parents"
+                    value={k3mart?.totalParents ?? 0}
+                  />
+                  <StatRow
+                    label="Linked parents"
+                    value={k3mart?.linkedParents ?? 0}
+                  />
+                  <StatRow
+                    label="Unlinked parents"
+                    value={k3mart?.unlinkedParents ?? 0}
+                  />
+                  <StatRow
+                    label="Null productCode"
+                    value={k3mart?.nullProductCodeParents ?? 0}
+                  />
+                  <StatRow
+                    label="Total mappings"
+                    value={k3mart?.totalMappings ?? 0}
+                  />
+                  <StatRow
+                    label="Active mappings"
+                    value={k3mart?.activeMappings ?? 0}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Direct sub-section */}
+            <div>
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Direct (internal)
+              </h3>
+              {directLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : (
+                <div className="rounded-md border p-3">
+                  <StatRow
+                    label="Total parents"
+                    value={direct?.totalParents ?? 0}
+                  />
+                  <StatRow
+                    label="Parents with children"
+                    value={direct?.parentsWithChildren ?? 0}
+                  />
+                  <StatRow
+                    label="Orphan parents"
+                    value={direct?.orphanParents ?? 0}
+                  />
+                  <StatRow
+                    label="Total children"
+                    value={direct?.totalChildren ?? 0}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -394,12 +435,17 @@ export function UnlinkedProductsBackfill() {
 
           <Button
             onClick={handleCascade}
-            disabled={cascadeRunning || statsLoading || !token}
+            disabled={cascadeRunning || cascadeCooldown || k3martLoading || !token}
           >
             {cascadeRunning ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Running cascade…
+              </>
+            ) : cascadeCooldown ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cooling down…
               </>
             ) : (
               <>
@@ -451,7 +497,7 @@ export function UnlinkedProductsBackfill() {
 
           <Button
             onClick={handleDirectBackfill}
-            disabled={directLoop.running || statsLoading || !token}
+            disabled={directLoop.running || directLoading || !token}
           >
             {directLoop.running ? (
               <>

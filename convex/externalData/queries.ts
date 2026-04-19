@@ -1626,23 +1626,17 @@ export const getLifetimeTotalsInternal = internalQuery({
 // ─── PHASE 80.2: UNLINKED PRODUCTS BACKFILL STATS ───
 
 /**
- * Admin-only stats for the Phase 80.2 unlinked-products backfill admin UI.
+ * Admin-only K3Mart backfill stats.
  *
- * Returns two buckets:
- *   - k3mart: parent-level link state + mapping state
- *   - direct (source="internal"): parent/child coverage
+ * Two scans (externalRevenue + externalProductMappings, both filtered by
+ * source="k3mart") capped at 4000 rows each → max ~8k reads per call,
+ * well under Convex's 16,384 per-query read limit.
  *
- * Notes:
- *   - K3Mart parents are counted via the `by_source` index on externalRevenue.
- *   - Direct orphan count iterates internal parents and probes
- *     hasExternalRevenueItems() (O(log n) per parent via by_revenue).
- *   - Each collect() is capped at 5000; if the cap is reached, we set
- *     scanCapReached: true so the UI can warn the operator.
- *   - totalChildren uses the `by_source` index on externalRevenueItems,
- *     counting ALL internal children (not per-parent) via .collect(), also
- *     capped at 5000.
+ * The frontend pairs this with `getDirectBackfillStats` in a parallel
+ * `useQuery` so each admin page section has its own independent read budget
+ * and its own scanCapReached flag.
  */
-export const getUnlinkedBackfillStats = query({
+export const getK3MartBackfillStats = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
@@ -1650,86 +1644,100 @@ export const getUnlinkedBackfillStats = query({
     const SCAN_CAP = 4000;
     let scanCapReached = false;
 
-    // ─── K3Mart parents ───
-    const k3martParents = await ctx.db
+    const parents = await ctx.db
       .query("externalRevenue")
       .withIndex("by_source", (q) => q.eq("source", "k3mart"))
       .take(SCAN_CAP);
-    if (k3martParents.length >= SCAN_CAP) scanCapReached = true;
+    if (parents.length >= SCAN_CAP) scanCapReached = true;
 
-    let k3martLinkedParents = 0;
-    let k3martUnlinkedParents = 0;
-    let k3martNullProductCodeParents = 0;
-    for (const p of k3martParents) {
+    let linkedParents = 0;
+    let unlinkedParents = 0;
+    let nullProductCodeParents = 0;
+    for (const p of parents) {
       const hasCode =
         p.externalProductCode !== undefined &&
         p.externalProductCode !== null &&
         p.externalProductCode !== "";
-      if (!hasCode) k3martNullProductCodeParents++;
+      if (!hasCode) nullProductCodeParents++;
       if (p.linkedMenuProductId) {
-        k3martLinkedParents++;
+        linkedParents++;
       } else {
-        k3martUnlinkedParents++;
+        unlinkedParents++;
       }
     }
 
-    // ─── K3Mart mappings ───
-    const k3martMappings = await ctx.db
+    const mappings = await ctx.db
       .query("externalProductMappings")
       .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
       .take(SCAN_CAP);
-    if (k3martMappings.length >= SCAN_CAP) scanCapReached = true;
+    if (mappings.length >= SCAN_CAP) scanCapReached = true;
 
-    const k3martActiveMappings = k3martMappings.filter((m) => !!m.menuProductId)
-      .length;
+    const activeMappings = mappings.filter((m) => !!m.menuProductId).length;
 
-    // ─── Direct (source="internal") parents ───
-    const internalParents = await ctx.db
+    return {
+      totalParents: parents.length,
+      linkedParents,
+      unlinkedParents,
+      nullProductCodeParents,
+      totalMappings: mappings.length,
+      activeMappings,
+      scanCapReached,
+    };
+  },
+});
+
+/**
+ * Admin-only Direct (source="internal") backfill stats.
+ *
+ * Uses an O(children) approach: collect distinct revenueIds from
+ * externalRevenueItems[source="internal"] into a Set, then set-diff against
+ * the internal parents list. Two scans (up to 4000 rows each) instead of
+ * calling hasExternalRevenueItems() per parent.
+ *
+ * If the children cap is reached, `parentsWithChildren` becomes a lower
+ * bound (and `orphanParents` an upper bound). `scanCapReached` surfaces
+ * this to the UI.
+ */
+export const getDirectBackfillStats = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const SCAN_CAP = 4000;
+    let scanCapReached = false;
+
+    const parents = await ctx.db
       .query("externalRevenue")
       .withIndex("by_source", (q) => q.eq("source", "internal"))
       .take(SCAN_CAP);
-    if (internalParents.length >= SCAN_CAP) scanCapReached = true;
+    if (parents.length >= SCAN_CAP) scanCapReached = true;
 
-    // ─── Direct children (via by_source index) ───
-    // Collect distinct parent revenueIds to compute orphan count in O(children)
-    // instead of O(parents) — previous approach called hasExternalRevenueItems
-    // per parent and exceeded Convex's per-query read limit on prod.
-    const internalChildren = await ctx.db
+    const children = await ctx.db
       .query("externalRevenueItems")
       .withIndex("by_source", (q) => q.eq("source", "internal"))
       .take(SCAN_CAP);
-    if (internalChildren.length >= SCAN_CAP) scanCapReached = true;
+    if (children.length >= SCAN_CAP) scanCapReached = true;
 
     const parentIdsWithChildren = new Set<string>();
-    for (const c of internalChildren) {
+    for (const c of children) {
       parentIdsWithChildren.add(c.revenueId as unknown as string);
     }
 
-    let directParentsWithChildren = 0;
-    let directOrphanParents = 0;
-    for (const p of internalParents) {
+    let parentsWithChildren = 0;
+    let orphanParents = 0;
+    for (const p of parents) {
       if (parentIdsWithChildren.has(p._id as unknown as string)) {
-        directParentsWithChildren++;
+        parentsWithChildren++;
       } else {
-        directOrphanParents++;
+        orphanParents++;
       }
     }
 
     return {
-      k3mart: {
-        totalParents: k3martParents.length,
-        linkedParents: k3martLinkedParents,
-        unlinkedParents: k3martUnlinkedParents,
-        nullProductCodeParents: k3martNullProductCodeParents,
-        totalMappings: k3martMappings.length,
-        activeMappings: k3martActiveMappings,
-      },
-      direct: {
-        totalParents: internalParents.length,
-        parentsWithChildren: directParentsWithChildren,
-        orphanParents: directOrphanParents,
-        totalChildren: internalChildren.length,
-      },
+      totalParents: parents.length,
+      parentsWithChildren,
+      orphanParents,
+      totalChildren: children.length,
       scanCapReached,
     };
   },
