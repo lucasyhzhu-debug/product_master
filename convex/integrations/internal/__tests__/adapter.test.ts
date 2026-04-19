@@ -146,7 +146,7 @@ async function countChildrenFor(
   return await t.run(async (ctx) => {
     const rows = await ctx.db
       .query("externalRevenueItems")
-      .withIndex("by_revenue", (q) => q.eq("revenueId", revenueId))
+      .filter((q) => q.eq(q.field("revenueId"), revenueId))
       .collect();
     return rows.length;
   });

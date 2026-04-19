@@ -157,7 +157,7 @@ export type K3MartMappableRecord = {
 export function attachLinkedMenuProductId<T extends K3MartMappableRecord>(
   record: T,
   mappingMap: Map<string, Id<"menuProducts">>,
-): T {
+): T & { linkedMenuProductId?: Id<"menuProducts"> } {
   if (!record.externalProductCode) return record;
   const mapped = mappingMap.get(record.externalProductCode);
   if (!mapped) return record;
