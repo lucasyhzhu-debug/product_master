@@ -16,6 +16,27 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 80.3 — Analytics Internal-Mirror Dedup (R5 Skip) -- 2026-04-19
+
+**For the team:** The `/analytics` Unit Economics dashboard was double-counting every Direct-channel order (WhatsApp, Instagram, walk-in). Direct-channel revenue, units, and orders now match the Sales Aggregation page (K3Mart Cockpit Overview) on equivalent date ranges. **If you set revenue or unit targets from the Analytics page before this fix, those targets were inflated ~2x for the Direct channel; the corrected numbers are the real figures.**
+
+**Expected All Time impact at the time of the fix:**
+- Revenue (Net) drops from ~Rp 517M → ~Rp 387M
+- Units sold drops from 9,493 → 8,876 (delta 617 BOM-expanded balls)
+- Orders drops from 2,629 → 2,364 (delta 265 duplicate Direct orders)
+
+Other channels (GoFood, Shopee, Tokopedia, K3Mart, TikTok, Consignment) are unaffected.
+
+**Root cause:** `loadExternalStream` in `convex/reports/unitEconomics.ts` was unioning native `orders` + `orderItems` rows with the `externalRevenue[source="internal"]` mirror that `syncInternalOrders` writes for the Sales Aggregation pipeline. Every Direct order therefore appeared twice — once via the native path, once via the internal-mirror path. The R5 dedup rule was specified in the Phase 80 Task 4b staff-review addendum (2026-04-14) but the production code change was never shipped — commit `59069988` only modified plan documents.
+
+**Fix:** One line inside `loadExternalStream` skips externalRevenue rows where `source === "internal"`. The internal mirror remains in `externalRevenue` for the Sales Aggregation pipeline (which only reads `externalRevenue` and never unions `orders`).
+
+**Tests:** New file `convex/reports/__tests__/unitEconomics.test.ts` with 13 regression tests across 11 analytics reducers (kpiSummary, channelEconomics, channelMomentum, byWeekday, byWeekdayRolling, rollingTrend, dayHourHeatmap, volumeByType, typeMixOverTime, skuTop, skuChannelMatrix). Includes a hard negative-regression guard that the GoFood (`gobiz`) channel is NOT skipped — preventing a future over-aggressive widen of R5 that would zero out GoFood revenue.
+
+**Files modified:** `convex/reports/unitEconomics.ts`, `convex/reports/__tests__/unitEconomics-unlinked.test.ts` (re-seeded an existing test to use a native order instead of the internal mirror), `convex/reports/__tests__/unitEconomics.test.ts` (new).
+
+---
+
 ### Phase 80.2 — Unlinked Products Fix (K3Mart + Direct) -- 2026-04-19
 
 **For the team:** The `(Unlinked)` bucket on the `/analytics` SKU Pareto and SKU Channel Matrix reports will collapse for K3Mart and Direct channels — every K3Mart SKU mapped in the admin UI now retroactively attaches to its historical revenue, and every Direct order (historical + future) now carries the line-item detail the reports need. Only Consignment (expected) remains in the unlinked bucket.

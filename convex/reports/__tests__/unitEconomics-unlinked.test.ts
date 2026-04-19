@@ -24,6 +24,10 @@ import schema from "../../schema";
 import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 
+// Deterministic timestamp (Phase 73 rule — no Date.now() in seeded tests).
+// Same sentinel as convex/reports/__tests__/unitEconomics.test.ts.
+const NOW = 1713400000000;
+
 type TestT = ReturnType<typeof convexTest>;
 
 async function seedMenuProduct(
@@ -119,7 +123,7 @@ describe("unitEconomics loader — unlinked attribution", () => {
   it("attributes K3Mart parent with linkedMenuProductId + no children to the menu product (not UNLINKED)", async () => {
     const t = convexTest(schema);
     const mp = await seedMenuProduct(t, "Original 80g", 23000);
-    const now = Date.now();
+    const now = NOW;
     await seedK3MartParentLinked(t, mp, {
       externalProductCode: "K3-001",
       productName: "Original 80g",
@@ -151,14 +155,58 @@ describe("unitEconomics loader — unlinked attribution", () => {
   });
 
   it("does not regress already-linked parent with children (internal source)", async () => {
+    // Phase 80.3 — internal-source externalRevenue rows are now skipped by
+    // loadExternalStream (R5 dedup) because they are projections of native
+    // `orders` rows. The seed pattern below additionally inserts a native
+    // `orders` + `orderItems` twin to mirror real production behavior
+    // (syncInternalOrders writes BOTH the native order AND the internal
+    // mirror). Post-R5 we expect the native path to be the sole revenue
+    // source for Direct sales; the internal mirror must contribute zero
+    // additional revenue to the menu-product bucket.
     const t = convexTest(schema);
     const mp = await seedMenuProduct(t, "Original 80g", 23000);
-    const now = Date.now();
+    const now = NOW;
     await seedInternalParentWithChildren(t, mp, {
       orderNumber: "0129-001",
       quantity: 2,
       unitPrice: 23000,
       periodStart: now,
+    });
+    // Native orders+orderItems twin — the actual revenue source after R5 skip.
+    await t.run(async (ctx) => {
+      const customerId = await ctx.db.insert("customers", {
+        name: "Test Customer",
+        createdBy: "test",
+      } as never);
+      const orderId = await ctx.db.insert("orders", {
+        orderNumber: "0129-001",
+        customerId,
+        customerName: "Test Customer",
+        status: "Complete" as const,
+        paymentStatus: "Paid" as const,
+        orderDate: now,
+        completedAt: now,
+        totalAmount: 46000,
+        totalCost: 0,
+        totalMargin: 46000,
+        finalTotal: 46000,
+        itemCount: 1,
+        deliveryType: "Pickup",
+        channel: "whatsapp" as const,
+        createdBy: "test",
+      } as never);
+      await ctx.db.insert("orderItems", {
+        orderId,
+        productName: "Original 80g",
+        quantity: 2,
+        unitPrice: 23000,
+        unitCost: 0,
+        discountAmount: 0,
+        lineTotal: 46000,
+        lineCost: 0,
+        lineMargin: 46000,
+        menuProductId: mp,
+      } as never);
     });
 
     const result = await t.query(api.reports.unitEconomics.skuSnapshot, {
@@ -169,6 +217,9 @@ describe("unitEconomics loader — unlinked attribution", () => {
       (r) => r.productKey === (mp as unknown as string),
     );
     expect(ours).toBeDefined();
+    // Revenue is 46000 from the NATIVE order only — the internal mirror
+    // (also seeded with totalPrice=46000) is skipped by R5. If R5 ever
+    // regressed, this would assert 92000 and fail.
     expect(ours?.revenue).toBe(46000);
   });
 });
