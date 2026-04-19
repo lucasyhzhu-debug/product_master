@@ -1647,7 +1647,7 @@ export const getUnlinkedBackfillStats = query({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
 
-    const SCAN_CAP = 5000;
+    const SCAN_CAP = 4000;
     let scanCapReached = false;
 
     // ─── K3Mart parents ───
@@ -1690,23 +1690,30 @@ export const getUnlinkedBackfillStats = query({
       .take(SCAN_CAP);
     if (internalParents.length >= SCAN_CAP) scanCapReached = true;
 
-    let directParentsWithChildren = 0;
-    let directOrphanParents = 0;
-    for (const p of internalParents) {
-      const has = await hasExternalRevenueItems(ctx, p._id);
-      if (has) {
-        directParentsWithChildren++;
-      } else {
-        directOrphanParents++;
-      }
-    }
-
-    // ─── Direct children count (via by_source index) ───
+    // ─── Direct children (via by_source index) ───
+    // Collect distinct parent revenueIds to compute orphan count in O(children)
+    // instead of O(parents) — previous approach called hasExternalRevenueItems
+    // per parent and exceeded Convex's per-query read limit on prod.
     const internalChildren = await ctx.db
       .query("externalRevenueItems")
       .withIndex("by_source", (q) => q.eq("source", "internal"))
       .take(SCAN_CAP);
     if (internalChildren.length >= SCAN_CAP) scanCapReached = true;
+
+    const parentIdsWithChildren = new Set<string>();
+    for (const c of internalChildren) {
+      parentIdsWithChildren.add(c.revenueId as unknown as string);
+    }
+
+    let directParentsWithChildren = 0;
+    let directOrphanParents = 0;
+    for (const p of internalParents) {
+      if (parentIdsWithChildren.has(p._id as unknown as string)) {
+        directParentsWithChildren++;
+      } else {
+        directOrphanParents++;
+      }
+    }
 
     return {
       k3mart: {
