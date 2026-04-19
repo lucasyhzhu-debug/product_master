@@ -1178,3 +1178,83 @@ export const backfillInternalRevenueItems = mutation({
     return result;
   },
 });
+
+// ─── PHASE 80.2: CASCADE ALL K3MART MAPPINGS ───
+
+/**
+ * Admin-only one-click equivalent of re-saving every K3Mart SKU mapping.
+ *
+ * Iterates all K3Mart externalProductMappings rows that have a menuProductId
+ * set and re-runs applyRetroactiveProductMappingImpl on each. This patches
+ * any externalRevenue parents whose linkedMenuProductId drifted or was never
+ * set (e.g. pre-Plan-03 rows) while leaving idempotent rows untouched.
+ *
+ * Writes ONE externalSyncLogs audit row (source=k3mart, syncType=manual,
+ * triggeredBy=cascadeAllK3MartMappings). The per-mapping counter detail goes
+ * into the `summary` JSON (top 10 only to stay under Convex string limits).
+ */
+export const cascadeAllK3MartMappings = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    const startedAt = Date.now();
+
+    const mappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+      .collect();
+    const activeMappings = mappings.filter((m) => !!m.menuProductId);
+
+    let mappingsProcessed = 0;
+    let externalRevenueUpdatedTotal = 0;
+    const perMapping: Array<{ externalProductCode: string; updated: number }> =
+      [];
+
+    for (const m of activeMappings) {
+      const result = await applyRetroactiveProductMappingImpl(ctx, {
+        source: "k3mart",
+        externalProductCode: m.externalProductCode,
+        externalProductName: m.externalProductName,
+        menuProductId: m.menuProductId!,
+      });
+      mappingsProcessed++;
+      externalRevenueUpdatedTotal += result.externalRevenueUpdated;
+      if (result.externalRevenueUpdated > 0) {
+        perMapping.push({
+          externalProductCode: m.externalProductCode,
+          updated: result.externalRevenueUpdated,
+        });
+      }
+    }
+
+    const durationMs = Date.now() - startedAt;
+
+    const auditLogId = await ctx.db.insert("externalSyncLogs", {
+      source: "k3mart" as const,
+      syncType: "manual" as const,
+      status: "success" as const,
+      triggeredBy: "cascadeAllK3MartMappings",
+      timestamp: startedAt,
+      durationMs,
+      summary: JSON.stringify({
+        operation: "cascadeAllK3MartMappings",
+        mappingsProcessed,
+        activeMappings: activeMappings.length,
+        totalMappings: mappings.length,
+        externalRevenueUpdatedTotal,
+        perMappingTop10: perMapping
+          .sort((a, b) => b.updated - a.updated)
+          .slice(0, 10),
+      }),
+    });
+
+    return {
+      mappingsProcessed,
+      activeMappings: activeMappings.length,
+      totalMappings: mappings.length,
+      externalRevenueUpdatedTotal,
+      durationMs,
+      auditLogId,
+    };
+  },
+});

@@ -15,6 +15,7 @@ import { countDayTypes, buildSellThroughProducts } from "./helpers/sellThroughHe
 import type { ProductAnalysis } from "./helpers/sellThroughHelpers";
 import { buildK3MartOutletProducts, buildDemandProducts } from "./helpers/restockHelpers";
 import { hasExternalRevenueItems } from "./helpers/revenueItemsHelpers";
+import { requireRole } from "../lib/auth";
 
 const sourceValidator = externalSource;
 
@@ -1619,5 +1620,110 @@ export const getLifetimeTotalsInternal = internalQuery({
     ]);
 
     return computeLifetimeTotals(items, revenues, bomComponents, componentTypes);
+  },
+});
+
+// ─── PHASE 80.2: UNLINKED PRODUCTS BACKFILL STATS ───
+
+/**
+ * Admin-only stats for the Phase 80.2 unlinked-products backfill admin UI.
+ *
+ * Returns two buckets:
+ *   - k3mart: parent-level link state + mapping state
+ *   - direct (source="internal"): parent/child coverage
+ *
+ * Notes:
+ *   - K3Mart parents are counted via the `by_source` index on externalRevenue.
+ *   - Direct orphan count iterates internal parents and probes
+ *     hasExternalRevenueItems() (O(log n) per parent via by_revenue).
+ *   - Each collect() is capped at 5000; if the cap is reached, we set
+ *     scanCapReached: true so the UI can warn the operator.
+ *   - totalChildren uses the `by_source` index on externalRevenueItems,
+ *     counting ALL internal children (not per-parent) via .collect(), also
+ *     capped at 5000.
+ */
+export const getUnlinkedBackfillStats = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const SCAN_CAP = 5000;
+    let scanCapReached = false;
+
+    // ─── K3Mart parents ───
+    const k3martParents = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .take(SCAN_CAP);
+    if (k3martParents.length >= SCAN_CAP) scanCapReached = true;
+
+    let k3martLinkedParents = 0;
+    let k3martUnlinkedParents = 0;
+    let k3martNullProductCodeParents = 0;
+    for (const p of k3martParents) {
+      const hasCode =
+        p.externalProductCode !== undefined &&
+        p.externalProductCode !== null &&
+        p.externalProductCode !== "";
+      if (!hasCode) k3martNullProductCodeParents++;
+      if (p.linkedMenuProductId) {
+        k3martLinkedParents++;
+      } else {
+        k3martUnlinkedParents++;
+      }
+    }
+
+    // ─── K3Mart mappings ───
+    const k3martMappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+      .take(SCAN_CAP);
+    if (k3martMappings.length >= SCAN_CAP) scanCapReached = true;
+
+    const k3martActiveMappings = k3martMappings.filter((m) => !!m.menuProductId)
+      .length;
+
+    // ─── Direct (source="internal") parents ───
+    const internalParents = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source", (q) => q.eq("source", "internal"))
+      .take(SCAN_CAP);
+    if (internalParents.length >= SCAN_CAP) scanCapReached = true;
+
+    let directParentsWithChildren = 0;
+    let directOrphanParents = 0;
+    for (const p of internalParents) {
+      const has = await hasExternalRevenueItems(ctx, p._id);
+      if (has) {
+        directParentsWithChildren++;
+      } else {
+        directOrphanParents++;
+      }
+    }
+
+    // ─── Direct children count (via by_source index) ───
+    const internalChildren = await ctx.db
+      .query("externalRevenueItems")
+      .withIndex("by_source", (q) => q.eq("source", "internal"))
+      .take(SCAN_CAP);
+    if (internalChildren.length >= SCAN_CAP) scanCapReached = true;
+
+    return {
+      k3mart: {
+        totalParents: k3martParents.length,
+        linkedParents: k3martLinkedParents,
+        unlinkedParents: k3martUnlinkedParents,
+        nullProductCodeParents: k3martNullProductCodeParents,
+        totalMappings: k3martMappings.length,
+        activeMappings: k3martActiveMappings,
+      },
+      direct: {
+        totalParents: internalParents.length,
+        parentsWithChildren: directParentsWithChildren,
+        orphanParents: directOrphanParents,
+        totalChildren: internalChildren.length,
+      },
+      scanCapReached,
+    };
   },
 });
