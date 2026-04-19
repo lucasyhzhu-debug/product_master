@@ -191,7 +191,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 80: Unit Economics Analytics Dashboard** - New /analytics page with 13 widgets across 6 lenses answering unit-economics questions (completed 2026-04-15)
 - [x] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route (completed 2026-04-18)
 - [x] **Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)** - Eliminate the `(Unlinked)` bucket in SKU Pareto / SKU Channel Matrix reports caused by two independent bugs: K3Mart mapping cascade not covering `source="k3mart"` (737/737 parents affected) and syncInternalOrders skipping child-item creation on historical re-syncs (219/262 Direct parents affected) (completed 2026-04-18)
-- [ ] **Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)** - Fix the Analytics `/analytics` loader double-counting every Direct/WhatsApp/Instagram order: `loadExternalStream` in `convex/reports/unitEconomics.ts` unions native `orders` + `externalRevenue[source="internal"]` mirror of those same orders, inflating Direct-channel revenue/units/orders ~2×. Single-line R5 skip rule (spec'd in Phase 80 Task 4b staff-review addendum but never committed to code — ghost commit `59069988`) plus symmetric regression-test coverage across all 10+ queries calling `loadFilteredData`.
+- [x] **Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)** - Fixed `/analytics` double-counting of every Direct/WhatsApp/Instagram order via one-line R5 skip in `loadExternalStream` + 14 regression tests across all 11 reducers consuming `loadFilteredData` (completed 2026-04-19, merged via PR #149).
 
 ## Phase Details
 
@@ -297,7 +297,7 @@ Plans:
 - Phase 78 (substitution + stock tracker) — ✓ complete
 - Phase 79 (Shopee item pipeline with `linkedMenuProductId` populated) — ✓ complete
 - Phase 80 (`externalSourceToDisplayChannel` + `channelTaxonomy.ts` — reuse, do not reinvent) — ✓ complete
-- Phase 80.3 (must merge first — avoids conflict with `loadExternalStream` edits) — 🟡 in review
+- Phase 80.3 (must merge first — avoids conflict with `loadExternalStream` edits) — ✓ complete (merged 2026-04-19)
 
 **Load-bearing references (read before planning/executing)**:
 - Design spec: `docs/superpowers/specs/2026-04-17-unified-channel-integration-architecture-design.md` (15 sections, 500 LOC)
@@ -571,7 +571,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
 | 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete    | 2026-04-18 |
 | 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 4/4 | Complete   | 2026-04-18 |
-| 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 1/1 plans (Waves 1-3 automated) | In Review — awaiting HUMAN-UAT + triple-review + merge | - |
+| 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 1/1 | Complete — merged via PR #149 | 2026-04-19 |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
