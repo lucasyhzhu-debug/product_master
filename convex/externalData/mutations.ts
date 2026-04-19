@@ -4,6 +4,7 @@ import { mutation, internalMutation, type MutationCtx } from "../_generated/serv
 import { requireRole } from "../lib/auth";
 import { externalSource, syncType } from "../schema";
 import { dominantSku } from "../integrations/bigseller/helpers";
+import { hasExternalRevenueItems } from "./helpers/revenueItemsHelpers";
 
 type ExternalSource = Infer<typeof externalSource>;
 
@@ -463,7 +464,7 @@ async function applyRetroactiveProductMappingImpl(
     externalProductName: string;
     menuProductId: Id<"menuProducts"> | undefined;
   }
-): Promise<{ updatedItems: number; bigsellerUpdated: number }> {
+): Promise<{ updatedItems: number; bigsellerUpdated: number; externalRevenueUpdated: number }> {
   // 1) Legacy by-name cascade (non-Shopee sources rely on this; also catches
   //    pre-Plan-03 Shopee rows where productName was set to the SKU code).
   const itemsByName = await ctx.db
@@ -592,7 +593,32 @@ async function applyRetroactiveProductMappingImpl(
     }
   }
 
-  return { updatedItems: patchedItemIds.size, bigsellerUpdated };
+  // 3) K3Mart cascade by externalProductCode on parent externalRevenue rows.
+  //    K3Mart has no child externalRevenueItems (parent-only today), so the
+  //    patch lands on parents directly via the by_source_productCode index.
+  //    The Shopee/TikTok branch above uses dominantSku on children; this
+  //    branch does not need that logic because K3Mart parents already carry
+  //    externalProductCode 1:1.
+  let externalRevenueUpdated = 0;
+  if (args.source === "k3mart") {
+    const parents = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source_productCode", (q) =>
+        q.eq("source", "k3mart").eq("externalProductCode", args.externalProductCode),
+      )
+      .take(4000); // Convex write safety cap -- match the Shopee branch limit
+    for (const p of parents) {
+      if (p.linkedMenuProductId === args.menuProductId) continue; // idempotency
+      await ctx.db.patch(p._id, { linkedMenuProductId: args.menuProductId });
+      externalRevenueUpdated++;
+    }
+  }
+
+  return {
+    updatedItems: patchedItemIds.size,
+    bigsellerUpdated,
+    externalRevenueUpdated,
+  };
 }
 
 /**
@@ -721,6 +747,89 @@ export const setMenuProductForSku = mutation({
 
 // ─── REVENUE ITEMS MUTATIONS (journal-level data) ───
 
+/**
+ * TS mirror of the saveRevenueItems Convex validator. Used by callers that
+ * invoke saveRevenueItemsImpl inline (inside mutation bodies — Convex
+ * mutations cannot use ctx.runMutation).
+ *
+ * CRITICAL: the matchConfidence enum MUST mirror the schema enum at
+ * convex/schema.ts:1155-1158 AND the Convex validator on saveRevenueItems
+ * exactly. Do NOT introduce "high" | "medium" | "low" literals — those do
+ * not exist in the schema and the runtime validator will reject them.
+ */
+type SaveRevenueItemsArgs = {
+  revenueId: Id<"externalRevenue">;
+  items: Array<{
+    externalItemId?: string;
+    productName: string;
+    unitPrice: number;
+    quantity: number;
+    totalPrice: number;
+    variants?: string;
+    linkedMenuProductId?: Id<"menuProducts">;
+    isAutoMatched: boolean;
+    matchConfidence?: "exact" | "price_only" | "name_only" | "none";
+  }>;
+};
+
+/**
+ * Private impl for saveRevenueItems. Called by:
+ *   - saveRevenueItems internalMutation (existing wire contract — Id[] preserved)
+ *   - backfillInternalRevenueItemsPageImpl (new — runs inline from a public mutation)
+ *
+ * Inline-callable because public mutations cannot use ctx.runMutation.
+ * Dedup on (revenueId, externalItemId) preserves idempotency (prior pattern at
+ * the former saveRevenueItems:752 location — now inlined here).
+ *
+ * Returns BOTH `ids` (preserves existing internalMutation contract) AND
+ * `inserted` (convenience counter for the backfill loop, equals ids.length).
+ */
+async function saveRevenueItemsImpl(
+  ctx: MutationCtx,
+  args: SaveRevenueItemsArgs,
+): Promise<{ ids: Id<"externalRevenueItems">[]; inserted: number }> {
+  const revenue = await ctx.db.get(args.revenueId);
+  if (!revenue) {
+    throw new Error(`Revenue record not found: ${args.revenueId}`);
+  }
+
+  const ids: Id<"externalRevenueItems">[] = [];
+  for (const item of args.items) {
+    // Dedup: skip if same revenueId + externalItemId exists
+    if (item.externalItemId) {
+      const existing = await ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
+        .filter((q) => q.eq(q.field("externalItemId"), item.externalItemId))
+        .first();
+      if (existing) continue;
+    }
+
+    const id = await ctx.db.insert("externalRevenueItems", {
+      revenueId: args.revenueId,
+      source: revenue.source,
+      externalItemId: item.externalItemId,
+      productName: item.productName,
+      unitPrice: item.unitPrice,
+      quantity: item.quantity,
+      totalPrice: item.totalPrice,
+      variants: item.variants,
+      linkedMenuProductId: item.linkedMenuProductId,
+      isAutoMatched: item.isAutoMatched,
+      matchConfidence: item.matchConfidence,
+      createdAt: Date.now(),
+    });
+    ids.push(id);
+  }
+
+  return { ids, inserted: ids.length };
+}
+
+// Existing internalMutation delegates to the impl — wire contract preserved.
+// IMPORTANT: returns `result.ids` (Id[]), NOT the impl object — preserves the
+// pre-refactor return shape so any current/future caller that awaits an Id[]
+// still works (e.g. convex/bigsellerOrders/mutations.ts:288-292 destructures
+// `.length` from the returned array).
 export const saveRevenueItems = internalMutation({
   args: {
     revenueId: v.id("externalRevenue"),
@@ -740,43 +849,8 @@ export const saveRevenueItems = internalMutation({
     })),
   },
   handler: async (ctx, args) => {
-    const ids = [];
-
-    // Get source from parent revenue record
-    const revenue = await ctx.db.get(args.revenueId);
-    if (!revenue) {
-      throw new Error(`Revenue record not found: ${args.revenueId}`);
-    }
-
-    for (const item of args.items) {
-      // Dedup: skip if same revenueId + externalItemId exists
-      if (item.externalItemId) {
-        const existing = await ctx.db
-          .query("externalRevenueItems")
-          .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
-          .filter((q) => q.eq(q.field("externalItemId"), item.externalItemId))
-          .first();
-        if (existing) continue;
-      }
-
-      const id = await ctx.db.insert("externalRevenueItems", {
-        revenueId: args.revenueId,
-        source: revenue.source,
-        externalItemId: item.externalItemId,
-        productName: item.productName,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        totalPrice: item.totalPrice,
-        variants: item.variants,
-        linkedMenuProductId: item.linkedMenuProductId,
-        isAutoMatched: item.isAutoMatched,
-        matchConfidence: item.matchConfidence,
-        createdAt: Date.now(),
-      });
-      ids.push(id);
-    }
-
-    return ids;
+    const result = await saveRevenueItemsImpl(ctx, args as SaveRevenueItemsArgs);
+    return result.ids;
   },
 });
 
@@ -914,5 +988,273 @@ export const backfillMappingsToRevenueItems = internalMutation({
     }
 
     return { updated };
+  },
+});
+
+// ─── DIRECT REVENUE BACKFILL (Phase 80.2 Wave 2) ───
+
+/**
+ * Per-page result returned by the Direct revenue backfill helper. Caller loops
+ * until `isDone=true`. For the current 262-parent prod dataset at limit 500, a
+ * single invocation completes in one round-trip.
+ */
+type BackfillPageResult = {
+  parentsScanned: number;
+  parentsBackfilled: number;
+  itemsInserted: number;
+  skippedHasChildren: number;
+  skippedMissingOrder: number;
+  skippedEmptyOrderItems: number;
+  continueCursor: string | null;
+  isDone: boolean;
+};
+
+/**
+ * Paginates source="internal" externalRevenue parents, backfills
+ * externalRevenueItems for orphans (parents with no children) by reading the
+ * corresponding native orders + orderItems. Idempotent via saveRevenueItemsImpl
+ * dedup on (revenueId, externalItemId).
+ *
+ * NOVEL PATTERN: paginated-WRITE mutation. See PATTERNS.md §3 — no existing
+ * paginated-write analog in convex/. For current 262-parent prod dataset at
+ * limit 500, one invocation completes in a single round-trip. Caller loops on
+ * continueCursor only if isDone=false.
+ *
+ * Schema index contract:
+ *   - externalRevenue.by_source (source) — used for the page scan
+ *   - externalRevenue.externalTransactionId holds the native orderNumber for
+ *     source="internal" parents (adapter.ts:101 sets this at insert time)
+ *   - orders.by_order_number (orderNumber) — used for orderNumber -> order lookup
+ *   - orderItems.by_order (orderId) — used for order -> items lookup
+ */
+async function backfillInternalRevenueItemsPageImpl(
+  ctx: MutationCtx,
+  args: { cursor: string | null; limit: number },
+): Promise<BackfillPageResult> {
+  const result: BackfillPageResult = {
+    parentsScanned: 0,
+    parentsBackfilled: 0,
+    itemsInserted: 0,
+    skippedHasChildren: 0,
+    skippedMissingOrder: 0,
+    skippedEmptyOrderItems: 0,
+    continueCursor: null,
+    isDone: true,
+  };
+
+  const page = await ctx.db
+    .query("externalRevenue")
+    .withIndex("by_source", (q) => q.eq("source", "internal"))
+    .paginate({ cursor: args.cursor, numItems: args.limit });
+
+  for (const parent of page.page) {
+    result.parentsScanned++;
+
+    if (await hasExternalRevenueItems(ctx, parent._id)) {
+      result.skippedHasChildren++;
+      continue;
+    }
+
+    const orderNumber = parent.externalTransactionId;
+    if (!orderNumber) {
+      result.skippedMissingOrder++;
+      continue;
+    }
+    const order = await ctx.db
+      .query("orders")
+      .withIndex("by_order_number", (q) => q.eq("orderNumber", orderNumber))
+      .unique();
+    if (!order) {
+      result.skippedMissingOrder++;
+      continue;
+    }
+
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", order._id))
+      .collect();
+    if (items.length === 0) {
+      result.skippedEmptyOrderItems++;
+      continue;
+    }
+
+    // Item-mapping shape copied verbatim from adapter.ts:135-148 (the Direct
+    // syncInternalOrders emit path) — keeps (revenueId, externalItemId) dedup
+    // keys aligned so the next adapter re-sync is a true no-op.
+    const { ids } = await saveRevenueItemsImpl(ctx, {
+      revenueId: parent._id,
+      items: items.map((item) => ({
+        externalItemId: `${order.orderNumber}-${item._id}`,
+        productName: item.productName,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        totalPrice: item.lineTotal,
+        linkedMenuProductId: item.menuProductId
+          ? (item.menuProductId as Id<"menuProducts">)
+          : undefined,
+        isAutoMatched: !!item.menuProductId,
+        matchConfidence: (item.menuProductId ? "exact" : "none") as
+          | "exact"
+          | "none",
+      })),
+    });
+    const inserted = ids.length;
+    if (inserted > 0) {
+      result.parentsBackfilled++;
+      result.itemsInserted += inserted;
+    }
+  }
+
+  result.continueCursor = page.isDone ? null : page.continueCursor;
+  result.isDone = page.isDone;
+  return result;
+}
+
+/**
+ * Admin-only backfill for orphan Direct (source="internal") parents.
+ *
+ * Scans externalRevenue[source="internal"] in paginated batches, finds parents
+ * with zero externalRevenueItems children, and rebuilds them from the native
+ * orders + orderItems. Idempotent via saveRevenueItemsImpl dedup on
+ * (revenueId, externalItemId).
+ *
+ * Args:
+ *   - token: admin session token
+ *   - cursor: null for first page, or the returned continueCursor for loops
+ *   - limit: default 200, max 4000 (Convex per-mutation write cap)
+ *
+ * Returns per-page counters + continueCursor + isDone. Caller loops until
+ * isDone=true. For the current 262-parent prod dataset at limit 500, completes
+ * in one invocation.
+ *
+ * Writes ONE externalSyncLogs row per invocation (triggeredBy="backfill").
+ * The counter JSON goes into the `summary` field (added in Plan 01 Task 1.1
+ * Edit B). The `errorMessage` field is NOT repurposed — reserved for actual
+ * error states so monitoring filters on `errorMessage != null` stay sane.
+ */
+export const backfillInternalRevenueItems = mutation({
+  args: {
+    token: v.string(),
+    cursor: v.optional(v.union(v.string(), v.null())),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const limit = Math.min(args.limit ?? 200, 4000);
+    const cursor = args.cursor ?? null;
+    const startedAt = Date.now();
+
+    const result = await backfillInternalRevenueItemsPageImpl(ctx, {
+      cursor,
+      limit,
+    });
+
+    // Audit row — source=internal, syncType=manual, triggeredBy=backfill.
+    // The summary JSON goes into the `summary` field added in Plan 01
+    // Task 1.1 (Edit B). Do NOT write to `errorMessage` — that field is
+    // reserved for actual error states; misusing it for success-state
+    // counters would corrupt any monitoring filter on `errorMessage != null`.
+    await ctx.db.insert("externalSyncLogs", {
+      source: "internal" as const,
+      syncType: "manual" as const,
+      status: "success" as const,
+      triggeredBy: "backfill",
+      timestamp: startedAt,
+      durationMs: Date.now() - startedAt,
+      summary: JSON.stringify({
+        parentsScanned: result.parentsScanned,
+        parentsBackfilled: result.parentsBackfilled,
+        itemsInserted: result.itemsInserted,
+        skippedHasChildren: result.skippedHasChildren,
+        skippedMissingOrder: result.skippedMissingOrder,
+        skippedEmptyOrderItems: result.skippedEmptyOrderItems,
+        cursor,
+        limit,
+        isDone: result.isDone,
+      }),
+    });
+
+    return result;
+  },
+});
+
+// ─── PHASE 80.2: CASCADE ALL K3MART MAPPINGS ───
+
+/**
+ * Admin-only one-click equivalent of re-saving every K3Mart SKU mapping.
+ *
+ * Iterates all K3Mart externalProductMappings rows that have a menuProductId
+ * set and re-runs applyRetroactiveProductMappingImpl on each. This patches
+ * any externalRevenue parents whose linkedMenuProductId drifted or was never
+ * set (e.g. pre-Plan-03 rows) while leaving idempotent rows untouched.
+ *
+ * Writes ONE externalSyncLogs audit row (source=k3mart, syncType=manual,
+ * triggeredBy=cascadeAllK3MartMappings). The per-mapping counter detail goes
+ * into the `summary` JSON (top 10 only to stay under Convex string limits).
+ */
+export const cascadeAllK3MartMappings = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    const startedAt = Date.now();
+
+    const mappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+      .collect();
+    const activeMappings = mappings.filter((m) => !!m.menuProductId);
+
+    let mappingsProcessed = 0;
+    let externalRevenueUpdatedTotal = 0;
+    const perMapping: Array<{ externalProductCode: string; updated: number }> =
+      [];
+
+    for (const m of activeMappings) {
+      const result = await applyRetroactiveProductMappingImpl(ctx, {
+        source: "k3mart",
+        externalProductCode: m.externalProductCode,
+        externalProductName: m.externalProductName,
+        menuProductId: m.menuProductId!,
+      });
+      mappingsProcessed++;
+      externalRevenueUpdatedTotal += result.externalRevenueUpdated;
+      if (result.externalRevenueUpdated > 0) {
+        perMapping.push({
+          externalProductCode: m.externalProductCode,
+          updated: result.externalRevenueUpdated,
+        });
+      }
+    }
+
+    const durationMs = Date.now() - startedAt;
+
+    const auditLogId = await ctx.db.insert("externalSyncLogs", {
+      source: "k3mart" as const,
+      syncType: "manual" as const,
+      status: "success" as const,
+      triggeredBy: "cascadeAllK3MartMappings",
+      timestamp: startedAt,
+      durationMs,
+      summary: JSON.stringify({
+        operation: "cascadeAllK3MartMappings",
+        mappingsProcessed,
+        activeMappings: activeMappings.length,
+        totalMappings: mappings.length,
+        externalRevenueUpdatedTotal,
+        perMappingTop10: perMapping
+          .sort((a, b) => b.updated - a.updated)
+          .slice(0, 10),
+      }),
+    });
+
+    return {
+      mappingsProcessed,
+      activeMappings: activeMappings.length,
+      totalMappings: mappings.length,
+      externalRevenueUpdatedTotal,
+      durationMs,
+      auditLogId,
+    };
   },
 });

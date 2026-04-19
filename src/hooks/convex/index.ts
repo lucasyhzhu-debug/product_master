@@ -528,3 +528,13 @@ export {
   useMyPerformance,
   useCorrectAttendance,
 } from "./useAttendance";
+
+// Unlinked Products Backfill (Phase 80.2 — admin one-time data repair)
+export {
+  useUnlinkedBackfillStats,
+  useCascadeAllK3MartMappings,
+  useBackfillInternalRevenueItems,
+  type UnlinkedBackfillStats,
+  type CascadeK3MartResult,
+  type BackfillPageResult,
+} from "./useUnlinkedBackfill";

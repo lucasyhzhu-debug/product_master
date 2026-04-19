@@ -150,6 +150,9 @@ const BankRulesManager = lazyWithPreload(() =>
 const AnalyticsDashboard = lazyWithPreload(() =>
   import('./pages/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard }))
 );
+const UnlinkedProductsBackfill = lazyWithPreload(() =>
+  import('./pages/UnlinkedProductsBackfill').then(m => ({ default: m.UnlinkedProductsBackfill }))
+);
 
 function App() {
   return (
@@ -461,6 +464,16 @@ function App() {
                     element={
                       <ProtectedRoute allowedRoles={["admin"]}>
                         <BankRulesManager />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Phase 80.2: Unlinked Products Backfill — admin-only one-time data repair */}
+                  <Route
+                    path="admin/unlinked-products-backfill"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <UnlinkedProductsBackfill />
                       </ProtectedRoute>
                     }
                   />

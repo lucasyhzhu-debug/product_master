@@ -987,7 +987,7 @@ Unified revenue records from all platforms with confidence tracking.
 | promoBurn | number? | GoBiz: Promotional discount costs |
 | gobizOrderNumber | number? | GoBiz: Order number for reference |
 
-**Indexes:** `by_source`, `by_outlet`, `by_period`, `by_source_period`, `by_product`, `by_source_txn`
+**Indexes:** `by_source`, `by_outlet`, `by_period`, `by_source_period`, `by_product`, `by_source_txn`, `by_amount_transactionDate` (Phase 72 — bank reconciliation auto-match), `by_source_productCode` (Phase 80.2 — K3Mart retroactive mapping cascade; composite `[source, externalProductCode]`)
 
 ### externalRevenueItems
 Journal-level line items for external revenue transactions. Used by GoBiz to store per-product detail within a journal entry.
@@ -1030,6 +1030,7 @@ Sync operation logs with timing and error details.
 | durationMs | number? | Sync duration in ms |
 | triggeredBy | string? | Who triggered the sync |
 | timestamp | number | When sync started |
+| summary | string? | Phase 80.2 — JSON-serialized counter payload for audit rows (e.g. backfill invocations). Kept separate from `errorMessage` so monitoring filters on `errorMessage != null` remain clean. |
 
 **Indexes:** `by_source`, `by_timestamp`, `by_outlet`
 

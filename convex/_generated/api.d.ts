@@ -60,6 +60,7 @@ import type * as externalData_actions from "../externalData/actions.js";
 import type * as externalData_helpers_dashboardHelpers from "../externalData/helpers/dashboardHelpers.js";
 import type * as externalData_helpers_lifetimeHelpers from "../externalData/helpers/lifetimeHelpers.js";
 import type * as externalData_helpers_restockHelpers from "../externalData/helpers/restockHelpers.js";
+import type * as externalData_helpers_revenueItemsHelpers from "../externalData/helpers/revenueItemsHelpers.js";
 import type * as externalData_helpers_sellThroughHelpers from "../externalData/helpers/sellThroughHelpers.js";
 import type * as externalData_helpers_timeSeriesHelpers from "../externalData/helpers/timeSeriesHelpers.js";
 import type * as externalData_mutations from "../externalData/mutations.js";
@@ -100,6 +101,7 @@ import type * as integrations_internal_queries from "../integrations/internal/qu
 import type * as integrations_k3mart_adapter from "../integrations/k3mart/adapter.js";
 import type * as integrations_k3mart_config from "../integrations/k3mart/config.js";
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
+import type * as integrations_k3mart_queries from "../integrations/k3mart/queries.js";
 import type * as integrations_registry from "../integrations/registry.js";
 import type * as integrityChecks_mutations from "../integrityChecks/mutations.js";
 import type * as integrityChecks_queries from "../integrityChecks/queries.js";
@@ -301,6 +303,7 @@ declare const fullApi: ApiFromModules<{
   "externalData/helpers/dashboardHelpers": typeof externalData_helpers_dashboardHelpers;
   "externalData/helpers/lifetimeHelpers": typeof externalData_helpers_lifetimeHelpers;
   "externalData/helpers/restockHelpers": typeof externalData_helpers_restockHelpers;
+  "externalData/helpers/revenueItemsHelpers": typeof externalData_helpers_revenueItemsHelpers;
   "externalData/helpers/sellThroughHelpers": typeof externalData_helpers_sellThroughHelpers;
   "externalData/helpers/timeSeriesHelpers": typeof externalData_helpers_timeSeriesHelpers;
   "externalData/mutations": typeof externalData_mutations;
@@ -341,6 +344,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/adapter": typeof integrations_k3mart_adapter;
   "integrations/k3mart/config": typeof integrations_k3mart_config;
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
+  "integrations/k3mart/queries": typeof integrations_k3mart_queries;
   "integrations/registry": typeof integrations_registry;
   "integrityChecks/mutations": typeof integrityChecks_mutations;
   "integrityChecks/queries": typeof integrityChecks_queries;

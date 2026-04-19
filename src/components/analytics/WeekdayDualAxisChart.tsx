@@ -31,11 +31,9 @@ type WeekdayTooltipPayload = {
 function WeekdayTooltip({
   active,
   payload,
-  mode,
 }: {
   active?: boolean;
   payload?: WeekdayTooltipPayload[];
-  mode: Mode;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   const p = payload[0]?.payload;
@@ -144,7 +142,7 @@ export function WeekdayDualAxisChart() {
             tickCount={4}
             tick={{ fontSize: 11 }}
           />
-          <Tooltip content={<WeekdayTooltip mode={mode} />} />
+          <Tooltip content={<WeekdayTooltip />} />
           <Legend />
           <Bar yAxisId="left" dataKey="orders" fill="#f97316" name="Orders" />
           <Bar yAxisId="left" dataKey="units" fill="#8b5cf6" name="Units" />

@@ -123,7 +123,37 @@ export const syncInternalOrders = action({
         for (let j = 0; j < batch.length; j++) {
           const order = batch[j];
           const { id: revenueId, isNew } = batchResults[j];
-          if (!isNew) continue; // Skip re-synced duplicates
+          // Phase 80.2 Wave 2: self-heal guard.
+          //
+          // Pre-fix behavior: an unconditional "skip-if-not-new" branch
+          // skipped saveRevenueItems for any re-synced parent. Any Direct
+          // parent synced BEFORE the saveRevenueItems emit path was added
+          // (~2026-04-10) stayed permanently orphaned — zero children.
+          // 219/262 prod Direct parents were affected (see
+          // .planning/debug/unlinked-products-k3mart-direct.md).
+          //
+          // Post-fix behavior: only skip re-synced parents that ALREADY have
+          // at least one externalRevenueItems child. Orphan re-syncs fall
+          // through to the emit path below and backfill their children. The
+          // (revenueId, externalItemId) dedup inside saveRevenueItems makes
+          // this additionally safe against races.
+          //
+          // Invariant: after this guard, saveRevenueItems runs iff the parent
+          // has zero children. saveRevenueItems dedups on
+          // (revenueId, externalItemId) so re-entry is safe even if a race
+          // somehow inserted a child between the check and the call.
+          //
+          // Failure-mode: if hasExternalRevenueItemsQuery throws, the error
+          // propagates and halts the sync — DO NOT swallow. Halt-loud is
+          // safer than silent skip (which would silently re-create the
+          // orphan-creation bug we're fixing).
+          if (!isNew) {
+            const hasChildren = await ctx.runQuery(
+              internal.externalData.queries.hasExternalRevenueItemsQuery,
+              { revenueId: revenueId as Id<"externalRevenue"> },
+            );
+            if (hasChildren) continue;
+          }
           const items = orderItemsMap[order.orderNumber] ?? [];
 
           if (items.length > 0) {
