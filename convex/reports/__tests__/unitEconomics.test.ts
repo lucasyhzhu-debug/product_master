@@ -19,15 +19,18 @@
  *              Each reducer is asserted with a specific invariant a
  *              double-count would break.
  *
- * Note on 11-query inventory: the plan/research docs reference 11 legacy
- * queries (kpiSummary, byWeekday, dayHourHeatmap, channelEconomics,
- * volumeByType, unitsPerTxnByChannel, aovByChannel, skuPareto,
- * skuChannelMatrix, channelMomentum, rollingTrend). Phase 80.1
- * consolidated all 11 reducers into 3 grouped snapshot queries (verified
- * via git grep — only kpiAndChannelSnapshot/timeSeriesSnapshot/
- * skuSnapshot are exported by convex/reports/unitEconomics.ts at HEAD of
- * gsd/phase-80.3 branch). All 11 reducers are still covered here, but
- * via their snapshot wrapper rather than as standalone queries.
+ * Note on 11-reducer inventory: the plan/research docs reference 11 legacy
+ * queries by their pre-80.1 names. Post-80.1 the actual reducers exported
+ * by convex/reports/unitEconomics.ts are:
+ *   reduceKpi (covers kpiSummary + unitsPerTxn/aovNet fields),
+ *   reduceChannelEconomics, reduceChannelMomentum, reduceByWeekday,
+ *   reduceByWeekdayRolling, reduceRollingTrend, reduceDayHourHeatmap,
+ *   reduceVolumeByType, reduceTypeMixOverTime (alias of volumeByType),
+ *   reduceSkuTop, reduceSkuChannelMatrix.
+ * All 11 are covered by Test 17 via their snapshot wrapper
+ * (kpiAndChannelSnapshot / timeSeriesSnapshot / skuSnapshot). The legacy
+ * names unitsPerTxnByChannel and aovByChannel are fields returned by
+ * reduceKpi, not standalone reducers — covered by the kpiSummary case.
  *
  * Anchors:
  * - R5 spec: docs/reviews/staffreview-phase-80-task-4b-addendum-2026-04-14.md
@@ -264,14 +267,16 @@ describe("R5 — gobiz contributes (Test 12b — negative regression)", () => {
 
     // Hard regression guard: if R5 ever widens to skip "gobiz", these all
     // collapse to 0 and GoFood disappears from every dashboard widget.
-    expect(result.kpi.current.units).toBeGreaterThan(0);
-    expect(result.kpi.current.netRevenue).toBeGreaterThan(0);
-    expect(result.kpi.current.orderCount).toBeGreaterThan(0);
+    // Exact values — seed is qty=2 × BOM(1 BIG_BALL) = 2 balls, revenueNet=60000,
+    // transactionCount omitted so orderCount weight defaults to 1.
+    expect(result.kpi.current.units).toBe(2);
+    expect(result.kpi.current.netRevenue).toBe(60000);
+    expect(result.kpi.current.orderCount).toBe(1);
 
     const gofood = result.channelEconomics.find((c) => c.channel === "GoFood");
     expect(gofood).toBeDefined();
-    expect(gofood!.units).toBeGreaterThan(0);
-    expect(gofood!.net).toBeGreaterThan(0);
+    expect(gofood!.units).toBe(2);
+    expect(gofood!.net).toBe(60000);
   });
 });
 
@@ -456,5 +461,92 @@ describe("R5 — symmetry across all loadFilteredData consumers (Test 17)", () =
     // Pre-R5: native (Direct) + mirror (also Direct via sourceToDisplayChannel)
     // = 46000 in the Direct column.
     expect(directCell!.revenue).toBe(23000);
+  });
+
+  // Prior-period window coverage (staff-review IMP-01): reduceKpi and
+  // reduceChannelMomentum compute a prior window via the same loadExternalStream
+  // seam. Structurally guaranteed to inherit R5 today, but this test pins the
+  // invariant so a future refactor that splits the loader cannot silently
+  // regress prior-window counts.
+  it("kpiAndChannelSnapshot prior window: R5 skip applies to prior period too", async () => {
+    const t = convexTest(schema);
+    const mp = await seedMenuProduct(t, "Original 80g", "ORIGINAL_PRIOR", 23000);
+    await seedBigBallBom(t, mp, 1);
+    // Seed a Direct order + mirror 2 days BEFORE NOW so the row lands in the
+    // prior window. loadPriorPeriodFilteredData uses [fromTs - window, fromTs)
+    // where window = toTs - fromTs (2d), so prior = [NOW-3d, NOW-1d).
+    const PRIOR = NOW - 2 * 86400000;
+    await t.run(async (ctx) => {
+      const customerId = await ctx.db.insert("customers", {
+        name: "Prior Customer",
+        createdBy: "test",
+      } as never);
+      const orderId = await ctx.db.insert("orders", {
+        orderNumber: "0412-001",
+        customerId,
+        customerName: "Prior Customer",
+        status: "Complete" as const,
+        paymentStatus: "Paid" as const,
+        orderDate: PRIOR,
+        completedAt: PRIOR,
+        totalAmount: 23000,
+        totalCost: 0,
+        totalMargin: 23000,
+        finalTotal: 23000,
+        itemCount: 1,
+        deliveryType: "Pickup",
+        channel: "whatsapp" as const,
+        createdBy: "test",
+      } as never);
+      await ctx.db.insert("orderItems", {
+        orderId,
+        productName: "Original 80g",
+        quantity: 1,
+        unitPrice: 23000,
+        unitCost: 0,
+        discountAmount: 0,
+        lineTotal: 23000,
+        lineCost: 0,
+        lineMargin: 23000,
+        menuProductId: mp,
+      } as never);
+      const revenueId = await ctx.db.insert("externalRevenue", {
+        source: "internal" as const,
+        productName: "Order 0412-001",
+        quantitySold: 1,
+        transactionCount: 1,
+        revenueGross: 23000,
+        revenueNet: 23000,
+        periodStart: PRIOR,
+        periodEnd: PRIOR,
+        transactionDate: PRIOR,
+        transactionType: "sales" as const,
+        externalTransactionId: "0412-001",
+        dataOrigin: "db_query" as const,
+        confidence: "exact" as const,
+      } as never);
+      await ctx.db.insert("externalRevenueItems", {
+        revenueId,
+        source: "internal" as const,
+        externalItemId: "0412-001-mirror-1",
+        productName: "Original 80g",
+        unitPrice: 23000,
+        quantity: 1,
+        totalPrice: 23000,
+        linkedMenuProductId: mp,
+        isAutoMatched: true,
+        matchConfidence: "exact" as const,
+        createdAt: PRIOR,
+      } as never);
+    });
+    // Query current window centered on NOW — prior window is symmetric before it.
+    const r = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
+      fromTs: FROM_TS,
+      toTs: TO_TS,
+    });
+    // Prior counts 1 (native), not 2 (native + mirror). Pre-R5 would show 2.
+    expect(r.kpi.prior.orderCount).toBe(1);
+    expect(r.kpi.prior.netRevenue).toBe(23000);
+    expect(r.kpi.prior.units).toBe(1);
   });
 });

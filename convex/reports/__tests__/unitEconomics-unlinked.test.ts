@@ -24,6 +24,10 @@ import schema from "../../schema";
 import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 
+// Deterministic timestamp (Phase 73 rule — no Date.now() in seeded tests).
+// Same sentinel as convex/reports/__tests__/unitEconomics.test.ts.
+const NOW = 1713400000000;
+
 type TestT = ReturnType<typeof convexTest>;
 
 async function seedMenuProduct(
@@ -119,7 +123,7 @@ describe("unitEconomics loader — unlinked attribution", () => {
   it("attributes K3Mart parent with linkedMenuProductId + no children to the menu product (not UNLINKED)", async () => {
     const t = convexTest(schema);
     const mp = await seedMenuProduct(t, "Original 80g", 23000);
-    const now = Date.now();
+    const now = NOW;
     await seedK3MartParentLinked(t, mp, {
       externalProductCode: "K3-001",
       productName: "Original 80g",
@@ -161,7 +165,7 @@ describe("unitEconomics loader — unlinked attribution", () => {
     // additional revenue to the menu-product bucket.
     const t = convexTest(schema);
     const mp = await seedMenuProduct(t, "Original 80g", 23000);
-    const now = Date.now();
+    const now = NOW;
     await seedInternalParentWithChildren(t, mp, {
       orderNumber: "0129-001",
       quantity: 2,
