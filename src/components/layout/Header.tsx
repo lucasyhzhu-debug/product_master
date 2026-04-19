@@ -40,6 +40,7 @@ import {
   UserCheck,
   LayoutDashboard,
   Boxes,
+  Database,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -161,6 +162,7 @@ const configItems: NavItem[] = [
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
   { path: '/settings/business', label: 'Settings', icon: Settings, permission: 'canAccessBusinessSettings' },
+  { path: '/admin/unlinked-products-backfill', label: 'Unlinked Products Backfill', icon: Database, rolesAllowed: ['admin'] },
 ];
 
 // Collapse adjacent separators and strip leading/trailing ones after permission filtering
