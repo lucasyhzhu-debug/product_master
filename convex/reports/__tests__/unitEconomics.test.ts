@@ -113,6 +113,7 @@ async function seedDirectOrderWithMirror(
   t: TestT,
   menuProductId: Id<"menuProducts">,
   orderNumber: string = "0419-001",
+  timestamp: number = NOW,
 ): Promise<{ orderId: Id<"orders">; revenueId: Id<"externalRevenue"> }> {
   return await t.run(async (ctx) => {
     const customerId = await ctx.db.insert("customers", {
@@ -125,8 +126,8 @@ async function seedDirectOrderWithMirror(
       customerName: "Direct Customer",
       status: "Complete" as const,
       paymentStatus: "Paid" as const,
-      orderDate: NOW,
-      completedAt: NOW,
+      orderDate: timestamp,
+      completedAt: timestamp,
       totalAmount: 23000,
       totalCost: 0,
       totalMargin: 23000,
@@ -156,9 +157,9 @@ async function seedDirectOrderWithMirror(
       transactionCount: 1,
       revenueGross: 23000,
       revenueNet: 23000,
-      periodStart: NOW,
-      periodEnd: NOW,
-      transactionDate: NOW,
+      periodStart: timestamp,
+      periodEnd: timestamp,
+      transactionDate: timestamp,
       transactionType: "sales" as const,
       externalTransactionId: orderNumber,
       dataOrigin: "db_query" as const,
@@ -175,7 +176,7 @@ async function seedDirectOrderWithMirror(
       linkedMenuProductId: menuProductId,
       isAutoMatched: true,
       matchConfidence: "exact" as const,
-      createdAt: NOW,
+      createdAt: timestamp,
     } as never);
     return { orderId, revenueId };
   });
@@ -476,70 +477,7 @@ describe("R5 — symmetry across all loadFilteredData consumers (Test 17)", () =
     // prior window. loadPriorPeriodFilteredData uses [fromTs - window, fromTs)
     // where window = toTs - fromTs (2d), so prior = [NOW-3d, NOW-1d).
     const PRIOR = NOW - 2 * 86400000;
-    await t.run(async (ctx) => {
-      const customerId = await ctx.db.insert("customers", {
-        name: "Prior Customer",
-        createdBy: "test",
-      } as never);
-      const orderId = await ctx.db.insert("orders", {
-        orderNumber: "0412-001",
-        customerId,
-        customerName: "Prior Customer",
-        status: "Complete" as const,
-        paymentStatus: "Paid" as const,
-        orderDate: PRIOR,
-        completedAt: PRIOR,
-        totalAmount: 23000,
-        totalCost: 0,
-        totalMargin: 23000,
-        finalTotal: 23000,
-        itemCount: 1,
-        deliveryType: "Pickup",
-        channel: "whatsapp" as const,
-        createdBy: "test",
-      } as never);
-      await ctx.db.insert("orderItems", {
-        orderId,
-        productName: "Original 80g",
-        quantity: 1,
-        unitPrice: 23000,
-        unitCost: 0,
-        discountAmount: 0,
-        lineTotal: 23000,
-        lineCost: 0,
-        lineMargin: 23000,
-        menuProductId: mp,
-      } as never);
-      const revenueId = await ctx.db.insert("externalRevenue", {
-        source: "internal" as const,
-        productName: "Order 0412-001",
-        quantitySold: 1,
-        transactionCount: 1,
-        revenueGross: 23000,
-        revenueNet: 23000,
-        periodStart: PRIOR,
-        periodEnd: PRIOR,
-        transactionDate: PRIOR,
-        transactionType: "sales" as const,
-        externalTransactionId: "0412-001",
-        dataOrigin: "db_query" as const,
-        confidence: "exact" as const,
-      } as never);
-      await ctx.db.insert("externalRevenueItems", {
-        revenueId,
-        source: "internal" as const,
-        externalItemId: "0412-001-mirror-1",
-        productName: "Original 80g",
-        unitPrice: 23000,
-        quantity: 1,
-        totalPrice: 23000,
-        linkedMenuProductId: mp,
-        isAutoMatched: true,
-        matchConfidence: "exact" as const,
-        createdAt: PRIOR,
-      } as never);
-    });
-    // Query current window centered on NOW — prior window is symmetric before it.
+    await seedDirectOrderWithMirror(t, mp, "0412-001", PRIOR);
     const r = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: FROM_TS,
       toTs: TO_TS,
