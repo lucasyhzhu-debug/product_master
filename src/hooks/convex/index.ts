@@ -531,10 +531,12 @@ export {
 
 // Unlinked Products Backfill (Phase 80.2 — admin one-time data repair)
 export {
-  useUnlinkedBackfillStats,
+  useK3MartBackfillStats,
+  useDirectBackfillStats,
   useCascadeAllK3MartMappings,
   useBackfillInternalRevenueItems,
-  type UnlinkedBackfillStats,
+  type K3MartBackfillStats,
+  type DirectBackfillStats,
   type CascadeK3MartResult,
   type BackfillPageResult,
 } from "./useUnlinkedBackfill";
