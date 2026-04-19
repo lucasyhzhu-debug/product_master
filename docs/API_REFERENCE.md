@@ -2202,3 +2202,37 @@ Pure function. Computes current + previous week boundaries.
 | Reference not found | "Customer not found" / "Recipe version not found" |
 | Invalid status transition | "Invalid status transition from X to Y" |
 | Missing required field | Convex validator error (automatic) |
+
+---
+
+## Convex Quick Reference
+
+```typescript
+// Frontend: Reading data (reactive, auto-updates)
+const recipes = useQuery(api.recipes.list);
+const recipe = useQuery(api.recipes.getById, { id: recipeId });
+const conditional = useQuery(api.recipes.getById, id ? { id } : "skip");
+if (recipes === undefined) return <Loading />;
+
+// Frontend: Writing data
+const createRecipe = useMutation(api.recipes.create);
+await createRecipe({ name: "Recipe Name", tagIds: [], createdBy: "admin" });
+
+// Backend: Query
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("recipes").collect();
+  },
+});
+
+// Backend: Mutation with auth
+export const create = mutation({
+  args: { token: v.string(), name: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    const { token: _, ...data } = args;
+    return await ctx.db.insert("recipes", data);
+  },
+});
+```
