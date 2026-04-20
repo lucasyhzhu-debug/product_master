@@ -1,60 +1,101 @@
 /**
- * Phase 74.5.1 Wave 0 — TDD RED tests for K3Mart adapter normalize() (R1).
+ * Req R1 — K3Mart adapter normalize() contract test.
  *
- * Covers Req R1 per-adapter shape check for K3Mart source.
+ * Covers: adapter exports `k3martAdapter: ChannelAdapter` whose `normalize()` projects
+ * K3Mart sync transactions to canonical `ChannelSaleEvent[]`.
  *
- * Important context (RESEARCH §Migration Matrix Row 5):
- *   - K3Mart writes revenue via `saveRevenue` today (parent-only, zero child
- *     externalRevenueItems).
- *   - 74.5.1 adds NEW child emission via `saveRevenueItems` in addition to the
- *     existing parent write. Normalize() must produce one ChannelSaleEvent per
- *     K3Mart transaction item.
- *
- * RED STATE: Wave 2 adds `normalize()` to k3mart adapter.
+ * Plan: 74.5.1-07 (Wave 2). Tests are written first (TDD RED) then driven green by the refactor.
  */
 
-import { describe, test, expect } from "vitest";
+import { describe, expect, test } from "vitest";
+import type { ChannelAdapter } from "../../_shared/channelAdapter";
+import type { ChannelSaleEvent } from "../../_shared/channelSaleEvent";
+import {
+  k3martAdapter,
+  k3martNormalize,
+  type K3martRawBatch,
+} from "../adapter";
 
-// @ts-expect-error — ChannelSaleEvent added in Wave 1
-import type { ChannelSaleEvent } from "../../_shared/channelAdapter";
-// @ts-expect-error — k3martAdapter.normalize() added in Wave 2
-import { k3martAdapter } from "../adapter";
-
-describe("Req R1 — k3mart normalize() (TDD red; Wave 2 makes green)", () => {
-  test("T-R1.k3mart.1 empty payload returns []", async () => {
-    const events: ChannelSaleEvent[] = await k3martAdapter.normalize({ transactions: [] });
-    expect(events).toEqual([]);
+describe("Req R1 — k3martAdapter conforms to ChannelAdapter", () => {
+  test("T-R1.k3mart.contract: k3martAdapter type-satisfies ChannelAdapter", () => {
+    // Compile-time + runtime contract check.
+    const _adapter: ChannelAdapter<K3martRawBatch> = k3martAdapter;
+    expect(_adapter.source).toBe("k3mart");
+    expect(typeof _adapter.normalize).toBe("function");
   });
 
-  test("T-R1.k3mart.2 canonical K3Mart sync payload returns >=1 ChannelSaleEvent", async () => {
-    const fixture = {
-      transactions: [
-        {
-          transactionId: "K3-0001",
-          transactionDate: 1_700_000_000_000,
-          outletExternalId: "k3-outlet-1",
-          items: [{ productCode: "K3-PROD-1", quantity: 2, unitPrice: 15000, totalPrice: 30000 }],
-        },
-      ],
-    };
-    const events: ChannelSaleEvent[] = await k3martAdapter.normalize(fixture);
-    expect(events.length).toBeGreaterThanOrEqual(1);
+  test("T-R1.k3mart.1: normalize() with empty transactions returns []", () => {
+    const events = k3martNormalize({ transactions: [] });
+    expect(Array.isArray(events)).toBe(true);
+    expect(events).toHaveLength(0);
   });
 
-  test("T-R1.k3mart.3 every event has source=k3mart", async () => {
-    const fixture = {
+  test("T-R1.k3mart.2: normalize() with canonical payload produces ChannelSaleEvent shape", () => {
+    const events = k3martNormalize({
       transactions: [
         {
-          transactionId: "K3-0002",
-          transactionDate: 1_700_000_100_000,
-          outletExternalId: "k3-outlet-1",
-          items: [{ productCode: "K3-PROD-1", quantity: 1, unitPrice: 15000, totalPrice: 15000 }],
+          productCode: "K3-001",
+          productName: "Frollie Original 80g",
+          qty: 5,
+          total: 175000,
+          transactionDate: 1717200000000,
+          dedupKey: "dedup-abc",
         },
       ],
-    };
-    const events: ChannelSaleEvent[] = await k3martAdapter.normalize(fixture);
-    for (const e of events) {
-      expect(e.source).toBe("k3mart");
+    });
+    expect(events).toHaveLength(1);
+    const ev = events[0];
+    expect(ev.source).toBe("k3mart");
+    expect(ev.occurredAt).toBe(1717200000000);
+    expect(ev.externalTransactionId).toBe("dedup-abc");
+    expect(ev.externalItemId).toBe("dedup-abc-0");
+    expect(ev.quantity).toBe(5);
+    expect(ev.unitPrice).toBe(35000);
+    expect(ev.totalPrice).toBe(175000);
+    expect(ev.externalProductCode).toBe("K3-001");
+    expect(ev.externalProductName).toBe("Frollie Original 80g");
+  });
+
+  test("T-R1.k3mart.3: normalize() skips zero-qty transactions (malformed)", () => {
+    const events = k3martNormalize({
+      transactions: [
+        {
+          productCode: "K3-001",
+          productName: "Frollie Original 80g",
+          qty: 0,
+          total: 0,
+          transactionDate: 1717200000000,
+          dedupKey: "dedup-zero",
+        },
+        {
+          productCode: "K3-002",
+          productName: "Frollie Bite 45g",
+          qty: 3,
+          total: 45000,
+          transactionDate: 1717200000000,
+          dedupKey: "dedup-valid",
+        },
+      ],
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].externalTransactionId).toBe("dedup-valid");
+  });
+
+  test("T-R1.k3mart.4: normalize() event.source literal === 'k3mart'", () => {
+    const events: ChannelSaleEvent[] = k3martNormalize({
+      transactions: [
+        {
+          productCode: "X",
+          productName: "X",
+          qty: 1,
+          total: 1000,
+          transactionDate: 0,
+          dedupKey: "k",
+        },
+      ],
+    });
+    for (const ev of events) {
+      expect(ev.source).toBe("k3mart");
     }
   });
 });

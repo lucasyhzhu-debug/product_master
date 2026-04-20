@@ -1,35 +1,41 @@
 /**
- * Phase 74.5.1 Wave 0 — TDD RED tests for GrabFood adapter normalize() stub (R1 + D74.5.1-L5).
+ * Req R1 — Grabfood adapter normalize() contract test.
  *
- * Per D74.5.1-L5 from the plan preamble:
- *   - GrabFood adapter ships as a STUB — `normalize()` throws
- *     `Not implemented — requires orders:read OAuth scope`.
- *   - Flag stays permanently OFF until OAuth granted.
+ * Per D74.5.1-L5: grabfood ships as a stub. orders:read OAuth scope is blocked —
+ * cannot fetch per-order item detail. normalize() must throw `Not implemented`.
  *
- * This test enforces the stub contract so Wave 2 does not accidentally attempt
- * a real integration while OAuth is still blocked (existing infrastructure
- * blocker tracked in MEMORY.md).
- *
- * RED STATE: Wave 2 adds `normalize()` stub.
+ * Plan: 74.5.1-07 Task 7.2 (Wave 2). Tests first (TDD RED), then stub green.
  */
 
-import { describe, test, expect } from "vitest";
-
-// @ts-expect-error — ChannelAdapter + ChannelSaleEvent added in Wave 1 shared module
+import { describe, expect, test } from "vitest";
 import type { ChannelAdapter } from "../../_shared/channelAdapter";
-// @ts-expect-error — grabfoodAdapter.normalize() stub added in Wave 2
-import { grabfoodAdapter } from "../adapter";
+import {
+  grabfoodAdapter,
+  grabfoodNormalize,
+  type GrabfoodRawBatch,
+} from "../adapter";
 
-// Type-level ChannelAdapter-contract check — grabfood stub must still satisfy
-// the interface shape even though normalize() throws.
-const _grabfoodAdapter: ChannelAdapter = grabfoodAdapter;
-
-describe("Req R1 — grabfood normalize() stub (TDD red; Wave 2 makes green)", () => {
-  test("T-R1.grabfood.1 normalize() throws Not implemented — requires orders:read OAuth scope", async () => {
-    await expect(grabfoodAdapter.normalize({})).rejects.toThrow(/Not implemented/i);
+describe("Req R1 — grabfoodAdapter (stub per D74.5.1-L5)", () => {
+  test("T-R1.grabfood.contract: grabfoodAdapter type-satisfies ChannelAdapter", () => {
+    const _adapter: ChannelAdapter<GrabfoodRawBatch> = grabfoodAdapter;
+    expect(_adapter.source).toBe("grabfood");
+    expect(typeof _adapter.normalize).toBe("function");
   });
 
-  test("T-R1.grabfood.2 adapter exposes source=grabfood literal", () => {
-    expect(grabfoodAdapter.source).toBe("grabfood");
+  test("T-R1.grabfood.stub: normalize() throws 'Not implemented' — orders:read scope blocker", () => {
+    expect(() => grabfoodNormalize({ _placeholder: true })).toThrow(
+      /Not implemented/,
+    );
+    expect(() => grabfoodNormalize({ _placeholder: true })).toThrow(
+      /orders:read OAuth scope/,
+    );
+  });
+
+  test("T-R1.grabfood.stub: adapter.normalize() also throws (contract symmetry)", () => {
+    expect(() =>
+      (grabfoodAdapter.normalize as (p: GrabfoodRawBatch) => unknown)({
+        _placeholder: true,
+      }),
+    ).toThrow(/D74.5.1-L5/);
   });
 });
