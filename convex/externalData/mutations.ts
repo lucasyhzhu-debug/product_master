@@ -155,6 +155,13 @@ export const updateSyncLog = internalMutation({
     productsCount: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
     durationMs: v.optional(v.number()),
+    // Phase 74.5.1 Plan 06 (R9): per-sync counters populated by adapters that
+    // now call saveRevenueItemsWithCounts. Schema fields already exist on
+    // externalSyncLogs (Plan 01). With all channelDeductionEnabled flags OFF
+    // in 74.5.1, itemsDeducted === 0 and itemsSkipped === insertedItems for
+    // every sync. Flags flip ON in 74.5.2 populates real counters.
+    itemsDeducted: v.optional(v.number()),
+    itemsSkipped: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { logId, ...updates } = args;
@@ -851,6 +858,60 @@ export const saveRevenueItems = internalMutation({
   handler: async (ctx, args) => {
     const result = await saveRevenueItemsImpl(ctx, args as SaveRevenueItemsArgs);
     return result.ids;
+  },
+});
+
+// Phase 74.5.1 Plan 06 (R9) — additive wrapper returning full counter shape.
+// Option A (locked): adapters call this helper exclusively to read
+// `deducted` + `skipped` for per-sync itemsDeducted/itemsSkipped wiring to
+// externalSyncLogs.
+//
+// NOTE (Plan 05 interop): Plan 05 replaces `saveRevenueItemsImpl` with a
+// gated-dispatch implementation that populates `deducted` + `skipped` for
+// real. Until Plan 05 merges, the impl always returns `deducted: 0`
+// (zero flags are flipped), so the counters here reflect reality — with
+// every channelDeductionEnabled flag OFF, no item is deducted; every
+// inserted item is "skipped" in the deduction sense. The Plan 06 adapter
+// code path is intentionally identical in both states (read counters,
+// write them to the syncLog — no branching).
+export const saveRevenueItemsWithCounts = internalMutation({
+  args: {
+    revenueId: v.id("externalRevenue"),
+    items: v.array(v.object({
+      externalItemId: v.optional(v.string()),
+      productName: v.string(),
+      unitPrice: v.number(),
+      quantity: v.number(),
+      totalPrice: v.number(),
+      variants: v.optional(v.string()),
+      linkedMenuProductId: v.optional(v.id("menuProducts")),
+      isAutoMatched: v.boolean(),
+      matchConfidence: v.optional(v.union(
+        v.literal("exact"), v.literal("price_only"),
+        v.literal("name_only"), v.literal("none")
+      )),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const result = await saveRevenueItemsImpl(ctx, args as SaveRevenueItemsArgs);
+    // Plan 05 widens the impl return to include deducted/skipped.
+    // Until Plan 05 merges, synthesize them from existing counters:
+    //   deducted = 0 (no dispatch hook yet)
+    //   skipped  = inserted (every item was "skipped" in the deduction sense)
+    // When Plan 05's saveRevenueItemsImpl returns real counters, this wrapper
+    // passes them through unchanged (the `as any` accommodates both shapes).
+    const resultAny = result as unknown as {
+      ids: Id<"externalRevenueItems">[];
+      inserted: number;
+      deducted?: number;
+      skipped?: number;
+    };
+    return {
+      ids: resultAny.ids,
+      inserted: resultAny.inserted,
+      deducted: resultAny.deducted ?? 0,
+      skipped: resultAny.skipped ?? resultAny.inserted,
+    };
   },
 });
 
