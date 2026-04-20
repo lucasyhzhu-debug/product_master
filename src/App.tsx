@@ -156,12 +156,15 @@ const UnlinkedProductsBackfill = lazyWithPreload(() =>
 
 // BEGIN 74.5.1 ROUTES — lazy imports
 // Plan 09 (ChannelRoutingManager + ProductInventorySettings) adds these.
-// Plan 10 (ChannelAuditWorkbench) will append ChannelAuditWorkbench here.
+// Plan 10 (ChannelAuditWorkbench) appends the audit workbench.
 const ChannelRoutingManager = lazyWithPreload(() =>
   import('./pages/ChannelRoutingManager').then(m => ({ default: m.ChannelRoutingManager }))
 );
 const ProductInventorySettings = lazyWithPreload(() =>
   import('./pages/ProductInventorySettings').then(m => ({ default: m.ProductInventorySettings }))
+);
+const ChannelAuditWorkbench = lazyWithPreload(() =>
+  import('./pages/ChannelAuditWorkbench').then(m => ({ default: m.ChannelAuditWorkbench }))
 );
 // END 74.5.1 ROUTES — lazy imports
 
@@ -508,7 +511,15 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
-                  {/* Plan 10 will append /admin/channel-audit here. */}
+                  {/* Plan 10: /admin/channel-audit — 5-issue-type audit workbench */}
+                  <Route
+                    path="admin/channel-audit"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <ChannelAuditWorkbench />
+                      </ProtectedRoute>
+                    }
+                  />
                   {/* END 74.5.1 ROUTES */}
 
                   {/* Asset Register (manager + admin, Phase 60) */}
