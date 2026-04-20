@@ -183,7 +183,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking (completed 2026-04-15)
 - [x] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries (completed 2026-04-17)
 - [~] **Phase 74.5: Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19 into 74.5.1 / 74.5.2)** - Parent scope kept for reference; actual work splits into 74.5.1 (additive spine + admin UI, flag-gated) and 74.5.2 (cutover + backfill + retire legacy). See parent README + RESEARCH.md for migration matrix across 8 channels.
-- [ ] **Phase 74.5.1: Channel Routing Spine + Admin UI (INSERTED 2026-04-19, split from 74.5)** - Additive spine behind `productInventorySettings.channelDeductionEnabled` flag map (8 channels, all default OFF). Ships: `channelRouting` table + indexes, `ChannelSaleEvent` canonical type + `ChannelAdapter` interface, all 5 adapter refactors to emit `ChannelSaleEvent[]` (gated dispatch — no actual deduction), K3Mart parent→parent+child shape change (semantic, non-flag-gated), consignment emit branch, `ChannelRoutingManager` + `ChannelAuditWorkbench` admin UIs, Grabfood `Not implemented` stub, K3Mart analytics reconciliation, routing seed migration. Read-only correctness gate — no behavioral change to inventory deduction. Depends on 78/79/80/80.3 (all complete).
+- [x] **Phase 74.5.1: Channel Routing Spine + Admin UI (INSERTED 2026-04-19, split from 74.5)** - Additive spine behind `productInventorySettings.channelDeductionEnabled` flag map (8 channels, all default OFF). Ships: `channelRouting` table + indexes, `ChannelSaleEvent` canonical type + `ChannelAdapter` interface, all 5 adapter refactors to emit `ChannelSaleEvent[]` (gated dispatch — no actual deduction), K3Mart parent→parent+child shape change (semantic, non-flag-gated), consignment emit branch, `ChannelRoutingManager` + `ChannelAuditWorkbench` admin UIs, Grabfood `Not implemented` stub, K3Mart analytics reconciliation, routing seed migration. Read-only correctness gate — no behavioral change to inventory deduction. Depends on 78/79/80/80.3 (all complete). (completed 2026-04-20)
 - [ ] **Phase 74.5.2: Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19, split from 74.5)** - Behavioral cutover phase. Ships: staged flag flips per channel, six historical-backfill admin buttons with `externalRevenueItems.inventoryDeductedAt` idempotency, `gofood_sale` → `channel_sale` literal migration, retirement of `processGofoodSales` + order-fulfillment direct-GoJek deduct path, schema cleanup (drop deprecated transaction types), consignment per-product breakdown UI, `docs/CHANNEL_INTEGRATION.md` runbook. Depends on 74.5.1 verified + merged. Runs its own lightweight inline research pass to absorb surprises from 74.5.1 execution.
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
@@ -400,7 +400,7 @@ Plans:
 - [x] 74.5.1-08-k3mart-analytics-reconciliation-PLAN.md — unitEconomics audit + seed migration
 - [x] 74.5.1-09-channel-routing-manager-ui-PLAN.md — ChannelRoutingManager + ProductInventorySettings pages
 - [x] 74.5.1-10-channel-audit-workbench-ui-PLAN.md — ChannelAuditWorkbench page + audit badge
-- [ ] 74.5.1-11-verification-and-changelog-PLAN.md — full test battery + CHANGELOG + merge gate
+- [x] 74.5.1-11-verification-and-changelog-PLAN.md — full test battery + CHANGELOG + merge gate
 
 **UI hint**: yes — `ChannelRoutingManager`, `ChannelAuditWorkbench`, `ProductInventorySettings`
 
@@ -445,7 +445,7 @@ Plans:
   1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income in canonical EBITDA-first layout (Revenue -> Net Revenue -> COGS -> Contribution Margin -> OpEx-excl-D/A -> EBITDA -> D/A -> EBIT -> Other -> Net Income -> CapEx -> FCF)
   2. Per-channel breakdown flows through Contribution Margin (renamed from Gross Margin); no per-channel OpEx/D/A/CapEx/FCF allocation (D-11)
   3. FCF calculation is correct: Net Income + D/A - CapEx; CapEx sourced from fixedAssets.cost where acquisitionDate in period
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans complete
 Plans:
 - [ ] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
 - [ ] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
@@ -652,7 +652,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
-| 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 11/12 | In Progress|  |
+| 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete   | 2026-04-20 |
 | 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 0/TBD | Blocked on 74.5.1 verified + merged | - |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
