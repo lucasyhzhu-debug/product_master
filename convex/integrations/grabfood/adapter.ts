@@ -827,3 +827,37 @@ export const autoRefreshToken = internalAction({
 
 // Webhook HTTP handlers live in webhooks.ts (httpAction cannot be in "use node" files).
 
+// ─── Phase 74.5.1 — ChannelAdapter contract stub (R1 / D74.5.1-L5) ────────────
+
+import type { ChannelAdapter } from "../_shared/channelAdapter";
+import type { ChannelSaleEvent } from "../_shared/channelSaleEvent";
+
+/**
+ * Grabfood stub (D74.5.1-L5).
+ *
+ * Reason: orders:read OAuth scope is not yet granted by the partner. Without it,
+ * we cannot fetch per-order item detail. Adapter preserves existing fetch scaffolding
+ * (OAuth2 + 401 handling) above but emits no ChannelSaleEvents — normalize() throws.
+ *
+ * Activation path:
+ *  1. OAuth scope granted (partner ticket).
+ *  2. Implement normalize() with real payload projection.
+ *  3. Remove the throw.
+ *  4. Flip channelDeductionEnabled.grabfood in ProductInventorySettings admin UI.
+ */
+export interface GrabfoodRawBatch {
+  // Placeholder — shape TBD when orders:read scope is granted.
+  readonly _placeholder: true;
+}
+
+export function grabfoodNormalize(_payload: GrabfoodRawBatch): ChannelSaleEvent[] {
+  throw new Error(
+    "Not implemented — requires orders:read OAuth scope. GrabFood adapter is stubbed per D74.5.1-L5.",
+  );
+}
+
+export const grabfoodAdapter: ChannelAdapter<GrabfoodRawBatch> = {
+  source: "grabfood",
+  normalize: grabfoodNormalize,
+};
+
