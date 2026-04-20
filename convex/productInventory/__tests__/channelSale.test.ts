@@ -49,19 +49,6 @@ async function seedLocation(t: TestContext, name: string): Promise<Id<"storageLo
   );
 }
 
-async function seedOutlet(t: TestContext): Promise<Id<"externalOutlets">> {
-  return await t.run(async (ctx) =>
-    ctx.db.insert("externalOutlets", {
-      source: "shopee",
-      externalId: "out-cs",
-      name: "Shopee Outlet",
-      isActive: true,
-      createdBy: "test",
-      createdAt: Date.now(),
-    }),
-  );
-}
-
 async function seedProduct(
   t: TestContext,
   code: string,

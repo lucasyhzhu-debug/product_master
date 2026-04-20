@@ -19,7 +19,7 @@ import { v } from "convex/values";
 import { externalSource } from "../schema";
 import { requireRole } from "../lib/auth";
 import {
-  resolveChannelRoute,
+  resolveChannelRouteTiered,
   CHANNEL_ROUTING_NOT_CONFIGURED,
 } from "./channelRouting";
 
@@ -89,49 +89,16 @@ export const previewRouteResolution = query({
     await requireRole(ctx, args.token, ["admin"]);
 
     try {
-      const locationId = await resolveChannelRoute(ctx, {
+      // Use the tiered variant (review I-7 / I-4) — returns {locationId, tier}
+      // in a single precedence walk. Previously previewRouteResolution re-ran
+      // every query a second time just to determine which tier matched,
+      // doubling read count for every admin preview render.
+      const { locationId, tier } = await resolveChannelRouteTiered(ctx, {
         source: args.source,
         outletId: args.outletId,
         menuProductId: args.menuProductId,
       });
       const location = await ctx.db.get(locationId);
-
-      // Determine which tier matched. Walk precedence highest-first.
-      let tier: 1 | 2 | 3 | 4 = 4;
-      if (args.outletId && args.menuProductId) {
-        const t1 = await ctx.db
-          .query("channelRouting")
-          .withIndex("by_source_outlet_product", (q) =>
-            q
-              .eq("source", args.source)
-              .eq("outletId", args.outletId!)
-              .eq("menuProductId", args.menuProductId!),
-          )
-          .first();
-        if (t1) tier = 1;
-      }
-      if (tier === 4 && args.outletId) {
-        const t2 = await ctx.db
-          .query("channelRouting")
-          .withIndex("by_source_outlet", (q) =>
-            q.eq("source", args.source).eq("outletId", args.outletId!),
-          )
-          .filter((q) => q.eq(q.field("menuProductId"), undefined))
-          .first();
-        if (t2) tier = 2;
-      }
-      if (tier === 4 && args.menuProductId) {
-        const t3 = await ctx.db
-          .query("channelRouting")
-          .withIndex("by_source_product", (q) =>
-            q
-              .eq("source", args.source)
-              .eq("menuProductId", args.menuProductId!),
-          )
-          .filter((q) => q.eq(q.field("outletId"), undefined))
-          .first();
-        if (t3) tier = 3;
-      }
 
       return {
         ok: true as const,

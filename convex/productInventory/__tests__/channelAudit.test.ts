@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 /**
- * Phase 74.5.1 Wave 0 — TDD RED tests for channel audit detection (R6).
+ * Phase 74.5.1 — Tests for channel audit detection (R6).
  *
  * Covers Req R6 from 74.5.1-SPEC.md:
  *   - Five issue types detectable: unmapped_sku, malformed_item,
@@ -9,17 +9,18 @@
  *     (unmapped_sku + malformed_item); expensive checks (stale_mapping,
  *     duplicate_transaction, orphan_item) run only in `runFullAudit`.
  *
- * RED STATE: imports from `../channelAudit` which does NOT exist until Wave 2.
- * `@ts-expect-error` comments let the file compile; tests fail at runtime.
+ * REWRITTEN per post-execution quad-review (I1 consensus, 4/4 reviewers):
+ * original plan 00 tests assumed `{type}` field + direct function call;
+ * plan 04 impl uses `{issueType}` + internalAction. Tests now match impl.
  */
 
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import schema from "../../schema";
 import type { Id } from "../../_generated/dataModel";
-
-// @ts-expect-error — module created in Wave 2 (74.5.1-04-channel-audit)
-import { detectAuditIssuesForItem, runFullAudit } from "../channelAudit";
+import type { ExternalSource } from "../../lib/externalSource";
+import { api, internal } from "../../_generated/api";
+import { detectAuditIssuesForItem } from "../channelAudit";
 
 const modules = import.meta.glob("../../**/*.ts");
 
@@ -32,7 +33,7 @@ type TestContext = ReturnType<typeof convexTest>;
 async function seedRevenueParent(
   t: TestContext,
   overrides: Partial<{
-    source: "shopee" | "tiktok" | "k3mart" | "gobiz" | "grabfood" | "internal" | "bigseller" | "consignment";
+    source: ExternalSource;
     externalTransactionId: string;
     periodStart: number;
     periodEnd: number;
@@ -54,12 +55,12 @@ async function seedRevenueItem(
   t: TestContext,
   revenueId: Id<"externalRevenue">,
   overrides: Partial<{
-    source: "shopee" | "tiktok" | "k3mart" | "gobiz" | "grabfood" | "internal" | "bigseller" | "consignment";
+    source: ExternalSource;
     externalItemId: string;
     productName: string;
     quantity: number;
-    totalPrice: number;
     unitPrice: number;
+    totalPrice: number;
     linkedMenuProductId: Id<"menuProducts"> | undefined;
   }> = {},
 ): Promise<Id<"externalRevenueItems">> {
@@ -68,18 +69,22 @@ async function seedRevenueItem(
       revenueId,
       source: overrides.source ?? "shopee",
       externalItemId: overrides.externalItemId ?? "item-1",
-      productName: overrides.productName ?? "Test Product",
+      productName: overrides.productName ?? "Frollie Original",
       quantity: overrides.quantity ?? 1,
-      totalPrice: overrides.totalPrice ?? 25000,
       unitPrice: overrides.unitPrice ?? 25000,
+      totalPrice: overrides.totalPrice ?? 25000,
       linkedMenuProductId: overrides.linkedMenuProductId,
-      isAutoMatched: false,
+      isAutoMatched: overrides.linkedMenuProductId != null,
+      matchConfidence: overrides.linkedMenuProductId ? "exact" : "none",
       createdAt: Date.now(),
     }),
   );
 }
 
-async function seedProduct(t: TestContext, code: string): Promise<Id<"menuProducts">> {
+async function seedProduct(
+  t: TestContext,
+  code: string,
+): Promise<Id<"menuProducts">> {
   return await t.run(async (ctx) =>
     ctx.db.insert("menuProducts", {
       code,
@@ -95,21 +100,30 @@ async function seedProduct(t: TestContext, code: string): Promise<Id<"menuProduc
 
 // ---------------------------------------------------------------------------
 // Req R6 — inline cheap checks (detectAuditIssuesForItem)
+// Signature: (revenue, item) → DetectedIssue[] with shape { issueType, ... }
 // ---------------------------------------------------------------------------
 
-describe("Req R6 — detectAuditIssuesForItem inline cheap checks (TDD red; Wave 2 makes green)", () => {
+describe("Req R6 — detectAuditIssuesForItem inline cheap checks", () => {
   test("T-R6.1 unmapped_sku: item with linkedMenuProductId=undefined yields unmapped_sku issue", async () => {
     const t = convexTest(schema, modules);
     const parentId = await seedRevenueParent(t);
     const itemId = await seedRevenueItem(t, parentId, { linkedMenuProductId: undefined });
 
     const issues = await t.run(async (ctx) => {
+      const revenue = await ctx.db.get(parentId);
       const item = await ctx.db.get(itemId);
-      return detectAuditIssuesForItem(ctx, item);
+      if (!revenue || !item) throw new Error("seed failed");
+      return detectAuditIssuesForItem(revenue, {
+        _id: item._id,
+        linkedMenuProductId: item.linkedMenuProductId,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice,
+        productName: item.productName,
+      });
     });
 
     expect(Array.isArray(issues)).toBe(true);
-    const types: string[] = issues.map((i: { type: string }) => i.type);
+    const types = issues.map((i) => i.issueType);
     expect(types).toContain("unmapped_sku");
   });
 
@@ -124,11 +138,19 @@ describe("Req R6 — detectAuditIssuesForItem inline cheap checks (TDD red; Wave
     });
 
     const issues = await t.run(async (ctx) => {
+      const revenue = await ctx.db.get(parentId);
       const item = await ctx.db.get(itemId);
-      return detectAuditIssuesForItem(ctx, item);
+      if (!revenue || !item) throw new Error("seed failed");
+      return detectAuditIssuesForItem(revenue, {
+        _id: item._id,
+        linkedMenuProductId: item.linkedMenuProductId,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice,
+        productName: item.productName,
+      });
     });
 
-    const types: string[] = issues.map((i: { type: string }) => i.type);
+    const types = issues.map((i) => i.issueType);
     expect(types).toContain("malformed_item");
   });
 
@@ -142,27 +164,53 @@ describe("Req R6 — detectAuditIssuesForItem inline cheap checks (TDD red; Wave
     });
 
     const issues = await t.run(async (ctx) => {
+      const revenue = await ctx.db.get(parentId);
       const item = await ctx.db.get(itemId);
-      return detectAuditIssuesForItem(ctx, item);
+      if (!revenue || !item) throw new Error("seed failed");
+      return detectAuditIssuesForItem(revenue, {
+        _id: item._id,
+        linkedMenuProductId: item.linkedMenuProductId,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice,
+        productName: item.productName,
+      });
     });
 
-    const types: Set<string> = new Set(issues.map((i: { type: string }) => i.type));
+    const types = new Set(issues.map((i) => i.issueType));
     const allowedInline = new Set(["unmapped_sku", "malformed_item"]);
-    for (const t of types) {
-      expect(allowedInline.has(t)).toBe(true);
+    for (const type of types) {
+      expect(allowedInline.has(type)).toBe(true);
     }
   });
 });
 
 // ---------------------------------------------------------------------------
 // Req R6 — full audit (expensive checks)
+// runFullAudit is an internalAction — invoked via t.action, returns
+// { reportId, issuesFound }. Issues are fetched separately from the
+// channelAuditIssues table keyed by reportId.
 // ---------------------------------------------------------------------------
 
-describe("Req R6 — runFullAudit expensive checks (TDD red; Wave 2 makes green)", () => {
+async function runFullAuditAndCollect(t: TestContext) {
+  const result = await t.action(
+    internal.productInventory.channelAudit.runFullAudit,
+    { triggeredBy: "test" },
+  );
+  // Filter in JS rather than via withIndex — convex-test's ctx type can drop
+  // custom-index knowledge depending on the schema wrapper; collect + filter
+  // is correct for test scope (small data).
+  const issues = await t.run(async (ctx) =>
+    (await ctx.db.query("channelAuditIssues").collect()).filter(
+      (i) => i.reportId === result.reportId,
+    ),
+  );
+  return { reportId: result.reportId, issuesFound: result.issuesFound, issues };
+}
+
+describe("Req R6 — runFullAudit expensive checks", () => {
   test("T-R6.3 stale_mapping: item mapped to archived menuProduct surfaces stale_mapping", async () => {
     const t = convexTest(schema, modules);
     const productId = await seedProduct(t, "PRD-R6-3");
-    // Archive the menu product (set isActive=false — the "stale" signal)
     await t.run(async (ctx) => {
       await ctx.db.patch(productId, { isActive: false });
     });
@@ -170,25 +218,56 @@ describe("Req R6 — runFullAudit expensive checks (TDD red; Wave 2 makes green)
     const parentId = await seedRevenueParent(t);
     await seedRevenueItem(t, parentId, { linkedMenuProductId: productId });
 
-    const report = await t.run(async (ctx) => runFullAudit(ctx));
+    const report = await runFullAuditAndCollect(t);
 
-    const issueTypes: string[] = report.issues.map((i: { type: string }) => i.type);
+    const issueTypes = report.issues.map((i) => i.issueType);
     expect(issueTypes).toContain("stale_mapping");
   });
 
-  test("T-R6.4 duplicate_transaction: two items with same (source, externalTransactionId, externalItemId)", async () => {
+  test("T-R6.4 duplicate_transaction: two items with same (source, externalTransactionId, externalItemId) AND same menuProductId", async () => {
     const t = convexTest(schema, modules);
     const productId = await seedProduct(t, "PRD-R6-4");
     // Two revenue parents sharing the same externalTransactionId on same source
     const parent1 = await seedRevenueParent(t, { externalTransactionId: "DUP-1" });
     const parent2 = await seedRevenueParent(t, { externalTransactionId: "DUP-1" });
 
+    // Both items share externalItemId + linkedMenuProductId → same externalRef
+    // + same menuProductId when deducted → real duplicate_transaction per the
+    // post-review fix (distinct menuProductId = legit substitution, NOT dupe).
     await seedRevenueItem(t, parent1, { externalItemId: "ITEM-A", linkedMenuProductId: productId });
     await seedRevenueItem(t, parent2, { externalItemId: "ITEM-A", linkedMenuProductId: productId });
 
-    const report = await t.run(async (ctx) => runFullAudit(ctx));
+    // For duplicate_transaction to fire at audit, productInventoryTransactions
+    // must contain 2 rows with same (source, externalRef) AND same menuProductId.
+    // Seed those rows directly (simulates post-deduction state).
+    await t.run(async (ctx) => {
+      const locationId = await ctx.db.insert("storageLocations", {
+        name: "dup-test-loc",
+        locationType: "office",
+        isActive: true,
+        isDefault: false,
+        createdBy: "test",
+        createdAt: Date.now(),
+      });
+      for (let i = 0; i < 2; i++) {
+        await ctx.db.insert("productInventoryTransactions", {
+          menuProductId: productId,
+          locationId,
+          transactionType: "channel_sale",
+          source: "shopee",
+          quantity: -1,
+          previousQuantity: 10 - i,
+          newQuantity: 9 - i,
+          externalRef: "DUP-1ITEM-A",
+          performedBy: "system:test",
+          createdAt: 1_700_000_000_000 + i,
+        });
+      }
+    });
 
-    const issueTypes: string[] = report.issues.map((i: { type: string }) => i.type);
+    const report = await runFullAuditAndCollect(t);
+
+    const issueTypes = report.issues.map((i) => i.issueType);
     expect(issueTypes).toContain("duplicate_transaction");
   });
 
@@ -198,23 +277,20 @@ describe("Req R6 — runFullAudit expensive checks (TDD red; Wave 2 makes green)
     const parentId = await seedRevenueParent(t);
     const itemId = await seedRevenueItem(t, parentId, { linkedMenuProductId: productId });
 
-    // Simulate orphan by deleting the parent row after item is written.
     await t.run(async (ctx) => {
       await ctx.db.delete(parentId);
     });
 
-    const report = await t.run(async (ctx) => runFullAudit(ctx));
+    const report = await runFullAuditAndCollect(t);
 
-    const issueTypes: string[] = report.issues.map((i: { type: string }) => i.type);
+    const issueTypes = report.issues.map((i) => i.issueType);
     expect(issueTypes).toContain("orphan_item");
-    // Sanity: the orphan issue references the surviving item
-    const orphan = report.issues.find((i: { type: string; itemId?: string }) => i.type === "orphan_item");
+    const orphan = report.issues.find((i) => i.issueType === "orphan_item");
     expect(orphan).toBeDefined();
     expect(orphan!.itemId).toBe(itemId);
   });
 
   test("T-R6.6b runFullAudit covers ALL 5 issue types (inline + expensive)", async () => {
-    // Seed one row of each kind so runFullAudit must emit at least one of each.
     const t = convexTest(schema, modules);
     const productId = await seedProduct(t, "PRD-R6-6");
     const archivedId = await seedProduct(t, "PRD-R6-6-ARCH");
@@ -229,18 +305,40 @@ describe("Req R6 — runFullAudit expensive checks (TDD red; Wave 2 makes green)
     // 3) stale_mapping
     const p3 = await seedRevenueParent(t);
     await seedRevenueItem(t, p3, { linkedMenuProductId: archivedId });
-    // 4) duplicate_transaction
+    // 4) duplicate_transaction (needs seeded productInventoryTransactions rows)
     const p4a = await seedRevenueParent(t, { externalTransactionId: "DUP-X" });
-    const p4b = await seedRevenueParent(t, { externalTransactionId: "DUP-X" });
     await seedRevenueItem(t, p4a, { externalItemId: "I-X", linkedMenuProductId: productId });
-    await seedRevenueItem(t, p4b, { externalItemId: "I-X", linkedMenuProductId: productId });
+    await t.run(async (ctx) => {
+      const locationId = await ctx.db.insert("storageLocations", {
+        name: "dup-test-all",
+        locationType: "office",
+        isActive: true,
+        isDefault: false,
+        createdBy: "test",
+        createdAt: Date.now(),
+      });
+      for (let i = 0; i < 2; i++) {
+        await ctx.db.insert("productInventoryTransactions", {
+          menuProductId: productId,
+          locationId,
+          transactionType: "channel_sale",
+          source: "shopee",
+          quantity: -1,
+          previousQuantity: 10 - i,
+          newQuantity: 9 - i,
+          externalRef: "DUP-XI-X",
+          performedBy: "system:test",
+          createdAt: 1_700_000_000_000 + i,
+        });
+      }
+    });
     // 5) orphan_item
     const p5 = await seedRevenueParent(t);
     await seedRevenueItem(t, p5, { linkedMenuProductId: productId });
     await t.run(async (ctx) => ctx.db.delete(p5));
 
-    const report = await t.run(async (ctx) => runFullAudit(ctx));
-    const types: Set<string> = new Set(report.issues.map((i: { type: string }) => i.type));
+    const report = await runFullAuditAndCollect(t);
+    const types = new Set(report.issues.map((i) => i.issueType));
 
     const EXPECTED = ["unmapped_sku", "malformed_item", "stale_mapping", "duplicate_transaction", "orphan_item"];
     for (const expected of EXPECTED) {
@@ -248,3 +346,6 @@ describe("Req R6 — runFullAudit expensive checks (TDD red; Wave 2 makes green)
     }
   });
 });
+
+// Silence unused-import lint when api is referenced via internal.
+void api;

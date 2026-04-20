@@ -16,10 +16,23 @@
 
 import { describe, test, expect } from "vitest";
 
-// @ts-expect-error — ChannelSaleEvent added in Wave 1
-import type { ChannelSaleEvent } from "../../_shared/channelAdapter";
-// @ts-expect-error — bigsellerAdapter.normalize() added in Wave 2
+import type { ChannelSaleEvent } from "../../_shared/channelSaleEvent";
 import { bigsellerAdapter } from "../adapter";
+
+// BigSeller's raw orders carry a platform literal restricted to the child
+// sources BigSeller aggregates (shopee / tiktok / bigseller). Use a narrow
+// local type so fixtures satisfy BigsellerRawBatch without needing `as any`.
+type BigsellerRawOrder = {
+  platform: "bigseller" | "shopee" | "tiktok";
+  orderId: string;
+  completedAt: number;
+  items: Array<{
+    sku: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+};
 
 describe("Req R1 — bigseller normalize() (TDD red; Wave 2 makes green)", () => {
   test("T-R1.bigseller.1 empty payload returns []", async () => {
@@ -28,7 +41,7 @@ describe("Req R1 — bigseller normalize() (TDD red; Wave 2 makes green)", () =>
   });
 
   test("T-R1.bigseller.2 canonical BigSeller payload returns >=1 ChannelSaleEvent", async () => {
-    const fixture = {
+    const fixture: { orders: BigsellerRawOrder[] } = {
       orders: [
         {
           platform: "shopee",
@@ -43,7 +56,7 @@ describe("Req R1 — bigseller normalize() (TDD red; Wave 2 makes green)", () =>
   });
 
   test("T-R1.bigseller.3 events carry the actual platform source (shopee|tiktok|bigseller)", async () => {
-    const fixture = {
+    const fixture: { orders: BigsellerRawOrder[] } = {
       orders: [
         {
           platform: "tiktok",

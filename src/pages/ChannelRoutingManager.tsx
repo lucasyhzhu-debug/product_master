@@ -141,7 +141,9 @@ export function ChannelRoutingManager() {
   const [pendingDelete, setPendingDelete] = useState<RuleRow | null>(null);
 
   const loadingRules = rules === undefined;
-  const rulesSafe: RuleRow[] = rules ?? [];
+  // useMemo stabilises reference so downstream useMemos that depend on
+  // rulesSafe don't re-run every render (review R2).
+  const rulesSafe: RuleRow[] = useMemo(() => rules ?? [], [rules]);
 
   const openCreate = () => {
     setForm(EMPTY_FORM);

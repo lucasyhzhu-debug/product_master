@@ -12,6 +12,7 @@ import {
   buildEventFromRow,
 } from "../productInventory/channelSale";
 import { detectAuditIssuesForItem } from "../productInventory/channelAudit";
+import { createStockTracker } from "../productInventory/stockTracker";
 
 type ExternalSource = Infer<typeof externalSource>;
 
@@ -357,7 +358,7 @@ export const backfillRevenueOutletIds = internalMutation({
       .query("externalOutlets")
       .withIndex("by_source", (q) => q.eq("source", "k3mart"))
       .collect();
-    const nameToId: Record<string, string> = {};
+    const nameToId: Record<string, Id<"externalOutlets">> = {};
     for (const o of outlets) {
       nameToId[o.name] = o._id;
     }
@@ -381,7 +382,7 @@ export const backfillRevenueOutletIds = internalMutation({
 
       const outletDocId = nameToId[outletName];
       if (outletDocId) {
-        await ctx.db.patch(r._id, { outletId: outletDocId as any });
+        await ctx.db.patch(r._id, { outletId: outletDocId });
         patched++;
       }
     }
@@ -488,7 +489,9 @@ async function applyRetroactiveProductMappingImpl(
     )
     .collect();
 
-  const patchedItemIds = new Set<string>();
+  // Typed set of Ids (review I-7) — previously used Set<string> + `as unknown as string`
+  // casts; Convex's Id<T> is already a branded string so we can use it directly.
+  const patchedItemIds = new Set<Id<"externalRevenueItems">>();
   const targetName = args.externalProductName;
   for (const item of itemsByName) {
     await ctx.db.patch(item._id, {
@@ -497,7 +500,7 @@ async function applyRetroactiveProductMappingImpl(
       matchConfidence: "exact",
       productName: targetName,
     });
-    patchedItemIds.add(item._id as unknown as string);
+    patchedItemIds.add(item._id);
   }
 
   // 2) Shopee/TikTok extra cascade by externalItemId (SKU) and parent
@@ -525,14 +528,14 @@ async function applyRetroactiveProductMappingImpl(
     }
 
     for (const item of itemsBySku) {
-      if (patchedItemIds.has(item._id as unknown as string)) continue; // already patched by name branch
+      if (patchedItemIds.has(item._id)) continue; // already patched by name branch
       await ctx.db.patch(item._id, {
         linkedMenuProductId: args.menuProductId,
         isAutoMatched: true,
         matchConfidence: "exact",
         productName: targetName,
       });
-      patchedItemIds.add(item._id as unknown as string);
+      patchedItemIds.add(item._id);
     }
 
     // 2b) Parent dominant-SKU update (D-09). For every distinct parent
@@ -560,7 +563,7 @@ async function applyRetroactiveProductMappingImpl(
         if (!m.menuProductId) continue;
         const mp = await ctx.db.get(m.menuProductId);
         mappingBySku.set(m.externalProductCode, {
-          menuProductId: m.menuProductId as unknown as string,
+          menuProductId: m.menuProductId ,
           menuProductPrice: mp?.defaultPrice,
         });
       }
@@ -571,7 +574,7 @@ async function applyRetroactiveProductMappingImpl(
       {
         const mp = await ctx.db.get(args.menuProductId);
         mappingBySku.set(args.externalProductCode, {
-          menuProductId: args.menuProductId as unknown as string,
+          menuProductId: args.menuProductId ,
           menuProductPrice: mp?.defaultPrice,
         });
       }
@@ -819,16 +822,31 @@ async function saveRevenueItemsImpl(
   let deducted = 0;
   let skipped = 0;
 
+  // Pre-load all existing externalItemIds for this parent ONCE (review I-3).
+  // Previously the dedup check ran per-item with withIndex+filter — O(N²)
+  // in batches. With the set pre-loaded, dedup becomes O(1) per item.
+  const existingItemIds = new Set<string>();
+  {
+    const priorItems = await ctx.db
+      .query("externalRevenueItems")
+      .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
+      .collect();
+    for (const r of priorItems) {
+      if (r.externalItemId) existingItemIds.add(r.externalItemId);
+    }
+  }
+
+  // Share a single StockTracker across all items in this batch (review I-5).
+  // Each item previously created + flushed its own tracker — risks hitting
+  // Convex's 2s mutation limit on large syncs post-cutover. Now one tracker
+  // accumulates all ledger writes and flushes once at the end.
+  const sharedTracker = deductionEnabled ? createStockTracker(ctx) : null;
+
   for (const item of args.items) {
     // Dedup: skip if same revenueId + externalItemId exists — PRESERVED
     // verbatim from pre-74.5.1. Idempotency guarantee for adapter re-sync.
-    if (item.externalItemId) {
-      const existing = await ctx.db
-        .query("externalRevenueItems")
-        .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
-        .filter((q) => q.eq(q.field("externalItemId"), item.externalItemId))
-        .first();
-      if (existing) continue;
+    if (item.externalItemId && existingItemIds.has(item.externalItemId)) {
+      continue;
     }
 
     const id = await ctx.db.insert("externalRevenueItems", {
@@ -914,7 +932,10 @@ async function saveRevenueItemsImpl(
     // if processChannelSaleInternal throws (e.g. CHANNEL_ROUTING_NOT_CONFIGURED,
     // unexpected error), the ENTIRE mutation rolls back. This IS the design —
     // caller sees exception, no partial writes land.
-    const result = await processChannelSaleInternal(ctx, event);
+    //
+    // Pass the shared tracker (review I-5) so stock running totals accumulate
+    // across the whole batch and flush once at the end, not per-item.
+    const result = await processChannelSaleInternal(ctx, event, sharedTracker ?? undefined);
 
     if (result.deducted) {
       // Success: stamp idempotency marker so a second sync of the same item
@@ -926,6 +947,15 @@ async function saveRevenueItemsImpl(
       // guarded above but processChannelSaleInternal guards redundantly).
       skipped++;
     }
+  }
+
+  // Flush the shared tracker ONCE after all items in the batch are processed.
+  // Uses the PARENT's occurredAt if available (matches historical createdAt
+  // semantics), falling back to now.
+  if (sharedTracker && deducted > 0) {
+    const parentOccurredAt =
+      revenue.transactionDate ?? revenue.periodStart ?? revenue._creationTime;
+    await sharedTracker.flush(parentOccurredAt);
   }
 
   return { ids, inserted: ids.length, deducted, skipped };

@@ -50,19 +50,24 @@ export async function processChannelSaleInternal(
     menuProductId: event.menuProductId,
   });
 
-  const local = tracker ?? createStockTracker(ctx);
+  // Reuse the caller's StockTracker when provided (shared across multiple
+  // items in the same saveRevenueItems batch); otherwise create one owned by
+  // this invocation and flush locally. Rename from `local` per review M-2:
+  // `local` was too generic given `tracker` is the parameter name above.
+  const stockTracker = tracker ?? createStockTracker(ctx);
+  const ownsTracker = tracker === undefined;
 
   const menuProduct = await ctx.db.get(event.menuProductId);
   if (!menuProduct) return { deducted: false, skipReason: "unmapped_sku" };
 
-  const directStock = await local.getStock(event.menuProductId, locationId);
+  const directStock = await stockTracker.getStock(event.menuProductId, locationId);
 
   let sourceProduct: Doc<"menuProducts"> | null = null;
   let subStock: Awaited<ReturnType<StockTracker["getStock"]>> | null = null;
   if (menuProduct.fulfillFromProductId && menuProduct.fulfillMultiplier) {
     sourceProduct = await ctx.db.get(menuProduct.fulfillFromProductId);
     if (sourceProduct) {
-      subStock = await local.getStock(menuProduct.fulfillFromProductId, locationId);
+      subStock = await stockTracker.getStock(menuProduct.fulfillFromProductId, locationId);
     }
   }
 
@@ -115,7 +120,7 @@ export async function processChannelSaleInternal(
   }
 
   // Only flush if we own the tracker. Callers passing a shared tracker flush once at end.
-  if (!tracker) await local.flush(event.occurredAt);
+  if (ownsTracker) await stockTracker.flush(event.occurredAt);
 
   if (!txId) {
     // plan.directUnits === 0 AND no substitution — nothing to deduct.
@@ -131,6 +136,16 @@ export async function processChannelSaleInternal(
  *
  * occurredAt fallback chain per RESEARCH §Pitfall 1:
  *   revenue.transactionDate ?? revenue.periodStart ?? revenue._creationTime.
+ *
+ * CAVEAT (review N-2): `_creationTime` is INSERTION time, NOT business event
+ * time. Falling back to it violates CLAUDE.md Critical Convex Lesson
+ * "`_creationTime` is insertion time, NOT business event time — use
+ * `completedAt` for filtering." We reach this fallback ONLY when both
+ * transactionDate AND periodStart are missing — a signal the adapter failed
+ * to stamp business time, in which case _creationTime is the best available
+ * estimate. Adapters should always set transactionDate OR periodStart so
+ * this fallback stays unused. Consider surfacing as a warn-level audit issue
+ * in a future revision.
  */
 export function buildEventFromRow(
   revenue: Doc<"externalRevenue">,

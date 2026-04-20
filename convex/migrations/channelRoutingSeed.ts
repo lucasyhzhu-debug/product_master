@@ -23,8 +23,12 @@
  * seed skips it.
  */
 
-import { internalAction, mutation } from "../_generated/server";
-import { internalMutation, internalQuery } from "../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+} from "../_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";

@@ -69,11 +69,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
+import { AuditIssueTypeBadge } from "@/components/channelIntegration/AuditIssueTypeBadge";
 import {
-  AuditIssueTypeBadge,
   getAuditIssueTypeMeta,
   type AuditIssueType,
-} from "@/components/channelIntegration/AuditIssueTypeBadge";
+} from "@/components/channelIntegration/AuditIssueTypeMeta";
 import { SourceBadge } from "@/components/channelIntegration/SourceBadge";
 import { useChannelAudit } from "@/hooks/convex/useChannelAudit";
 import { useAuth } from "@/contexts/AuthContext";

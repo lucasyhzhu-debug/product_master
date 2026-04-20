@@ -3,7 +3,7 @@
 declare const process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
-import { action, internalAction } from "../../_generated/server";
+import { action, internalAction, type ActionCtx } from "../../_generated/server";
 import { api, internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { GOBIZ_CONFIG, GOBIZ_OUTLET_SEED } from "./config";
@@ -92,12 +92,9 @@ export const gobizAdapter: ChannelAdapter<GobizNormalizedBatch> = {
   normalize: gobizNormalize,
 };
 
-type ActionCtx = {
-  runQuery: (...args: any[]) => Promise<any>;
-  runMutation: (...args: any[]) => Promise<any>;
-};
-
 // ─── Token Resolution ────────────────────────────────────────────────────────
+// (ActionCtx is imported from _generated/server — previously redeclared
+// locally with any-typed signatures per review N-4.)
 
 async function resolveGoBizToken(ctx: ActionCtx): Promise<{
   accessToken: string | null;
@@ -164,12 +161,10 @@ async function attemptTokenRefresh(
       const data = await resp.json() as { access_token?: string; refresh_token?: string };
       if (data.access_token) {
         const newAccessToken = `Bearer ${data.access_token}`;
-        const newRefreshToken = data.refresh_token ?? refreshToken;
 
         await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
           platformId: "gobiz",
           currentToken: newAccessToken,
-          refreshToken: newRefreshToken,
           lastRefreshAt: Date.now(),
           lastRefreshStatus: "success",
         });
@@ -197,12 +192,10 @@ async function attemptTokenRefresh(
       const data = await fallbackResp.json() as { access_token?: string; refresh_token?: string };
       if (data.access_token) {
         const newAccessToken = `Bearer ${data.access_token}`;
-        const newRefreshToken = data.refresh_token ?? refreshToken;
 
         await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
           platformId: "gobiz",
           currentToken: newAccessToken,
-          refreshToken: newRefreshToken,
           lastRefreshAt: Date.now(),
           lastRefreshStatus: "success",
         });

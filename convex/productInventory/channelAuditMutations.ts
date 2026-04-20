@@ -70,7 +70,12 @@ export const closeAuditReport = internalMutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.reportId, {
-      // "resolved" = run completed. Individual issues may still be open/unresolved.
+      // "resolved" in channelAuditReports.status means "SCAN RUN COMPLETED" —
+      // NOT "all issues resolved." Individual issues in channelAuditIssues may
+      // still be open/unresolved regardless of this status. Schema union is
+      // (pending | resolved | archived); "resolved" is the only available
+      // terminal value for completed runs. Reviewers who read this value in
+      // dashboards should interpret it via issuesFound count, not the label.
       status: "resolved",
       totalItemsScanned: args.totalItemsScanned,
       issuesFound: args.issuesFound,
@@ -97,6 +102,22 @@ export const recordAuditIssues = internalMutation({
   handler: async (ctx, args) => {
     const ids: string[] = [];
     for (const issue of args.issues) {
+      // Dedup on re-run: if an OPEN (unresolved) issue of the same
+      // (itemId, issueType) already exists, skip re-insert. Without this,
+      // running the full audit twice in a row doubles issue row counts for
+      // every persistent issue. Only applies to item-scoped issues; issues
+      // without itemId (rare; aggregate-style) are still inserted as-is.
+      if (issue.itemId) {
+        const existing = await ctx.db
+          .query("channelAuditIssues")
+          .withIndex("by_item", (q) => q.eq("itemId", issue.itemId))
+          .collect();
+        const alreadyOpen = existing.some(
+          (e) => e.issueType === issue.issueType && e.resolvedAt === undefined,
+        );
+        if (alreadyOpen) continue;
+      }
+
       const id = await ctx.db.insert("channelAuditIssues", {
         reportId: args.reportId,
         source: issue.source,

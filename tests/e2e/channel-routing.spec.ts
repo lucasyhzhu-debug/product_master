@@ -25,7 +25,7 @@ test.describe.serial("R7 — ChannelRoutingManager CRUD", () => {
   });
 
   test("T-R7.1 CRUD round-trip: create → verify → edit → verify → delete → verify", async ({ page }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     await page.goto("/admin/channel-routing");
     await page.waitForLoadState("networkidle");
 
@@ -53,7 +53,7 @@ test.describe.serial("R7 — ChannelRoutingManager CRUD", () => {
   });
 
   test("T-R7.2 duplicate combination shows inline validation error", async ({ page }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     await page.goto("/admin/channel-routing");
 
     // Create initial rule for (source=shopee, outlet=X, product=Y)
@@ -75,7 +75,7 @@ test.describe.serial("R7 — ChannelRoutingManager CRUD", () => {
   });
 
   test("T-R7.3 Admin gate: unauthenticated visit to /admin/channel-routing redirects to login", async ({ page, context }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     // Clear any existing auth
     await context.clearCookies();
     await page.goto("/admin/channel-routing");
@@ -84,7 +84,7 @@ test.describe.serial("R7 — ChannelRoutingManager CRUD", () => {
   });
 
   test("T-R7.4 Non-admin role (manager) cannot access /admin/channel-routing", async ({ page }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     await loginAsRole(page, "manager");
     await page.goto("/admin/channel-routing");
     // Manager is blocked — either redirected or shown an unauthorized page.

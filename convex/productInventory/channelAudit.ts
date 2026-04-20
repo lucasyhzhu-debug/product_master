@@ -13,7 +13,7 @@
  * behind requireRole gates).
  */
 
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
@@ -87,13 +87,20 @@ export function detectAuditIssuesForItem(
  * Opens a channelAuditReports row, iterates externalRevenueItems in 500-chunk pages,
  * detects all 5 issue types, records issues via recordAuditIssues, closes the report.
  */
+// Type lifted to module scope per review N-1 (previously declared inside handler).
+type AuditPage = {
+  items: Array<Doc<"externalRevenueItems"> & { _revenueRow: Doc<"externalRevenue"> | null }>;
+  isDone: boolean;
+  continueCursor: string;
+};
+
 export const runFullAudit = internalAction({
   args: { triggeredBy: v.string() },
   handler: async (
     ctx,
     args,
-  ): Promise<{ reportId: string; issuesFound: number }> => {
-    const reportId = await ctx.runMutation(
+  ): Promise<{ reportId: Id<"channelAuditReports">; issuesFound: number }> => {
+    const reportId: Id<"channelAuditReports"> = await ctx.runMutation(
       internal.productInventory.channelAuditMutations.openAuditReport,
       { triggeredBy: args.triggeredBy },
     );
@@ -109,41 +116,35 @@ export const runFullAudit = internalAction({
     let totalScanned = 0;
     let cursor: string | null = null;
 
-    type AuditPage = {
-      items: Array<Doc<"externalRevenueItems"> & { _revenueRow: Doc<"externalRevenue"> | null }>;
-      isDone: boolean;
-      continueCursor: string;
-    };
-
     while (true) {
       const page: AuditPage = await ctx.runQuery(
         internal.productInventory.channelAudit.auditPageQuery,
         { paginationOpts: { numItems: 500, cursor } },
       );
 
+      // Batch all issues for this page into a single recordAuditIssues call
+      // at the end, rather than per-item (N² round-trips at 10K+ item scale).
+      const pageIssues: DetectedIssue[] = [];
+
       for (const entry of page.items) {
         totalScanned++;
         const { _revenueRow: revenue, ...item } = entry;
 
-        // Orphan check first — if parent is missing we cannot build detail for other checks.
+        // Orphan check first — if parent is missing we cannot build detail
+        // for other checks. Using `item.source` here is reliable because
+        // `externalRevenueItems.source` is populated at insert time from the
+        // parent's source (see saveRevenueItemsImpl) and is therefore known
+        // even when the parent row has since been deleted (review M-1).
         if (!revenue) {
           issuesByType.orphan_item++;
           totalIssues++;
-          await ctx.runMutation(
-            internal.productInventory.channelAuditMutations.recordAuditIssues,
-            {
-              reportId,
-              issues: [
-                {
-                  source: item.source,
-                  itemId: item._id,
-                  issueType: "orphan_item",
-                  severity: "block",
-                  detail: `Item revenueId ${item.revenueId} parent not found`,
-                },
-              ],
-            },
-          );
+          pageIssues.push({
+            source: item.source,
+            itemId: item._id,
+            issueType: "orphan_item",
+            severity: "block",
+            detail: `Item revenueId ${item.revenueId} parent not found`,
+          });
           continue;
         }
 
@@ -152,76 +153,68 @@ export const runFullAudit = internalAction({
         for (const issue of cheapIssues) {
           issuesByType[issue.issueType]++;
           totalIssues++;
-        }
-        if (cheapIssues.length > 0) {
-          await ctx.runMutation(
-            internal.productInventory.channelAuditMutations.recordAuditIssues,
-            { reportId, issues: cheapIssues },
-          );
+          pageIssues.push(issue);
         }
 
-        // Expensive: stale_mapping.
-        if (item.linkedMenuProductId) {
-          const mp = await ctx.runQuery(
-            internal.productInventory.channelAudit.getMenuProductStatusQuery,
-            { menuProductId: item.linkedMenuProductId },
-          );
-          if (mp.missing || mp.inactive) {
-            issuesByType.stale_mapping++;
-            totalIssues++;
-            await ctx.runMutation(
-              internal.productInventory.channelAuditMutations.recordAuditIssues,
-              {
-                reportId,
-                issues: [
-                  {
-                    source: item.source,
-                    revenueId: revenue._id,
-                    itemId: item._id,
-                    issueType: "stale_mapping",
-                    severity: "warn",
-                    detail: mp.missing
-                      ? `linkedMenuProductId ${item.linkedMenuProductId} not found (deleted)`
-                      : `linkedMenuProductId ${item.linkedMenuProductId} marked inactive`,
-                  },
-                ],
-              },
-            );
-          }
+        // Expensive checks (stale_mapping + duplicate_transaction) run in
+        // PARALLEL — independent reads, no shared mutable state between them.
+        const externalRef = item.externalItemId
+          ? `${revenue.externalTransactionId ?? String(revenue._id)}${item.externalItemId}`
+          : null;
+        const [mp, dupes] = await Promise.all([
+          item.linkedMenuProductId
+            ? ctx.runQuery(
+                internal.productInventory.channelAudit.getMenuProductStatusQuery,
+                { menuProductId: item.linkedMenuProductId },
+              )
+            : null,
+          externalRef !== null
+            ? ctx.runQuery(
+                internal.productInventory.channelAudit.findDuplicateTxQuery,
+                { source: revenue.source, externalRef },
+              )
+            : null,
+        ]);
+
+        // stale_mapping
+        if (mp && (mp.missing || mp.inactive)) {
+          issuesByType.stale_mapping++;
+          totalIssues++;
+          pageIssues.push({
+            source: item.source,
+            revenueId: revenue._id,
+            itemId: item._id,
+            issueType: "stale_mapping",
+            severity: "warn",
+            detail: mp.missing
+              ? `linkedMenuProductId ${item.linkedMenuProductId} not found (deleted)`
+              : `linkedMenuProductId ${item.linkedMenuProductId} marked inactive`,
+          });
         }
 
-        // Expensive: duplicate_transaction.
-        if (item.externalItemId) {
-          const externalRef = `${revenue.externalTransactionId ?? String(revenue._id)}${item.externalItemId}`;
-          const dupes = await ctx.runQuery(
-            internal.productInventory.channelAudit.findDuplicateTxQuery,
-            { source: revenue.source, externalRef },
-          );
-          // `hasDuplicate` = same (source, externalRef, menuProductId) seen
-          // more than once. Phase 78 substitution legitimately writes two
-          // rows with the same externalRef but DIFFERENT menuProductIds —
-          // those are not duplicates (see findDuplicateTxQuery).
-          if (dupes.hasDuplicate) {
-            issuesByType.duplicate_transaction++;
-            totalIssues++;
-            await ctx.runMutation(
-              internal.productInventory.channelAuditMutations.recordAuditIssues,
-              {
-                reportId,
-                issues: [
-                  {
-                    source: revenue.source,
-                    revenueId: revenue._id,
-                    itemId: item._id,
-                    issueType: "duplicate_transaction",
-                    severity: "block",
-                    detail: `${dupes.count} productInventoryTransactions rows (same menuProductId collision) for source=${revenue.source} externalRef=${externalRef}`,
-                  },
-                ],
-              },
-            );
-          }
+        // duplicate_transaction — hasDuplicate means same (source,externalRef)
+        // seen more than once with SAME menuProductId. Substitution rows with
+        // different menuProductIds don't collide per findDuplicateTxQuery.
+        if (dupes && dupes.hasDuplicate && externalRef !== null) {
+          issuesByType.duplicate_transaction++;
+          totalIssues++;
+          pageIssues.push({
+            source: revenue.source,
+            revenueId: revenue._id,
+            itemId: item._id,
+            issueType: "duplicate_transaction",
+            severity: "block",
+            detail: `${dupes.count} productInventoryTransactions rows (same menuProductId collision) for source=${revenue.source} externalRef=${externalRef}`,
+          });
         }
+      }
+
+      // Flush the whole page's issues in ONE round-trip.
+      if (pageIssues.length > 0) {
+        await ctx.runMutation(
+          internal.productInventory.channelAuditMutations.recordAuditIssues,
+          { reportId, issues: pageIssues },
+        );
       }
 
       if (page.isDone) break;
@@ -306,8 +299,16 @@ export const findDuplicateTxQuery = internalQuery({
 });
 
 /**
- * Read-only helper for per-source audit gate (consumed by 74.5.2 backfill logic, NOT UI).
- * UI-facing source-filtered lists live in channelAuditMutations.ts behind requireRole.
+ * Read-only helper for per-source audit gate (consumed by 74.5.2 backfill
+ * logic, NOT UI).
+ *
+ * NOTE (do not remove in dead-code sweeps — review R-2): This export appears
+ * unused in 74.5.1 diff because its only caller lands in 74.5.2's backfill
+ * gate (per SPEC §Backfill Preconditions). It is the authoritative per-source
+ * pre-cutover check: before flipping a flag ON, the backfill logic inspects
+ * open issues for that source and aborts if any `severity: "block"` rows
+ * exist. UI-facing source-filtered lists live in channelAuditMutations.ts
+ * behind requireRole.
  */
 export const listOpenIssuesBySource = internalQuery({
   args: { source: externalSource },

@@ -54,6 +54,23 @@ export async function resolveChannelRoute(
     menuProductId?: Id<"menuProducts">;
   },
 ): Promise<Id<"storageLocations">> {
+  return (await resolveChannelRouteTiered(ctx, params)).locationId;
+}
+
+/**
+ * Tiered variant of resolveChannelRoute that also returns WHICH tier matched
+ * (1-4). Used by previewRouteResolution to avoid re-walking the precedence
+ * chain (review I-7 / I-4). Main resolveChannelRoute wraps this and discards
+ * the tier.
+ */
+export async function resolveChannelRouteTiered(
+  ctx: QueryCtx | MutationCtx,
+  params: {
+    source: ExternalSource;
+    outletId?: Id<"externalOutlets">;
+    menuProductId?: Id<"menuProducts">;
+  },
+): Promise<{ locationId: Id<"storageLocations">; tier: 1 | 2 | 3 | 4 }> {
   const { source, outletId, menuProductId } = params;
 
   // Tier 1: most-specific (source + outlet + product)
@@ -67,7 +84,7 @@ export async function resolveChannelRoute(
           .eq("menuProductId", menuProductId),
       )
       .first();
-    if (row) return row.storageLocationId;
+    if (row) return { locationId: row.storageLocationId, tier: 1 };
   }
 
   // Tier 2: source + outlet, product unset
@@ -79,7 +96,7 @@ export async function resolveChannelRoute(
       )
       .filter((q) => q.eq(q.field("menuProductId"), undefined))
       .first();
-    if (row) return row.storageLocationId;
+    if (row) return { locationId: row.storageLocationId, tier: 2 };
   }
 
   // Tier 3: source + product, outlet unset
@@ -91,7 +108,7 @@ export async function resolveChannelRoute(
       )
       .filter((q) => q.eq(q.field("outletId"), undefined))
       .first();
-    if (row) return row.storageLocationId;
+    if (row) return { locationId: row.storageLocationId, tier: 3 };
   }
 
   // Tier 4: source-level default (outlet + product both unset, isDefault=true)
@@ -106,7 +123,7 @@ export async function resolveChannelRoute(
       ),
     )
     .first();
-  if (def) return def.storageLocationId;
+  if (def) return { locationId: def.storageLocationId, tier: 4 };
 
   // Tier 5: no rule matches — throw with deterministic prefix for UI/test matching.
   throw new Error(

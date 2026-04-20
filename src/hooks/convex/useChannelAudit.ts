@@ -15,7 +15,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import type { AuditIssueType } from "@/components/channelIntegration/AuditIssueTypeBadge";
+import type { AuditIssueType } from "@/components/channelIntegration/AuditIssueTypeMeta";
 import type { ExternalSource } from "../../../convex/lib/externalSource";
 
 interface AuditFilter {

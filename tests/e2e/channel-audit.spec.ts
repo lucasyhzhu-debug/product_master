@@ -25,7 +25,7 @@ test.describe.serial("R6 — ChannelAuditWorkbench", () => {
   });
 
   test("T-R6.E2E.1 Issue-type tab count badges render with seeded issues", async ({ page }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     // Precondition: backend seeded with one externalRevenueItems row of each
     // of 5 issue types (Wave 3 test-setup helper). Until the helper exists,
     // this test remains a fixme.
@@ -47,7 +47,7 @@ test.describe.serial("R6 — ChannelAuditWorkbench", () => {
   });
 
   test("T-R6.E2E.2 Resolution flow: remap unmapped_sku → issue disappears + count decrements", async ({ page }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     await page.goto("/admin/channel-audit");
     const unmappedTab = page.getByRole("tab", { name: /unmapped sku/i });
     await unmappedTab.click();
@@ -69,7 +69,7 @@ test.describe.serial("R6 — ChannelAuditWorkbench", () => {
   });
 
   test("T-R6.E2E.3 Run full audit button updates Last run timestamp within 5 seconds", async ({ page }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     await page.goto("/admin/channel-audit");
 
     const runBtn = page.getByRole("button", { name: /run full audit/i });
@@ -89,7 +89,7 @@ test.describe.serial("R6 — ChannelAuditWorkbench", () => {
   });
 
   test("T-R6.E2E.4 Backfill-gate copy: per-source 'Backfill blocked' status rendered per UI-SPEC", async ({ page }) => {
-    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
+    test.fixme(true, "Pending manual UAT on running dev server (page exists; awaiting admin credentials)");
     // Per UI-SPEC: audit tabs surface per-source backfill gating status.
     // Wave 3 renders the text; 74.5.2 wires real enable/disable behavior.
     await page.goto("/admin/channel-audit");
