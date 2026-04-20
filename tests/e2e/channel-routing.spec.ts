@@ -6,9 +6,11 @@
  *   - Duplicate (source, outletId?, menuProductId?) combination shows validation error.
  *   - Admin role required — unauthenticated / non-admin users are blocked.
  *
- * RED STATE: Entire describe block is `.skip` until Wave 3 lands
- * `ChannelRoutingManager.tsx` at route `/admin/channel-routing`. When the UI
- * is green, Wave 3 executor flips `test.describe.skip` → `test.describe.serial`.
+ * STATUS (Wave 4 Task 11.1):
+ *   `test.describe.skip` is lifted — block now runs serially. Individual tests
+ *   are marked `test.fixme` pending Wave 3 landing of `ChannelRoutingManager.tsx`
+ *   at route `/admin/channel-routing`. When the UI ships, remove the `test.fixme`
+ *   markers inside each test (bodies already complete).
  *
  * Pattern reference: tests/e2e/bigseller-sync.spec.ts for loginAsManager +
  * navigateTo; tests/e2e/bank-rules-perms.spec.ts for role-gate assertions.
@@ -17,12 +19,13 @@
 import { test, expect } from "@playwright/test";
 import { loginAsRole } from "./helpers";
 
-test.describe.skip("R7 — ChannelRoutingManager CRUD (Wave 3 unblocks when /admin/channel-routing ships)", () => {
+test.describe.serial("R7 — ChannelRoutingManager CRUD", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsRole(page, "admin");
   });
 
   test("T-R7.1 CRUD round-trip: create → verify → edit → verify → delete → verify", async ({ page }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
     await page.goto("/admin/channel-routing");
     await page.waitForLoadState("networkidle");
 
@@ -50,6 +53,7 @@ test.describe.skip("R7 — ChannelRoutingManager CRUD (Wave 3 unblocks when /adm
   });
 
   test("T-R7.2 duplicate combination shows inline validation error", async ({ page }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
     await page.goto("/admin/channel-routing");
 
     // Create initial rule for (source=shopee, outlet=X, product=Y)
@@ -71,6 +75,7 @@ test.describe.skip("R7 — ChannelRoutingManager CRUD (Wave 3 unblocks when /adm
   });
 
   test("T-R7.3 Admin gate: unauthenticated visit to /admin/channel-routing redirects to login", async ({ page, context }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
     // Clear any existing auth
     await context.clearCookies();
     await page.goto("/admin/channel-routing");
@@ -79,6 +84,7 @@ test.describe.skip("R7 — ChannelRoutingManager CRUD (Wave 3 unblocks when /adm
   });
 
   test("T-R7.4 Non-admin role (manager) cannot access /admin/channel-routing", async ({ page }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-routing page not yet shipped");
     await loginAsRole(page, "manager");
     await page.goto("/admin/channel-routing");
     // Manager is blocked — either redirected or shown an unauthorized page.

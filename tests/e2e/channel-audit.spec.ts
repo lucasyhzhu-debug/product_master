@@ -9,23 +9,26 @@
  *   - Backfill-gate banner — per-source gating copy rendered (actual
  *     enable/disable wiring is a 74.5.2 concern).
  *
- * RED STATE: Entire describe block is `.skip` until Wave 3 lands
- * `ChannelAuditWorkbench.tsx` at route `/admin/channel-audit`. Wave 3 executor
- * flips `test.describe.skip` → `test.describe.serial` when UI is green.
+ * STATUS (Wave 4 Task 11.1):
+ *   `test.describe.skip` is lifted — block now runs serially. Individual tests
+ *   are marked `test.fixme` pending Wave 3 landing of `ChannelAuditWorkbench.tsx`
+ *   at route `/admin/channel-audit`. When the UI ships, remove the `test.fixme`
+ *   markers inside each test (bodies already complete).
  */
 
 import { test, expect } from "@playwright/test";
 import { loginAsRole } from "./helpers";
 
-test.describe.skip("R6 — ChannelAuditWorkbench (Wave 3 unblocks when /admin/channel-audit ships)", () => {
+test.describe.serial("R6 — ChannelAuditWorkbench", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsRole(page, "admin");
   });
 
   test("T-R6.E2E.1 Issue-type tab count badges render with seeded issues", async ({ page }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
     // Precondition: backend seeded with one externalRevenueItems row of each
     // of 5 issue types (Wave 3 test-setup helper). Until the helper exists,
-    // this test remains skipped at the describe level.
+    // this test remains a fixme.
     await page.goto("/admin/channel-audit");
     await page.waitForLoadState("networkidle");
 
@@ -44,6 +47,7 @@ test.describe.skip("R6 — ChannelAuditWorkbench (Wave 3 unblocks when /admin/ch
   });
 
   test("T-R6.E2E.2 Resolution flow: remap unmapped_sku → issue disappears + count decrements", async ({ page }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
     await page.goto("/admin/channel-audit");
     const unmappedTab = page.getByRole("tab", { name: /unmapped sku/i });
     await unmappedTab.click();
@@ -65,6 +69,7 @@ test.describe.skip("R6 — ChannelAuditWorkbench (Wave 3 unblocks when /admin/ch
   });
 
   test("T-R6.E2E.3 Run full audit button updates Last run timestamp within 5 seconds", async ({ page }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
     await page.goto("/admin/channel-audit");
 
     const runBtn = page.getByRole("button", { name: /run full audit/i });
@@ -84,6 +89,7 @@ test.describe.skip("R6 — ChannelAuditWorkbench (Wave 3 unblocks when /admin/ch
   });
 
   test("T-R6.E2E.4 Backfill-gate copy: per-source 'Backfill blocked' status rendered per UI-SPEC", async ({ page }) => {
+    test.fixme(true, "Pending Wave 3: /admin/channel-audit page not yet shipped");
     // Per UI-SPEC: audit tabs surface per-source backfill gating status.
     // Wave 3 renders the text; 74.5.2 wires real enable/disable behavior.
     await page.goto("/admin/channel-audit");
