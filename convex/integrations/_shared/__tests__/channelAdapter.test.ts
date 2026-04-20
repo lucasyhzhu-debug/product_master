@@ -38,11 +38,16 @@ describe("Req R1 — ChannelAdapter contract (TDD red; Waves 1-2 make green)", (
     // These assignments are the assertion. If tsc accepts them, the 5 adapters
     // structurally satisfy ChannelAdapter. If any adapter's `normalize()` return
     // type drifts from `ChannelSaleEvent[]`, tsc fails HERE.
-    const _gobiz: ChannelAdapter = gobizAdapter;
-    const _bigseller: ChannelAdapter = bigsellerAdapter;
-    const _internal: ChannelAdapter = internalAdapter;
-    const _k3mart: ChannelAdapter = k3martAdapter;
-    const _grabfood: ChannelAdapter = grabfoodAdapter;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const _gobiz: ChannelAdapter<any> = gobizAdapter;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const _bigseller: ChannelAdapter<any> = bigsellerAdapter;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const _internal: ChannelAdapter<any> = internalAdapter;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const _k3mart: ChannelAdapter<any> = k3martAdapter;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const _grabfood: ChannelAdapter<any> = grabfoodAdapter;
 
     // Runtime sanity: each adapter exposes a `source` string field.
     expect(typeof _gobiz.source).toBe("string");
