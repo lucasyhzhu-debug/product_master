@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * Phase 74.5.1 Wave 0 — GoFood regression snapshot tests (narrowed for 74.5.1).
  *

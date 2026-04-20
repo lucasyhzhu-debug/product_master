@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * Phase 74.5.1 Wave 0 — TDD RED tests for processChannelSaleInternal (R4).
  *
@@ -19,6 +20,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import schema from "../../schema";
 import type { Id } from "../../_generated/dataModel";
+import type { ExternalSource } from "../../lib/externalSource";
 
 // @ts-expect-error — module created in Wave 2 (74.5.1-03-channel-sale-helper)
 import { processChannelSaleInternal } from "../channelSale";
@@ -98,7 +100,7 @@ async function seedProductInventory(
 
 async function seedRoutingDefault(
   t: TestContext,
-  source: string,
+  source: ExternalSource,
   storageLocationId: Id<"storageLocations">,
 ) {
   await t.run(async (ctx) => {
@@ -116,7 +118,7 @@ async function seedRoutingDefault(
 }
 
 function makeEvent(overrides: Partial<{
-  source: string;
+  source: ExternalSource;
   occurredAt: number;
   externalTransactionId: string;
   externalItemId: string;

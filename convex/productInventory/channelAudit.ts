@@ -109,8 +109,14 @@ export const runFullAudit = internalAction({
     let totalScanned = 0;
     let cursor: string | null = null;
 
+    type AuditPage = {
+      items: Array<Doc<"externalRevenueItems"> & { _revenueRow: Doc<"externalRevenue"> | null }>;
+      isDone: boolean;
+      continueCursor: string;
+    };
+
     while (true) {
-      const page = await ctx.runQuery(
+      const page: AuditPage = await ctx.runQuery(
         internal.productInventory.channelAudit.auditPageQuery,
         { paginationOpts: { numItems: 500, cursor } },
       );

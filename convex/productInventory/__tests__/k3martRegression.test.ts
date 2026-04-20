@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * Phase 74.5.1 Wave 0 — K3Mart regression snapshot tests (K3Mart preservation).
  *
