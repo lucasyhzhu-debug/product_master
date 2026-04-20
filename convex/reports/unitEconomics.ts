@@ -1,3 +1,56 @@
+/**
+ * Phase 74.5.1 K3Mart reconciliation — see 74.5.1-08-SUMMARY.md for full audit.
+ *
+ * Context: RESEARCH §Sub-Phase Boundary Validation Caveat 1 — K3Mart transitions
+ * from parent-only to parent+child shape in 74.5.1. This is a SEMANTIC change
+ * that ships regardless of the `channelDeductionEnabled` flag state, because the
+ * adapter's new child-emit branch (Plan 07) always runs; only the deduction
+ * dispatch is gated. Analytics must handle both shapes without double-counting.
+ *
+ * Audit findings (2026-04-20) — all `convex/reports/` files reviewed:
+ *
+ *   unitEconomics.ts (this file):
+ *     - Lines 196-248 childItems if/else branching: SAFE. The if-branch iterates
+ *       children (new shape); the else-branch synthesizes from parent (historical
+ *       K3Mart shape). The two branches are MUTUALLY EXCLUSIVE, not summed, so
+ *       the child's qty/revenue being a one-to-one projection of parent values
+ *       does NOT cause double-counting.
+ *     - Lines 934, 1001 UNLINKED_KEY synthesis: SAFE. UNLINKED_KEY only fires when
+ *       `it.menuProductId` is undefined. Source-agnostic; no K3Mart-specific logic.
+ *     - No downstream aggregator in this file sums parent.revenueGross + child
+ *       totals for the same source.
+ *
+ *   incomeStatement.ts:
+ *     - Revenue aggregation (lines 278-286): sums parent `rec.revenueGross` ONLY.
+ *       Children are NOT summed into channelGross. Safe for revenue totals.
+ *     - COGS resolution (lines 297-308 via resolveItemsCOGS): iterates children
+ *       ONLY. Historical K3Mart parents had no children → zero product-level COGS.
+ *       Post-74.5.1, K3Mart parents have one child per parent → COGS will START
+ *       populating for K3Mart. This is the INTENDED behavior (accurate product-
+ *       level COGS for K3Mart), not a double-count. Parent-level revenue is
+ *       unchanged; only `channelProducts[]` drill-down gains K3Mart entries.
+ *
+ *   channelTaxonomy.ts:
+ *     - Pure source→display mapping. Source-agnostic. SAFE.
+ *
+ *   dailySales.ts:
+ *     - Reads only native `orders`/`orderItems`. Does NOT touch
+ *       externalRevenue/externalRevenueItems. SAFE.
+ *
+ *   revenueHelpers.ts:
+ *     - Pure helpers operating on a single `{lineTotal, discountAmount?}` row.
+ *       Source-agnostic. SAFE.
+ *
+ *   productionUnitHelpers.ts:
+ *     - BOM resolution from `menuProductComponents` + `componentTypes`. Reads no
+ *       externalRevenue/externalRevenueItems. Source-agnostic. SAFE.
+ *
+ * Caveat 1 verdict: NO double-count site exists in `convex/reports/`. No fixes
+ * required — the if/else branching in this file was designed with both shapes in
+ * mind from the Phase 80 UAT. The file-top comment documents the audit so future
+ * changes stay aware of the shape transition.
+ */
+
 import { query, type QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -193,6 +246,11 @@ async function loadExternalStream(
     const syntheticKey = revId;
     let kept = 0;
 
+    // Phase 74.5.1 K3Mart reconciliation (Caveat 1): this if/else is MUTUALLY
+    // EXCLUSIVE. When K3Mart transitions to parent+child shape (Plan 07), the
+    // if-branch fires for new K3Mart parents (child exists) and the else-branch
+    // fires for historical K3Mart parents (no child). Child qty/revenue is a
+    // one-to-one projection of parent values — safe because we never sum both.
     if (childItems.length > 0) {
       for (const eit of childItems) {
         if (
@@ -215,12 +273,15 @@ async function loadExternalStream(
       }
     } else {
       // No item-level detail — synthesize a single item from the parent row.
-      // This is the K3Mart path (api_revenue rows product-rolled-up without
-      // child externalRevenueItems) and any other source without item-level
-      // breakdown. UAT round-2 fix: ensure units are counted even when the
-      // parent has no linkedMenuProductId by carrying quantitySold through
-      // `bomUnresolvedUnits`. If linkedMenuProductId IS set, BOM resolution
-      // wins at the call site (itemUnits helper).
+      // This is the historical K3Mart path (api_revenue rows product-rolled-up
+      // without child externalRevenueItems) and any other source without item-
+      // level breakdown. Phase 74.5.1 K3Mart reconciliation: post-74.5.1 K3Mart
+      // syncs start emitting children; this else-branch continues to cover
+      // historical K3Mart parents (which remain child-less forever) and any
+      // future parent-only source. UAT round-2 fix: ensure units are counted
+      // even when the parent has no linkedMenuProductId by carrying
+      // quantitySold through `bomUnresolvedUnits`. If linkedMenuProductId IS
+      // set, BOM resolution wins at the call site (itemUnits helper).
       const gross = r.revenueGross ?? r.revenueNet ?? 0;
       const qty = r.quantitySold ?? 0;
       if (gross > 0 || qty > 0) {
