@@ -19,6 +19,78 @@ import {
   getMerchantName,
   type JournalMetrics,
 } from "./helpers";
+import type { ChannelAdapter } from "../_shared/channelAdapter";
+import type { ChannelSaleEvent } from "../_shared/channelSaleEvent";
+
+// ─── ChannelAdapter: normalize() + adapter export (Phase 74.5.1 Plan 06) ─────
+//
+// Pure projection from a canonical GoFood batch payload to ChannelSaleEvent[].
+// The existing sync action (syncGoBizRevenue) keeps its existing saveRevenueItems
+// write path; `normalize()` is an ADDITIVE export that tests + Plan 05 dispatch
+// hook consume. 74.5.2 cutover may consolidate both paths onto this function.
+//
+// Payload shape is the normalized-for-test form (Wave 0 fixture shape) so tests
+// and the adapter share a contract. The live syncGoBizRevenue action feeds its
+// internal aggregated journal/order data into `mapOrderToRevenueItems` (inline
+// today) — both shapes ultimately converge on the same ChannelSaleEvent fields.
+export interface GobizNormalizedBatchOrder {
+  readonly orderId: string;
+  readonly completedAt: number;
+  readonly outletId?: string;
+  readonly items: ReadonlyArray<{
+    readonly sku?: string;
+    readonly menuProductId?: string;
+    readonly productName?: string;
+    readonly quantity: number;
+    readonly unitPrice: number;
+    readonly totalPrice: number;
+  }>;
+}
+
+export interface GobizNormalizedBatch {
+  readonly orders: ReadonlyArray<GobizNormalizedBatchOrder>;
+}
+
+/**
+ * Pure projection: canonical GoFood batch payload → ChannelSaleEvent[].
+ * Side-effect-free, no ctx/DB access. Safe for Wave 0 normalize test.
+ *
+ * Emits `source: "gobiz"` for every event. `externalItemId` derives from
+ * `{orderId}-{itemIndex}` to mirror the existing adapter's dedup key shape.
+ */
+export function gobizNormalize(
+  payload: GobizNormalizedBatch
+): ChannelSaleEvent[] {
+  if (!payload || !payload.orders || payload.orders.length === 0) return [];
+
+  const events: ChannelSaleEvent[] = [];
+  for (const order of payload.orders) {
+    for (let i = 0; i < order.items.length; i++) {
+      const item = order.items[i];
+      events.push({
+        source: "gobiz" as const,
+        occurredAt: order.completedAt,
+        externalTransactionId: order.orderId,
+        externalItemId: `${order.orderId}-${i}`,
+        // Typed Id<"externalOutlets"> cast at the Plan-05 dispatch boundary;
+        // normalize() stays string-typed so tests can pass raw fixtures.
+        outletId: order.outletId as Id<"externalOutlets"> | undefined,
+        menuProductId: item.menuProductId as Id<"menuProducts"> | undefined,
+        externalProductCode: item.sku,
+        externalProductName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      });
+    }
+  }
+  return events;
+}
+
+export const gobizAdapter: ChannelAdapter<GobizNormalizedBatch> = {
+  source: "gobiz",
+  normalize: gobizNormalize,
+};
 
 type ActionCtx = {
   runQuery: (...args: any[]) => Promise<any>;
@@ -418,9 +490,15 @@ async function fetchAndSaveOrderDetails(
   newRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }>,
   accessToken: string,
   refreshToken: string | null
-): Promise<{ itemsSaved: number; ordersFetched: number; matchResults: Record<string, number>; productNames: string[] }> {
+): Promise<{ itemsSaved: number; ordersFetched: number; matchResults: Record<string, number>; productNames: string[]; itemsDeducted: number; itemsSkipped: number }> {
   let itemsSaved = 0;
   let ordersFetched = 0;
+  // Phase 74.5.1 Plan 06 (R9): per-sync counters accumulated across every
+  // saveRevenueItemsWithCounts call. With all channelDeductionEnabled flags
+  // OFF today, itemsDeducted stays 0 and itemsSkipped == itemsSaved. Flipping
+  // flags in 74.5.2 populates real counters via Plan 05's dispatch hook.
+  let itemsDeducted = 0;
+  let itemsSkipped = 0;
   const matchResults: Record<string, number> = {
     exact: 0, price_only: 0, name_only: 0, none: 0,
   };
@@ -466,11 +544,22 @@ async function fetchAndSaveOrderDetails(
           });
         }
 
-        // Save items for this revenue record
-        await ctx.runMutation(internal.externalData.mutations.saveRevenueItems, {
-          revenueId,
-          items: enrichedItems,
-        });
+        // Save items for this revenue record.
+        // Phase 74.5.1 Plan 06: migrated to saveRevenueItemsWithCounts (Option A)
+        // to read `deducted` + `skipped` counters for R9 syncLog wiring.
+        // Behavior-preserving: the wrapper delegates to the same
+        // saveRevenueItemsImpl as saveRevenueItems — no item-write change.
+        const itemsResult: {
+          ids: Id<"externalRevenueItems">[];
+          inserted: number;
+          deducted: number;
+          skipped: number;
+        } = await ctx.runMutation(
+          internal.externalData.mutations.saveRevenueItemsWithCounts,
+          { revenueId, items: enrichedItems }
+        );
+        itemsDeducted += itemsResult.deducted;
+        itemsSkipped += itemsResult.skipped;
 
         itemsSaved += enrichedItems.length;
       }
@@ -485,7 +574,14 @@ async function fetchAndSaveOrderDetails(
     }
   }
 
-  return { itemsSaved, ordersFetched, matchResults, productNames: Array.from(uniqueProductNames) };
+  return {
+    itemsSaved,
+    ordersFetched,
+    matchResults,
+    productNames: Array.from(uniqueProductNames),
+    itemsDeducted,
+    itemsSkipped,
+  };
 }
 
 // ─── Main Sync Action ────────────────────────────────────────────────────────
@@ -560,6 +656,9 @@ export const syncGoBizRevenue = action({
       let totalTransactions = 0;
       let totalItemsSaved = 0;
       let totalOrdersFetched = 0;
+      // Phase 74.5.1 Plan 06 (R9) — accumulate per-sync counters.
+      let totalItemsDeducted = 0;
+      let totalItemsSkipped = 0;
       let currentToken = accessToken;
 
       // All new records across all days (for Phase B)
@@ -609,6 +708,9 @@ export const syncGoBizRevenue = action({
 
         totalItemsSaved = orderResults.itemsSaved;
         totalOrdersFetched = orderResults.ordersFetched;
+        // Phase 74.5.1 Plan 06 (R9): lift counters for syncLog wiring.
+        totalItemsDeducted += orderResults.itemsDeducted;
+        totalItemsSkipped += orderResults.itemsSkipped;
 
         console.log(
           `Phase B complete: ${orderResults.ordersFetched} orders fetched, ` +
@@ -753,11 +855,14 @@ export const syncGoBizRevenue = action({
       }
 
       // Update sync log
+      // Phase 74.5.1 Plan 06 (R9): wire itemsDeducted + itemsSkipped.
       await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
         logId: syncLogId,
         status: "success",
         productsCount: totalTransactions,
         durationMs: Date.now() - startTime,
+        itemsDeducted: totalItemsDeducted,
+        itemsSkipped: totalItemsSkipped,
       });
 
       return {
@@ -865,6 +970,9 @@ export const autoSyncGoBizRevenue = internalAction({
 
       let currentToken = accessToken;
       let totalTransactions = 0;
+      // Phase 74.5.1 Plan 06 (R9): accumulate counters across Phase B.
+      let totalItemsDeducted = 0;
+      let totalItemsSkipped = 0;
       const allNewRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }> = [];
 
       // Phase A
@@ -882,6 +990,8 @@ export const autoSyncGoBizRevenue = internalAction({
       // Phase B
       if (allNewRecords.length > 0) {
         const orderResults = await fetchAndSaveOrderDetails(ctx, allNewRecords, currentToken, refreshToken);
+        totalItemsDeducted += orderResults.itemsDeducted;
+        totalItemsSkipped += orderResults.itemsSkipped;
 
         // Save product mappings for mapping UI
         if (orderResults.productNames.length > 0) {
@@ -1009,11 +1119,14 @@ export const autoSyncGoBizRevenue = internalAction({
         );
       }
 
+      // Phase 74.5.1 Plan 06 (R9): wire itemsDeducted + itemsSkipped.
       await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
         logId: syncLogId,
         status: "success",
         productsCount: totalTransactions,
         durationMs: Date.now() - startTime,
+        itemsDeducted: totalItemsDeducted,
+        itemsSkipped: totalItemsSkipped,
       });
 
       console.log(`GoBiz auto-sync complete: ${totalTransactions} txns, ${allNewRecords.length} new`);

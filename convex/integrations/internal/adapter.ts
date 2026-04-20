@@ -3,6 +3,78 @@ import { action } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { BATCH_SIZE } from "./config";
+import type { ChannelAdapter } from "../_shared/channelAdapter";
+import type { ChannelSaleEvent } from "../_shared/channelSaleEvent";
+
+// ─── ChannelAdapter: normalize() + adapter export (Phase 74.5.1 Plan 06) ─────
+//
+// NOTE (D74.5.1-L2): the `internal` feature flag stays permanent-OFF in
+// 74.5.1/2. reserveStockForOrderInternal remains the authoritative internal
+// stock deduction path. The events produced by internalNormalize() are
+// recorded as externalRevenueItems rows via the existing saveRevenueItems
+// path; deduction is NOT dispatched because channelDeductionEnabled.internal
+// is false. This adapter export exists for shape uniformity across the 8
+// sources and for Plan 05's gated dispatch hook (which will correctly skip).
+//
+// The live sync-action projection at lines 157-181 stays inline (byte-
+// identical) to avoid any regression on the Phase 80.2 self-heal path.
+// internalNormalize() is a PARALLEL pure export for tests + future 74.5.2
+// cutover — it does NOT replace the inline projection.
+
+export interface InternalRawOrder {
+  readonly orderId: string;
+  readonly completedAt: number;
+  readonly outletId?: string;
+  readonly items: ReadonlyArray<{
+    readonly menuProductId?: string;
+    readonly productName?: string;
+    readonly quantity: number;
+    readonly unitPrice: number;
+    readonly totalPrice: number;
+  }>;
+}
+
+export interface InternalRawBatch {
+  readonly orders: ReadonlyArray<InternalRawOrder>;
+}
+
+/**
+ * Pure projection: internal orders → ChannelSaleEvent[].
+ *
+ * Mirrors the item shape constructed inline at :163-180 of this adapter,
+ * using `{orderId}-{itemIndex}` as externalItemId to preserve the existing
+ * dedup key semantics.
+ */
+export function internalNormalize(
+  payload: InternalRawBatch
+): ChannelSaleEvent[] {
+  if (!payload || !payload.orders || payload.orders.length === 0) return [];
+
+  const events: ChannelSaleEvent[] = [];
+  for (const order of payload.orders) {
+    for (let i = 0; i < order.items.length; i++) {
+      const item = order.items[i];
+      events.push({
+        source: "internal" as const,
+        occurredAt: order.completedAt,
+        externalTransactionId: order.orderId,
+        externalItemId: `${order.orderId}-${i}`,
+        outletId: order.outletId as Id<"externalOutlets"> | undefined,
+        menuProductId: item.menuProductId as Id<"menuProducts"> | undefined,
+        externalProductName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      });
+    }
+  }
+  return events;
+}
+
+export const internalAdapter: ChannelAdapter<InternalRawBatch> = {
+  source: "internal",
+  normalize: internalNormalize,
+};
 
 type SyncResult = {
   success: true;
@@ -71,6 +143,12 @@ export const syncInternalOrders = action({
       let totalGross = 0;
       let totalNet = 0;
       let totalItems = 0;
+      // Phase 74.5.1 Plan 06 (R9): per-sync counters. The `internal` flag stays
+      // permanent-OFF (D74.5.1-L2), so itemsDeducted == 0 and itemsSkipped ==
+      // itemsInserted every sync. The counters are still recorded for
+      // observability (syncLog dashboards).
+      let itemsDeducted = 0;
+      let itemsSkipped = 0;
 
       // 4. Process in batches
       for (let i = 0; i < orders.length; i += BATCH_SIZE) {
@@ -158,8 +236,18 @@ export const syncInternalOrders = action({
 
           if (items.length > 0) {
             totalItems += items.length;
-            await ctx.runMutation(
-              internal.externalData.mutations.saveRevenueItems,
+            // Phase 74.5.1 Plan 06 (R9): migrated to saveRevenueItemsWithCounts
+            // (Option A) to read `deducted` + `skipped` counters for syncLog
+            // wiring. Behavior-preserving — item shape byte-identical, and the
+            // Phase 80.2 existence-based guard above (lines 222-228) is kept
+            // verbatim. `internal` flag is permanent-OFF so deducted stays 0.
+            const itemsResult: {
+              ids: Id<"externalRevenueItems">[];
+              inserted: number;
+              deducted: number;
+              skipped: number;
+            } = await ctx.runMutation(
+              internal.externalData.mutations.saveRevenueItemsWithCounts,
               {
                 revenueId: revenueId as Id<"externalRevenue">,
                 items: items.map((item) => ({
@@ -178,11 +266,14 @@ export const syncInternalOrders = action({
                 })),
               }
             );
+            itemsDeducted += itemsResult.deducted;
+            itemsSkipped += itemsResult.skipped;
           }
         }
       }
 
       // 5. Update sync log with success
+      // Phase 74.5.1 Plan 06 (R9): wire itemsDeducted + itemsSkipped.
       await ctx.runMutation(
         internal.externalData.mutations.updateSyncLog,
         {
@@ -190,6 +281,8 @@ export const syncInternalOrders = action({
           status: "success",
           productsCount: orders.length,
           durationMs: Date.now() - startTime,
+          itemsDeducted,
+          itemsSkipped,
         }
       );
 

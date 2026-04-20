@@ -162,6 +162,13 @@ export const updateSyncLog = internalMutation({
     productsCount: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
     durationMs: v.optional(v.number()),
+    // Phase 74.5.1 Plan 06 (R9): per-sync counters populated by adapters that
+    // now call saveRevenueItemsWithCounts. Schema fields already exist on
+    // externalSyncLogs (Plan 01). With all channelDeductionEnabled flags OFF
+    // in 74.5.1, itemsDeducted === 0 and itemsSkipped === insertedItems for
+    // every sync. Flags flip ON in 74.5.2 populates real counters.
+    itemsDeducted: v.optional(v.number()),
+    itemsSkipped: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { logId, ...updates } = args;
