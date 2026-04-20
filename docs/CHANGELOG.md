@@ -16,6 +16,77 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 74.5.1 — Channel Routing Spine + Admin UI -- 2026-04-20
+
+**For the team:** Foundation work for unified channel integration (Shopee, TikTok, BigSeller, K3Mart, GoFood, Consignment, Grabfood, Direct). No behavior change in production yet — every new code path is gated behind per-source feature flags that default OFF. Cutover + flag flips are a separate follow-up phase (74.5.2).
+
+Additive architectural spine for unified channel integration. All code lands behind an 8-key feature-flag map (`productInventorySettings.channelDeductionEnabled`, all default OFF). Ship-dark contract per CONTEXT D-10 — no prod behavior change.
+
+**Schema additions:**
+- 3 new tables: `channelRouting`, `channelAuditReports`, `channelAuditIssues` (4/2/4 indexes respectively).
+- `externalRevenueItems.inventoryDeductedAt` (optional idempotency key).
+- `productInventoryTransactions`: new `channel_sale` literal + `source` + `externalRef` fields + `by_source_externalRef` index.
+- `productInventoryTransactions.gofood_sale` literal **PRESERVED** (retires in 74.5.2).
+- `productInventorySettings.channelDeductionEnabled` (optional object, 8 source keys).
+- `externalSyncLogs.itemsDeducted` + `itemsSkipped` (R9).
+
+**New helpers (convex/productInventory/):**
+- `channelRouting.ts` — 5-tier `resolveChannelRoute` (exact → outlet+source → source → default → reject) + admin CRUD (R2).
+- `channelSale.ts` — `processChannelSaleInternal` + `buildEventFromRow` (reuses Phase 78 substitution + stockTracker) (R4).
+- `channelAudit.ts` — `detectAuditIssuesForItem` (pure, cheap) + `runFullAudit` (internal action, all 5 types) (R6).
+- `channelAuditMutations.ts` — resolveAuditIssue / dismissAuditIssue / triggerFullAudit + list queries.
+- `channelFlags.ts` — `getChannelDeductionFlags` + `setChannelDeductionFlag` admin mutations.
+
+**saveRevenueItems — atomic dispatch hook (R3):**
+- `saveRevenueItemsImpl` now reads `channelDeductionEnabled[source]`; dispatches `processChannelSaleInternal` for eligible items when the flag is ON.
+- Public `saveRevenueItems` return shape (`Id[]`) preserved for backward compat (`bigsellerOrders/mutations.ts:288-292`).
+- Atomicity contract: deduction throw rolls back revenue + deduction together.
+
+**Adapter refactors (R1, R9):**
+- `gobizAdapter`, `bigsellerAdapter`, `internalAdapter`, `k3martAdapter`, `grabfoodAdapter` all export `ChannelAdapter` — satisfying the unified contract.
+- `convex/integrations/_shared/channelAdapter.ts` + `channelSaleEvent.ts` — new canonical types.
+- GoFood `processGofoodSales` coexists in parallel (retires in 74.5.2).
+- BigSeller preserves `platform === "shopee" || "tiktok"` emit gate at `sync.ts:804` (Pitfall 3).
+- Internal adapter preserves Phase 80.2 existence-based guard at `adapter.ts:150-156` verbatim.
+- K3Mart transitions from parent-only to parent+child shape (RESEARCH Caveat 1). Analytics reconciled in `convex/reports/unitEconomics.ts`.
+- Grabfood ships as a stub (`normalize()` throws `Not implemented` per D74.5.1-L5 — OAuth `orders:read` scope still pending).
+- Consignment `createSettlement` signature grows optional `items` arg (preserves `collapseRevenuePeriod` helper).
+
+**Admin UIs:**
+- `/admin/channel-routing` → `ChannelRoutingManager.tsx` — CRUD routing rules + Resolution Preview panel + Seed-from-outlets button.
+- `/admin/channel-audit` → `ChannelAuditWorkbench.tsx` — 5 issue-type tabs (unmapped_sku, malformed_item, stale_mapping, duplicate_transaction, orphan_item) + resolve / dismiss flows.
+- `/admin/product-inventory-settings` → `ProductInventorySettings.tsx` — 8-key flag map. `bigseller` / `grabfood` / `internal` permanently disabled per D74.5.1-L1 / D74.5.1-L2.
+- Shared components: `SourceBadge`, `ResolutionPreviewPanel`, `ChannelFlagRow`, `AuditIssueTypeBadge`.
+- All routes `<ProtectedRoute roles={["admin"]}>`; all mutations `requireRole(ctx, token, ["admin"])`.
+
+**Migrations:**
+- `convex/migrations/channelRoutingSeed.ts` — one-shot idempotent seed from `externalOutlets.linkedStorageLocationId`. Admin-triggerable via the ChannelRoutingManager button.
+
+**Tests:**
+- Wave 0 TDD: 11 new test files scaffold all R1–R7 requirements.
+- Unit + integration tests green post-implementation.
+- E2E specs: `tests/e2e/channel-routing.spec.ts` (R7), `tests/e2e/channel-audit.spec.ts` (R6) — full CRUD + resolution round-trip.
+- Regression fixtures directory: `tests/fixtures/channel-regression/` (prod payload capture deferred to 74.5.2 per CONTEXT D-08).
+
+**Deferred to 74.5.2:**
+- Per-source backfill buttons in `/admin/unlinked-products-backfill`.
+- Staged flag-flip rollout (Shopee → TikTok → K3Mart → GoFood last).
+- `gofood_sale → channel_sale + source` transaction migration.
+- `processGofoodSales` retirement.
+- Schema cleanup (drop `gofood_sale` literal).
+- Consignment per-product breakdown UI.
+- `docs/CHANNEL_INTEGRATION.md` runbook.
+- Historical backfill actions.
+
+**Known limitations (74.5.1):**
+- `grep` confirms `processGofoodSales` + `gofood_sale` literal **STILL present** — 74.5.2 removes them.
+- `channelDeductionEnabled.internal` permanent OFF per D74.5.1-L2 (`reserveStockForOrderInternal` remains the authoritative internal stock path).
+- Grabfood adapter stub — OAuth `orders:read` scope blocker unchanged.
+
+**Files changed:** See per-plan SUMMARYs under `.planning/phases/74.5.1-channel-routing-spine/*-SUMMARY.md`.
+
+---
+
 ### Phase 80.3 — Analytics Internal-Mirror Dedup (R5 Skip) -- 2026-04-19
 
 **For the team:** The `/analytics` Unit Economics dashboard was double-counting every Direct-channel order (WhatsApp, Instagram, walk-in). Direct-channel revenue, units, and orders now match the Sales Aggregation page (K3Mart Cockpit Overview) on equivalent date ranges. **If you set revenue or unit targets from the Analytics page before this fix, those targets were inflated ~2x for the Direct channel; the corrected numbers are the real figures.**

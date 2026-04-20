@@ -2,6 +2,7 @@
   "mode": "quality",
   "parallelization": true,
   "commit_docs": true,
+  "context_window": 500000,
   "model_profile": "quality",
   "model_overrides": {
     "gsd-debugger": "opus",
@@ -29,5 +30,8 @@
       "menuProducts:seedDefaults"
     ]
   },
-  "granularity": "fine"
+  "granularity": "fine",
+  "graphify": {
+    "enabled": true
+  }
 }

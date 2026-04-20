@@ -5,6 +5,14 @@ import { requireRole } from "../lib/auth";
 import { externalSource, syncType } from "../schema";
 import { dominantSku } from "../integrations/bigseller/helpers";
 import { hasExternalRevenueItems } from "./helpers/revenueItemsHelpers";
+// Phase 74.5.1 Plan 05: atomic revenue-write + gated deduction dispatch hook.
+// Static imports (Convex Pitfall #8 — no dynamic import()).
+import {
+  processChannelSaleInternal,
+  buildEventFromRow,
+} from "../productInventory/channelSale";
+import { detectAuditIssuesForItem } from "../productInventory/channelAudit";
+import { createStockTracker } from "../productInventory/stockTracker";
 
 type ExternalSource = Infer<typeof externalSource>;
 
@@ -155,6 +163,13 @@ export const updateSyncLog = internalMutation({
     productsCount: v.optional(v.number()),
     errorMessage: v.optional(v.string()),
     durationMs: v.optional(v.number()),
+    // Phase 74.5.1 Plan 06 (R9): per-sync counters populated by adapters that
+    // now call saveRevenueItemsWithCounts. Schema fields already exist on
+    // externalSyncLogs (Plan 01). With all channelDeductionEnabled flags OFF
+    // in 74.5.1, itemsDeducted === 0 and itemsSkipped === insertedItems for
+    // every sync. Flags flip ON in 74.5.2 populates real counters.
+    itemsDeducted: v.optional(v.number()),
+    itemsSkipped: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { logId, ...updates } = args;
@@ -343,7 +358,7 @@ export const backfillRevenueOutletIds = internalMutation({
       .query("externalOutlets")
       .withIndex("by_source", (q) => q.eq("source", "k3mart"))
       .collect();
-    const nameToId: Record<string, string> = {};
+    const nameToId: Record<string, Id<"externalOutlets">> = {};
     for (const o of outlets) {
       nameToId[o.name] = o._id;
     }
@@ -367,7 +382,7 @@ export const backfillRevenueOutletIds = internalMutation({
 
       const outletDocId = nameToId[outletName];
       if (outletDocId) {
-        await ctx.db.patch(r._id, { outletId: outletDocId as any });
+        await ctx.db.patch(r._id, { outletId: outletDocId });
         patched++;
       }
     }
@@ -474,7 +489,9 @@ async function applyRetroactiveProductMappingImpl(
     )
     .collect();
 
-  const patchedItemIds = new Set<string>();
+  // Typed set of Ids (review I-7) — previously used Set<string> + `as unknown as string`
+  // casts; Convex's Id<T> is already a branded string so we can use it directly.
+  const patchedItemIds = new Set<Id<"externalRevenueItems">>();
   const targetName = args.externalProductName;
   for (const item of itemsByName) {
     await ctx.db.patch(item._id, {
@@ -483,7 +500,7 @@ async function applyRetroactiveProductMappingImpl(
       matchConfidence: "exact",
       productName: targetName,
     });
-    patchedItemIds.add(item._id as unknown as string);
+    patchedItemIds.add(item._id);
   }
 
   // 2) Shopee/TikTok extra cascade by externalItemId (SKU) and parent
@@ -511,14 +528,14 @@ async function applyRetroactiveProductMappingImpl(
     }
 
     for (const item of itemsBySku) {
-      if (patchedItemIds.has(item._id as unknown as string)) continue; // already patched by name branch
+      if (patchedItemIds.has(item._id)) continue; // already patched by name branch
       await ctx.db.patch(item._id, {
         linkedMenuProductId: args.menuProductId,
         isAutoMatched: true,
         matchConfidence: "exact",
         productName: targetName,
       });
-      patchedItemIds.add(item._id as unknown as string);
+      patchedItemIds.add(item._id);
     }
 
     // 2b) Parent dominant-SKU update (D-09). For every distinct parent
@@ -546,7 +563,7 @@ async function applyRetroactiveProductMappingImpl(
         if (!m.menuProductId) continue;
         const mp = await ctx.db.get(m.menuProductId);
         mappingBySku.set(m.externalProductCode, {
-          menuProductId: m.menuProductId as unknown as string,
+          menuProductId: m.menuProductId ,
           menuProductPrice: mp?.defaultPrice,
         });
       }
@@ -557,7 +574,7 @@ async function applyRetroactiveProductMappingImpl(
       {
         const mp = await ctx.db.get(args.menuProductId);
         mappingBySku.set(args.externalProductCode, {
-          menuProductId: args.menuProductId as unknown as string,
+          menuProductId: args.menuProductId ,
           menuProductPrice: mp?.defaultPrice,
         });
       }
@@ -787,22 +804,49 @@ type SaveRevenueItemsArgs = {
 async function saveRevenueItemsImpl(
   ctx: MutationCtx,
   args: SaveRevenueItemsArgs,
-): Promise<{ ids: Id<"externalRevenueItems">[]; inserted: number }> {
+): Promise<{ ids: Id<"externalRevenueItems">[]; inserted: number; deducted: number; skipped: number }> {
   const revenue = await ctx.db.get(args.revenueId);
   if (!revenue) {
     throw new Error(`Revenue record not found: ${args.revenueId}`);
   }
 
+  // Phase 74.5.1: read settings once for per-source flag lookup.
+  // Absent settings row / absent `channelDeductionEnabled` field / absent key
+  // all coerce to `false` (D74.5.1-L1) → zero prod behavior change while every
+  // flag defaults off. This is the "ship dark" contract per CONTEXT D-10.
+  const settings = await ctx.db.query("productInventorySettings").first();
+  const flagMap = settings?.channelDeductionEnabled;
+  const deductionEnabled = flagMap !== undefined && flagMap[revenue.source] === true;
+
   const ids: Id<"externalRevenueItems">[] = [];
+  let deducted = 0;
+  let skipped = 0;
+
+  // Pre-load all existing externalItemIds for this parent ONCE (review I-3).
+  // Previously the dedup check ran per-item with withIndex+filter — O(N²)
+  // in batches. With the set pre-loaded, dedup becomes O(1) per item.
+  const existingItemIds = new Set<string>();
+  {
+    const priorItems = await ctx.db
+      .query("externalRevenueItems")
+      .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
+      .collect();
+    for (const r of priorItems) {
+      if (r.externalItemId) existingItemIds.add(r.externalItemId);
+    }
+  }
+
+  // Share a single StockTracker across all items in this batch (review I-5).
+  // Each item previously created + flushed its own tracker — risks hitting
+  // Convex's 2s mutation limit on large syncs post-cutover. Now one tracker
+  // accumulates all ledger writes and flushes once at the end.
+  const sharedTracker = deductionEnabled ? createStockTracker(ctx) : null;
+
   for (const item of args.items) {
-    // Dedup: skip if same revenueId + externalItemId exists
-    if (item.externalItemId) {
-      const existing = await ctx.db
-        .query("externalRevenueItems")
-        .withIndex("by_revenue", (q) => q.eq("revenueId", args.revenueId))
-        .filter((q) => q.eq(q.field("externalItemId"), item.externalItemId))
-        .first();
-      if (existing) continue;
+    // Dedup: skip if same revenueId + externalItemId exists — PRESERVED
+    // verbatim from pre-74.5.1. Idempotency guarantee for adapter re-sync.
+    if (item.externalItemId && existingItemIds.has(item.externalItemId)) {
+      continue;
     }
 
     const id = await ctx.db.insert("externalRevenueItems", {
@@ -818,11 +862,103 @@ async function saveRevenueItemsImpl(
       isAutoMatched: item.isAutoMatched,
       matchConfidence: item.matchConfidence,
       createdAt: Date.now(),
+      // Phase 74.5.1: idempotency key — unset on insert, set once deduction succeeds.
+      inventoryDeductedAt: undefined,
     });
     ids.push(id);
+
+    // Phase 74.5.1: inline audit-issue detection — cheap checks ONLY
+    // (unmapped_sku, malformed_item) per D74.5.1-L4. Expensive checks
+    // (stale_mapping, duplicate_transaction, orphan_item) run in the
+    // batched runFullAudit action.
+    //
+    // SHIP-DARK: audit writes are also gated by `deductionEnabled` so the
+    // flag-OFF contract is airtight — zero new write volume to
+    // channelAuditIssues until a source is intentionally flipped on
+    // (CONTEXT D-10).
+    if (deductionEnabled) {
+      const cheapIssues = detectAuditIssuesForItem(revenue, {
+        _id: id,
+        linkedMenuProductId: item.linkedMenuProductId,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice,
+        productName: item.productName,
+      });
+      for (const issue of cheapIssues) {
+        await ctx.db.insert("channelAuditIssues", {
+          reportId: undefined, // inline detection — no batch-report parent
+          source: issue.source,
+          itemId: issue.itemId,
+          revenueId: issue.revenueId,
+          issueType: issue.issueType,
+          severity: issue.severity,
+          detail: issue.detail,
+          detectedAt: Date.now(),
+        });
+      }
+    }
+
+    // Phase 74.5.1: gated deduction dispatch. All four guards are required.
+    //   1. Flag ON for this source
+    //   2. linkedMenuProductId set (can't deduct unmapped stock)
+    //   3. quantity > 0 (zero-qty / negative rows are no-ops)
+    //   4. item row re-fetch succeeds (schema drift guard)
+    if (!deductionEnabled) {
+      skipped++;
+      continue;
+    }
+    if (!item.linkedMenuProductId) {
+      skipped++;
+      continue;
+    }
+    if (item.quantity <= 0) {
+      skipped++;
+      continue;
+    }
+
+    // Re-fetch the freshly-inserted item so buildEventFromRow sees the real
+    // Doc shape (with _id, _creationTime, inventoryDeductedAt=undefined).
+    const freshItem = await ctx.db.get(id);
+    if (!freshItem) {
+      // Impossible in normal flow — the insert above just succeeded — but
+      // guard defensively against any future schema drift.
+      skipped++;
+      continue;
+    }
+
+    const event = buildEventFromRow(revenue, freshItem);
+
+    // No try/catch here. Atomicity contract (RESEARCH §Anti-Patterns):
+    // if processChannelSaleInternal throws (e.g. CHANNEL_ROUTING_NOT_CONFIGURED,
+    // unexpected error), the ENTIRE mutation rolls back. This IS the design —
+    // caller sees exception, no partial writes land.
+    //
+    // Pass the shared tracker (review I-5) so stock running totals accumulate
+    // across the whole batch and flush once at the end, not per-item.
+    const result = await processChannelSaleInternal(ctx, event, sharedTracker ?? undefined);
+
+    if (result.deducted) {
+      // Success: stamp idempotency marker so a second sync of the same item
+      // observes `inventoryDeductedAt != null` and skips re-deduction.
+      await ctx.db.patch(id, { inventoryDeductedAt: Date.now() });
+      deducted++;
+    } else {
+      // Skipped by the deduction core (unmapped_sku / zero_quantity — already
+      // guarded above but processChannelSaleInternal guards redundantly).
+      skipped++;
+    }
   }
 
-  return { ids, inserted: ids.length };
+  // Flush the shared tracker ONCE after all items in the batch are processed.
+  // Uses the PARENT's occurredAt if available (matches historical createdAt
+  // semantics), falling back to now.
+  if (sharedTracker && deducted > 0) {
+    const parentOccurredAt =
+      revenue.transactionDate ?? revenue.periodStart ?? revenue._creationTime;
+    await sharedTracker.flush(parentOccurredAt);
+  }
+
+  return { ids, inserted: ids.length, deducted, skipped };
 }
 
 // Existing internalMutation delegates to the impl — wire contract preserved.
@@ -851,6 +987,48 @@ export const saveRevenueItems = internalMutation({
   handler: async (ctx, args) => {
     const result = await saveRevenueItemsImpl(ctx, args as SaveRevenueItemsArgs);
     return result.ids;
+  },
+});
+
+/**
+ * Phase 74.5.1 Plan 05 — additive wrapper (Option A, locked in Plan 06).
+ *
+ * Returns the FULL impl result (`ids` + `inserted` + `deducted` + `skipped`)
+ * so adapters can record precise counters on externalSyncLogs for R9 without
+ * estimating. Plan 06 Task 6.1 calls this helper exclusively — there is NO
+ * estimation path.
+ *
+ * The args validator is duplicated inline because Convex validators are not
+ * reusable across registrations. Keep this IN SYNC with `saveRevenueItems`
+ * above — the schema enum for `matchConfidence` MUST mirror
+ * `convex/schema.ts:1180-1183` exactly.
+ */
+export const saveRevenueItemsWithCounts = internalMutation({
+  args: {
+    revenueId: v.id("externalRevenue"),
+    items: v.array(v.object({
+      externalItemId: v.optional(v.string()),
+      productName: v.string(),
+      unitPrice: v.number(),
+      quantity: v.number(),
+      totalPrice: v.number(),
+      variants: v.optional(v.string()),
+      linkedMenuProductId: v.optional(v.id("menuProducts")),
+      isAutoMatched: v.boolean(),
+      matchConfidence: v.optional(v.union(
+        v.literal("exact"), v.literal("price_only"),
+        v.literal("name_only"), v.literal("none")
+      )),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const result = await saveRevenueItemsImpl(ctx, args as SaveRevenueItemsArgs);
+    return {
+      ids: result.ids,
+      inserted: result.inserted,
+      deducted: result.deducted,
+      skipped: result.skipped,
+    };
   },
 });
 

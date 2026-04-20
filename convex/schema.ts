@@ -1012,7 +1012,8 @@ export default defineSchema({
     transactionType: v.union(
       v.literal("add"),           // Kitchen adds stock
       v.literal("drawdown"),      // Order fulfilment drawdown
-      v.literal("gofood_sale"),   // GoFood sync auto-deduction
+      v.literal("gofood_sale"),   // KEEP in 74.5.1 — migrated & dropped in 74.5.2
+      v.literal("channel_sale"),  // Phase 74.5.1 — unified channel deduction literal
       v.literal("adjust"),        // Manager adjustment (spoilage, correction, transfer)
       v.literal("transfer"),      // Phase 19: Stock transfer between locations
       v.literal("stock_count"),   // Phase 67: Daily stock count correction
@@ -1021,7 +1022,10 @@ export default defineSchema({
     previousQuantity: v.number(),
     newQuantity: v.number(),
     orderId: v.optional(v.id("orders")),
-    gofoodOrderRef: v.optional(v.string()),
+    gofoodOrderRef: v.optional(v.string()),          // deprecated; kept for legacy rows
+    // Phase 74.5.1: channel-sale metadata (set when transactionType="channel_sale")
+    source: v.optional(externalSource),
+    externalRef: v.optional(v.string()),             // {externalTransactionId}{externalItemId?}
     reason: v.optional(v.string()), // For adjustments
     // Phase 19: Links source and destination transfer transactions
     transferPairLocationId: v.optional(v.id("storageLocations")),
@@ -1031,7 +1035,9 @@ export default defineSchema({
     .index("by_product_location", ["menuProductId", "locationId", "createdAt"])
     .index("by_location", ["locationId", "createdAt"])
     .index("by_order", ["orderId"])
-    .index("by_type", ["transactionType", "createdAt"]),
+    .index("by_type", ["transactionType", "createdAt"])
+    // Phase 74.5.1: duplicate-transaction audit scan key
+    .index("by_source_externalRef", ["source", "externalRef"]),
 
   // Global config (single-row pattern)
   productInventorySettings: defineTable({
@@ -1039,6 +1045,25 @@ export default defineSchema({
     defaultAddLocationId: v.optional(v.id("storageLocations")),
     autoAdvanceOnDrawdown: v.boolean(),    // Default true
     alertMode: v.union(v.literal("toast"), v.literal("toast_and_badge")),
+    // Phase 74.5.1: per-source deduction flags. All default false (missing => false at read time).
+    // Keys use source literals per `convex/lib/externalSource.ts` (gobiz, not gofood — CONTEXT D-10
+    // textual name updated to the actual source literal). `consignment` key added per D74.5.1-L3
+    // (resolves RESEARCH Open Question #3 — separate flag from k3mart).
+    // Decisions:
+    // - D74.5.1-L1: all 8 source keys enumerated (user D-10)
+    // - D74.5.1-L2: `internal` stays permanent-OFF (reserveStockForOrderInternal is authoritative)
+    // - D74.5.1-L3: `consignment` is a separate flag from `k3mart`
+    // - Pitfall 3: `bigseller` toggle is UI-disabled (aggregate-only source) but schema key exists
+    channelDeductionEnabled: v.optional(v.object({
+      bigseller: v.boolean(),
+      consignment: v.boolean(),
+      gobiz: v.boolean(),
+      grabfood: v.boolean(),
+      internal: v.boolean(),
+      k3mart: v.boolean(),
+      shopee: v.boolean(),
+      tiktok: v.boolean(),
+    })),
     updatedBy: v.string(),
     updatedAt: v.number(),
   }),
@@ -1156,6 +1181,8 @@ export default defineSchema({
       v.literal("exact"), v.literal("price_only"),
       v.literal("name_only"), v.literal("none")
     )),
+    // Phase 74.5.1: idempotency key for deduction dispatch (set-once on successful processChannelSaleInternal).
+    inventoryDeductedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_revenue", ["revenueId"])
@@ -1179,6 +1206,9 @@ export default defineSchema({
     summary: v.optional(v.string()),
     durationMs: v.optional(v.number()),
     triggeredBy: v.optional(v.string()),
+    // Phase 74.5.1: deduction counters populated by adapters at sync end (R9).
+    itemsDeducted: v.optional(v.number()),
+    itemsSkipped: v.optional(v.number()),
     timestamp: v.number(),
   })
     .index("by_source", ["source"])
@@ -2253,4 +2283,70 @@ export default defineSchema({
     lastSequence: v.number(),
   })
     .index("by_prefix_date", ["prefix", "date"]),
+
+  // ============================================
+  // PHASE 74.5.1: UNIFIED CHANNEL INTEGRATION SPINE
+  // Additive tables — no behavior change until flags flip in 74.5.2.
+  // ============================================
+
+  // Phase 74.5.1: Admin-configurable storage-location routing per (source, outlet?, product?).
+  // Used by resolveChannelRoute() 5-tier precedence (R2).
+  channelRouting: defineTable({
+    source: externalSource,                         // 8 literals
+    outletId: v.optional(v.id("externalOutlets")),  // null => any outlet
+    menuProductId: v.optional(v.id("menuProducts")),// null => any product
+    storageLocationId: v.id("storageLocations"),
+    isDefault: v.boolean(),                         // true only when outletId+menuProductId both null
+    notes: v.optional(v.string()),
+    updatedBy: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_source", ["source"])
+    .index("by_source_outlet", ["source", "outletId"])
+    .index("by_source_product", ["source", "menuProductId"])
+    .index("by_source_outlet_product", ["source", "outletId", "menuProductId"]),
+
+  // Phase 74.5.1: Batch audit-scan result metadata. One row per runFullAudit invocation (R6).
+  channelAuditReports: defineTable({
+    status: v.union(v.literal("pending"), v.literal("resolved"), v.literal("archived")),
+    totalItemsScanned: v.number(),
+    issuesFound: v.number(),
+    issuesByType: v.object({
+      unmapped_sku: v.number(),
+      stale_mapping: v.number(),
+      malformed_item: v.number(),
+      duplicate_transaction: v.number(),
+      orphan_item: v.number(),
+    }),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    triggeredBy: v.string(),
+  })
+    .index("by_status", ["status"])
+    .index("by_startedAt", ["startedAt"]),
+
+  // Phase 74.5.1: Per-item audit findings. Each row = one detected issue (R6).
+  channelAuditIssues: defineTable({
+    reportId: v.optional(v.id("channelAuditReports")),  // null for inline-detected issues
+    source: externalSource,
+    itemId: v.optional(v.id("externalRevenueItems")),   // null for orphan_item / aggregate cases
+    revenueId: v.optional(v.id("externalRevenue")),
+    issueType: v.union(
+      v.literal("unmapped_sku"),
+      v.literal("stale_mapping"),
+      v.literal("malformed_item"),
+      v.literal("duplicate_transaction"),
+      v.literal("orphan_item"),
+    ),
+    severity: v.union(v.literal("warn"), v.literal("block")),
+    detail: v.string(),                 // human-readable context
+    detectedAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+    resolvedBy: v.optional(v.string()),
+    resolution: v.optional(v.string()),  // e.g. "remapped to menuProductId abc123" | "dismissed — historical"
+  })
+    .index("by_report", ["reportId"])
+    .index("by_source_open", ["source", "resolvedAt"])
+    .index("by_type_open", ["issueType", "resolvedAt"])
+    .index("by_item", ["itemId"]),
 });

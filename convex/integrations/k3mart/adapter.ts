@@ -1,11 +1,29 @@
 "use node";
 
+/**
+ * K3Mart sync adapter.
+ *
+ * Phase 74.5.1 CHANGE (RESEARCH §Sub-Phase Boundary Validation Caveat 1):
+ * K3Mart transitions from PARENT-ONLY to PARENT+CHILD. Each externalRevenue parent
+ * now has exactly one synthetic externalRevenueItems child with:
+ *   quantity = txn.qty
+ *   totalPrice = txn.total
+ *   externalItemId = dedupKey + "-0"
+ * Analytics queries that assumed zero children for K3Mart have been audited and
+ * reconciled in Plan 08 (74.5.1-08-k3mart-analytics-reconciliation).
+ *
+ * Phase 80.2 existence-based guard (internal adapter :150-156 exemplar) applied
+ * to prevent duplicate children on re-sync.
+ */
+
 declare const process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
 import { action } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
+import type { ChannelAdapter } from "../_shared/channelAdapter";
+import type { ChannelSaleEvent } from "../_shared/channelSaleEvent";
 import {
   K3MART_CONFIG,
   K3MART_OUTLET_NAME_TO_ID,
@@ -533,6 +551,12 @@ export const syncK3MartSales = action({
       let netProfit = 0;
       let newTransactions = 0;
       let skippedDuplicates = 0;
+      // Phase 74.5.1 R9 counter: per-sync tally of synthetic externalRevenueItems
+      // children emitted from this run. Wired to externalSyncLogs.itemsDeducted
+      // once Wave 1 Plan 01 schema field lands; tracked locally for return value
+      // parity with other adapters.
+      let itemsDeducted = 0;
+      let itemsSkipped = 0;
 
       // Look up outlet name -> doc ID mapping (graceful: empty map if no outlets exist yet)
       const outletNameMap = await ctx.runQuery(
@@ -597,6 +621,74 @@ export const syncK3MartSales = action({
 
         newTransactions += batchResults.filter((r: { isNew: boolean }) => r.isNew).length;
         skippedDuplicates += batchResults.filter((r: { isNew: boolean }) => !r.isNew).length;
+
+        // Phase 74.5.1: emit per-item externalRevenueItems to feed the new spine.
+        // K3Mart was parent-only pre-74.5.1 (Phase 80.2 canary). Now each parent
+        // gets a single synthetic child. Existence-based guard (Phase 80.2 lesson —
+        // internal adapter :150-156) avoids duplicate children on re-sync.
+        // Flag OFF in prod via channelDeductionEnabled.k3mart=false → no deduction
+        // fires inside saveRevenueItems. K3Mart consignment source has its own
+        // flag (D74.5.1-L3) — different source literal.
+        for (let j = 0; j < records.length; j++) {
+          const rec = records[j];
+          const { id: revenueId, isNew } = batchResults[j];
+
+          if (!isNew) {
+            const hasChildren = await ctx.runQuery(
+              internal.externalData.queries.hasExternalRevenueItemsQuery,
+              { revenueId: revenueId as Id<"externalRevenue"> },
+            );
+            if (hasChildren) {
+              itemsSkipped += 1;
+              continue;
+            }
+          }
+
+          // Zero-qty payloads (returns zeroed out by K3Mart, etc.) would
+          // produce malformed synthetic items — skip them here. Parent row
+          // still lands via saveRevenue above.
+          if (!rec.quantitySold || rec.quantitySold <= 0) {
+            itemsSkipped += 1;
+            continue;
+          }
+
+          const linkedMenuProductId = (rec as {
+            linkedMenuProductId?: Id<"menuProducts">;
+          }).linkedMenuProductId;
+
+          // Use *WithCounts to get real deducted/skipped counters per D74.5.1-R9
+          // (matches gobiz/bigseller/internal wiring). Using legacy saveRevenueItems
+          // forced us to increment itemsDeducted locally + unconditionally, which
+          // misreported counters as >0 even when the channelDeductionEnabled flag
+          // was OFF. Now counters reflect the actual ship-dark state.
+          const itemsResult: {
+            ids: Id<"externalRevenueItems">[];
+            inserted: number;
+            deducted: number;
+            skipped: number;
+          } = await ctx.runMutation(
+            internal.externalData.mutations.saveRevenueItemsWithCounts,
+            {
+              revenueId: revenueId as Id<"externalRevenue">,
+              items: [
+                {
+                  externalItemId: `${rec.externalTransactionId}-0`,
+                  productName: rec.productName,
+                  unitPrice: (rec.revenueGross ?? 0) / rec.quantitySold,
+                  quantity: rec.quantitySold,
+                  totalPrice: rec.revenueGross ?? 0,
+                  linkedMenuProductId,
+                  isAutoMatched: linkedMenuProductId != null,
+                  matchConfidence: (linkedMenuProductId ? "exact" : "none") as
+                    | "exact"
+                    | "none",
+                },
+              ],
+            },
+          );
+          itemsDeducted += itemsResult.deducted;
+          itemsSkipped += itemsResult.skipped;
+        }
       }
 
       // Update sync log with success
@@ -616,6 +708,8 @@ export const syncK3MartSales = action({
         fromDate,
         toDate,
         totalTransactions: transactions.length,
+        itemsDeducted,
+        itemsSkipped,
         newTransactions,
         skippedDuplicates,
         totalUnits,
@@ -1086,3 +1180,49 @@ export const refreshOutlets = action({
     return { success: true, created, updated, total: data.data.length };
   },
 });
+
+// ─── Phase 74.5.1 — ChannelAdapter contract (R1) ─────────────────────────────
+//
+// Pure projection from K3Mart sync transactions to canonical ChannelSaleEvent[].
+// Side-effect-free (testable in isolation per channelAdapter.ts contract).
+// The actual write path remains in `syncK3MartSales` above, which calls saveRevenue
+// (parent) + saveRevenueItems (child). This normalize() feeds future callers that
+// need the canonical event shape (e.g. `runFullAudit`, `backfillChannelDeduction`).
+
+export interface K3martRawTransaction {
+  readonly productCode: string;
+  readonly productName: string;
+  readonly qty: number;
+  readonly total: number;
+  readonly transactionDate: number;
+  readonly dedupKey: string;
+  readonly outletId?: Id<"externalOutlets">;
+  readonly linkedMenuProductId?: Id<"menuProducts">;
+}
+
+export interface K3martRawBatch {
+  readonly transactions: ReadonlyArray<K3martRawTransaction>;
+}
+
+export function k3martNormalize(payload: K3martRawBatch): ChannelSaleEvent[] {
+  return payload.transactions
+    .filter((txn) => txn.qty > 0)
+    .map((txn) => ({
+      source: "k3mart" as const,
+      occurredAt: txn.transactionDate,
+      externalTransactionId: txn.dedupKey,
+      externalItemId: `${txn.dedupKey}-0`,
+      outletId: txn.outletId,
+      menuProductId: txn.linkedMenuProductId,
+      externalProductCode: txn.productCode,
+      externalProductName: txn.productName,
+      quantity: txn.qty,
+      unitPrice: txn.qty > 0 ? txn.total / txn.qty : 0,
+      totalPrice: txn.total,
+    }));
+}
+
+export const k3martAdapter: ChannelAdapter<K3martRawBatch> = {
+  source: "k3mart",
+  normalize: k3martNormalize,
+};
