@@ -208,6 +208,7 @@ import type * as platformCredentials_mutations from "../platformCredentials/muta
 import type * as platformCredentials_queries from "../platformCredentials/queries.js";
 import type * as productInventory_channelAudit from "../productInventory/channelAudit.js";
 import type * as productInventory_channelAuditMutations from "../productInventory/channelAuditMutations.js";
+import type * as productInventory_channelFlags from "../productInventory/channelFlags.js";
 import type * as productInventory_channelRouting from "../productInventory/channelRouting.js";
 import type * as productInventory_channelRoutingQueries from "../productInventory/channelRoutingQueries.js";
 import type * as productInventory_channelSale from "../productInventory/channelSale.js";
@@ -459,6 +460,7 @@ declare const fullApi: ApiFromModules<{
   "platformCredentials/queries": typeof platformCredentials_queries;
   "productInventory/channelAudit": typeof productInventory_channelAudit;
   "productInventory/channelAuditMutations": typeof productInventory_channelAuditMutations;
+  "productInventory/channelFlags": typeof productInventory_channelFlags;
   "productInventory/channelRouting": typeof productInventory_channelRouting;
   "productInventory/channelRoutingQueries": typeof productInventory_channelRoutingQueries;
   "productInventory/channelSale": typeof productInventory_channelSale;

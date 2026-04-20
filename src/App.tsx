@@ -154,6 +154,17 @@ const UnlinkedProductsBackfill = lazyWithPreload(() =>
   import('./pages/UnlinkedProductsBackfill').then(m => ({ default: m.UnlinkedProductsBackfill }))
 );
 
+// BEGIN 74.5.1 ROUTES — lazy imports
+// Plan 09 (ChannelRoutingManager + ProductInventorySettings) adds these.
+// Plan 10 (ChannelAuditWorkbench) will append ChannelAuditWorkbench here.
+const ChannelRoutingManager = lazyWithPreload(() =>
+  import('./pages/ChannelRoutingManager').then(m => ({ default: m.ChannelRoutingManager }))
+);
+const ProductInventorySettings = lazyWithPreload(() =>
+  import('./pages/ProductInventorySettings').then(m => ({ default: m.ProductInventorySettings }))
+);
+// END 74.5.1 ROUTES — lazy imports
+
 function App() {
   return (
     <TooltipProvider>
@@ -477,6 +488,28 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* BEGIN 74.5.1 ROUTES — Channel Routing Spine admin surfaces */}
+                  {/* Plan 09: /admin/channel-routing — routing rule CRUD + resolution preview */}
+                  <Route
+                    path="admin/channel-routing"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <ChannelRoutingManager />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Plan 09: /admin/product-inventory-settings — 8-key flag map + thresholds */}
+                  <Route
+                    path="admin/product-inventory-settings"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <ProductInventorySettings />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Plan 10 will append /admin/channel-audit here. */}
+                  {/* END 74.5.1 ROUTES */}
 
                   {/* Asset Register (manager + admin, Phase 60) */}
                   <Route
