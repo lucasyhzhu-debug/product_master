@@ -8,6 +8,7 @@
 
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { requireRole } from "../lib/auth";
 import {
   computeSettlementMath,
@@ -15,6 +16,7 @@ import {
   assertSettlementEditable,
   validateSettlementInput,
   collapseRevenuePeriod,
+  assertItemsMatchTotalRevenue,
 } from "./helpers";
 
 // ============================================
@@ -152,6 +154,22 @@ export const updateOutlet = mutation({
 /**
  * Create a new consignment settlement with linked externalRevenue record.
  * Auto-computes rev share split from outlet's revSharePercent.
+ *
+ * Phase 74.5.1 addition (D74.5.1-L3, RESEARCH Pitfall 2):
+ * Optional `items` arg carries per-product breakdown. When supplied + non-empty:
+ *   1. Items sum is asserted against totalRevenue within ±1 IDR tolerance.
+ *   2. After inserting the collapsed-period parent externalRevenue row, items
+ *      flow through saveRevenueItems. Inventory deduction fires ONLY IF
+ *      channelDeductionEnabled.consignment === true (flag OFF in 74.5.1 default).
+ * When omitted (74.5.1 frontend default), behavior is unchanged from pre-74.5:
+ * parent row only; no item children; no deduction.
+ *
+ * D74.5.1-L3: consignment uses a SEPARATE flag key from k3mart in
+ * productInventorySettings.channelDeductionEnabled. Different source literal
+ * ("consignment" vs "k3mart") → independent flags.
+ *
+ * collapseRevenuePeriod(args.periodEnd) is the MANDATORY way period fields
+ * are set — never inline (MEMORY: lessons_consignment_recognition).
  */
 export const createSettlement = mutation({
   args: {
@@ -161,6 +179,20 @@ export const createSettlement = mutation({
     periodEnd: v.number(),
     totalRevenue: v.number(),
     notes: v.optional(v.string()),
+    // Phase 74.5.1 addition (D74.5.1-L3, RESEARCH Pitfall 2).
+    items: v.optional(v.array(v.object({
+      externalItemId: v.optional(v.string()),
+      productName: v.string(),
+      unitPrice: v.number(),
+      quantity: v.number(),
+      totalPrice: v.number(),
+      linkedMenuProductId: v.optional(v.id("menuProducts")),
+      isAutoMatched: v.optional(v.boolean()),
+      matchConfidence: v.optional(v.union(
+        v.literal("exact"), v.literal("price_only"),
+        v.literal("name_only"), v.literal("none")
+      )),
+    }))),
   },
   handler: async (ctx, args) => {
     const user = await requireRole(ctx, args.token, ["admin", "manager"]);
@@ -178,6 +210,12 @@ export const createSettlement = mutation({
       periodStart: args.periodStart,
       periodEnd: args.periodEnd,
     });
+
+    // Phase 74.5.1: per-product variance check (RESEARCH Pitfall 2).
+    // No-op when items is omitted or empty (74.5.1 frontend default).
+    if (args.items) {
+      assertItemsMatchTotalRevenue(args.totalRevenue, args.items);
+    }
 
     // Compute settlement math
     const { revShareAmount, frolliePayment } = computeSettlementMath(
@@ -200,6 +238,26 @@ export const createSettlement = mutation({
       confidence: "manual" as const,
       transactionType: "sales" as const,
     });
+
+    // Phase 74.5.1: emit per-item rows if supplied. saveRevenueItems is the
+    // deduction dispatch entry — flag-gated inside (Wave 1 Plan 05 hook).
+    // When flag OFF (74.5.1 default for consignment), items land but no
+    // productInventoryTransactions rows are written.
+    if (args.items && args.items.length > 0) {
+      await ctx.runMutation(internal.externalData.mutations.saveRevenueItems, {
+        revenueId,
+        items: args.items.map((it) => ({
+          externalItemId: it.externalItemId,
+          productName: it.productName,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+          totalPrice: it.totalPrice,
+          linkedMenuProductId: it.linkedMenuProductId,
+          isAutoMatched: it.isAutoMatched ?? (it.linkedMenuProductId != null),
+          matchConfidence: it.matchConfidence,
+        })),
+      });
+    }
 
     // Create settlement record
     const settlementId = await ctx.db.insert("consignmentSettlements", {
