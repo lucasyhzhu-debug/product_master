@@ -161,6 +161,7 @@ import type * as migrations_bomBackfill from "../migrations/bomBackfill.js";
 import type * as migrations_bomRefactorV2 from "../migrations/bomRefactorV2.js";
 import type * as migrations_bomVerification from "../migrations/bomVerification.js";
 import type * as migrations_categorySimplification from "../migrations/categorySimplification.js";
+import type * as migrations_channelRoutingSeed from "../migrations/channelRoutingSeed.js";
 import type * as migrations_consignmentRecognitionDate from "../migrations/consignmentRecognitionDate.js";
 import type * as migrations_fixConfirmedOrders from "../migrations/fixConfirmedOrders.js";
 import type * as migrations_fixDispatchPlanOutlets from "../migrations/fixDispatchPlanOutlets.js";
@@ -411,6 +412,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/bomRefactorV2": typeof migrations_bomRefactorV2;
   "migrations/bomVerification": typeof migrations_bomVerification;
   "migrations/categorySimplification": typeof migrations_categorySimplification;
+  "migrations/channelRoutingSeed": typeof migrations_channelRoutingSeed;
   "migrations/consignmentRecognitionDate": typeof migrations_consignmentRecognitionDate;
   "migrations/fixConfirmedOrders": typeof migrations_fixConfirmedOrders;
   "migrations/fixDispatchPlanOutlets": typeof migrations_fixDispatchPlanOutlets;
