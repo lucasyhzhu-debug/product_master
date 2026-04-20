@@ -389,11 +389,11 @@ Plans:
 **Plans**: 12 plans across 5 waves (Wave 0 TDD scaffolding, Waves 1-3 implementation, Wave 4 verification)
 
 Plans:
-- [ ] 74.5.1-00-wave0-tests-PLAN.md — TDD test scaffolding + regression fixtures
-- [ ] 74.5.1-01-schema-PLAN.md — 3 new tables + 2 modified + 8-key flag map
-- [ ] 74.5.1-02-types-adapter-interface-PLAN.md — ChannelSaleEvent + ChannelAdapter types
-- [ ] 74.5.1-03-resolve-channel-route-PLAN.md — 5-tier routing + CRUD mutations + preview queries
-- [ ] 74.5.1-04-channel-sale-core-PLAN.md — processChannelSaleInternal + audit helpers
+- [x] 74.5.1-00-wave0-tests-PLAN.md — TDD test scaffolding + regression fixtures
+- [x] 74.5.1-01-schema-PLAN.md — 3 new tables + 2 modified + 8-key flag map
+- [x] 74.5.1-02-types-adapter-interface-PLAN.md — ChannelSaleEvent + ChannelAdapter types
+- [x] 74.5.1-03-resolve-channel-route-PLAN.md — 5-tier routing + CRUD mutations + preview queries
+- [x] 74.5.1-04-channel-sale-core-PLAN.md — processChannelSaleInternal + audit helpers
 - [ ] 74.5.1-05-save-revenue-items-hook-PLAN.md — atomic revenue + gated dispatch hook
 - [ ] 74.5.1-06-adapters-existing-saveitems-PLAN.md — gobiz/bigseller/internal normalize() + R9 counters
 - [ ] 74.5.1-07-adapters-k3mart-consignment-grabfood-PLAN.md — k3mart emit + consignment items + grabfood stub
@@ -445,7 +445,7 @@ Plans:
   1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income in canonical EBITDA-first layout (Revenue -> Net Revenue -> COGS -> Contribution Margin -> OpEx-excl-D/A -> EBITDA -> D/A -> EBIT -> Other -> Net Income -> CapEx -> FCF)
   2. Per-channel breakdown flows through Contribution Margin (renamed from Gross Margin); no per-channel OpEx/D/A/CapEx/FCF allocation (D-11)
   3. FCF calculation is correct: Net Income + D/A - CapEx; CapEx sourced from fixedAssets.cost where acquisitionDate in period
-**Plans:** 5 plans
+**Plans:** 5/12 plans executed
 Plans:
 - [ ] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
 - [ ] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
@@ -652,7 +652,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
-| 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 0/TBD | Research complete — ready for `/gsd-plan-phase` | - |
+| 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 5/12 | In Progress|  |
 | 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 0/TBD | Blocked on 74.5.1 verified + merged | - |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
