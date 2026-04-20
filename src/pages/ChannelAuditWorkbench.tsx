@@ -183,6 +183,12 @@ export function ChannelAuditWorkbench() {
   const [dismissReason, setDismissReason] = useState("");
   const [dismissing, setDismissing] = useState(false);
 
+  // Bulk dismiss uses the same AlertDialog/Textarea pattern as single
+  // dismiss (per UI-SPEC §Destructive Confirmations). window.prompt breaks on
+  // mobile and is not test-automatable.
+  const [bulkDismissOpen, setBulkDismissOpen] = useState(false);
+  const [bulkDismissReason, setBulkDismissReason] = useState("");
+
   const [triggering, setTriggering] = useState(false);
 
   const isLoadingAll = allAudit.issues === undefined;
@@ -337,19 +343,28 @@ export function ChannelAuditWorkbench() {
     else toast.error(`${ok} resolved, ${fail} failed`);
   };
 
-  const handleBulkDismiss = async () => {
+  const handleBulkDismiss = () => {
     if (!token || selected.size === 0) return;
-    const reason = window.prompt(
-      "Reason for bulk dismissal (required):",
-      "Reviewed — historical / not actionable.",
-    );
-    if (!reason || !reason.trim()) return;
+    setBulkDismissReason("");
+    setBulkDismissOpen(true);
+  };
+
+  const handleBulkDismissConfirm = async () => {
+    if (!token || selected.size === 0) return;
+    if (!bulkDismissReason.trim()) {
+      toast.error("Reason is required.");
+      return;
+    }
     setDismissing(true);
     let ok = 0;
     let fail = 0;
     for (const id of selected) {
       try {
-        await tabAudit.dismissIssue({ token, issueId: id, reason: reason.trim() });
+        await tabAudit.dismissIssue({
+          token,
+          issueId: id,
+          reason: bulkDismissReason.trim(),
+        });
         ok++;
       } catch {
         fail++;
@@ -357,6 +372,8 @@ export function ChannelAuditWorkbench() {
     }
     setDismissing(false);
     setSelected(new Set());
+    setBulkDismissOpen(false);
+    setBulkDismissReason("");
     if (fail === 0) toast.success(`${ok} issues dismissed`);
     else toast.error(`${ok} dismissed, ${fail} failed`);
   };
@@ -608,6 +625,51 @@ export function ChannelAuditWorkbench() {
             >
               {dismissing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Dismiss issue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Dismiss AlertDialog — same pattern as single dismiss (previously
+          used window.prompt which breaks on mobile + test automation). */}
+      <AlertDialog
+        open={bulkDismissOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBulkDismissOpen(false);
+            setBulkDismissReason("");
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Dismiss {selected.size} selected issue{selected.size === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Bulk dismissal marks all selected items as reviewed. They will not
+              re-appear in future audits. Add a reason below — the same reason
+              applies to every selected issue.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="bulk-dismiss-reason">Reason (required)</Label>
+            <Textarea
+              id="bulk-dismiss-reason"
+              rows={3}
+              value={bulkDismissReason}
+              onChange={(e) => setBulkDismissReason(e.target.value)}
+              placeholder="Why are these issues being dismissed?"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={dismissing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDismissConfirm}
+              disabled={dismissing || !bulkDismissReason.trim()}
+            >
+              {dismissing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Dismiss {selected.size} issue{selected.size === 1 ? "" : "s"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

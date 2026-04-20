@@ -813,7 +813,7 @@ async function saveRevenueItemsImpl(
   // flag defaults off. This is the "ship dark" contract per CONTEXT D-10.
   const settings = await ctx.db.query("productInventorySettings").first();
   const flagMap = settings?.channelDeductionEnabled;
-  const dedupEnabled = flagMap !== undefined && flagMap[revenue.source] === true;
+  const deductionEnabled = flagMap !== undefined && flagMap[revenue.source] === true;
 
   const ids: Id<"externalRevenueItems">[] = [];
   let deducted = 0;
@@ -853,24 +853,31 @@ async function saveRevenueItemsImpl(
     // (unmapped_sku, malformed_item) per D74.5.1-L4. Expensive checks
     // (stale_mapping, duplicate_transaction, orphan_item) run in the
     // batched runFullAudit action.
-    const cheapIssues = detectAuditIssuesForItem(revenue, {
-      _id: id,
-      linkedMenuProductId: item.linkedMenuProductId,
-      quantity: item.quantity,
-      totalPrice: item.totalPrice,
-      productName: item.productName,
-    });
-    for (const issue of cheapIssues) {
-      await ctx.db.insert("channelAuditIssues", {
-        reportId: undefined, // inline detection — no batch-report parent
-        source: issue.source,
-        itemId: issue.itemId,
-        revenueId: issue.revenueId,
-        issueType: issue.issueType,
-        severity: issue.severity,
-        detail: issue.detail,
-        detectedAt: Date.now(),
+    //
+    // SHIP-DARK: audit writes are also gated by `deductionEnabled` so the
+    // flag-OFF contract is airtight — zero new write volume to
+    // channelAuditIssues until a source is intentionally flipped on
+    // (CONTEXT D-10).
+    if (deductionEnabled) {
+      const cheapIssues = detectAuditIssuesForItem(revenue, {
+        _id: id,
+        linkedMenuProductId: item.linkedMenuProductId,
+        quantity: item.quantity,
+        totalPrice: item.totalPrice,
+        productName: item.productName,
       });
+      for (const issue of cheapIssues) {
+        await ctx.db.insert("channelAuditIssues", {
+          reportId: undefined, // inline detection — no batch-report parent
+          source: issue.source,
+          itemId: issue.itemId,
+          revenueId: issue.revenueId,
+          issueType: issue.issueType,
+          severity: issue.severity,
+          detail: issue.detail,
+          detectedAt: Date.now(),
+        });
+      }
     }
 
     // Phase 74.5.1: gated deduction dispatch. All four guards are required.
@@ -878,7 +885,7 @@ async function saveRevenueItemsImpl(
     //   2. linkedMenuProductId set (can't deduct unmapped stock)
     //   3. quantity > 0 (zero-qty / negative rows are no-ops)
     //   4. item row re-fetch succeeds (schema drift guard)
-    if (!dedupEnabled) {
+    if (!deductionEnabled) {
       skipped++;
       continue;
     }

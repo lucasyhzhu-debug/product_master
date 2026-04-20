@@ -504,7 +504,8 @@ async function fetchAndSaveOrderDetails(
   };
   const uniqueProductNames = new Set<string>();
 
-  for (const { revenueId, orderNumber } of newRecords) {
+  for (let recordIndex = 0; recordIndex < newRecords.length; recordIndex++) {
+    const { revenueId, orderNumber } = newRecords[recordIndex];
     try {
       const body = buildOrderSearchBody(orderNumber);
       const { data: orderData } = await fetchWithAuth(
@@ -564,8 +565,11 @@ async function fetchAndSaveOrderDetails(
         itemsSaved += enrichedItems.length;
       }
 
-      // Rate limit: 200ms between order API calls
-      if (newRecords.indexOf({ revenueId, orderNumber }) < newRecords.length - 1) {
+      // Rate limit: 200ms between order API calls (skip after last record).
+      // Previously used `newRecords.indexOf({revenueId, orderNumber})` which
+      // always returned -1 (reference equality on a fresh object literal),
+      // causing the sleep to fire every iteration. Fixed to use the loop index.
+      if (recordIndex < newRecords.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
     } catch (err) {

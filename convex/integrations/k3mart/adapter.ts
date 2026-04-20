@@ -656,8 +656,18 @@ export const syncK3MartSales = action({
             linkedMenuProductId?: Id<"menuProducts">;
           }).linkedMenuProductId;
 
-          await ctx.runMutation(
-            internal.externalData.mutations.saveRevenueItems,
+          // Use *WithCounts to get real deducted/skipped counters per D74.5.1-R9
+          // (matches gobiz/bigseller/internal wiring). Using legacy saveRevenueItems
+          // forced us to increment itemsDeducted locally + unconditionally, which
+          // misreported counters as >0 even when the channelDeductionEnabled flag
+          // was OFF. Now counters reflect the actual ship-dark state.
+          const itemsResult: {
+            ids: Id<"externalRevenueItems">[];
+            inserted: number;
+            deducted: number;
+            skipped: number;
+          } = await ctx.runMutation(
+            internal.externalData.mutations.saveRevenueItemsWithCounts,
             {
               revenueId: revenueId as Id<"externalRevenue">,
               items: [
@@ -676,7 +686,8 @@ export const syncK3MartSales = action({
               ],
             },
           );
-          itemsDeducted += 1;
+          itemsDeducted += itemsResult.deducted;
+          itemsSkipped += itemsResult.skipped;
         }
       }
 

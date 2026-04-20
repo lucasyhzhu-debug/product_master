@@ -239,24 +239,29 @@ export const createSettlement = mutation({
       transactionType: "sales" as const,
     });
 
-    // Phase 74.5.1: emit per-item rows if supplied. saveRevenueItems is the
-    // deduction dispatch entry — flag-gated inside (Wave 1 Plan 05 hook).
+    // Phase 74.5.1: emit per-item rows if supplied. saveRevenueItemsWithCounts
+    // is the deduction dispatch entry — flag-gated inside (Wave 1 Plan 05 hook).
     // When flag OFF (74.5.1 default for consignment), items land but no
-    // productInventoryTransactions rows are written.
+    // productInventoryTransactions rows are written. Using *WithCounts so any
+    // future caller can observe R9 counters; internal callers that only need
+    // ids can still ignore the returned shape.
     if (args.items && args.items.length > 0) {
-      await ctx.runMutation(internal.externalData.mutations.saveRevenueItems, {
-        revenueId,
-        items: args.items.map((it) => ({
-          externalItemId: it.externalItemId,
-          productName: it.productName,
-          unitPrice: it.unitPrice,
-          quantity: it.quantity,
-          totalPrice: it.totalPrice,
-          linkedMenuProductId: it.linkedMenuProductId,
-          isAutoMatched: it.isAutoMatched ?? (it.linkedMenuProductId != null),
-          matchConfidence: it.matchConfidence,
-        })),
-      });
+      await ctx.runMutation(
+        internal.externalData.mutations.saveRevenueItemsWithCounts,
+        {
+          revenueId,
+          items: args.items.map((it) => ({
+            externalItemId: it.externalItemId,
+            productName: it.productName,
+            unitPrice: it.unitPrice,
+            quantity: it.quantity,
+            totalPrice: it.totalPrice,
+            linkedMenuProductId: it.linkedMenuProductId,
+            isAutoMatched: it.isAutoMatched ?? (it.linkedMenuProductId != null),
+            matchConfidence: it.matchConfidence,
+          })),
+        },
+      );
     }
 
     // Create settlement record

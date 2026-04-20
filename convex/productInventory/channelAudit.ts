@@ -197,7 +197,11 @@ export const runFullAudit = internalAction({
             internal.productInventory.channelAudit.findDuplicateTxQuery,
             { source: revenue.source, externalRef },
           );
-          if (dupes.count > 1) {
+          // `hasDuplicate` = same (source, externalRef, menuProductId) seen
+          // more than once. Phase 78 substitution legitimately writes two
+          // rows with the same externalRef but DIFFERENT menuProductIds —
+          // those are not duplicates (see findDuplicateTxQuery).
+          if (dupes.hasDuplicate) {
             issuesByType.duplicate_transaction++;
             totalIssues++;
             await ctx.runMutation(
@@ -211,7 +215,7 @@ export const runFullAudit = internalAction({
                     itemId: item._id,
                     issueType: "duplicate_transaction",
                     severity: "block",
-                    detail: `${dupes.count} productInventoryTransactions rows for source=${revenue.source} externalRef=${externalRef}`,
+                    detail: `${dupes.count} productInventoryTransactions rows (same menuProductId collision) for source=${revenue.source} externalRef=${externalRef}`,
                   },
                 ],
               },
@@ -289,7 +293,15 @@ export const findDuplicateTxQuery = internalQuery({
         q.eq("source", args.source).eq("externalRef", args.externalRef),
       )
       .collect();
-    return { count: rows.length };
+    // Legit Phase 78 substitution writes TWO ledger rows with the same
+    // externalRef — one for the main product, one for the substitute source
+    // product — distinguished by menuProductId. True duplicate_transaction =
+    // same (source, externalRef, menuProductId) seen more than once.
+    // Without this distinction, every substitution sale false-positives as
+    // a duplicate and blocks backfills in 74.5.2.
+    const uniqueProducts = new Set(rows.map((r) => r.menuProductId));
+    const hasDuplicate = rows.length > uniqueProducts.size;
+    return { count: rows.length, hasDuplicate };
   },
 });
 

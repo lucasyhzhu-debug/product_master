@@ -147,6 +147,8 @@ export const dismissAuditIssue = mutation({
     const user = await requireRole(ctx, args.token, ["admin"]);
     const issue = await ctx.db.get(args.issueId);
     if (!issue) throw new Error("Audit issue not found");
+    // Mirror resolveAuditIssue: prevent audit-trail overwrite on double-dismiss.
+    if (issue.resolvedAt) throw new Error("Audit issue already resolved");
     await ctx.db.patch(args.issueId, {
       resolvedAt: Date.now(),
       resolvedBy: user.name,
@@ -199,23 +201,45 @@ export const listAuditIssues = query({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
 
+    // Use compound index range bounds — `by_type_open` / `by_source_open` both
+    // index (primary, resolvedAt). When includeResolved is false we MUST bind
+    // resolvedAt inside `.withIndex()` (both bounds inside the index callback)
+    // per CLAUDE.md pitfall: "both bounds MUST be inside .withIndex() —
+    // .filter() is post-scan." On large tables, post-scan filter becomes
+    // O(all-issues-per-type) on every tab change.
     let rows;
     if (args.issueType) {
-      rows = await ctx.db
-        .query("channelAuditIssues")
-        .withIndex("by_type_open", (q) => q.eq("issueType", args.issueType!))
-        .collect();
+      rows = args.includeResolved
+        ? await ctx.db
+            .query("channelAuditIssues")
+            .withIndex("by_type_open", (q) => q.eq("issueType", args.issueType!))
+            .collect()
+        : await ctx.db
+            .query("channelAuditIssues")
+            .withIndex("by_type_open", (q) =>
+              q.eq("issueType", args.issueType!).eq("resolvedAt", undefined),
+            )
+            .collect();
     } else if (args.source) {
-      rows = await ctx.db
-        .query("channelAuditIssues")
-        .withIndex("by_source_open", (q) => q.eq("source", args.source!))
-        .collect();
+      rows = args.includeResolved
+        ? await ctx.db
+            .query("channelAuditIssues")
+            .withIndex("by_source_open", (q) => q.eq("source", args.source!))
+            .collect()
+        : await ctx.db
+            .query("channelAuditIssues")
+            .withIndex("by_source_open", (q) =>
+              q.eq("source", args.source!).eq("resolvedAt", undefined),
+            )
+            .collect();
     } else {
+      // No index filter available for the "all types + all sources" case —
+      // fall back to limited scan + post-filter. Admin-only low-traffic
+      // endpoint; acceptable.
       rows = await ctx.db.query("channelAuditIssues").order("desc").take(200);
-    }
-
-    if (!args.includeResolved) {
-      rows = rows.filter((r) => r.resolvedAt === undefined);
+      if (!args.includeResolved) {
+        rows = rows.filter((r) => r.resolvedAt === undefined);
+      }
     }
     return rows;
   },
