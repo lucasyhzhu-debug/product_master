@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: executing
-stopped_at: Phase 74.5 context gathered
-last_updated: "2026-04-20T09:49:41.224Z"
+stopped_at: Phase 74.5.1 shipped to main
+last_updated: "2026-04-20T17:00:00.000Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 21
-  completed_phases: 13
-  total_plans: 60
-  completed_plans: 55
-  percent: 92
+  completed_phases: 14
+  total_plans: 72
+  completed_plans: 67
+  percent: 93
 ---
 
 # Project State
@@ -20,13 +20,13 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-08)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 74.5.1 — channel-routing-spine
+**Current focus:** Phase 74.5.2 — cutover + backfill + retire legacy (next)
 
 ## Current Position
 
-Phase: 75
+Phase: 74.5.2
 Plan: Not started
-Status: Executing Phase 74.5.1
+Status: 74.5.1 shipped (merge 931a356c) — ready for 74.5.2
 Last activity: 2026-04-20
 
 Progress: [█████████▌] 85%
