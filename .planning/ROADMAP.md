@@ -192,7 +192,8 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron (completed 2026-04-14)
 - [x] **Phase 80: Unit Economics Analytics Dashboard** - New /analytics page with 13 widgets across 6 lenses answering unit-economics questions (completed 2026-04-15)
 - [x] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route (completed 2026-04-18)
-- [x] **Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)** - Eliminate the `(Unlinked)` bucket in SKU Pareto / SKU Channel Matrix reports caused by two independent bugs: K3Mart mapping cascade not covering `source="k3mart"` (737/737 parents affected) and syncInternalOrders skipping child-item creation on historical re-syncs (219/262 Direct parents affected) (completed 2026-04-18)
+- [x] **Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)** - Eliminate the `(Unlinked)` bucket in SKU Pareto / SKU Channel Matrix reports caused by two independent bugs: K3Mart mapping cascade not covering `source="k3mart"` (737/737 parents affected) and syncInternalOrders skipping child-item creation on historical re-syncs (219/262 Direct parents affected)
+ (completed 2026-04-18)
 - [x] **Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)** - Fixed `/analytics` double-counting of every Direct/WhatsApp/Instagram order via one-line R5 skip in `loadExternalStream` + 14 regression tests across all 11 reducers consuming `loadFilteredData` (completed 2026-04-19, merged via PR #149).
 
 ## Phase Details
@@ -385,12 +386,23 @@ Plans:
 6. `npm run build` + test suite green; `/analytics`, `/financials`, `/sku-pareto`, `/sku-channel-matrix` show no regressions (K3Mart shape change is the only semantic change — analytics reconciliation covers it)
 7. Deduct behavior for every channel is identical to pre-74.5.1 (grep/diff verifiable)
 
-**Plans**: TBD (`/gsd-plan-phase 74.5.1 --skip-research` reuses parent RESEARCH.md)
+**Plans**: 12 plans across 5 waves (Wave 0 TDD scaffolding, Waves 1-3 implementation, Wave 4 verification)
 
 Plans:
-- [ ] TBD — decomposed during `/gsd-plan-phase 74.5.1`
+- [ ] 74.5.1-00-wave0-tests-PLAN.md — TDD test scaffolding + regression fixtures
+- [ ] 74.5.1-01-schema-PLAN.md — 3 new tables + 2 modified + 8-key flag map
+- [ ] 74.5.1-02-types-adapter-interface-PLAN.md — ChannelSaleEvent + ChannelAdapter types
+- [ ] 74.5.1-03-resolve-channel-route-PLAN.md — 5-tier routing + CRUD mutations + preview queries
+- [ ] 74.5.1-04-channel-sale-core-PLAN.md — processChannelSaleInternal + audit helpers
+- [ ] 74.5.1-05-save-revenue-items-hook-PLAN.md — atomic revenue + gated dispatch hook
+- [ ] 74.5.1-06-adapters-existing-saveitems-PLAN.md — gobiz/bigseller/internal normalize() + R9 counters
+- [ ] 74.5.1-07-adapters-k3mart-consignment-grabfood-PLAN.md — k3mart emit + consignment items + grabfood stub
+- [ ] 74.5.1-08-k3mart-analytics-reconciliation-PLAN.md — unitEconomics audit + seed migration
+- [ ] 74.5.1-09-channel-routing-manager-ui-PLAN.md — ChannelRoutingManager + ProductInventorySettings pages
+- [ ] 74.5.1-10-channel-audit-workbench-ui-PLAN.md — ChannelAuditWorkbench page + audit badge
+- [ ] 74.5.1-11-verification-and-changelog-PLAN.md — full test battery + CHANGELOG + merge gate
 
-**UI hint**: yes — `ChannelRoutingManager` + `ChannelAuditWorkbench`
+**UI hint**: yes — `ChannelRoutingManager`, `ChannelAuditWorkbench`, `ProductInventorySettings`
 
 ### Phase 74.5.2: Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19, split from 74.5)
 **Goal**: Flip every channel's `channelDeductionEnabled` flag in a staged cutover, backfill historical deductions with timestamp-preserving idempotency, migrate `gofood_sale` → `channel_sale` transaction literal, and retire the 4 legacy deduct paths (`processGofoodSales`, order-fulfillment direct GoJek, K3Mart custom, per-source transaction types).
