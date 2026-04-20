@@ -5,6 +5,13 @@ import { requireRole } from "../lib/auth";
 import { externalSource, syncType } from "../schema";
 import { dominantSku } from "../integrations/bigseller/helpers";
 import { hasExternalRevenueItems } from "./helpers/revenueItemsHelpers";
+// Phase 74.5.1 Plan 05: atomic revenue-write + gated deduction dispatch hook.
+// Static imports (Convex Pitfall #8 — no dynamic import()).
+import {
+  processChannelSaleInternal,
+  buildEventFromRow,
+} from "../productInventory/channelSale";
+import { detectAuditIssuesForItem } from "../productInventory/channelAudit";
 
 type ExternalSource = Infer<typeof externalSource>;
 
@@ -787,15 +794,27 @@ type SaveRevenueItemsArgs = {
 async function saveRevenueItemsImpl(
   ctx: MutationCtx,
   args: SaveRevenueItemsArgs,
-): Promise<{ ids: Id<"externalRevenueItems">[]; inserted: number }> {
+): Promise<{ ids: Id<"externalRevenueItems">[]; inserted: number; deducted: number; skipped: number }> {
   const revenue = await ctx.db.get(args.revenueId);
   if (!revenue) {
     throw new Error(`Revenue record not found: ${args.revenueId}`);
   }
 
+  // Phase 74.5.1: read settings once for per-source flag lookup.
+  // Absent settings row / absent `channelDeductionEnabled` field / absent key
+  // all coerce to `false` (D74.5.1-L1) → zero prod behavior change while every
+  // flag defaults off. This is the "ship dark" contract per CONTEXT D-10.
+  const settings = await ctx.db.query("productInventorySettings").first();
+  const flagMap = settings?.channelDeductionEnabled;
+  const dedupEnabled = flagMap !== undefined && flagMap[revenue.source] === true;
+
   const ids: Id<"externalRevenueItems">[] = [];
+  let deducted = 0;
+  let skipped = 0;
+
   for (const item of args.items) {
-    // Dedup: skip if same revenueId + externalItemId exists
+    // Dedup: skip if same revenueId + externalItemId exists — PRESERVED
+    // verbatim from pre-74.5.1. Idempotency guarantee for adapter re-sync.
     if (item.externalItemId) {
       const existing = await ctx.db
         .query("externalRevenueItems")
@@ -818,11 +837,84 @@ async function saveRevenueItemsImpl(
       isAutoMatched: item.isAutoMatched,
       matchConfidence: item.matchConfidence,
       createdAt: Date.now(),
+      // Phase 74.5.1: idempotency key — unset on insert, set once deduction succeeds.
+      inventoryDeductedAt: undefined,
     });
     ids.push(id);
+
+    // Phase 74.5.1: inline audit-issue detection — cheap checks ONLY
+    // (unmapped_sku, malformed_item) per D74.5.1-L4. Expensive checks
+    // (stale_mapping, duplicate_transaction, orphan_item) run in the
+    // batched runFullAudit action.
+    const cheapIssues = detectAuditIssuesForItem(revenue, {
+      _id: id,
+      linkedMenuProductId: item.linkedMenuProductId,
+      quantity: item.quantity,
+      totalPrice: item.totalPrice,
+      productName: item.productName,
+    });
+    for (const issue of cheapIssues) {
+      await ctx.db.insert("channelAuditIssues", {
+        reportId: undefined, // inline detection — no batch-report parent
+        source: issue.source,
+        itemId: issue.itemId,
+        revenueId: issue.revenueId,
+        issueType: issue.issueType,
+        severity: issue.severity,
+        detail: issue.detail,
+        detectedAt: Date.now(),
+      });
+    }
+
+    // Phase 74.5.1: gated deduction dispatch. All four guards are required.
+    //   1. Flag ON for this source
+    //   2. linkedMenuProductId set (can't deduct unmapped stock)
+    //   3. quantity > 0 (zero-qty / negative rows are no-ops)
+    //   4. item row re-fetch succeeds (schema drift guard)
+    if (!dedupEnabled) {
+      skipped++;
+      continue;
+    }
+    if (!item.linkedMenuProductId) {
+      skipped++;
+      continue;
+    }
+    if (item.quantity <= 0) {
+      skipped++;
+      continue;
+    }
+
+    // Re-fetch the freshly-inserted item so buildEventFromRow sees the real
+    // Doc shape (with _id, _creationTime, inventoryDeductedAt=undefined).
+    const freshItem = await ctx.db.get(id);
+    if (!freshItem) {
+      // Impossible in normal flow — the insert above just succeeded — but
+      // guard defensively against any future schema drift.
+      skipped++;
+      continue;
+    }
+
+    const event = buildEventFromRow(revenue, freshItem);
+
+    // No try/catch here. Atomicity contract (RESEARCH §Anti-Patterns):
+    // if processChannelSaleInternal throws (e.g. CHANNEL_ROUTING_NOT_CONFIGURED,
+    // unexpected error), the ENTIRE mutation rolls back. This IS the design —
+    // caller sees exception, no partial writes land.
+    const result = await processChannelSaleInternal(ctx, event);
+
+    if (result.deducted) {
+      // Success: stamp idempotency marker so a second sync of the same item
+      // observes `inventoryDeductedAt != null` and skips re-deduction.
+      await ctx.db.patch(id, { inventoryDeductedAt: Date.now() });
+      deducted++;
+    } else {
+      // Skipped by the deduction core (unmapped_sku / zero_quantity — already
+      // guarded above but processChannelSaleInternal guards redundantly).
+      skipped++;
+    }
   }
 
-  return { ids, inserted: ids.length };
+  return { ids, inserted: ids.length, deducted, skipped };
 }
 
 // Existing internalMutation delegates to the impl — wire contract preserved.
@@ -851,6 +943,48 @@ export const saveRevenueItems = internalMutation({
   handler: async (ctx, args) => {
     const result = await saveRevenueItemsImpl(ctx, args as SaveRevenueItemsArgs);
     return result.ids;
+  },
+});
+
+/**
+ * Phase 74.5.1 Plan 05 — additive wrapper (Option A, locked in Plan 06).
+ *
+ * Returns the FULL impl result (`ids` + `inserted` + `deducted` + `skipped`)
+ * so adapters can record precise counters on externalSyncLogs for R9 without
+ * estimating. Plan 06 Task 6.1 calls this helper exclusively — there is NO
+ * estimation path.
+ *
+ * The args validator is duplicated inline because Convex validators are not
+ * reusable across registrations. Keep this IN SYNC with `saveRevenueItems`
+ * above — the schema enum for `matchConfidence` MUST mirror
+ * `convex/schema.ts:1180-1183` exactly.
+ */
+export const saveRevenueItemsWithCounts = internalMutation({
+  args: {
+    revenueId: v.id("externalRevenue"),
+    items: v.array(v.object({
+      externalItemId: v.optional(v.string()),
+      productName: v.string(),
+      unitPrice: v.number(),
+      quantity: v.number(),
+      totalPrice: v.number(),
+      variants: v.optional(v.string()),
+      linkedMenuProductId: v.optional(v.id("menuProducts")),
+      isAutoMatched: v.boolean(),
+      matchConfidence: v.optional(v.union(
+        v.literal("exact"), v.literal("price_only"),
+        v.literal("name_only"), v.literal("none")
+      )),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const result = await saveRevenueItemsImpl(ctx, args as SaveRevenueItemsArgs);
+    return {
+      ids: result.ids,
+      inserted: result.inserted,
+      deducted: result.deducted,
+      skipped: result.skipped,
+    };
   },
 });
 
