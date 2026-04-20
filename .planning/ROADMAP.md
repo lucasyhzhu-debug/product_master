@@ -398,8 +398,8 @@ Plans:
 - [x] 74.5.1-06-adapters-existing-saveitems-PLAN.md — gobiz/bigseller/internal normalize() + R9 counters
 - [x] 74.5.1-07-adapters-k3mart-consignment-grabfood-PLAN.md — k3mart emit + consignment items + grabfood stub
 - [x] 74.5.1-08-k3mart-analytics-reconciliation-PLAN.md — unitEconomics audit + seed migration
-- [ ] 74.5.1-09-channel-routing-manager-ui-PLAN.md — ChannelRoutingManager + ProductInventorySettings pages
-- [ ] 74.5.1-10-channel-audit-workbench-ui-PLAN.md — ChannelAuditWorkbench page + audit badge
+- [x] 74.5.1-09-channel-routing-manager-ui-PLAN.md — ChannelRoutingManager + ProductInventorySettings pages
+- [x] 74.5.1-10-channel-audit-workbench-ui-PLAN.md — ChannelAuditWorkbench page + audit badge
 - [ ] 74.5.1-11-verification-and-changelog-PLAN.md — full test battery + CHANGELOG + merge gate
 
 **UI hint**: yes — `ChannelRoutingManager`, `ChannelAuditWorkbench`, `ProductInventorySettings`
@@ -445,7 +445,7 @@ Plans:
   1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income in canonical EBITDA-first layout (Revenue -> Net Revenue -> COGS -> Contribution Margin -> OpEx-excl-D/A -> EBITDA -> D/A -> EBIT -> Other -> Net Income -> CapEx -> FCF)
   2. Per-channel breakdown flows through Contribution Margin (renamed from Gross Margin); no per-channel OpEx/D/A/CapEx/FCF allocation (D-11)
   3. FCF calculation is correct: Net Income + D/A - CapEx; CapEx sourced from fixedAssets.cost where acquisitionDate in period
-**Plans:** 9/12 plans executed
+**Plans:** 11/12 plans executed
 Plans:
 - [ ] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
 - [ ] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
@@ -652,7 +652,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
-| 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 9/12 | In Progress|  |
+| 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 11/12 | In Progress|  |
 | 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 0/TBD | Blocked on 74.5.1 verified + merged | - |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
