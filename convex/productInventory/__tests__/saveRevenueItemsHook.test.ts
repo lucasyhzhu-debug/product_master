@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 /**
- * Phase 74.5.1 Wave 0 — TDD RED tests for saveRevenueItems deduction hook (R3).
+ * Phase 74.5.1 — Vitest suite for saveRevenueItems deduction hook (R3).
  *
  * Covers Req R3 from 74.5.1-SPEC.md:
  *   - Atomic revenue insert + deduction dispatch inside one internalMutation.
@@ -10,19 +10,17 @@
  *   - Additive return shape: keeps `ids: Id[]`; adds `deducted/skipped/inserted`.
  *   - `inventoryDeductedAt` field on externalRevenueItems is set on success.
  *
- * RED STATE: Wave 1 adds:
- *   - `channelDeductionEnabled` (object) field to productInventorySettings
- *   - `inventoryDeductedAt` field to externalRevenueItems
+ * Landed after Wave 1 (schema fields) + Wave 2 Plan 05 (impl):
+ *   - `channelDeductionEnabled` (object) field on productInventorySettings
+ *   - `inventoryDeductedAt` field on externalRevenueItems
  *   - deduction dispatch block inside saveRevenueItemsImpl
- *
- * Tests fail until schema + logic land. DO NOT delete the @ts-expect-error
- * comments until Wave 1 lands the schema fields and Wave 2 lands the hook.
+ *   - `saveRevenueItemsWithCounts` additive wrapper returning the full impl shape
  */
 
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import schema from "../../schema";
-import { api } from "../../_generated/api";
+import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 
 const modules = import.meta.glob("../../**/*.ts");
@@ -76,13 +74,22 @@ async function seedInventory(
   });
 }
 
+type SourceLiteral =
+  | "gobiz"
+  | "bigseller"
+  | "internal"
+  | "k3mart"
+  | "grabfood"
+  | "consignment"
+  | "shopee"
+  | "tiktok";
+
 async function seedRoutingDefault(
   t: TestContext,
-  source: string,
+  source: SourceLiteral,
   storageLocationId: Id<"storageLocations">,
 ) {
   await t.run(async (ctx) => {
-    // @ts-expect-error — channelRouting table added in Wave 1
     await ctx.db.insert("channelRouting", {
       source,
       outletId: undefined,
@@ -109,7 +116,6 @@ async function seedSettings(
       alertMode: "toast",
       updatedBy: "test",
       updatedAt: Date.now(),
-      // @ts-expect-error — channelDeductionEnabled field added in Wave 1
       channelDeductionEnabled: {
         gobiz: channelDeductionEnabled.gobiz ?? false,
         bigseller: channelDeductionEnabled.bigseller ?? false,
@@ -140,16 +146,19 @@ async function seedRevenueParent(
   );
 }
 
-// `saveRevenueItems` is exported from convex/externalData/mutations.ts.
-// Wave 1 extends its return shape and adds deduction dispatch. Until then,
-// the API path below resolves to the CURRENT impl (insert-only). Red-test
-// intent: the NEW return fields (deducted/skipped/inserted) must appear,
-// which they don't today → tests fail with missing fields.
+// Plan 05 (Wave 2) added a pair of internalMutations to
+// convex/externalData/mutations.ts:
+//   - `saveRevenueItems` — legacy contract, returns `Id[]` for backward compat
+//     with bigsellerOrders/mutations.ts:288-292 (destructures `.length`).
+//   - `saveRevenueItemsWithCounts` — additive wrapper, returns the full impl
+//     shape `{ ids, inserted, deducted, skipped }` for adapter counter wiring
+//     (R9). This test exercises the counter contract so the counts wrapper
+//     is the correct handle.
 //
-// If the function name changes or is relocated in Wave 1, update the import.
-// @ts-expect-error — api.externalData.mutations.saveRevenueItems return shape
-// is extended in Wave 1; without the extension these tests fail at runtime.
-const saveRevenueItems = api.externalData.mutations.saveRevenueItems;
+// Both are `internalMutation` registrations → referenced via `internal.*`
+// (the public `api` proxy strips internal handles).
+const saveRevenueItems =
+  internal.externalData.mutations.saveRevenueItemsWithCounts;
 
 // ---------------------------------------------------------------------------
 // Req R3 — saveRevenueItems deduction hook
@@ -166,12 +175,10 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
 
     const revenueId = await seedRevenueParent(t, "shopee");
 
-    // Invoke saveRevenueItems — Wave 1 extends the args + return. Until then
-    // this call either fails or returns the legacy shape.
-    // @ts-expect-error — args shape extended in Wave 1
+    // Invoke saveRevenueItemsWithCounts — Plan 05 Wave 2 surfaces the full
+    // impl result object on this additive wrapper.
     const result = await t.mutation(saveRevenueItems, {
       revenueId,
-      source: "shopee",
       items: [
         {
           externalItemId: "item-1",
@@ -196,7 +203,6 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
         .collect(),
     );
     expect(items).toHaveLength(1);
-    // @ts-expect-error — inventoryDeductedAt field added in Wave 1
     expect(items[0].inventoryDeductedAt).toBeUndefined();
 
     const txns = await t.run(async (ctx) =>
@@ -215,10 +221,8 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
 
     const revenueId = await seedRevenueParent(t, "shopee");
 
-    // @ts-expect-error — args shape extended in Wave 1
     const result = await t.mutation(saveRevenueItems, {
       revenueId,
-      source: "shopee",
       items: [
         {
           externalItemId: "item-2",
@@ -241,7 +245,6 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
         .withIndex("by_revenue", (q) => q.eq("revenueId", revenueId))
         .collect(),
     );
-    // @ts-expect-error — inventoryDeductedAt field added in Wave 1
     expect(typeof items[0].inventoryDeductedAt).toBe("number");
 
     const txns = await t.run(async (ctx) =>
@@ -259,10 +262,8 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
     const revenueId = await seedRevenueParent(t, "shopee");
 
     await expect(
-      // @ts-expect-error — args shape extended in Wave 1
       t.mutation(saveRevenueItems, {
         revenueId,
-        source: "shopee",
         items: [
           {
             externalItemId: "item-3",
@@ -304,7 +305,6 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
 
     const args = {
       revenueId,
-      source: "shopee" as const,
       items: [
         {
           externalItemId: "item-idem",
@@ -318,9 +318,7 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
       ],
     };
 
-    // @ts-expect-error — args shape extended in Wave 1
     await t.mutation(saveRevenueItems, args);
-    // @ts-expect-error — args shape extended in Wave 1
     const second = await t.mutation(saveRevenueItems, args);
 
     // Second call inserts nothing new and deducts nothing new.
@@ -351,10 +349,8 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
 
     const revenueId = await seedRevenueParent(t, "shopee");
 
-    // @ts-expect-error — args shape extended in Wave 1
     const result = await t.mutation(saveRevenueItems, {
       revenueId,
-      source: "shopee",
       items: [
         {
           externalItemId: "item-5",
@@ -386,10 +382,8 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
 
     const revenueId = await seedRevenueParent(t, "shopee");
 
-    // @ts-expect-error — args shape extended in Wave 1
     const result = await t.mutation(saveRevenueItems, {
       revenueId,
-      source: "shopee",
       items: [
         // 1) unmapped → skipped (no linkedMenuProductId)
         {
