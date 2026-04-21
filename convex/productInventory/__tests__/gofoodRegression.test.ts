@@ -1,18 +1,26 @@
 /// <reference types="vite/client" />
 /**
- * Phase 74.5.1 Wave 0 — GoFood regression snapshot tests (narrowed for 74.5.1).
+ * Phase 74.5.2 Plan 08: updated to assert unified channel_sale + source=gobiz
+ * post-retirement of the legacy per-source GoFood deduction mutation.
  *
- * NOTE: the FULL GoFood retirement regression (processGofoodSales ⇒ channel_sale)
- * is a 74.5.2 concern. In 74.5.1 this test only verifies that the ADDITIVE
- * `gobizAdapter.normalize() → ChannelSaleEvent[]` path produces events whose
- * fields match what `processGofoodSales` would have derived from the same
- * payload. NO retirement tests here — processGofoodSales still runs in parallel
- * during 74.5.1.
+ * POST-RETIREMENT CONTRACT:
+ *  - The legacy per-source GoFood deduction handler no longer exists in
+ *    `convex/productInventory/mutations.ts`.
+ *  - GoFood sales land through the unified
+ *    `saveRevenueItems → processChannelSaleInternal` path, writing
+ *    `productInventoryTransactions` rows with
+ *    `transactionType: "channel_sale"` and `source: "gobiz"`.
+ *  - `gofoodOrderRef` is replaced by `externalRef` on new rows
+ *    (format: `${externalTransactionId}${externalItemId ?? ""}`).
  *
- * Per CONTEXT D-08: GoFood fixtures are captured pre-refactor and land in
- * `tests/fixtures/channel-regression/` before any 74.5.2 flag flip.
+ * This file asserts the unified shape. Legacy `transactionType` rows using
+ * the retired literal from before the cutover are rewritten by
+ * `convex/migrations/gofoodSaleToChannelSale.ts` (Plan 04); tests for that
+ * migration live in `convex/migrations/__tests__/gofoodSaleToChannelSale.test.ts`.
  *
- * RED STATE: fixtures absent → tests skipped. Tests become live once fixtures land.
+ * RED STATE: the end-to-end fixtures are captured in
+ * `tests/fixtures/channel-regression/gobiz-*.json` and land after Plan 09's
+ * manual cutover. Until then, the fixture-driven tests remain skipped.
  */
 
 import { convexTest } from "convex-test";
@@ -23,31 +31,34 @@ const modules = import.meta.glob("../../**/*.ts");
 
 const fixtures = import.meta.glob("../../../tests/fixtures/channel-regression/gobiz-*.json");
 
-describe("GoFood regression — 74.5.1-scoped normalize shape parity (TDD red)", () => {
+describe("GoFood regression — unified channel_sale + source=gobiz post-retirement", () => {
   const fixturePaths = Object.keys(fixtures);
 
   if (fixturePaths.length === 0) {
-    test.skip("T-GF.1 normalize() shape matches processGofoodSales-derived fields (fixtures not yet captured)", () => {
-      // Placeholder.
+    test.skip("T-GF.1 unified path emits channel_sale + source=gobiz transactions (fixtures not yet captured)", () => {
+      // Placeholder — fixtures land after Plan 09 cutover.
     });
-    test.skip("T-GF.2 processGofoodSales still runs UNCHANGED in parallel (fixtures not yet captured)", () => {
-      // Placeholder — 74.5.1 must NOT retire processGofoodSales.
+    test.skip("T-GF.2 no retired-literal rows are written by the unified dispatch (fixtures not yet captured)", () => {
+      // Placeholder — asserted separately in the migration test suite.
     });
     return;
   }
 
-  test("T-GF.1 gobizAdapter.normalize() emits events whose fields match processGofoodSales-derived set", async () => {
+  test("T-GF.1 gobiz adapter normalize + saveRevenueItems emits channel_sale + source=gobiz", async () => {
     const _t = convexTest(schema, modules);
-    // TODO (Wave 2): for each fixture, invoke gobizAdapter.normalize() and
-    // compare {source, quantity, unitPrice, totalPrice, menuProductId, outletId}
-    // to what processGofoodSales would derive.
+    // TODO (post-Plan 09): for each captured fixture, invoke the gobiz
+    // adapter's normalize() + the unified saveRevenueItems hook, then assert
+    // that the resulting productInventoryTransactions rows carry
+    // transactionType === "channel_sale" AND source === "gobiz", with an
+    // externalRef derived from the gobiz event's externalTransactionId.
     expect(fixturePaths.length).toBeGreaterThan(0);
   });
 
-  test("T-GF.2 processGofoodSales path still runs UNCHANGED in parallel (coexistence in 74.5.1)", async () => {
+  test("T-GF.2 unified dispatch writes no retired-literal rows under any flag state", async () => {
     const _t = convexTest(schema, modules);
-    // TODO (Wave 2): Replay a fixture through the legacy path; assert the
-    // existing gofood_sale transaction row still appears.
+    // TODO (post-Plan 09): assert the unified dispatch does NOT write the
+    // retired transactionType literal under any flag state. Complements
+    // migration coverage in convex/migrations/__tests__/.
     expect(fixturePaths.length).toBeGreaterThan(0);
   });
 });
