@@ -185,7 +185,9 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [~] **Phase 74.5: Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19 into 74.5.1 / 74.5.2)** - Parent scope kept for reference; actual work splits into 74.5.1 (additive spine + admin UI, flag-gated) and 74.5.2 (cutover + backfill + retire legacy). See parent README + RESEARCH.md for migration matrix across 8 channels.
 - [x] **Phase 74.5.1: Channel Routing Spine + Admin UI (INSERTED 2026-04-19, split from 74.5)** - Additive spine behind `productInventorySettings.channelDeductionEnabled` flag map (8 channels, all default OFF). Ships: `channelRouting` table + indexes, `ChannelSaleEvent` canonical type + `ChannelAdapter` interface, all 5 adapter refactors to emit `ChannelSaleEvent[]` (gated dispatch — no actual deduction), K3Mart parent→parent+child shape change (semantic, non-flag-gated), consignment emit branch, `ChannelRoutingManager` + `ChannelAuditWorkbench` admin UIs, Grabfood `Not implemented` stub, K3Mart analytics reconciliation, routing seed migration. Read-only correctness gate — no behavioral change to inventory deduction. Depends on 78/79/80/80.3 (all complete).
  (completed 2026-04-20)
-- [ ] **Phase 74.5.2: Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19, split from 74.5)** - Behavioral cutover phase. Ships: staged flag flips per channel, six historical-backfill admin buttons with `externalRevenueItems.inventoryDeductedAt` idempotency, `gofood_sale` → `channel_sale` literal migration, retirement of `processGofoodSales` + order-fulfillment direct-GoJek deduct path, schema cleanup (drop deprecated transaction types), consignment per-product breakdown UI, `docs/CHANNEL_INTEGRATION.md` runbook. Depends on 74.5.1 verified + merged. Runs its own lightweight inline research pass to absorb surprises from 74.5.1 execution.
+- [x] **Phase 74.5.2: Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19, split from 74.5)** - Behavioral cutover phase. Ships: staged flag flips per channel, six historical-backfill admin buttons with `externalRevenueItems.inventoryDeductedAt` idempotency, `gofood_sale` → `channel_sale` literal migration, retirement of `processGofoodSales` + order-fulfillment direct-GoJek deduct path, schema cleanup (drop deprecated transaction types), consignment per-product breakdown UI, `docs/CHANNEL_INTEGRATION.md` runbook. Depends on 74.5.1 verified + merged. Runs its own lightweight inline research pass to absorb surprises from 74.5.1 execution. (completed 2026-04-21)
+- [x] **Phase 74.5.2.1: Ops Automation (INSERTED 2026-04-21, follow-up to 74.5.2)** — Closes 74.5.2 operational gaps: (a) gobiz defaults ON via code-level read-site change (superseded the originally-planned CI post-deploy mutation because a new mutation cannot flip a flag before its own code deploys); (b) D74.5.2-L14 K3Mart composite toggle UI (`flipK3MartBundle` admin mutation + single-button affordance in `ProductInventorySettings.tsx` that atomically flips both `k3mart` + `consignment` flags); (c) docs cleanup — resolved deferred item #5, documented item #7 (gobiz manual-flip → code default), repointed item #2 to concrete 74.5.3 phase name. Executed inline on the 74.5.2 branch before merge; scaffold phase dir kept as documentation. (completed 2026-04-21)
+- [ ] **Phase 74.5.3: Packaging BOM Auto-Deduction (PLANNED — absorbs 74.5.2 deferred item #2)** — Extend `processChannelSaleInternal` to BOM-resolve packaging components (sticker, small-box, etc.) and emit paired `packagingInventoryTransactions` rows per sale. Eliminates the daily manual sticker adjustment procedure from the 74.5.2 runbook. Design pass required: per-source packaging SKU mapping strategy. Not yet scheduled.
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
@@ -431,19 +433,19 @@ Plans:
 5. Admin can reassign `{source → storageLocation}` via UI without code deploy; change takes effect on next sale event
 6. `npm run build` + test suite + full regression harness green
 
-**Plans:** 10 plans across 6 waves (awaiting execution after triple-review per D-05)
+**Plans:** 10/10 plans complete
 
 Plans:
-- [ ] 74.5.2-01-channel-audit-test-fix-PLAN.md — Wave 0: fix convex-test module resolution (4 red tests → green) + tighten BigSeller normalize platform literal
-- [ ] 74.5.2-02-backfill-schema-and-action-PLAN.md — Wave 1: add by_source_deductedAt compound index + create convex/productInventory/backfill.ts (per-source action + chunked mutation + admin trigger + preflight)
-- [ ] 74.5.2-03-backfill-tests-PLAN.md — Wave 1: TDD suite (idempotency, timestamp preservation, null-menuProduct skip, admin-only gate)
-- [ ] 74.5.2-04-gofood-migration-action-PLAN.md — Wave 2: forward-only migration gofood_sale → channel_sale + source=gobiz (paginated internalAction + 500-row internalMutation)
-- [ ] 74.5.2-05-gofood-migration-tests-PLAN.md — Wave 2: migration tests (chunking, landmine literal, preservation, self-heal, admin gate)
-- [ ] 74.5.2-06-admin-backfill-ui-PLAN.md — Wave 3: extend UnlinkedProductsBackfill.tsx with 6 per-source cards + useChannelBackfill hooks
-- [ ] 74.5.2-07-consignment-breakdown-ui-PLAN.md — Wave 3: getSettlementItems query + tests + SettlementFormDialog item rows + OutletCard expandable breakdown
-- [ ] 74.5.2-08-gofood-atomic-retirement-PLAN.md — Wave 4: delete processGofoodSales body + 2 gobiz adapter call sites + TransactionLogPanel hybrid display (ATOMIC commit per D74.5.2-L5)
-- [ ] 74.5.2-09-runbook-PLAN.md — Wave 5: write docs/CHANNEL_INTEGRATION.md (onboarding + cutover runbook + audit triage + backfill ops + rollback)
-- [ ] 74.5.2-10-polish-and-docs-PLAN.md — Wave 5: resolve 2 lint warnings + update CHANGELOG / SCHEMA / API_REFERENCE / ROADMAP
+- [x] 74.5.2-01-channel-audit-test-fix-PLAN.md — Wave 0: fix convex-test module resolution (4 red tests → green) + tighten BigSeller normalize platform literal
+- [x] 74.5.2-02-backfill-schema-and-action-PLAN.md — Wave 1: add by_source_deductedAt compound index + create convex/productInventory/backfill.ts (per-source action + chunked mutation + admin trigger + preflight)
+- [x] 74.5.2-03-backfill-tests-PLAN.md — Wave 1: TDD suite (idempotency, timestamp preservation, null-menuProduct skip, admin-only gate)
+- [x] 74.5.2-04-gofood-migration-action-PLAN.md — Wave 2: forward-only migration gofood_sale → channel_sale + source=gobiz (paginated internalAction + 500-row internalMutation)
+- [x] 74.5.2-05-gofood-migration-tests-PLAN.md — Wave 2: migration tests (chunking, landmine literal, preservation, self-heal, admin gate)
+- [x] 74.5.2-06-admin-backfill-ui-PLAN.md — Wave 3: extend UnlinkedProductsBackfill.tsx with 6 per-source cards + useChannelBackfill hooks
+- [x] 74.5.2-07-consignment-breakdown-ui-PLAN.md — Wave 3: getSettlementItems query + tests + SettlementFormDialog item rows + OutletCard expandable breakdown
+- [x] 74.5.2-08-gofood-atomic-retirement-PLAN.md — Wave 4: delete processGofoodSales body + 2 gobiz adapter call sites + TransactionLogPanel hybrid display (ATOMIC commit per D74.5.2-L5)
+- [x] 74.5.2-09-runbook-PLAN.md — Wave 5: write docs/CHANNEL_INTEGRATION.md (onboarding + cutover runbook + audit triage + backfill ops + rollback)
+- [x] 74.5.2-10-polish-and-docs-PLAN.md — Wave 5: resolve 2 lint warnings (verified already clean from 74.5.1 triple-review) + update CHANGELOG / SCHEMA / API_REFERENCE / ROADMAP
 
 **UI hint**: yes (consignment breakdown expansion + backfill buttons on existing admin pages)
 
@@ -650,7 +652,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 78 -> 79 -> 80 -> 80.1 -> 80.2 -> 80.3 -> **74.5.1 -> 74.5.2** -> 75 -> 76 -> 77
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 78 -> 79 -> 80 -> 80.1 -> 80.2 -> 80.3 -> **74.5.1 -> 74.5.2 -> 74.5.2.1 -> 74.5.3** -> 75 -> 76 -> 77
 
 Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Phase 1000 into v2.0 on 2026-04-19, then split into 74.5.1 (additive spine, flag-gated) and 74.5.2 (cutover + backfill + retire legacy) on the same day per researcher's split verdict. Runs after Phase 80.3 merges and before Phase 75 so the Full P&L Extension's FCF math rests on honest inventory COGS. Each sub-phase runs its own `/triple-review` per CONTEXT D-05.
 
@@ -663,7 +665,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
 | 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
-| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 0/10 | Planned — ready for triple-review + execute | - |
+| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 10/10 | Complete   | 2026-04-21 |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |

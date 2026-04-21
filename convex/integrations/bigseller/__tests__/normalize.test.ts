@@ -17,13 +17,22 @@
 import { describe, test, expect } from "vitest";
 
 import type { ChannelSaleEvent } from "../../_shared/channelSaleEvent";
+import type { ExternalSource } from "../../../lib/externalSource";
 import { bigsellerAdapter } from "../adapter";
 
-// BigSeller's raw orders carry a platform literal restricted to the child
-// sources BigSeller aggregates (shopee / tiktok / bigseller). Use a narrow
-// local type so fixtures satisfy BigsellerRawBatch without needing `as any`.
+// Plan 74.5.2-01 Task 2 / D74.5.2-L2: tighten platform literal to the
+// ExternalSource union rather than a free string. BigSeller's raw orders
+// carry a platform that MUST be a member of ExternalSource restricted to
+// the child sources BigSeller aggregates (shopee / tiktok / bigseller).
+// Using `Extract<ExternalSource, ...>` guarantees any future rename in the
+// canonical union (convex/lib/externalSource.ts) fails type-check here
+// instead of silently diverging.
+type BigsellerPlatform = Extract<
+  ExternalSource,
+  "bigseller" | "shopee" | "tiktok"
+>;
 type BigsellerRawOrder = {
-  platform: "bigseller" | "shopee" | "tiktok";
+  platform: BigsellerPlatform;
   orderId: string;
   completedAt: number;
   items: Array<{

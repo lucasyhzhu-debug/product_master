@@ -21,16 +21,28 @@
  */
 
 import { mutation, query } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { externalSource } from "../schema";
 import { requireRole } from "../lib/auth";
 import type { ExternalSource } from "../lib/externalSource";
 
-/** Full 8-key default map. All flags default OFF until admin flips. */
+/**
+ * Full 8-key default map.
+ *
+ * - All channels default OFF (ship-dark per D74.5.1-L1) EXCEPT:
+ * - `gobiz` defaults ON as of Phase 74.5.2.1. Rationale — 74.5.2 retired
+ *   `processGofoodSales`, so there is no legacy deduction path anymore.
+ *   Defaulting OFF would cause silent under-deduction on every GoFood sale.
+ *   The unified `saveRevenueItemsImpl` read-site at
+ *   `convex/externalData/mutations.ts` treats `flagMap === undefined` as
+ *   gobiz-ON; this constant mirrors that contract for the admin UI so a
+ *   freshly-created settings row shows gobiz=ON by default.
+ */
 const DEFAULT_FLAGS: Record<ExternalSource, boolean> = {
   bigseller: false,
   consignment: false,
-  gobiz: false,
+  gobiz: true, // 74.5.2.1 — no legacy path post-74.5.2 retirement
   grabfood: false,
   internal: false,
   k3mart: false,
@@ -108,3 +120,111 @@ export const setChannelDeductionFlag = mutation({
     };
   },
 });
+
+/**
+ * Phase 74.5.2.1 — Composite K3Mart bundle flip (CONTEXT D74.5.2-L14).
+ *
+ * Atomically sets BOTH `k3mart` (child-row linking / sale dispatch) and
+ * `consignment` (parent-row revenue recognition) flags in a single Convex
+ * mutation. Prevents the accidental out-of-sync state that occurs when an
+ * operator flips only one flag via the per-source switches.
+ *
+ * Admin-only. Creates the singleton settings row on first flip (same pattern
+ * as setChannelDeductionFlag — uses DEFAULT_FLAGS as the base when absent).
+ *
+ * Returns the final state of both flags for UI confirmation.
+ */
+export const flipK3MartBundle = mutation({
+  args: {
+    token: v.string(),
+    enable: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireRole(ctx, args.token, ["admin"]);
+
+    const settings = await ctx.db.query("productInventorySettings").first();
+    const current = settings?.channelDeductionEnabled ?? DEFAULT_FLAGS;
+    const next = {
+      ...DEFAULT_FLAGS,
+      ...current,
+      k3mart: args.enable,
+      consignment: args.enable,
+    };
+
+    if (settings) {
+      await ctx.db.patch(settings._id, {
+        channelDeductionEnabled: next,
+        updatedBy: user.name,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("productInventorySettings", {
+        globalLowStockThreshold: 5,
+        autoAdvanceOnDrawdown: true,
+        alertMode: "toast" as const,
+        channelDeductionEnabled: next,
+        updatedBy: user.name,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return {
+      k3mart: args.enable,
+      consignment: args.enable,
+      flippedBy: user.name,
+      flippedAt: Date.now(),
+    };
+  },
+});
+
+// ============================================================================
+// Direct-handler test shim (D74.5.2-L1 pattern — mirrors Plan 01's
+// `_runFullAuditForTest` in channelAudit.ts and Plan 03's shims in backfill.ts).
+//
+// convex-test's `t.mutation(internal.*)` / `t.mutation(api.*)` resolver fails
+// with module-resolution errors for the `productInventory/*` subtree. This
+// helper replicates the registered handler verbatim against a single ctx so
+// tests can invoke it via `t.run(async (ctx) => await _fooForTest(ctx, args))`.
+//
+// DO NOT call from production code.
+// ============================================================================
+
+export const _flipK3MartBundleForTest = async (
+  ctx: MutationCtx,
+  args: { token: string; enable: boolean },
+): Promise<{ k3mart: boolean; consignment: boolean; flippedBy: string; flippedAt: number }> => {
+  const user = await requireRole(ctx, args.token, ["admin"]);
+
+  const settings = await ctx.db.query("productInventorySettings").first();
+  const current = settings?.channelDeductionEnabled ?? DEFAULT_FLAGS;
+  const next = {
+    ...DEFAULT_FLAGS,
+    ...current,
+    k3mart: args.enable,
+    consignment: args.enable,
+  };
+
+  if (settings) {
+    await ctx.db.patch(settings._id, {
+      channelDeductionEnabled: next,
+      updatedBy: user.name,
+      updatedAt: Date.now(),
+    });
+  } else {
+    await ctx.db.insert("productInventorySettings", {
+      globalLowStockThreshold: 5,
+      autoAdvanceOnDrawdown: true,
+      alertMode: "toast" as const,
+      channelDeductionEnabled: next,
+      updatedBy: user.name,
+      updatedAt: Date.now(),
+    });
+  }
+
+  return {
+    k3mart: args.enable,
+    consignment: args.enable,
+    flippedBy: user.name,
+    flippedAt: Date.now(),
+  };
+};

@@ -109,11 +109,12 @@ export function ProductInventorySettings() {
   const { user } = useAuth();
   const token = user?.token;
 
-  const { flags, setFlag } = useChannelFlags(token);
+  const { flags, setFlag, flipK3MartBundle } = useChannelFlags(token);
 
   const [pendingFlip, setPendingFlip] = useState<PendingFlip | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [flipping, setFlipping] = useState(false);
+  const [bundleFlipping, setBundleFlipping] = useState(false);
 
   const loading = flags === undefined;
 
@@ -188,6 +189,84 @@ export function ProductInventorySettings() {
             </div>
           ) : (
             <>
+              {/* Phase 74.5.2.1 — D74.5.2-L14 K3Mart composite flip.
+                  Single button that atomically toggles both k3mart +
+                  consignment flags, preventing the out-of-sync pitfall
+                  where an operator flips only one via the per-source
+                  switches below. */}
+              {(() => {
+                const k3mart = flags?.k3mart === true;
+                const consignment = flags?.consignment === true;
+                const bothOn = k3mart && consignment;
+                const bothOff = !k3mart && !consignment;
+                const outOfSync = !bothOn && !bothOff;
+                const handleBundleFlip = async () => {
+                  if (!token) return;
+                  setBundleFlipping(true);
+                  try {
+                    const nextEnable = outOfSync ? true : !bothOn;
+                    const result = await flipK3MartBundle({ token, enable: nextEnable });
+                    toast.success(
+                      `K3Mart bundle ${nextEnable ? "ON" : "OFF"} — k3mart=${result.k3mart}, consignment=${result.consignment}`,
+                    );
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : String(err);
+                    toast.error(`Bundle flip failed: ${msg}`);
+                  } finally {
+                    setBundleFlipping(false);
+                  }
+                };
+                return (
+                  <div className="mb-4 rounded-md border border-primary/40 bg-primary/5 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">K3Mart Bundle</span>
+                          {outOfSync ? (
+                            <span className="rounded bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                              OUT OF SYNC
+                            </span>
+                          ) : bothOn ? (
+                            <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                              ON
+                            </span>
+                          ) : (
+                            <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                              OFF
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Atomically flips both <span className="font-mono">k3mart</span> (child-row
+                          sale dispatch) and <span className="font-mono">consignment</span>{" "}
+                          (parent-row revenue recognition). These flags must stay in sync for
+                          the K3Mart bundle invariant. (CONTEXT D74.5.2-L14)
+                        </p>
+                        {outOfSync && (
+                          <p className="mt-1 text-xs text-destructive">
+                            Current: k3mart={String(k3mart)}, consignment={String(consignment)}.
+                            Click once to restore consistency.
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleBundleFlip}
+                        disabled={!token || bundleFlipping}
+                        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-primary bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        {bundleFlipping && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        {outOfSync
+                          ? "Restore bundle ON"
+                          : bothOn
+                            ? "Flip bundle OFF"
+                            : "Flip bundle ON"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {SOURCE_ORDER.map((src) => {
                 const disabledReason = DISABLED_REASONS[src];
                 const state: FlagState = disabledReason

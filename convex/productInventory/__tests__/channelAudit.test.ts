@@ -1,4 +1,10 @@
 /// <reference types="vite/client" />
+// Plan 01 Task 0 diagnostic:
+//   diff channelSale.test.ts (green) channelAudit.test.ts (red)
+//   Delta: red uses `t.action(internal.productInventory.channelAudit.runFullAudit, ...)`;
+//   green uses `t.run(async (ctx) => ...)` with direct handler invocation.
+//   The failing code path is convex-test's actionFromPath resolver, not our test shape.
+//   Fix 4 (direct-handler via `_runFullAuditForTest` export) is the preferred fix.
 /**
  * Phase 74.5.1 — Tests for channel audit detection (R6).
  *
@@ -20,7 +26,17 @@ import schema from "../../schema";
 import type { Id } from "../../_generated/dataModel";
 import type { ExternalSource } from "../../lib/externalSource";
 import { api, internal } from "../../_generated/api";
-import { detectAuditIssuesForItem } from "../channelAudit";
+// Fixed 74.5.2 Plan 01: convex-test module resolution via Hypothesis 1
+// (direct-handler invocation via `_runFullAuditForTest` export) — see
+// RESEARCH §channelAudit.test.ts Failures. `t.action(internal.*)` triggers
+// convex-test's actionFromPath resolver which throws
+// "Could not find module for: \"productInventory/channelAudit\"" for this
+// test file's glob + action-invocation combination. `channelSale.test.ts`
+// uses direct-handler invocation (same directory, same glob) and is green.
+import {
+  detectAuditIssuesForItem,
+  _runFullAuditForTest,
+} from "../channelAudit";
 
 const modules = import.meta.glob("../../**/*.ts");
 
@@ -192,9 +208,11 @@ describe("Req R6 — detectAuditIssuesForItem inline cheap checks", () => {
 // ---------------------------------------------------------------------------
 
 async function runFullAuditAndCollect(t: TestContext) {
-  const result = await t.action(
-    internal.productInventory.channelAudit.runFullAudit,
-    { triggeredBy: "test" },
+  // Invoke _runFullAuditForTest directly inside t.run — same as the known-green
+  // pattern in channelSale.test.ts. Bypasses convex-test's `t.action(internal.*)`
+  // module resolver (Plan 01 Hypothesis 1 fix).
+  const result = await t.run(async (ctx) =>
+    _runFullAuditForTest(ctx, { triggeredBy: "test" }),
   );
   // Filter in JS rather than via withIndex — convex-test's ctx type can drop
   // custom-index knowledge depending on the schema wrapper; collect + filter

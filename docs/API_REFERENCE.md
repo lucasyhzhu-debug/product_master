@@ -1579,6 +1579,22 @@ Patches existing K3Mart revenue records with `outletId` by parsing the outlet na
 
 **Run order:** Must run AFTER `seedK3MartOutletNames`.
 
+#### `migrations.gofoodSaleToChannelSale.runGofoodSaleToChannelSaleMigration` (Phase 74.5.2)
+Admin-gated scheduler trigger. Schedules a paginated forward-only migration of `productInventoryTransactions` rows from `transactionType: "gofood_sale"` to `transactionType: "channel_sale" + source: "gobiz"`.
+
+**Args:** `{ token: string }` (admin role required via `requireRole`)
+
+**Returns:** `{ scheduled: true }` — non-blocking; actual migration runs in the scheduler via `migrateGofoodSaleToChannelSale` internalAction.
+
+**Behavior:**
+- Paginated: 500-row chunks, MAX_PAGES=1000 safety cap (500K-row ceiling).
+- Self-healing on re-run: `by_type` index filter narrows to remaining `gofood_sale` rows only, so rerun is a no-op if migration already complete.
+- Preserves `gofoodOrderRef` on migrated rows (legacy compat for `TransactionLogPanel`).
+- Writes `externalRef = gofoodOrderRef ?? legacy-{_id}` (fallback for legacy rows with null ref).
+- **Landmine guard:** writes `source: "gobiz"` (integration literal), NEVER `"gofood"` (surface name not in `externalSource` union).
+
+**Frontend integration:** Admin triggers via Convex dashboard or future admin UI button. Non-blocking — UI polls `externalSyncLogs` for completion.
+
 ### Queries
 
 #### `externalData.queries.listOutlets`
@@ -2211,6 +2227,63 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 - `src/hooks/convex/useJournalImport.ts` -- hook wrapping the mutation
 - CSV template download and CoA reference download built into wizard
 - Client-side validation with row-level error reporting before server submission
+
+---
+
+### Product Inventory — Channel Deduction Backfill (Phase 74.5.2)
+
+Per-source historical backfill for channel deductions. Flag-independent (runs regardless of `productInventorySettings.channelDeductionEnabled[source]`) and idempotent (set-once `externalRevenueItems.inventoryDeductedAt`).
+
+#### `productInventory.backfill.runChannelBackfill` (mutation, admin)
+Schedules a full paginated backfill for the given source. Dispatches `backfillChannelDeductions` internalAction which drains `externalRevenueItems` where `inventoryDeductedAt IS NULL` for the source.
+
+**Args:** `{ source: ExternalSource, token: string }`
+
+**Returns:** `{ scheduled: true }` — non-blocking.
+
+**Behavior:**
+- Uses `by_source_deductedAt` compound index (Phase 74.5.2) to narrow to un-deducted rows in O(n).
+- 200-item chunks, MAX_ITERATIONS=500 runaway cap (100K-row ceiling per run).
+- Silent-drop guard: items with `linkedMenuProductId === null` are skipped (D74.5.2-L4).
+- Timestamp preservation: backfilled `productInventoryTransactions.createdAt` uses `externalRevenue.transactionDate` (D-16) — not the current clock.
+
+#### `productInventory.backfill.runOneChannelBackfillPage` (mutation, admin)
+Single-page variant for UI loop-polling (used by `ChannelBackfillCard`).
+
+**Args:** `{ source: ExternalSource, token: string }`
+
+**Returns:** `{ itemsProcessed: number, deducted: number, skipped: number, isDone: boolean }` — client loops until `isDone`.
+
+#### `productInventory.backfill.getChannelBackfillPreflight` (query, admin)
+Reactive query returning pending-item counts and audit blockers for the source.
+
+**Args:** `{ source: ExternalSource, token: string }`
+
+**Returns:** `{ pendingItems: number, blockingAuditIssues: number }` — per-source gate, not global. UI renders informational warning when `blockingAuditIssues > 0` but does NOT disable the button (D-17, Pitfall 4).
+
+**Frontend integration:**
+- `src/hooks/convex/useChannelBackfill.ts` — `useChannelBackfillPreflight`, `useRunChannelBackfill` hooks.
+- `src/pages/UnlinkedProductsBackfill.tsx` — 6 per-source `ChannelBackfillCard` components under "Channel Deduction Backfill" section.
+- GrabFood card renders permanent-OFF degraded state ("Awaiting OAuth scope") per D74.5.2-L15.
+
+---
+
+### Consignment — Per-Product Breakdown (Phase 74.5.2)
+
+#### `consignment.queries.getSettlementItems` (query, admin + manager)
+Returns enriched per-product breakdown for a settlement. Joins `externalRevenueItems` (linked via `consignmentSettlements.linkedRevenueId`) with `menuProducts` for display names.
+
+**Args:** `{ settlementId: Id<"consignmentSettlements">, token: string }`
+
+**Returns:** `Array<{ itemId, productName, menuProductId?, unitPrice, quantity, totalPrice }>`
+
+**Behavior:**
+- Pre-74.5.1 settlements (no `linkedRevenueId`) return empty array gracefully — no error, no null.
+- Lazy-loaded from `SettlementTimeline.tsx` via `useQuery(…, expanded ? args : "skip")` — zero network cost on collapsed rows.
+
+**Frontend integration:**
+- `src/components/salesAnalytics/SettlementFormDialog.tsx` — optional item-row inputs with ±Rp1 sum validation on create.
+- `src/components/salesAnalytics/SettlementTimeline.tsx` — per-settlement expandable "Products sold" sub-section.
 
 ---
 

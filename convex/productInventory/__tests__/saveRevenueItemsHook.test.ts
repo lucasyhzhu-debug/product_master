@@ -422,3 +422,109 @@ describe("Req R3 — saveRevenueItems atomic deduction hook (TDD red; Waves 1-2 
     expect(result.inserted).toBe(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 74.5.2.1 — gobiz default-ON behavior
+// ---------------------------------------------------------------------------
+
+describe("74.5.2.1 — gobiz default-ON when settings row / flag map is absent", () => {
+  test("T-74.5.2.1.1 no settings row + source=gobiz → deducted (default ON)", async () => {
+    const t = convexTest(schema, modules);
+    const locId = await seedLocation(t, "Warehouse 74.5.2.1-gobiz-1");
+    const productId = await seedProduct(t, "PRD-GOBIZ-1");
+    await seedInventory(t, productId, locId, 10);
+    await seedRoutingDefault(t, "gobiz", locId);
+    // NO seedSettings() — flagMap is undefined in production settings.
+
+    const revenueId = await seedRevenueParent(t, "gobiz");
+    const result = await t.mutation(saveRevenueItems, {
+      revenueId,
+      items: [
+        {
+          externalItemId: "gobiz-item-1",
+          productName: "Test",
+          unitPrice: 25000,
+          quantity: 1,
+          totalPrice: 25000,
+          linkedMenuProductId: productId,
+          isAutoMatched: false,
+        },
+      ],
+    });
+
+    // gobiz default-ON fires: item is deducted even without settings row.
+    expect(result.deducted).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(result.inserted).toBe(1);
+
+    const items = await t.run(async (ctx) =>
+      ctx.db
+        .query("externalRevenueItems")
+        .withIndex("by_revenue", (q) => q.eq("revenueId", revenueId))
+        .collect(),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0].inventoryDeductedAt).toBeDefined();
+  });
+
+  test("T-74.5.2.1.2 no settings row + source=shopee → skipped (ship-dark preserved)", async () => {
+    const t = convexTest(schema, modules);
+    const locId = await seedLocation(t, "Warehouse 74.5.2.1-shopee-1");
+    const productId = await seedProduct(t, "PRD-SHOPEE-1");
+    await seedInventory(t, productId, locId, 10);
+    await seedRoutingDefault(t, "shopee", locId);
+    // NO seedSettings() — shopee must remain ship-dark.
+
+    const revenueId = await seedRevenueParent(t, "shopee");
+    const result = await t.mutation(saveRevenueItems, {
+      revenueId,
+      items: [
+        {
+          externalItemId: "shopee-item-1",
+          productName: "Test",
+          unitPrice: 25000,
+          quantity: 1,
+          totalPrice: 25000,
+          linkedMenuProductId: productId,
+          isAutoMatched: false,
+        },
+      ],
+    });
+
+    // Non-gobiz default remains OFF — ship-dark contract.
+    expect(result.deducted).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.inserted).toBe(1);
+  });
+
+  test("T-74.5.2.1.3 explicit gobiz:false override is honored (rollback path)", async () => {
+    const t = convexTest(schema, modules);
+    const locId = await seedLocation(t, "Warehouse 74.5.2.1-gobiz-2");
+    const productId = await seedProduct(t, "PRD-GOBIZ-2");
+    await seedInventory(t, productId, locId, 10);
+    await seedRoutingDefault(t, "gobiz", locId);
+    // Explicit OFF — admin rolled back gobiz flag.
+    await seedSettings(t, { gobiz: false });
+
+    const revenueId = await seedRevenueParent(t, "gobiz");
+    const result = await t.mutation(saveRevenueItems, {
+      revenueId,
+      items: [
+        {
+          externalItemId: "gobiz-item-2",
+          productName: "Test",
+          unitPrice: 25000,
+          quantity: 1,
+          totalPrice: 25000,
+          linkedMenuProductId: productId,
+          isAutoMatched: false,
+        },
+      ],
+    });
+
+    // Explicit false wins over default-ON.
+    expect(result.deducted).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(result.inserted).toBe(1);
+  });
+});

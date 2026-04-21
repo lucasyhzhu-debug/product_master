@@ -16,6 +16,81 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 74.5.2.1 — Ops Automation (gobiz default-ON + K3Mart composite) -- 2026-04-21
+
+**For the team:** Two manual ops rituals from the 74.5.2 runbook are now automated. GoFood deduction turns ON automatically the moment 74.5.2 deploys (no admin flag-flip needed). K3Mart flags now flip together as a single button click with out-of-sync detection.
+
+**Added:**
+- `convex/productInventory/channelFlags.ts::flipK3MartBundle` — admin mutation that atomically sets both `channelDeductionEnabled.k3mart` and `channelDeductionEnabled.consignment` in one `ctx.db.patch` call. Plus `_flipK3MartBundleForTest` direct-handler shim (D74.5.2-L1 pattern).
+- `src/pages/ProductInventorySettings.tsx` — K3Mart Bundle composite card above per-source switches. Shows `ON` / `OFF` / `OUT OF SYNC` state pill; single button click atomically flips both flags or restores consistency when drifted.
+- `convex/productInventory/__tests__/flipK3MartBundle.test.ts` — 4 regression tests (admin-ON, admin-OFF, non-admin rejected, siblings preserved).
+- 3 regression tests in `saveRevenueItemsHook.test.ts` for the gobiz default-ON contract.
+
+**Changed:**
+- `convex/externalData/mutations.ts:819` — `saveRevenueItemsImpl` read-site now treats `gobiz` as default-ON when the settings row / `channelDeductionEnabled` field is undefined. No legacy path exists for gobiz post-74.5.2 retirement, so the old ship-dark default would silently under-deduct every GoFood sale. Atomic-with-deploy: the moment 74.5.2 ships, gobiz deducts without any flag-flip ritual. Explicit `gobiz: false` still honored for rollback.
+- `convex/productInventory/channelFlags.ts::DEFAULT_FLAGS.gobiz = true` — mirrors the read-site default so freshly-created settings rows (via admin UI) seed gobiz=ON.
+- `src/hooks/convex/useChannelRouting.ts::useChannelFlags` — now exposes `flipK3MartBundle` alongside existing `flags` + `setFlag`.
+- `docs/CHANNEL_INTEGRATION.md` — GoFood atomic cutover sequence no longer instructs admin to flip flag manually post-deploy; K3Mart bundle flip section now references the composite toggle. Removed the 2-step manual ritual from both sections.
+
+**Closes 74.5.2 deferred items:**
+- #5 (K3Mart bundle composite UI, D74.5.2-L14) — RESOLVED via `flipK3MartBundle` + composite toggle UI.
+- Original runbook manual flag-flip instruction — RESOLVED via code-level default (new item #7 in deferred-items.md documents the resolution rationale).
+
+**Still open:**
+- 74.5.2 deferred item #2 (sticker auto-deduction gap) — will be resolved by **Phase 74.5.3 — Packaging BOM Auto-Deduction** (next phase, to be planned).
+- Items #3 (shim pattern governance), #4 (migration drain-loop test coverage), #6 (token-in-query-args pattern) — remain open as longer-horizon follow-ups.
+
+**Verified:** `npm run type-check`, `npm run build`, and full test suite (1709 pass, 0 fail, 2 skip) all green.
+
+---
+
+### Phase 74.5.2 — Unified Deduct Cutover + Backfill + Retire Legacy -- 2026-04-21
+
+**For the team:** Flips the switch on unified channel deductions. Historical sales are backfilled in admin UI (per-source, idempotent). Legacy GoFood deduct path retired and replaced with the unified pipeline. Consignment settlements now show per-product breakdowns. Full channel-onboarding runbook shipped.
+
+Behavioral cutover of Phase 74.5.1's additive spine. Delivers: per-source historical backfill, `gofood_sale → channel_sale+source` forward-only migration, atomic retirement of `processGofoodSales`, consignment per-product breakdown UI, and `docs/CHANNEL_INTEGRATION.md` operational runbook.
+
+**Added:**
+- `convex/productInventory/backfill.ts` — per-source historical backfill for channel deductions. Admin-gated, flag-independent (D74.5.2-L13). Idempotent via set-once `externalRevenueItems.inventoryDeductedAt` (D-19). 200-item chunks, MAX_ITERATIONS=500 runaway cap. Exports: `backfillOnePage` / `backfillChannelDeductions` / `runChannelBackfill` / `runOneChannelBackfillPage` / `getChannelBackfillPreflight`.
+- `convex/migrations/gofoodSaleToChannelSale.ts` — forward-only migration of `productInventoryTransactions.transactionType` from `gofood_sale` to `channel_sale + source: "gobiz"` (NOT `"gofood"` — Pitfall 1 landmine). 500-row paginated chunks, MAX_PAGES=1000 cap. Self-healing on re-run via `by_type` index filter narrowing. Preserves `gofoodOrderRef` so `TransactionLogPanel` legacy reader still functions.
+- `convex/consignment/queries.ts::getSettlementItems` — admin+manager-gated query returning per-product breakdown (externalRevenueItems joined with menuProduct). Pre-74.5.1 settlements return empty array gracefully.
+- `src/hooks/convex/useChannelBackfill.ts` — React hooks (`useChannelBackfillPreflight`, `useRunChannelBackfill`) for per-source admin UI.
+- Admin UI extension at `/admin/unlinked-products-backfill` — "Channel Deduction Backfill" section with 6 per-source `ChannelBackfillCard` components (Shopee, TikTok, K3Mart, GoBiz/GoFood, Consignment, Direct). GrabFood shows permanent-OFF degraded state per D74.5.2-L15. Client-loop paginated via `runOneChannelBackfillPage`.
+- `SettlementFormDialog.tsx` — optional dynamic item-row inputs with ±Rp1 sum validation on create. Passes items to `createSettlement` which now emits `externalRevenueItems` via `saveRevenueItems`.
+- `SettlementTimeline.tsx` — per-settlement expandable "Products sold" sub-section, lazy-loaded via `useQuery(… , "skip")`.
+- `docs/CHANNEL_INTEGRATION.md` — 459-line operational runbook: onboarding recipe, per-channel cutover procedure, GoFood atomic flip-and-retire protocol, 5-issue audit triage matrix (literals grep-verified against `channelAudit.ts::AuditIssueType`), backfill operations, 4-case rollback playbook, sticker auto-deduction gap doc.
+- `by_source_deductedAt` compound index on `externalRevenueItems` — `[source, inventoryDeductedAt]`. Enables O(n) backfill queries narrowed to un-deducted rows per source.
+
+**Changed:**
+- `src/components/inventory/TransactionLogPanel.tsx` — hybrid GoFood display via shared `isGoFoodTransaction` predicate + `resolveDisplayConfig` resolver. Renders both legacy `gofood_sale` rows AND migrated `channel_sale + source=gobiz` rows identically during the schema-literal soak period. Filter chip uses client-side filtering fallback to bridge the legacy/unified literal mismatch.
+- `convex/productInventory/__tests__/channelAudit.test.ts` — fixed convex-test module-resolution bug on `t.action(internal.*)` invocations for `productInventory/*` subtree via direct-handler test shim pattern (`_runFullAuditForTest`). 4 previously red tests now green (D74.5.2-L1).
+- `convex/integrations/bigseller/__tests__/normalize.test.ts` — tightened `platform: string` to `Extract<ExternalSource, …>` union type per D74.5.2-L2; removed all `any` casts.
+- `convex/consignment/createSettlement` — optional `items` arg emits `externalRevenueItems` via `saveRevenueItems` (same `collapseRevenuePeriod` helper as Phase 74.5.1).
+
+**Removed:**
+- `convex/productInventory/mutations.ts::processGofoodSales` — retired atomically (D74.5.2-L5). All GoFood deductions now flow through `saveRevenueItems → processChannelSaleInternal` with `source: "gobiz"`.
+- Both `processGofoodSales` call sites in `convex/integrations/gobiz/adapter.ts` (try/catch wrappers around manual-sync Phase C/D + auto-sync Phase C/D blocks).
+- Stale reference in `convex/productInventory/stockTracker.ts` comment.
+- `tests/unit/depotAutoSeed.test.ts` — deleted; tests that invoked the retired handler were realigned or removed per Rule 3 (Blocking test realignment).
+
+**Fixed:**
+- `convex/migrations/gofoodSaleToChannelSale.ts` — `tsc -b` build errors from Plan 05 (shim commit `4408fab3`) kept resolved via `_args` rename + explicit `result` type annotation on the `internalAction` handler. `npm run build` passes clean.
+- (No-op) AuditIssueTypeBadge.tsx react-refresh `only-export-components` warning — already resolved in Phase 74.5.1 triple-review (commit `bf036387`) by extracting `TYPE_META` to `AuditIssueTypeMeta.ts`. Verified clean under Plan 10 review.
+- (No-op) ChannelRoutingManager.tsx `react-hooks/exhaustive-deps` useMemo warning — already resolved in Phase 74.5.1 triple-review; all useMemo deps now complete. Verified clean under Plan 10 review.
+
+**Deferred (tracked as 74.5.3 TBD):**
+- `gofood_sale` literal drop from `productInventoryTransactions.transactionType` union — strip-before-drop rule, awaits 72h post-migration soak.
+- `channelDeductionEnabled` flag field removal — pending cutover completion across all channels + soak.
+- Sticker auto-deduction gap — retired Phase C of `processGofoodSales` broke sticker side-effect until unified path extends to BOM-resolve packaging. Documented in `docs/CHANNEL_INTEGRATION.md` follow-ups section.
+
+**Operational notes:**
+- See `docs/CHANNEL_INTEGRATION.md` for per-channel flag-flip runbook. Recommended cutover order: Shopee → TikTok → BigSeller (permanent-OFF) → K3Mart → GoFood (atomic with retirement deploy).
+- GoFood flag MUST be flipped immediately after Plan 08 deploy-complete confirmation to minimise under-deduction window (D74.5.2-L5 + Pitfall 2). Runbook §"GoFood atomic flip-and-retire" provides step-by-step protocol.
+- Backfill is idempotent and flag-independent (D74.5.2-L13) — admin can pre-populate historical deductions before flipping a channel's flag ON.
+- Forward-only migration: re-running `runGofoodSaleToChannelSaleMigration` on an already-migrated database is a no-op (filter narrowing + `by_type` index skip).
+
+---
+
 ### Phase 74.5.1 — Channel Routing Spine + Admin UI -- 2026-04-20
 
 **For the team:** Foundation work for unified channel integration (Shopee, TikTok, BigSeller, K3Mart, GoFood, Consignment, Grabfood, Direct). No behavior change in production yet — every new code path is gated behind per-source feature flags that default OFF. Cutover + flag flips are a separate follow-up phase (74.5.2).

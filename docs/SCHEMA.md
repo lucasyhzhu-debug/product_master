@@ -663,6 +663,15 @@ productInventoryTransactions: defineTable({
 
 **Purpose:** Full immutable audit trail for all finished goods stock movements. Never deleted. Paginated for display in TransactionLogPanel.
 
+**Phase 74.5.1 additions:**
+- `transactionType` union extended with `channel_sale` literal (unified path).
+- Optional `source: externalSource` field — identifies which channel produced the deduction.
+- Optional `externalRef: string` — per-source external reference (e.g. GoFood order ref, Shopee item ID).
+- New index `by_source_externalRef: [source, externalRef]` for dedup queries.
+
+**Phase 74.5.2 migration note:**
+The `gofood_sale` literal is **deprecated**. Historical rows are migrated via `runGofoodSaleToChannelSaleMigration` to `channel_sale + source: "gobiz"`. The literal stays in the union until a follow-up phase (74.5.3 TBD) drops it post-72h-soak (strip-before-drop rule — rewrite data in 74.5.2, drop literal in 74.5.3). `gofoodOrderRef` is preserved on migrated rows so `TransactionLogPanel` legacy reader still functions during the soak.
+
 ---
 
 ### 26. `productInventorySettings` - Finished Goods Config (Phase 17.1)
@@ -1007,7 +1016,10 @@ Journal-level line items for external revenue transactions. Used by GoBiz to sto
 | matchConfidence | `"exact" \| "price_only" \| "name_only" \| "none"`? | Confidence level of auto-match |
 | createdAt | number | Creation timestamp |
 
-**Indexes:** `by_revenue`, `by_source`, `by_menu_product`, `by_product_name`
+**Indexes:** `by_revenue`, `by_source`, `by_menu_product`, `by_product_name`, `by_source_deductedAt` (Phase 74.5.2 — `[source, inventoryDeductedAt]`; per-source backfill queries narrow to un-deducted rows in O(n) without post-scan filter)
+
+**Phase 74.5.1 additions:**
+- `inventoryDeductedAt` (optional `number`) — set-once idempotency key patched only after `processChannelSaleInternal` succeeds. Null = pending deduction; non-null = deducted (never patched again). Used by Phase 74.5.2 backfill to identify backfill candidates.
 
 **Auto-Matching Algorithm:**
 1. **Exact**: Price + name match (case-insensitive)
