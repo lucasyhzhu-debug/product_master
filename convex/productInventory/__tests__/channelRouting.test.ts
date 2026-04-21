@@ -20,7 +20,6 @@ import { describe, expect, test } from "vitest";
 import schema from "../../schema";
 import type { Id } from "../../_generated/dataModel";
 
-// @ts-expect-error — module created in Wave 1 (74.5.1-01-schema-spine)
 import { resolveChannelRoute, CHANNEL_ROUTING_NOT_CONFIGURED } from "../channelRouting";
 
 // Convex glob for convex-test module resolution
@@ -92,9 +91,6 @@ async function seedChannelRoutingRow(
   },
 ) {
   await t.run(async (ctx) => {
-    // Wave 1 adds the `channelRouting` table to schema.ts. This insert call will
-    // fail at runtime until then (schema has no such table). That is the RED state.
-    // @ts-expect-error — table added in Wave 1 (74.5.1-01-schema-spine)
     await ctx.db.insert("channelRouting", {
       source: args.source,
       outletId: args.outletId,

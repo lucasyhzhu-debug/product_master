@@ -15,7 +15,6 @@ import { describe, test, expect } from "vitest";
 
 // @ts-expect-error — ChannelSaleEvent added in Wave 1
 import type { ChannelSaleEvent } from "../../_shared/channelAdapter";
-// @ts-expect-error — internalAdapter.normalize() added in Wave 2
 import { internalAdapter } from "../adapter";
 
 describe("Req R1 — internal normalize() (TDD red; Wave 2 makes green)", () => {

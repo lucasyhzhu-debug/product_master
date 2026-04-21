@@ -19,18 +19,12 @@
 
 import { describe, test, expect } from "vitest";
 
-// @ts-expect-error — module created in Wave 1 (74.5.1-02-adapter-contract)
 import type { ChannelAdapter } from "../channelAdapter";
 
-// @ts-expect-error — normalize() added to each adapter in Wave 2
 import { gobizAdapter } from "../../gobiz/adapter";
-// @ts-expect-error — normalize() added to each adapter in Wave 2
 import { bigsellerAdapter } from "../../bigseller/adapter";
-// @ts-expect-error — normalize() added to each adapter in Wave 2
 import { internalAdapter } from "../../internal/adapter";
-// @ts-expect-error — normalize() added to each adapter in Wave 2
 import { k3martAdapter } from "../../k3mart/adapter";
-// @ts-expect-error — normalize() added to each adapter in Wave 2
 import { grabfoodAdapter } from "../../grabfood/adapter";
 
 describe("Req R1 — ChannelAdapter contract (TDD red; Waves 1-2 make green)", () => {
