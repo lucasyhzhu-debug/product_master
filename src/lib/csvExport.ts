@@ -625,7 +625,7 @@ export function generateIncomeStatementCSV(
     "All",
     "Free Cash Flow",
     String(data.current.freeCashFlow),
-    "exact",
+    "calculated",
     String(data.previous.freeCashFlow),
     formatPrecomputedDelta(data.deltas.freeCashFlow),
   ]);
@@ -738,5 +738,5 @@ export function downloadCSV(csv: string, filename: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 150);
 }

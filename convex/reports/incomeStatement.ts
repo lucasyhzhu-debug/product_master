@@ -495,6 +495,9 @@ function aggregateWeek(
   const ebitdaMarginPercent =
     totalGross !== 0 ? (ebitda / totalGross) * 100 : null;
 
+  // Sign convention: aggregateJournalLines returns debit−credit. Other Income accounts
+  // are credit-heavy (negative total); Other Expense are debit-heavy (positive total).
+  // ebit − totalOther is therefore correct: income reduces the subtracted value, expense increases it.
   const totalOther = other.total;
   const netIncomeValue = ebit - totalOther;
   const netMarginPercentValue =
@@ -866,7 +869,7 @@ async function fetchAndAggregate(
       previousPeriod.netMarginPercent !== null
         ? currentPeriod.netMarginPercent - previousPeriod.netMarginPercent
         : null,
-    // Phase 75 FIN-01 deltas (values are zero until Task 3 wires real computation)
+    // Phase 75 FIN-01 deltas
     opexExcludingDA: computeDelta(
       currentPeriod.opexExcludingDA,
       previousPeriod.opexExcludingDA

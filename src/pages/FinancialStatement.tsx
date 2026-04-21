@@ -618,11 +618,7 @@ export function FinancialStatement() {
               {opexExpanded && mergedOpexItems.map((item) => (
                 <PLRow
                   key={item.code}
-                  label={
-                    item.code === "6150" && canSeeReminder && depreciationReminder?.hasUnposted
-                      ? `${item.code} ${item.name}  (current month not posted)`
-                      : `${item.code} ${item.name}`
-                  }
+                  label={`${item.code} ${item.name}`}
                   currentAmount={item.currentTotal}
                   previousAmount={item.previousTotal}
                   delta={computeDelta(item.currentTotal, item.previousTotal)}
