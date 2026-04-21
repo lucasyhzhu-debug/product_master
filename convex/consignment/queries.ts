@@ -7,8 +7,14 @@
 
 import { query, type QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
+
+// Enriched item shape returned by getSettlementItems — externalRevenueItems
+// row + its linked menuProduct (or null when unlinked / pre-74.5.1).
+export type EnrichedSettlementItem = Doc<"externalRevenueItems"> & {
+  menuProduct: Doc<"menuProducts"> | null;
+};
 
 /**
  * Get all consignment outlets with computed running totals.
@@ -31,43 +37,45 @@ export const getOutletsWithTotals = query({
         .collect();
     }
 
-    // Compute per-outlet totals
-    const results = [];
-    for (const outlet of outlets) {
-      const settlements = await ctx.db
-        .query("consignmentSettlements")
-        .withIndex("by_outlet", (q) => q.eq("outletId", outlet._id))
-        .collect();
+    // Compute per-outlet totals in parallel — avoids O(N) sequential round-trips
+    // when the outlet list is large.
+    const results = await Promise.all(
+      outlets.map(async (outlet) => {
+        const settlements = await ctx.db
+          .query("consignmentSettlements")
+          .withIndex("by_outlet", (q) => q.eq("outletId", outlet._id))
+          .collect();
 
-      let totalRevenue = 0;
-      let totalRevShare = 0;
-      let totalFrollie = 0;
-      let outstanding = 0;
-      let paidTotal = 0;
+        let totalRevenue = 0;
+        let totalRevShare = 0;
+        let totalFrollie = 0;
+        let outstanding = 0;
+        let paidTotal = 0;
 
-      for (const s of settlements) {
-        totalRevenue += s.totalRevenue;
-        totalRevShare += s.revShareAmount;
-        totalFrollie += s.frolliePayment;
-        if (s.status === "pending") {
-          outstanding += s.frolliePayment;
-        } else if (s.status === "paid") {
-          paidTotal += s.frolliePayment;
+        for (const s of settlements) {
+          totalRevenue += s.totalRevenue;
+          totalRevShare += s.revShareAmount;
+          totalFrollie += s.frolliePayment;
+          if (s.status === "pending") {
+            outstanding += s.frolliePayment;
+          } else if (s.status === "paid") {
+            paidTotal += s.frolliePayment;
+          }
         }
-      }
 
-      results.push({
-        ...outlet,
-        totals: {
-          totalRevenue,
-          totalRevShare,
-          totalFrollie,
-          outstanding,
-          paidTotal,
-          settlementCount: settlements.length,
-        },
-      });
-    }
+        return {
+          ...outlet,
+          totals: {
+            totalRevenue,
+            totalRevShare,
+            totalFrollie,
+            outstanding,
+            paidTotal,
+            settlementCount: settlements.length,
+          },
+        };
+      }),
+    );
 
     return results;
   },
@@ -164,12 +172,7 @@ export const getGlobalSummary = query({
 export async function _getSettlementItemsForTest(
   ctx: QueryCtx,
   settlementId: Id<"consignmentSettlements">,
-): Promise<
-  Array<
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    any
-  >
-> {
+): Promise<Array<EnrichedSettlementItem>> {
   const settlement = await ctx.db.get(settlementId);
   if (!settlement || !settlement.linkedRevenueId) return [];
 
@@ -199,12 +202,7 @@ export async function _getSettlementItemsWithAuthForTest(
   ctx: QueryCtx,
   settlementId: Id<"consignmentSettlements">,
   token: string,
-): Promise<
-  Array<
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    any
-  >
-> {
+): Promise<Array<EnrichedSettlementItem>> {
   await requireRole(ctx, token, ["admin", "manager"]);
   return _getSettlementItemsForTest(ctx, settlementId);
 }

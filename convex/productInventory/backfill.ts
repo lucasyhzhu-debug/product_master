@@ -243,38 +243,14 @@ export const getChannelBackfillPreflight = query({
 // DO NOT call these from production code. Exported only for test access.
 // ============================================================================
 
+// Delegates to backfillOnePageImpl — the shared helper (Plan 06) that both
+// registered endpoints already call. Keeping delegation (not duplication) prevents
+// the test shim from silently diverging from production logic on future bug fixes.
 export const _backfillOnePageForTest = async (
   ctx: MutationCtx,
   args: { source: ExternalSource },
 ): Promise<{ itemsProcessed: number; deducted: number; skipped: number }> => {
-  const items = await ctx.db
-    .query("externalRevenueItems")
-    .withIndex("by_source_deductedAt", (q) =>
-      q.eq("source", args.source).eq("inventoryDeductedAt", undefined))
-    .take(BATCH_SIZE);
-
-  let deducted = 0;
-  let skipped = 0;
-  for (const item of items) {
-    if (!item.linkedMenuProductId) {
-      skipped++;
-      continue;
-    }
-    const revenue = await ctx.db.get(item.revenueId);
-    if (!revenue) {
-      skipped++;
-      continue;
-    }
-    const event = buildEventFromRow(revenue, item);
-    const result = await processChannelSaleInternal(ctx, event);
-    if (result.deducted) {
-      await ctx.db.patch(item._id, { inventoryDeductedAt: Date.now() });
-      deducted++;
-    } else {
-      skipped++;
-    }
-  }
-  return { itemsProcessed: items.length, deducted, skipped };
+  return backfillOnePageImpl(ctx, args.source);
 };
 
 export const _runChannelBackfillForTest = async (
