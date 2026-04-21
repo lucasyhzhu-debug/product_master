@@ -26,6 +26,12 @@ interface GapAnalysis {
     displayName: string;
     reason: string;
   }>;
+  missingReversals: Array<{
+    expenseId: string;
+    description: string;
+    expenseDate: number;
+    journalEntryId: string;
+  }>;
   totalMappedProducts: number;
   totalProducts: number;
 }
@@ -71,6 +77,7 @@ export function DataQualityPanel({
     gapAnalysis.unmappedProducts.length +
     gapAnalysis.zeroCostComponents.length +
     gapAnalysis.missingChannels.length +
+    gapAnalysis.missingReversals.length +
     (hasMarketplaceShippingGap ? 1 : 0);
 
   const hasIssues = issueCount > 0;
@@ -195,6 +202,38 @@ export function DataQualityPanel({
                   className="inline-flex items-center gap-1 text-xs text-primary hover:underline ml-6"
                 >
                   Update in Component Types
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
+
+            {/* Phase 75 D-15: Missing reversal JEs (silent P&L double-count risk) */}
+            {gapAnalysis.missingReversals.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <AlertCircle className="h-4 w-4 text-[var(--color-status-error)] shrink-0" />
+                  {gapAnalysis.missingReversals.length} converted expense
+                  {gapAnalysis.missingReversals.length !== 1 ? "s" : ""} missing reversal JE --
+                  P&L may double-count
+                </div>
+                <ul className="ml-6 space-y-1">
+                  {gapAnalysis.missingReversals.map((r) => (
+                    <li
+                      key={r.expenseId}
+                      className="text-xs text-muted-foreground flex items-center justify-between"
+                    >
+                      <span className="truncate mr-2">{r.description}</span>
+                      <span className="tabular-nums shrink-0">
+                        {new Date(r.expenseDate).toISOString().slice(0, 10)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to="/expenses"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline ml-6"
+                >
+                  Review in Expenses
                   <ExternalLink className="h-3 w-3" />
                 </Link>
               </div>
