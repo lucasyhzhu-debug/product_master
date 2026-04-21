@@ -4,10 +4,13 @@
  * Route: /admin/unlinked-products-backfill
  * Role:  admin (enforced in <ProtectedRoute> + backend requireRole)
  *
- * Three operations:
+ * Operations:
  *   1. K3Mart Cascade — re-apply every active SKU mapping (one-shot)
  *   2. Direct Backfill — backfill externalRevenueItems for Direct orphan parents (paginated)
  *   3. Preflight Stats — reactive counts of what's pending
+ *   4. Channel Deduction Backfill (Phase 74.5.2) — 6 per-source cards that
+ *      backfill legacy externalRevenueItems into the unified Layer-4 ledger
+ *      (D-15/D-16/D-17/D-18/D-19). Audit gate is informational, not disabling.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, Database, Loader2, Play, RotateCw } from "lucide-react";
@@ -27,11 +30,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   useBackfillInternalRevenueItems,
   useCascadeAllK3MartMappings,
+  useChannelBackfillPreflight,
   useDirectBackfillStats,
   useK3MartBackfillStats,
+  useRunChannelBackfill,
   type BackfillPageResult,
   type CascadeK3MartResult,
 } from "@/hooks/convex";
+import type { ExternalSource } from "../../convex/lib/externalSource";
 
 // ============================================================================
 // Types (local UI state)
@@ -72,6 +78,219 @@ const INITIAL_LOOP_STATE: DirectLoopState = {
 };
 
 const BATCH_LIMIT = 200;
+
+// ============================================================================
+// Phase 74.5.2 — Channel Deduction Backfill (6 per-source cards)
+// ============================================================================
+
+// Phase 74.5.2 Plan 06: 6 per-source cards per D-16 (display-name labels; actual source
+// values use ExternalSource literals — notably GoFood surface uses source="gobiz"
+// per Pitfall 1).
+// ORDERING: matches runbook cutover order (shopee → tiktok → bigseller → k3mart →
+// gofood → grabfood), NOT alphabetical — UI workflow ergonomics aligned with Plan 09
+// runbook execution order.
+const CHANNEL_SOURCES: ReadonlyArray<{
+  value: ExternalSource;
+  label: string;
+  description?: string;
+}> = [
+  { value: "shopee", label: "Shopee" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "bigseller", label: "BigSeller" },
+  { value: "k3mart", label: "K3Mart" },
+  { value: "gobiz", label: "GoFood", description: "Atomic flip — see runbook" },
+  {
+    value: "grabfood",
+    label: "GrabFood",
+    description: "Permanent-OFF until OAuth scope granted",
+  },
+] as const;
+
+// Safety cap for the client-loop (same as the server MAX_ITERATIONS).
+const CHANNEL_MAX_ITERATIONS = 500;
+
+interface ChannelBackfillLoopState {
+  running: boolean;
+  isDone: boolean;
+  iterations: number;
+  totalDeducted: number;
+  totalSkipped: number;
+  error?: string;
+}
+
+const CHANNEL_INITIAL_STATE: ChannelBackfillLoopState = {
+  running: false,
+  isDone: false,
+  iterations: 0,
+  totalDeducted: 0,
+  totalSkipped: 0,
+};
+
+/**
+ * Per-source backfill card — preflight stats + run button + progress display.
+ *
+ * D-17 / Pitfall 4: Blocking audit issues are displayed as a YELLOW WARNING
+ * (⚠) but do NOT disable the button. Admin retains the choice to proceed.
+ *
+ * D74.5.2-L15: GrabFood renders as a normal card. When admin clicks Backfill
+ * and `pending === 0` (no ingested data), the button is disabled via `isEmpty`
+ * and the card displays an "Awaiting OAuth scope" state.
+ */
+function ChannelBackfillCard({
+  source,
+  appendLog,
+}: {
+  source: { value: ExternalSource; label: string; description?: string };
+  appendLog: (operation: string, message: string, isError?: boolean) => void;
+}) {
+  const { user } = useAuth();
+  const token = user?.token;
+  const preflight = useChannelBackfillPreflight(source.value);
+  const runPage = useRunChannelBackfill();
+  const [state, setState] = useState<ChannelBackfillLoopState>(CHANNEL_INITIAL_STATE);
+
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const pending = preflight.data?.pendingItems ?? 0;
+  const blocking = preflight.data?.blockingAuditIssues ?? 0;
+  const isEmpty = !preflight.isLoading && pending === 0;
+  // GrabFood permanent-OFF: distinct branch from generic isEmpty so the UI can
+  // communicate "awaiting OAuth scope" instead of silently showing "No pending items".
+  const isGrabFoodAwaitingScope =
+    source.value === "grabfood" && !preflight.isLoading && pending === 0;
+
+  const handleRun = async () => {
+    if (!token) {
+      toast.error("Not authenticated");
+      return;
+    }
+    setState({ ...CHANNEL_INITIAL_STATE, running: true });
+    appendLog(`${source.label} Backfill`, "Started");
+
+    let iterations = 0;
+    let totalDeducted = 0;
+    let totalSkipped = 0;
+
+    try {
+      while (iterations < CHANNEL_MAX_ITERATIONS) {
+        if (!mountedRef.current) return;
+        iterations++;
+        const page = await runPage({ source: source.value, token });
+        if (!mountedRef.current) return;
+        totalDeducted += page.deducted;
+        totalSkipped += page.skipped;
+        setState({
+          running: true,
+          isDone: false,
+          iterations,
+          totalDeducted,
+          totalSkipped,
+        });
+        if (page.itemsProcessed === 0) break;
+      }
+
+      if (!mountedRef.current) return;
+
+      setState((s) => ({ ...s, running: false, isDone: true }));
+      toast.success(
+        `${source.label} backfill complete: ${totalDeducted} deducted, ${totalSkipped} skipped`,
+      );
+      appendLog(
+        `${source.label} Backfill`,
+        `Complete (${iterations} iteration(s), ${totalDeducted} deducted, ${totalSkipped} skipped)`,
+      );
+    } catch (error) {
+      if (!mountedRef.current) return;
+      const message = error instanceof Error ? error.message : String(error);
+      setState((s) => ({ ...s, running: false, error: message }));
+      toast.error(`${source.label} backfill failed: ${message}`);
+      appendLog(`${source.label} Backfill`, message, true);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-medium">{source.label}</h4>
+        {isEmpty && !isGrabFoodAwaitingScope && (
+          <span className="text-xs text-muted-foreground">No pending items</span>
+        )}
+      </div>
+
+      {source.description && (
+        <p className="text-xs text-muted-foreground">{source.description}</p>
+      )}
+
+      {isGrabFoodAwaitingScope ? (
+        <div className="text-sm italic text-muted-foreground">
+          Awaiting OAuth scope — no items to backfill yet
+        </div>
+      ) : (
+        <div className="text-sm">
+          <div>
+            Pending items:{" "}
+            <span className="font-semibold tabular-nums">
+              {preflight.isLoading ? "…" : pending}
+            </span>
+          </div>
+          {blocking > 0 && (
+            <div className="text-yellow-700 dark:text-yellow-400">
+              ⚠ {blocking} blocking audit issue{blocking === 1 ? "" : "s"} — resolve in{" "}
+              <a href="/admin/channel-audit" className="underline">
+                /admin/channel-audit
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleRun}
+        disabled={state.running || !token || isEmpty || isGrabFoodAwaitingScope}
+      >
+        {state.running ? (
+          <>
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Running…
+          </>
+        ) : state.isDone ? (
+          "Completed ✓ (Re-run)"
+        ) : (
+          `Backfill ${source.label}`
+        )}
+      </Button>
+
+      {(state.running || state.iterations > 0) && (
+        <div className="rounded bg-muted/30 p-2 text-xs">
+          <div>Iteration {state.iterations}</div>
+          <div className="grid grid-cols-2 gap-1">
+            <span>
+              Deducted:{" "}
+              <span className="font-semibold tabular-nums">{state.totalDeducted}</span>
+            </span>
+            <span>
+              Skipped:{" "}
+              <span className="font-semibold tabular-nums">{state.totalSkipped}</span>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {state.error && (
+        <div className="text-xs text-red-600 dark:text-red-400">
+          Error: {state.error}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ============================================================================
 // Small presentational helpers
@@ -573,7 +792,35 @@ export function UnlinkedProductsBackfill() {
       </Card>
 
       {/* ============================================================ */}
-      {/* Card 4 — Execution Log                                        */}
+      {/* Card 4 — Channel Deduction Backfill (Phase 74.5.2)            */}
+      {/* ============================================================ */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Channel Deduction Backfill</CardTitle>
+          <CardDescription>
+            Backfill historical <code>externalRevenueItems</code> with unified
+            channel deductions. Run BEFORE flipping a channel's{" "}
+            <code>channelDeductionEnabled</code> flag (per runbook{" "}
+            <code>docs/CHANNEL_INTEGRATION.md</code>). Idempotent — re-running
+            after completion is a no-op. Blocking audit issues are informational
+            only; the button stays clickable.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {CHANNEL_SOURCES.map((source) => (
+              <ChannelBackfillCard
+                key={source.value}
+                source={source}
+                appendLog={appendLog}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ============================================================ */}
+      {/* Card 5 — Execution Log                                        */}
       {/* ============================================================ */}
       <Card>
         <CardHeader>
