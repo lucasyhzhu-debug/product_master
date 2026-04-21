@@ -14,6 +14,7 @@
  */
 
 import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { internalAction, internalQuery } from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
@@ -322,3 +323,178 @@ export const listOpenIssuesBySource = internalQuery({
     return rows;
   },
 });
+
+// ============================================================================
+// Test-only helper — direct-handler invocation for convex-test
+//
+// Plan 74.5.2-01 Task 1: the production `runFullAudit` internalAction fails
+// module resolution under convex-test's `t.action(internal.*)` path resolver
+// (see node_modules/convex-test/dist/index.js:1062 — actionFromPath throws
+// `Could not find module for: "productInventory/channelAudit"`). The known-
+// green pattern in `channelSale.test.ts` and the entire `tests/convex/` suite
+// is direct-handler invocation inside `t.run(async (ctx) => ...)` — no
+// `t.action` dependency.
+//
+// This helper replicates `runFullAudit`'s handler body verbatim but against a
+// single MutationCtx (no cross-function ctx.runQuery/runMutation hops). Tests
+// call `await t.run(async (ctx) => await _runFullAuditForTest(ctx, { ... }))`.
+// Production behavior is unchanged — `runFullAudit` action continues to call
+// the same internalQuery/internalMutation helpers it always has.
+//
+// DO NOT call this from production code. Exported only for test access.
+// ============================================================================
+export const _runFullAuditForTest = async (
+  ctx: MutationCtx,
+  args: { triggeredBy: string },
+): Promise<{ reportId: Id<"channelAuditReports">; issuesFound: number }> => {
+  // Mirror openAuditReport
+  const reportId = await ctx.db.insert("channelAuditReports", {
+    status: "pending",
+    totalItemsScanned: 0,
+    issuesFound: 0,
+    issuesByType: {
+      unmapped_sku: 0,
+      stale_mapping: 0,
+      malformed_item: 0,
+      duplicate_transaction: 0,
+      orphan_item: 0,
+    },
+    startedAt: Date.now(),
+    triggeredBy: args.triggeredBy,
+  });
+
+  const issuesByType: Record<AuditIssueType, number> = {
+    unmapped_sku: 0,
+    stale_mapping: 0,
+    malformed_item: 0,
+    duplicate_transaction: 0,
+    orphan_item: 0,
+  };
+  let totalIssues = 0;
+  let totalScanned = 0;
+
+  // Single-page scan — tests seed small datasets (<500 items), so paginate()
+  // is unnecessary overhead. Production path still paginates via auditPageQuery.
+  const allItems = await ctx.db.query("externalRevenueItems").collect();
+
+  // Pre-fetch revenue parents (join equivalent to auditPageQuery's revMap).
+  const revenueIds = Array.from(new Set(allItems.map((i) => i.revenueId)));
+  const revenues = await Promise.all(revenueIds.map((id) => ctx.db.get(id)));
+  const revMap = new Map(
+    revenues.filter((r): r is Doc<"externalRevenue"> => r !== null).map((r) => [r._id, r]),
+  );
+
+  const pageIssues: DetectedIssue[] = [];
+
+  for (const item of allItems) {
+    totalScanned++;
+    const revenue = revMap.get(item.revenueId) ?? null;
+
+    // Orphan check first — parent deleted.
+    if (!revenue) {
+      issuesByType.orphan_item++;
+      totalIssues++;
+      pageIssues.push({
+        source: item.source,
+        itemId: item._id,
+        issueType: "orphan_item",
+        severity: "block",
+        detail: `Item revenueId ${item.revenueId} parent not found`,
+      });
+      continue;
+    }
+
+    // Cheap inline checks (unmapped_sku, malformed_item).
+    const cheapIssues = detectAuditIssuesForItem(revenue, item);
+    for (const issue of cheapIssues) {
+      issuesByType[issue.issueType]++;
+      totalIssues++;
+      pageIssues.push(issue);
+    }
+
+    // Expensive checks — mirror getMenuProductStatusQuery + findDuplicateTxQuery.
+    const externalRef = item.externalItemId
+      ? `${revenue.externalTransactionId ?? String(revenue._id)}${item.externalItemId}`
+      : null;
+
+    // stale_mapping — getMenuProductStatusQuery equivalent.
+    if (item.linkedMenuProductId) {
+      const mp = await ctx.db.get(item.linkedMenuProductId);
+      const missing = !mp;
+      const inactive = mp ? mp.isActive === false : false;
+      if (missing || inactive) {
+        issuesByType.stale_mapping++;
+        totalIssues++;
+        pageIssues.push({
+          source: item.source,
+          revenueId: revenue._id,
+          itemId: item._id,
+          issueType: "stale_mapping",
+          severity: "warn",
+          detail: missing
+            ? `linkedMenuProductId ${item.linkedMenuProductId} not found (deleted)`
+            : `linkedMenuProductId ${item.linkedMenuProductId} marked inactive`,
+        });
+      }
+    }
+
+    // duplicate_transaction — findDuplicateTxQuery equivalent.
+    if (externalRef !== null) {
+      const rows = await ctx.db
+        .query("productInventoryTransactions")
+        .withIndex("by_source_externalRef", (q) =>
+          q.eq("source", revenue.source).eq("externalRef", externalRef),
+        )
+        .collect();
+      const uniqueProducts = new Set(rows.map((r) => r.menuProductId));
+      const hasDuplicate = rows.length > uniqueProducts.size;
+      if (hasDuplicate) {
+        issuesByType.duplicate_transaction++;
+        totalIssues++;
+        pageIssues.push({
+          source: revenue.source,
+          revenueId: revenue._id,
+          itemId: item._id,
+          issueType: "duplicate_transaction",
+          severity: "block",
+          detail: `${rows.length} productInventoryTransactions rows (same menuProductId collision) for source=${revenue.source} externalRef=${externalRef}`,
+        });
+      }
+    }
+  }
+
+  // recordAuditIssues equivalent — inline dedup on (itemId, issueType).
+  for (const issue of pageIssues) {
+    if (issue.itemId) {
+      const existing = await ctx.db
+        .query("channelAuditIssues")
+        .withIndex("by_item", (q) => q.eq("itemId", issue.itemId))
+        .collect();
+      const alreadyOpen = existing.some(
+        (e) => e.issueType === issue.issueType && e.resolvedAt === undefined,
+      );
+      if (alreadyOpen) continue;
+    }
+    await ctx.db.insert("channelAuditIssues", {
+      reportId,
+      source: issue.source,
+      itemId: issue.itemId,
+      revenueId: issue.revenueId,
+      issueType: issue.issueType,
+      severity: issue.severity,
+      detail: issue.detail,
+      detectedAt: Date.now(),
+    });
+  }
+
+  // closeAuditReport equivalent.
+  await ctx.db.patch(reportId, {
+    status: "resolved",
+    totalItemsScanned: totalScanned,
+    issuesFound: totalIssues,
+    issuesByType,
+    completedAt: Date.now(),
+  });
+
+  return { reportId, issuesFound: totalIssues };
+};
