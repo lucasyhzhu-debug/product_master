@@ -4,6 +4,15 @@
  * Shows: timestamp, type badge, quantity, location, performed by, reason/order link.
  * Supports filtering by menuProductId, locationId, and transactionType.
  * Includes a type filter bar to isolate production adds from GoFood sync noise.
+ *
+ * Phase 74.5.2 Plan 08 — Hybrid GoFood display:
+ *   - LEGACY rows: `transactionType === "gofood_sale"` (retained during the
+ *     migration soak until the schema literal is dropped in 74.5.3).
+ *   - MIGRATED rows: `transactionType === "channel_sale"` with
+ *     `source === "gobiz"`.
+ *   Both render identically as the "GoFood" branch. The `isGoFoodTransaction`
+ *   helper centralizes the hybrid check; filter, label, and row ref display
+ *   all use it.
  */
 
 import { useState } from "react";
@@ -20,7 +29,7 @@ interface TransactionLogPanelProps {
   locationId?: Id<"storageLocations">;
 }
 
-// Transaction type display config — covers all 6 schema types
+// Transaction type display config — covers all schema types
 const TX_CONFIG = {
   add: {
     label: "Production",
@@ -39,6 +48,14 @@ const TX_CONFIG = {
     color: "bg-[var(--color-gofood-light)] text-[var(--color-gofood)] border-[var(--color-gofood)]/30",
     icon: ShoppingCart,
     iconColor: "text-[var(--color-gofood)]",
+  },
+  channel_sale: {
+    // Default channel_sale rendering — overridden to the GoFood branch via
+    // resolveDisplayConfig when source === "gobiz" (hybrid).
+    label: "Channel sale",
+    color: "bg-[var(--color-status-info-bg)] text-[var(--color-status-info)] border-[var(--color-status-info)]/30",
+    icon: ShoppingCart,
+    iconColor: "text-[var(--color-status-info)]",
   },
   adjust: {
     label: "Adjusted",
@@ -62,7 +79,44 @@ const TX_CONFIG = {
 
 type TransactionType = keyof typeof TX_CONFIG;
 
+/**
+ * Hybrid GoFood predicate (Phase 74.5.2 Plan 08).
+ *
+ * A row is a GoFood transaction when EITHER:
+ *   - `transactionType === "gofood_sale"` (LEGACY, pre-migration), OR
+ *   - `transactionType === "channel_sale"` AND `source === "gobiz"` (MIGRATED
+ *     or post-cutover new writes).
+ */
+function isGoFoodTransaction(tx: {
+  transactionType: string;
+  source?: string;
+}): boolean {
+  if (tx.transactionType === "gofood_sale") return true;
+  if (tx.transactionType === "channel_sale" && tx.source === "gobiz") return true;
+  return false;
+}
+
+/**
+ * Resolve the effective display config for a transaction row. Centralizes the
+ * hybrid GoFood mapping so the badge label, color, and icon stay consistent
+ * across legacy and migrated rows.
+ */
+function resolveDisplayConfig(tx: {
+  transactionType: string;
+  source?: string;
+}): (typeof TX_CONFIG)[TransactionType] {
+  // GoFood hybrid: migrated (channel_sale + gobiz) renders the same as legacy.
+  if (tx.transactionType === "channel_sale" && tx.source === "gobiz") {
+    return TX_CONFIG.gofood_sale;
+  }
+  const key = tx.transactionType as TransactionType;
+  return (key in TX_CONFIG ? TX_CONFIG[key] : TX_CONFIG.adjust);
+}
+
 // Filter options for the type filter bar
+// The GoFood filter value remains "gofood_sale" for backwards-compat with any
+// bookmarked state; the click handler below expands it to match BOTH the
+// legacy literal AND the migrated channel_sale + source=gobiz rows.
 const TYPE_FILTERS: Array<{ value: string | undefined; label: string }> = [
   { value: undefined, label: "All" },
   { value: "add", label: "Production" },
@@ -95,11 +149,27 @@ export function TransactionLogPanel({
 }: TransactionLogPanelProps) {
   const [typeFilter, setTypeFilter] = useState<string | undefined>(undefined);
 
+  // Phase 74.5.2 Plan 08 — hybrid GoFood filtering.
+  // When the user selects the "GoFood" chip (value="gofood_sale"), the
+  // server-side filter would only return LEGACY rows. Post-migration rows
+  // live as `channel_sale + source=gobiz`. To avoid hiding them, we disable
+  // the server-side filter for this case and apply `isGoFoodTransaction`
+  // client-side over the unfiltered stream. All other filters pass through
+  // unchanged.
+  const isGoFoodFilter = typeFilter === "gofood_sale";
+  const serverTransactionType = isGoFoodFilter ? undefined : typeFilter;
+
   const { results, status, loadMore } = useProductInventoryTransactions({
     menuProductId,
     locationId,
-    transactionType: typeFilter,
+    transactionType: serverTransactionType,
   });
+
+  const displayedResults = isGoFoodFilter
+    ? results.filter((tx) =>
+        isGoFoodTransaction({ transactionType: tx.transactionType, source: tx.source })
+      )
+    : results;
 
   return (
     <div className="space-y-2">
@@ -132,22 +202,52 @@ export function TransactionLogPanel({
       )}
 
       {/* Empty state */}
-      {status !== "LoadingFirstPage" && results.length === 0 && (
+      {status !== "LoadingFirstPage" && displayedResults.length === 0 && (
         <div className="py-4 text-center text-sm text-muted-foreground">
           {typeFilter ? `No ${TYPE_FILTERS.find(f => f.value === typeFilter)?.label.toLowerCase() ?? typeFilter} transactions` : "No transactions yet"}
+          {isGoFoodFilter && status === "CanLoadMore" && (
+            <div className="mt-2 text-xs">
+              GoFood rows are interleaved with other types — load more pages to
+              find older transactions.
+            </div>
+          )}
         </div>
       )}
 
+      {/* Sparse-page hint: GoFood filter client-side narrows the loaded page,
+          so even when some rows exist, older GoFood transactions may be on
+          later pages. SOAK BRIDGE: remove in 74.5.3 once server-side filter
+          switches to channel_sale+source=gobiz (after gofood_sale literal drop). */}
+      {isGoFoodFilter &&
+        status === "CanLoadMore" &&
+        displayedResults.length > 0 &&
+        displayedResults.length < 5 && (
+          <div className="py-2 text-center text-xs text-muted-foreground">
+            Showing {displayedResults.length} GoFood row{displayedResults.length === 1 ? "" : "s"} on the current page. Load more to see older transactions.
+          </div>
+        )}
+
       {/* Transaction list */}
-      {results.length > 0 && (
+      {displayedResults.length > 0 && (
         <div className="space-y-1.5">
-          {results.map((tx) => {
-            const txType = (tx.transactionType as TransactionType) in TX_CONFIG
-              ? (tx.transactionType as TransactionType)
-              : "adjust";
-            const config = TX_CONFIG[txType];
+          {displayedResults.map((tx) => {
+            const config = resolveDisplayConfig({
+              transactionType: tx.transactionType,
+              source: tx.source,
+            });
             const Icon = config.icon;
             const isPositive = tx.quantity > 0;
+            // Hybrid GoFood ref display: legacy `gofoodOrderRef` for
+            // pre-migration rows; `externalRef` for migrated/post-cutover
+            // rows (written by processChannelSaleInternal). Both surface as
+            // the same right-aligned small-text label.
+            const isGoFoodRow = isGoFoodTransaction({
+              transactionType: tx.transactionType,
+              source: tx.source,
+            });
+            const refLabel = isGoFoodRow
+              ? (tx.gofoodOrderRef ?? tx.externalRef)
+              : tx.gofoodOrderRef;
 
             return (
               <div
@@ -191,9 +291,9 @@ export function TransactionLogPanel({
                     {tx.reason}
                   </span>
                 )}
-                {tx.gofoodOrderRef && (
+                {refLabel && (
                   <span className="text-muted-foreground truncate text-[10px]">
-                    {tx.gofoodOrderRef}
+                    {refLabel}
                   </span>
                 )}
 

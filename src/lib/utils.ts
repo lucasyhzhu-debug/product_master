@@ -28,6 +28,13 @@ export function formatPercent(value: number | null | undefined): string {
   return `${value.toFixed(1)}%`
 }
 
+/** Format decimal hours as h:mm (e.g. 2.75 → "2:45") */
+export function formatHoursMinutes(hours: number): string {
+  const h = Math.floor(hours)
+  const m = Math.round((hours - h) * 60)
+  return `${h}:${String(m).padStart(2, "0")}`
+}
+
 export function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message
   if (typeof error === "string") return error

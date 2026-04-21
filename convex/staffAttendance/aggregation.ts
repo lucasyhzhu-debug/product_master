@@ -25,6 +25,7 @@
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { detectFlags, detectOverlaps, type FlagReason } from "./flagEngine";
+import { type ComponentUnit, resolveUnit } from "../lib/componentUnit";
 
 interface AggregateArgs {
   startDate: string;
@@ -35,7 +36,7 @@ interface AggregateArgs {
 interface TrackingEntry {
   code: string;
   tracked: boolean;
-  unit: "g" | "pcs";
+  unit: ComponentUnit;
   name: string;
 }
 
@@ -51,7 +52,7 @@ interface SessionSummary {
 interface ComponentTotal {
   code: string;
   name: string;
-  unit: "g" | "pcs";
+  unit: ComponentUnit;
   quantity: number;
 }
 
@@ -78,7 +79,7 @@ async function buildTrackingMap(ctx: QueryCtx): Promise<TrackingEntry[]> {
   const componentTypesAll = await ctx.db.query("componentTypes").collect();
   const kitchenComponentsAll = await ctx.db.query("kitchenComponents").collect();
   const configAny = kitchenConfig as unknown as {
-    componentTracking?: Array<{ code: string; tracked?: boolean; unit: "g" | "pcs" }>;
+    componentTracking?: Array<{ code: string; tracked?: boolean; unit: ComponentUnit }>;
     enabledProductionComponents?: string[];
     enabledKitchenComponents?: string[];
   } | null;
@@ -156,7 +157,7 @@ export async function aggregateStaffPerformance(
     .collect();
   const records =
     userIdFilter !== undefined
-      ? recordsAll.filter((r) => r.chefUserId === userIdFilter)
+      ? recordsAll.filter((r) => (r.chefUserId ?? r.submittedByUserId) === userIdFilter)
       : recordsAll;
 
   const attendanceAll = await ctx.db
@@ -249,8 +250,7 @@ export async function aggregateStaffPerformance(
     allStaffUserIds.add(String(userId));
   }
   for (const record of records) {
-    if (record.chefUserId) allStaffUserIds.add(String(record.chefUserId));
-    if (record.submittedByUserId) allStaffUserIds.add(String(record.submittedByUserId));
+    allStaffUserIds.add(String(record.chefUserId ?? record.submittedByUserId));
   }
   const userDocs = await Promise.all(
     Array.from(allStaffUserIds).map((id) =>
@@ -263,16 +263,22 @@ export async function aggregateStaffPerformance(
   }
 
   // --- 5. Build staffMap from production records first ---
+  // C1: component totals are split by unit (grams vs pieces) so pcs-tracked
+  // components (e.g. packaging-style leaves) do not pollute gram totals.
+  // Each breakdown entry carries its `unit` tag so the frontend can render
+  // the correct suffix ("g" vs " pcs").
   type StaffBucket = {
     staffKey: string;
     chefName: string;
-    chefUserId: string | null;
+    chefUserId: string;
     totalBallsProduced: number;
     productBreakdown: Map<string, { name: string; quantity: number; ballCount: number }>;
     totalComponentGrams: number;
-    componentBreakdown: Map<string, { name: string; grams: number }>;
+    totalComponentPieces: number;
+    componentBreakdown: Map<string, { name: string; grams: number; unit: ComponentUnit }>;
     totalComponentWasteGrams: number;
-    componentWasteBreakdown: Map<string, { name: string; grams: number }>;
+    totalComponentWastePieces: number;
+    componentWasteBreakdown: Map<string, { name: string; grams: number; unit: ComponentUnit }>;
     totalWaste: number;
     wasteByReason: Map<string, number>;
     wasteProductBreakdown: Map<string, { name: string; quantity: number }>;
@@ -283,14 +289,8 @@ export async function aggregateStaffPerformance(
 
   for (const record of records) {
     const name = record.chefName ?? record.submittedBy;
-    // Prefer chefUserId (explicit chef selection); fall back to
-    // submittedByUserId (self-submission) so production links to attendance.
-    const userId = record.chefUserId
-      ? String(record.chefUserId)
-      : record.submittedByUserId
-        ? String(record.submittedByUserId)
-        : null;
-    const staffKey = userId ?? name;
+    const userId = String(record.chefUserId ?? record.submittedByUserId);
+    const staffKey = userId;
 
     if (!staffMap.has(staffKey)) {
       staffMap.set(staffKey, {
@@ -300,8 +300,10 @@ export async function aggregateStaffPerformance(
         totalBallsProduced: 0,
         productBreakdown: new Map(),
         totalComponentGrams: 0,
+        totalComponentPieces: 0,
         componentBreakdown: new Map(),
         totalComponentWasteGrams: 0,
+        totalComponentWastePieces: 0,
         componentWasteBreakdown: new Map(),
         totalWaste: 0,
         wasteByReason: new Map(),
@@ -352,35 +354,51 @@ export async function aggregateStaffPerformance(
       }
     }
 
-    // Component production grams.
+    // Component production — split totals by unit (grams vs pieces) so pcs
+    // entries (kitchen-dedupe round 2 `unit` field) do not pollute gram totals.
+    // Historical records without `unit` default to "g" for backward compat.
     if (record.componentProduced) {
       for (const c of record.componentProduced) {
         if (c.grams <= 0) continue;
-        staff.totalComponentGrams += c.grams;
+        const unit = resolveUnit(c.unit);
+        if (unit === "pcs") {
+          staff.totalComponentPieces += c.grams;
+        } else {
+          staff.totalComponentGrams += c.grams;
+        }
         const existing = staff.componentBreakdown.get(c.kitchenComponentCode);
         if (existing) {
           existing.grams += c.grams;
+          // Prefer an explicit unit on a later record over the default.
+          if (c.unit) existing.unit = unit;
         } else {
           staff.componentBreakdown.set(c.kitchenComponentCode, {
             name: c.kitchenComponentName,
             grams: c.grams,
+            unit,
           });
         }
       }
     }
 
-    // Component waste grams.
     if (record.componentWaste) {
       for (const c of record.componentWaste) {
         if (c.grams <= 0) continue;
-        staff.totalComponentWasteGrams += c.grams;
+        const unit = resolveUnit(c.unit);
+        if (unit === "pcs") {
+          staff.totalComponentWastePieces += c.grams;
+        } else {
+          staff.totalComponentWasteGrams += c.grams;
+        }
         const existing = staff.componentWasteBreakdown.get(c.kitchenComponentCode);
         if (existing) {
           existing.grams += c.grams;
+          if (c.unit) existing.unit = unit;
         } else {
           staff.componentWasteBreakdown.set(c.kitchenComponentCode, {
             name: c.kitchenComponentName,
             grams: c.grams,
+            unit,
           });
         }
       }
@@ -400,8 +418,10 @@ export async function aggregateStaffPerformance(
       totalBallsProduced: 0,
       productBreakdown: new Map(),
       totalComponentGrams: 0,
+      totalComponentPieces: 0,
       componentBreakdown: new Map(),
       totalComponentWasteGrams: 0,
+      totalComponentWastePieces: 0,
       componentWasteBreakdown: new Map(),
       totalWaste: 0,
       wasteByReason: new Map(),
@@ -416,11 +436,9 @@ export async function aggregateStaffPerformance(
   const results = Array.from(staffMap.values()).map((s) => {
     const userIdKey = s.chefUserId;
     const userAttendance: Map<string, Doc<"staffAttendance">[]> =
-      userIdKey !== null
-        ? attendanceByUser.get(userIdKey as Id<"users">) ??
-          new Map<string, Doc<"staffAttendance">[]>()
-        : new Map<string, Doc<"staffAttendance">[]>();
-    const hireDate = userIdKey !== null ? userMap.get(userIdKey)?.hireDate : undefined;
+      attendanceByUser.get(userIdKey as Id<"users">) ??
+      new Map<string, Doc<"staffAttendance">[]>();
+    const hireDate = userMap.get(userIdKey)?.hireDate;
 
     // Flatten for cross-date overlap detection (e.g. two open shifts on
     // consecutive dates still overlap).
@@ -470,9 +488,7 @@ export async function aggregateStaffPerformance(
       const dayRecords = records.filter(
         (r) =>
           r.date === date &&
-          (userIdKey === null
-            ? r.chefName === s.chefName
-            : r.chefUserId === userIdKey),
+          String(r.chefUserId ?? r.submittedByUserId) === userIdKey,
       );
       const componentAccumulator = new Map<string, number>();
       let dayBalls = 0;
@@ -493,13 +509,15 @@ export async function aggregateStaffPerformance(
             }
           }
         }
-        // Component production grams → only when tracked (kitchen components).
+        // Component production → only when tracked (kitchen components).
+        // Each code has a single configured unit in `unitByCode` (from tracking
+        // config), applied at componentTotals emit time below. Accumulating the
+        // raw value is correct regardless of unit: the `grams` field name is
+        // legacy — when the configured unit is "pcs" the value is a piece count.
         if (rec.componentProduced) {
           for (const c of rec.componentProduced) {
             if (c.grams <= 0) continue;
             if (!trackedCodes.has(c.kitchenComponentCode)) continue;
-            // TODO(post-rebase): gate on (c as {unit?:string}).unit !== "pcs"
-            // once componentProduced.unit lands from the kitchen-dedupe merge.
             componentAccumulator.set(
               c.kitchenComponentCode,
               (componentAccumulator.get(c.kitchenComponentCode) ?? 0) + c.grams,
@@ -539,17 +557,21 @@ export async function aggregateStaffPerformance(
         ballCount: val.ballCount,
       })),
       totalComponentGrams: s.totalComponentGrams,
+      totalComponentPieces: s.totalComponentPieces,
       componentBreakdown: Array.from(s.componentBreakdown.entries()).map(([code, val]) => ({
         code,
         name: val.name,
         grams: val.grams,
+        unit: val.unit,
       })),
       totalComponentWasteGrams: s.totalComponentWasteGrams,
+      totalComponentWastePieces: s.totalComponentWastePieces,
       componentWasteBreakdown: Array.from(s.componentWasteBreakdown.entries()).map(
         ([code, val]) => ({
           code,
           name: val.name,
           grams: val.grams,
+          unit: val.unit,
         }),
       ),
       totalWaste: s.totalWaste,

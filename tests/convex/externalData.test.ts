@@ -823,6 +823,31 @@ describe("getRevenueItems", () => {
     const revenueId = await createExternalRevenue(t, { source: "gobiz" });
     const menuProductId = await createMenuProduct(t, { name: "Frollie Original" });
 
+    // Phase 74.5.2.1 — gobiz defaults ON when settings row is absent, so
+    // without an explicit `gobiz: false` seed the `saveRevenueItems` call
+    // would try to dispatch deduction and throw CHANNEL_ROUTING_NOT_CONFIGURED.
+    // This test exercises read-side enrichment only; stub the flag OFF so
+    // deduction is skipped.
+    await t.run(async (ctx) =>
+      ctx.db.insert("productInventorySettings", {
+        globalLowStockThreshold: 5,
+        autoAdvanceOnDrawdown: true,
+        alertMode: "toast",
+        channelDeductionEnabled: {
+          bigseller: false,
+          consignment: false,
+          gobiz: false,
+          grabfood: false,
+          internal: false,
+          k3mart: false,
+          shopee: false,
+          tiktok: false,
+        },
+        updatedBy: "test",
+        updatedAt: Date.now(),
+      }),
+    );
+
     await t.mutation(internal.externalData.mutations.saveRevenueItems, {
       revenueId,
       items: [

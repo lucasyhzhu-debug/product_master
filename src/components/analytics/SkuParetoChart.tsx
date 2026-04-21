@@ -1,5 +1,3 @@
-import { Card } from "@/components/ui/card";
-import { useSkuPareto } from "@/hooks/convex/useAnalytics";
 import {
   ComposedChart,
   Bar,
@@ -7,73 +5,84 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
-  CartesianGrid,
   ResponsiveContainer,
+  CartesianGrid,
+  Legend,
 } from "recharts";
-import { formatCurrency } from "@/lib/utils";
+import { useSkuPareto } from "@/hooks/convex/useAnalytics";
+import {
+  ChartFrame,
+  ChartTooltip,
+  CHART_MARGIN,
+  X_AXIS_STRING_LABEL_PROPS,
+  formatCurrencyCompact,
+  truncateWithTooltip,
+} from "@/lib/chartPrimitives";
 
-// Truncate long SKU names (typical marketplace titles run 40+ chars).
-// Full name is preserved in the tooltip header via labelFormatter.
-function truncateLabel(name: string): string {
-  return name.length > 14 ? `${name.slice(0, 13)}…` : name;
-}
+export function SkuParetoChart({ topN = 10 }: { topN?: number }) {
+  const data = useSkuPareto(topN);
+  if (data === undefined) {
+    return (
+      <ChartFrame title="SKU Pareto (top products by revenue)" loading>
+        {null}
+      </ChartFrame>
+    );
+  }
 
-export function SkuParetoChart() {
-  const data = useSkuPareto(10);
-  if (data === undefined) return <Card className="h-64 animate-pulse p-4" />;
-  // Precompute truncated display label alongside the original name so the
-  // axis stays readable while tooltips still surface the full SKU.
-  const rows = data.rows.map((r) => ({ ...r, label: truncateLabel(r.name) }));
+  // Use server-computed cumulativePct directly from reduceSkuTop — no client recompute.
+  const chartData = data.rows.map((d: { name: string; revenue: number; cumulativePct: number }) => ({
+    ...d,
+    displayName: truncateWithTooltip(d.name, 22).display,
+    fullName: d.name,
+  }));
+
   return (
-    <Card className="p-4">
-      <h4 className="mb-2 text-sm font-semibold">SKU Pareto (top products by revenue)</h4>
-      <ResponsiveContainer width="100%" height={360}>
-        <ComposedChart data={rows} margin={{ top: 10, right: 30, left: 10, bottom: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="label"
-            angle={-45}
-            textAnchor="end"
-            height={120}
-            interval={0}
+    <ChartFrame title="SKU Pareto (top products by revenue)" height={360}>
+      {/* overflow-visible prevents SVG from clipping rotated x-axis tick labels at chart edges */}
+      <div className="h-full w-full [&>div>svg]:overflow-visible">
+      <ResponsiveContainer width="100%" height="100%" minWidth={320}>
+        <ComposedChart data={chartData} margin={{ ...CHART_MARGIN, left: 80 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+          <XAxis dataKey="displayName" {...X_AXIS_STRING_LABEL_PROPS} />
+          <YAxis
+            yAxisId="left"
+            tickFormatter={formatCurrencyCompact}
             tick={{ fontSize: 11 }}
           />
-          <YAxis yAxisId="left" tickFormatter={(v) => formatCurrency(v)} />
           <YAxis
             yAxisId="right"
             orientation="right"
-            tickFormatter={(v) => `${v}%`}
+            tickFormatter={(v) => `${Math.round(v)}%`}
             domain={[0, 100]}
+            tick={{ fontSize: 11 }}
           />
           <Tooltip
-            // UAT-03: cumulativePct is a percentage (0-100), not currency.
-            // Route formatting by series name so the bar shows IDR and the
-            // line shows %.
-            formatter={(v, name) => {
-              const num = typeof v === "number" ? v : 0;
-              if (name === "Cumulative %") return `${num.toFixed(1)}%`;
-              return formatCurrency(num);
-            }}
-            // Show full SKU name in tooltip header (pre-truncation).
-            labelFormatter={(_label, payload) => {
-              const item = payload && payload[0];
-              const full =
-                item && (item.payload as { name?: string } | undefined)?.name;
-              return full ?? "";
+            content={
+              <ChartTooltip
+                valueFormatter={(value, name) => {
+                  if (name === "Cumulative %") return `${Number(value).toFixed(1)}%`;
+                  return formatCurrencyCompact(Number(value));
+                }}
+              />
+            }
+            labelFormatter={(_, payload) => {
+              const first = Array.isArray(payload) ? payload[0]?.payload : undefined;
+              return (first as { fullName?: string } | undefined)?.fullName ?? "";
             }}
           />
           <Legend />
-          <Bar yAxisId="left" dataKey="revenue" fill="#f97316" name="Revenue" />
+          <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="#f97316" />
           <Line
             yAxisId="right"
             dataKey="cumulativePct"
+            name="Cumulative %"
             stroke="#10b981"
             strokeWidth={2}
-            name="Cumulative %"
+            dot={false}
           />
         </ComposedChart>
       </ResponsiveContainer>
-    </Card>
+      </div>
+    </ChartFrame>
   );
 }

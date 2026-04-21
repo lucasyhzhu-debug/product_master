@@ -14,6 +14,8 @@ import { computeLifetimeTotals, computePiecesSold } from "./helpers/lifetimeHelp
 import { countDayTypes, buildSellThroughProducts } from "./helpers/sellThroughHelpers";
 import type { ProductAnalysis } from "./helpers/sellThroughHelpers";
 import { buildK3MartOutletProducts, buildDemandProducts } from "./helpers/restockHelpers";
+import { hasExternalRevenueItems } from "./helpers/revenueItemsHelpers";
+import { requireRole } from "../lib/auth";
 
 const sourceValidator = externalSource;
 
@@ -116,6 +118,20 @@ export const getRevenueById = internalQuery({
   handler: async (ctx, args) => {
     return await ctx.db.get(args.revenueId);
   },
+});
+
+/**
+ * Internal-query wrapper for hasExternalRevenueItems. Needed by the
+ * syncInternalOrders ACTION (convex/integrations/internal/adapter.ts:126)
+ * because actions cannot call helpers directly — they must go through
+ * ctx.runQuery.
+ *
+ * Pattern reference: getLatestSnapshotBatch / getOutletNameToIdMap in this
+ * same file — same wrapping idiom.
+ */
+export const hasExternalRevenueItemsQuery = internalQuery({
+  args: { revenueId: v.id("externalRevenue") },
+  handler: async (ctx, args) => hasExternalRevenueItems(ctx, args.revenueId),
 });
 
 // ─── PUBLIC QUERIES (called from frontend) ───
@@ -1604,5 +1620,125 @@ export const getLifetimeTotalsInternal = internalQuery({
     ]);
 
     return computeLifetimeTotals(items, revenues, bomComponents, componentTypes);
+  },
+});
+
+// ─── PHASE 80.2: UNLINKED PRODUCTS BACKFILL STATS ───
+
+/**
+ * Admin-only K3Mart backfill stats.
+ *
+ * Two scans (externalRevenue + externalProductMappings, both filtered by
+ * source="k3mart") capped at 4000 rows each → max ~8k reads per call,
+ * well under Convex's 16,384 per-query read limit.
+ *
+ * The frontend pairs this with `getDirectBackfillStats` in a parallel
+ * `useQuery` so each admin page section has its own independent read budget
+ * and its own scanCapReached flag.
+ */
+export const getK3MartBackfillStats = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const SCAN_CAP = 4000;
+    let scanCapReached = false;
+
+    const parents = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source", (q) => q.eq("source", "k3mart"))
+      .take(SCAN_CAP);
+    if (parents.length >= SCAN_CAP) scanCapReached = true;
+
+    let linkedParents = 0;
+    let unlinkedParents = 0;
+    let nullProductCodeParents = 0;
+    for (const p of parents) {
+      const hasCode =
+        p.externalProductCode !== undefined &&
+        p.externalProductCode !== null &&
+        p.externalProductCode !== "";
+      if (!hasCode) nullProductCodeParents++;
+      if (p.linkedMenuProductId) {
+        linkedParents++;
+      } else {
+        unlinkedParents++;
+      }
+    }
+
+    const mappings = await ctx.db
+      .query("externalProductMappings")
+      .withIndex("by_source_code", (q) => q.eq("source", "k3mart"))
+      .take(SCAN_CAP);
+    if (mappings.length >= SCAN_CAP) scanCapReached = true;
+
+    const activeMappings = mappings.filter((m) => !!m.menuProductId).length;
+
+    return {
+      totalParents: parents.length,
+      linkedParents,
+      unlinkedParents,
+      nullProductCodeParents,
+      totalMappings: mappings.length,
+      activeMappings,
+      scanCapReached,
+    };
+  },
+});
+
+/**
+ * Admin-only Direct (source="internal") backfill stats.
+ *
+ * Uses an O(children) approach: collect distinct revenueIds from
+ * externalRevenueItems[source="internal"] into a Set, then set-diff against
+ * the internal parents list. Two scans (up to 4000 rows each) instead of
+ * calling hasExternalRevenueItems() per parent.
+ *
+ * If the children cap is reached, `parentsWithChildren` becomes a lower
+ * bound (and `orphanParents` an upper bound). `scanCapReached` surfaces
+ * this to the UI.
+ */
+export const getDirectBackfillStats = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+
+    const SCAN_CAP = 4000;
+    let scanCapReached = false;
+
+    const parents = await ctx.db
+      .query("externalRevenue")
+      .withIndex("by_source", (q) => q.eq("source", "internal"))
+      .take(SCAN_CAP);
+    if (parents.length >= SCAN_CAP) scanCapReached = true;
+
+    const children = await ctx.db
+      .query("externalRevenueItems")
+      .withIndex("by_source", (q) => q.eq("source", "internal"))
+      .take(SCAN_CAP);
+    if (children.length >= SCAN_CAP) scanCapReached = true;
+
+    const parentIdsWithChildren = new Set<string>();
+    for (const c of children) {
+      parentIdsWithChildren.add(c.revenueId as unknown as string);
+    }
+
+    let parentsWithChildren = 0;
+    let orphanParents = 0;
+    for (const p of parents) {
+      if (parentIdsWithChildren.has(p._id as unknown as string)) {
+        parentsWithChildren++;
+      } else {
+        orphanParents++;
+      }
+    }
+
+    return {
+      totalParents: parents.length,
+      parentsWithChildren,
+      orphanParents,
+      totalChildren: children.length,
+      scanCapReached,
+    };
   },
 });

@@ -528,3 +528,23 @@ export {
   useMyPerformance,
   useCorrectAttendance,
 } from "./useAttendance";
+
+// Unlinked Products Backfill (Phase 80.2 — admin one-time data repair)
+export {
+  useK3MartBackfillStats,
+  useDirectBackfillStats,
+  useCascadeAllK3MartMappings,
+  useBackfillInternalRevenueItems,
+  type K3MartBackfillStats,
+  type DirectBackfillStats,
+  type CascadeK3MartResult,
+  type BackfillPageResult,
+} from "./useUnlinkedBackfill";
+
+// Channel Deduction Backfill (Phase 74.5.2 — per-source historical backfill)
+export {
+  useChannelBackfillPreflight,
+  useRunChannelBackfill,
+  type ChannelBackfillPreflight,
+  type ChannelBackfillPageResult,
+} from "./useChannelBackfill";

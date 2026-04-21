@@ -3,8 +3,8 @@
 declare const process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
-import { action, internalAction } from "../../_generated/server";
-import { api, internal } from "../../_generated/api";
+import { action, internalAction, type ActionCtx } from "../../_generated/server";
+import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { GOBIZ_CONFIG, GOBIZ_OUTLET_SEED } from "./config";
 import {
@@ -19,13 +19,82 @@ import {
   getMerchantName,
   type JournalMetrics,
 } from "./helpers";
+import type { ChannelAdapter } from "../_shared/channelAdapter";
+import type { ChannelSaleEvent } from "../_shared/channelSaleEvent";
 
-type ActionCtx = {
-  runQuery: (...args: any[]) => Promise<any>;
-  runMutation: (...args: any[]) => Promise<any>;
+// ─── ChannelAdapter: normalize() + adapter export (Phase 74.5.1 Plan 06) ─────
+//
+// Pure projection from a canonical GoFood batch payload to ChannelSaleEvent[].
+// The existing sync action (syncGoBizRevenue) keeps its existing saveRevenueItems
+// write path; `normalize()` is an ADDITIVE export that tests + Plan 05 dispatch
+// hook consume. 74.5.2 cutover may consolidate both paths onto this function.
+//
+// Payload shape is the normalized-for-test form (Wave 0 fixture shape) so tests
+// and the adapter share a contract. The live syncGoBizRevenue action feeds its
+// internal aggregated journal/order data into `mapOrderToRevenueItems` (inline
+// today) — both shapes ultimately converge on the same ChannelSaleEvent fields.
+export interface GobizNormalizedBatchOrder {
+  readonly orderId: string;
+  readonly completedAt: number;
+  readonly outletId?: string;
+  readonly items: ReadonlyArray<{
+    readonly sku?: string;
+    readonly menuProductId?: string;
+    readonly productName?: string;
+    readonly quantity: number;
+    readonly unitPrice: number;
+    readonly totalPrice: number;
+  }>;
+}
+
+export interface GobizNormalizedBatch {
+  readonly orders: ReadonlyArray<GobizNormalizedBatchOrder>;
+}
+
+/**
+ * Pure projection: canonical GoFood batch payload → ChannelSaleEvent[].
+ * Side-effect-free, no ctx/DB access. Safe for Wave 0 normalize test.
+ *
+ * Emits `source: "gobiz"` for every event. `externalItemId` derives from
+ * `{orderId}-{itemIndex}` to mirror the existing adapter's dedup key shape.
+ */
+export function gobizNormalize(
+  payload: GobizNormalizedBatch
+): ChannelSaleEvent[] {
+  if (!payload || !payload.orders || payload.orders.length === 0) return [];
+
+  const events: ChannelSaleEvent[] = [];
+  for (const order of payload.orders) {
+    for (let i = 0; i < order.items.length; i++) {
+      const item = order.items[i];
+      events.push({
+        source: "gobiz" as const,
+        occurredAt: order.completedAt,
+        externalTransactionId: order.orderId,
+        externalItemId: `${order.orderId}-${i}`,
+        // Typed Id<"externalOutlets"> cast at the Plan-05 dispatch boundary;
+        // normalize() stays string-typed so tests can pass raw fixtures.
+        outletId: order.outletId as Id<"externalOutlets"> | undefined,
+        menuProductId: item.menuProductId as Id<"menuProducts"> | undefined,
+        externalProductCode: item.sku,
+        externalProductName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      });
+    }
+  }
+  return events;
+}
+
+export const gobizAdapter: ChannelAdapter<GobizNormalizedBatch> = {
+  source: "gobiz",
+  normalize: gobizNormalize,
 };
 
 // ─── Token Resolution ────────────────────────────────────────────────────────
+// (ActionCtx is imported from _generated/server — previously redeclared
+// locally with any-typed signatures per review N-4.)
 
 async function resolveGoBizToken(ctx: ActionCtx): Promise<{
   accessToken: string | null;
@@ -92,12 +161,10 @@ async function attemptTokenRefresh(
       const data = await resp.json() as { access_token?: string; refresh_token?: string };
       if (data.access_token) {
         const newAccessToken = `Bearer ${data.access_token}`;
-        const newRefreshToken = data.refresh_token ?? refreshToken;
 
         await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
           platformId: "gobiz",
           currentToken: newAccessToken,
-          refreshToken: newRefreshToken,
           lastRefreshAt: Date.now(),
           lastRefreshStatus: "success",
         });
@@ -125,12 +192,10 @@ async function attemptTokenRefresh(
       const data = await fallbackResp.json() as { access_token?: string; refresh_token?: string };
       if (data.access_token) {
         const newAccessToken = `Bearer ${data.access_token}`;
-        const newRefreshToken = data.refresh_token ?? refreshToken;
 
         await ctx.runMutation(internal.platformCredentials.mutations.updateToken, {
           platformId: "gobiz",
           currentToken: newAccessToken,
-          refreshToken: newRefreshToken,
           lastRefreshAt: Date.now(),
           lastRefreshStatus: "success",
         });
@@ -418,15 +483,22 @@ async function fetchAndSaveOrderDetails(
   newRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }>,
   accessToken: string,
   refreshToken: string | null
-): Promise<{ itemsSaved: number; ordersFetched: number; matchResults: Record<string, number>; productNames: string[] }> {
+): Promise<{ itemsSaved: number; ordersFetched: number; matchResults: Record<string, number>; productNames: string[]; itemsDeducted: number; itemsSkipped: number }> {
   let itemsSaved = 0;
   let ordersFetched = 0;
+  // Phase 74.5.1 Plan 06 (R9): per-sync counters accumulated across every
+  // saveRevenueItemsWithCounts call. With all channelDeductionEnabled flags
+  // OFF today, itemsDeducted stays 0 and itemsSkipped == itemsSaved. Flipping
+  // flags in 74.5.2 populates real counters via Plan 05's dispatch hook.
+  let itemsDeducted = 0;
+  let itemsSkipped = 0;
   const matchResults: Record<string, number> = {
     exact: 0, price_only: 0, name_only: 0, none: 0,
   };
   const uniqueProductNames = new Set<string>();
 
-  for (const { revenueId, orderNumber } of newRecords) {
+  for (let recordIndex = 0; recordIndex < newRecords.length; recordIndex++) {
+    const { revenueId, orderNumber } = newRecords[recordIndex];
     try {
       const body = buildOrderSearchBody(orderNumber);
       const { data: orderData } = await fetchWithAuth(
@@ -466,17 +538,31 @@ async function fetchAndSaveOrderDetails(
           });
         }
 
-        // Save items for this revenue record
-        await ctx.runMutation(internal.externalData.mutations.saveRevenueItems, {
-          revenueId,
-          items: enrichedItems,
-        });
+        // Save items for this revenue record.
+        // Phase 74.5.1 Plan 06: migrated to saveRevenueItemsWithCounts (Option A)
+        // to read `deducted` + `skipped` counters for R9 syncLog wiring.
+        // Behavior-preserving: the wrapper delegates to the same
+        // saveRevenueItemsImpl as saveRevenueItems — no item-write change.
+        const itemsResult: {
+          ids: Id<"externalRevenueItems">[];
+          inserted: number;
+          deducted: number;
+          skipped: number;
+        } = await ctx.runMutation(
+          internal.externalData.mutations.saveRevenueItemsWithCounts,
+          { revenueId, items: enrichedItems }
+        );
+        itemsDeducted += itemsResult.deducted;
+        itemsSkipped += itemsResult.skipped;
 
         itemsSaved += enrichedItems.length;
       }
 
-      // Rate limit: 200ms between order API calls
-      if (newRecords.indexOf({ revenueId, orderNumber }) < newRecords.length - 1) {
+      // Rate limit: 200ms between order API calls (skip after last record).
+      // Previously used `newRecords.indexOf({revenueId, orderNumber})` which
+      // always returned -1 (reference equality on a fresh object literal),
+      // causing the sleep to fire every iteration. Fixed to use the loop index.
+      if (recordIndex < newRecords.length - 1) {
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
     } catch (err) {
@@ -485,7 +571,14 @@ async function fetchAndSaveOrderDetails(
     }
   }
 
-  return { itemsSaved, ordersFetched, matchResults, productNames: Array.from(uniqueProductNames) };
+  return {
+    itemsSaved,
+    ordersFetched,
+    matchResults,
+    productNames: Array.from(uniqueProductNames),
+    itemsDeducted,
+    itemsSkipped,
+  };
 }
 
 // ─── Main Sync Action ────────────────────────────────────────────────────────
@@ -560,6 +653,9 @@ export const syncGoBizRevenue = action({
       let totalTransactions = 0;
       let totalItemsSaved = 0;
       let totalOrdersFetched = 0;
+      // Phase 74.5.1 Plan 06 (R9) — accumulate per-sync counters.
+      let totalItemsDeducted = 0;
+      let totalItemsSkipped = 0;
       let currentToken = accessToken;
 
       // All new records across all days (for Phase B)
@@ -609,6 +705,9 @@ export const syncGoBizRevenue = action({
 
         totalItemsSaved = orderResults.itemsSaved;
         totalOrdersFetched = orderResults.ordersFetched;
+        // Phase 74.5.1 Plan 06 (R9): lift counters for syncLog wiring.
+        totalItemsDeducted += orderResults.itemsDeducted;
+        totalItemsSkipped += orderResults.itemsSkipped;
 
         console.log(
           `Phase B complete: ${orderResults.ordersFetched} orders fetched, ` +
@@ -629,135 +728,22 @@ export const syncGoBizRevenue = action({
         }
       }
 
-      // ── Phase C: Auto-consume stickers for GoFood sales ──
-      // Collect items with outletId for Phase D reuse
-      const gofoodSaleItemsWithOutlet: Array<{
-        menuProductId: string;
-        quantity: number;
-        outletId: string | undefined;
-      }> = [];
-
-      try {
-        // Collect all NEW revenue items with linkedMenuProductId from gobiz
-        const gofoodSaleItems: Array<{ menuProductId: string; quantity: number }> = [];
-
-        for (const { revenueId } of allNewRecords) {
-          // Get revenue record for outletId (needed by Phase D)
-          const revenue = await ctx.runQuery(
-            internal.externalData.queries.getRevenueById,
-            { revenueId }
-          );
-
-          const items: Array<{
-            linkedMenuProductId?: string;
-            quantity: number;
-            source: string;
-          }> = await ctx.runQuery(
-            api.externalData.queries.getRevenueItems,
-            { revenueId }
-          );
-
-          for (const item of items) {
-            if (item.linkedMenuProductId && item.source === "gobiz") {
-              gofoodSaleItems.push({
-                menuProductId: item.linkedMenuProductId,
-                quantity: item.quantity,
-              });
-              gofoodSaleItemsWithOutlet.push({
-                menuProductId: item.linkedMenuProductId,
-                quantity: item.quantity,
-                outletId: revenue?.outletId as string | undefined,
-              });
-            }
-          }
-        }
-
-        if (gofoodSaleItems.length > 0) {
-          console.log(`Phase C: Processing ${gofoodSaleItems.length} GoFood sale items for sticker deduction...`);
-
-          // Aggregate by menuProductId
-          const aggregated = new Map<string, number>();
-          for (const item of gofoodSaleItems) {
-            aggregated.set(
-              item.menuProductId,
-              (aggregated.get(item.menuProductId) ?? 0) + item.quantity
-            );
-          }
-
-          const batchItems = Array.from(aggregated.entries()).map(
-            ([menuProductId, quantity]) => ({ menuProductId, quantity })
-          );
-
-          const phaseC = await ctx.runMutation(
-            internal.gofoodDepot.mutations.processSyncSales,
-            { items: batchItems as any }
-          );
-
-          console.log(
-            `Phase C complete: ${phaseC.processed} products processed, ${phaseC.deficits} deficits`
-          );
-        }
-      } catch (phaseCError) {
-        // Phase C failure should NOT fail the overall sync
-        console.log(
-          "Phase C (sticker deduction) failed:",
-          phaseCError instanceof Error ? phaseCError.message : String(phaseCError)
-        );
-      }
-
-      // ── Phase D: Auto-deduct finished goods for GoFood sales ──
-      try {
-        const itemsWithOutlet = gofoodSaleItemsWithOutlet.filter(
-          (item) => item.outletId !== undefined
-        );
-
-        if (itemsWithOutlet.length > 0) {
-          console.log(`Phase D: Deducting ${itemsWithOutlet.length} items from product inventory...`);
-
-          // Aggregate by (outletId, menuProductId) to avoid duplicate deductions
-          const aggregated = new Map<string, { menuProductId: string; quantity: number; outletId: string }>();
-          for (const item of itemsWithOutlet) {
-            const key = `${item.outletId}::${item.menuProductId}`;
-            const existing = aggregated.get(key);
-            if (existing) {
-              existing.quantity += item.quantity;
-            } else {
-              aggregated.set(key, {
-                menuProductId: item.menuProductId,
-                quantity: item.quantity,
-                outletId: item.outletId!,
-              });
-            }
-          }
-
-          const phaseDItems = Array.from(aggregated.values()).map((entry) => ({
-            menuProductId: entry.menuProductId as Id<"menuProducts">,
-            quantity: entry.quantity,
-            outletId: entry.outletId as Id<"externalOutlets">,
-            gofoodOrderRef: undefined,
-          }));
-
-          const phaseD = await ctx.runMutation(
-            internal.productInventory.mutations.processGofoodSales,
-            { items: phaseDItems }
-          );
-
-          console.log(`Phase D complete: ${phaseD.processed} deducted, ${phaseD.lowStockAlerts} low stock`);
-        }
-      } catch (phaseDError) {
-        // Phase D failure should NOT fail the overall sync
-        console.log(
-          "Phase D (product inventory deduction) failed:",
-          phaseDError instanceof Error ? phaseDError.message : String(phaseDError)
-        );
-      }
+      // Phase 74.5.2 Plan 08: legacy Phase C (sticker dedup via
+      // gofoodDepot.processSyncSales) and Phase D (finished-goods dedup via
+      // the retired per-source mutation) were removed. The unified
+      // `saveRevenueItems` call earlier in this sync dispatches through
+      // `processChannelSaleInternal` when `channelDeductionEnabled.gobiz` is
+      // ON, writing `transactionType: "channel_sale"` + `source: "gobiz"`.
 
       // Update sync log
+      // Phase 74.5.1 Plan 06 (R9): wire itemsDeducted + itemsSkipped.
       await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
         logId: syncLogId,
         status: "success",
         productsCount: totalTransactions,
         durationMs: Date.now() - startTime,
+        itemsDeducted: totalItemsDeducted,
+        itemsSkipped: totalItemsSkipped,
       });
 
       return {
@@ -865,6 +851,9 @@ export const autoSyncGoBizRevenue = internalAction({
 
       let currentToken = accessToken;
       let totalTransactions = 0;
+      // Phase 74.5.1 Plan 06 (R9): accumulate counters across Phase B.
+      let totalItemsDeducted = 0;
+      let totalItemsSkipped = 0;
       const allNewRecords: Array<{ revenueId: Id<"externalRevenue">; orderNumber: string }> = [];
 
       // Phase A
@@ -882,6 +871,8 @@ export const autoSyncGoBizRevenue = internalAction({
       // Phase B
       if (allNewRecords.length > 0) {
         const orderResults = await fetchAndSaveOrderDetails(ctx, allNewRecords, currentToken, refreshToken);
+        totalItemsDeducted += orderResults.itemsDeducted;
+        totalItemsSkipped += orderResults.itemsSkipped;
 
         // Save product mappings for mapping UI
         if (orderResults.productNames.length > 0) {
@@ -895,125 +886,19 @@ export const autoSyncGoBizRevenue = internalAction({
         }
       }
 
-      // Phase C: Auto-consume stickers for GoFood sales
-      // Collect items with outletId for Phase D reuse
-      const autoSyncGofoodItemsWithOutlet: Array<{
-        menuProductId: string;
-        quantity: number;
-        outletId: string | undefined;
-      }> = [];
+      // Phase 74.5.2 Plan 08: legacy auto-sync Phase C + Phase D blocks
+      // removed — see manual-sync retirement comment above. Unified path:
+      // saveRevenueItems → processChannelSaleInternal (dispatch gated by
+      // `channelDeductionEnabled.gobiz`).
 
-      try {
-        const gofoodSaleItems: Array<{ menuProductId: string; quantity: number }> = [];
-
-        for (const { revenueId } of allNewRecords) {
-          // Get revenue record for outletId (needed by Phase D)
-          const revenue = await ctx.runQuery(
-            internal.externalData.queries.getRevenueById,
-            { revenueId }
-          );
-
-          const items: Array<{
-            linkedMenuProductId?: string;
-            quantity: number;
-            source: string;
-          }> = await ctx.runQuery(
-            api.externalData.queries.getRevenueItems,
-            { revenueId }
-          );
-
-          for (const item of items) {
-            if (item.linkedMenuProductId && item.source === "gobiz") {
-              gofoodSaleItems.push({
-                menuProductId: item.linkedMenuProductId,
-                quantity: item.quantity,
-              });
-              autoSyncGofoodItemsWithOutlet.push({
-                menuProductId: item.linkedMenuProductId,
-                quantity: item.quantity,
-                outletId: revenue?.outletId as string | undefined,
-              });
-            }
-          }
-        }
-
-        if (gofoodSaleItems.length > 0) {
-          const aggregated = new Map<string, number>();
-          for (const item of gofoodSaleItems) {
-            aggregated.set(
-              item.menuProductId,
-              (aggregated.get(item.menuProductId) ?? 0) + item.quantity
-            );
-          }
-
-          const batchItems = Array.from(aggregated.entries()).map(
-            ([menuProductId, quantity]) => ({ menuProductId, quantity })
-          );
-
-          await ctx.runMutation(
-            internal.gofoodDepot.mutations.processSyncSales,
-            { items: batchItems as any }
-          );
-        }
-      } catch (phaseCError) {
-        console.log(
-          "Auto-sync Phase C failed:",
-          phaseCError instanceof Error ? phaseCError.message : String(phaseCError)
-        );
-      }
-
-      // ── Phase D: Auto-deduct finished goods for GoFood sales ──
-      try {
-        const itemsWithOutlet = autoSyncGofoodItemsWithOutlet.filter(
-          (item) => item.outletId !== undefined
-        );
-
-        if (itemsWithOutlet.length > 0) {
-          console.log(`Auto-sync Phase D: Deducting ${itemsWithOutlet.length} items from product inventory...`);
-
-          // Aggregate by (outletId, menuProductId)
-          const aggregated = new Map<string, { menuProductId: string; quantity: number; outletId: string }>();
-          for (const item of itemsWithOutlet) {
-            const key = `${item.outletId}::${item.menuProductId}`;
-            const existing = aggregated.get(key);
-            if (existing) {
-              existing.quantity += item.quantity;
-            } else {
-              aggregated.set(key, {
-                menuProductId: item.menuProductId,
-                quantity: item.quantity,
-                outletId: item.outletId!,
-              });
-            }
-          }
-
-          const phaseDItems = Array.from(aggregated.values()).map((entry) => ({
-            menuProductId: entry.menuProductId as Id<"menuProducts">,
-            quantity: entry.quantity,
-            outletId: entry.outletId as Id<"externalOutlets">,
-            gofoodOrderRef: undefined,
-          }));
-
-          const phaseD = await ctx.runMutation(
-            internal.productInventory.mutations.processGofoodSales,
-            { items: phaseDItems }
-          );
-
-          console.log(`Auto-sync Phase D complete: ${phaseD.processed} deducted, ${phaseD.lowStockAlerts} low stock`);
-        }
-      } catch (phaseDError) {
-        // Phase D failure should NOT fail the overall sync
-        console.log(
-          "Auto-sync Phase D (product inventory deduction) failed:",
-          phaseDError instanceof Error ? phaseDError.message : String(phaseDError)
-        );
-      }
-
+      // Phase 74.5.1 Plan 06 (R9): wire itemsDeducted + itemsSkipped.
       await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
         logId: syncLogId,
         status: "success",
         productsCount: totalTransactions,
         durationMs: Date.now() - startTime,
+        itemsDeducted: totalItemsDeducted,
+        itemsSkipped: totalItemsSkipped,
       });
 
       console.log(`GoBiz auto-sync complete: ${totalTransactions} txns, ${allNewRecords.length} new`);

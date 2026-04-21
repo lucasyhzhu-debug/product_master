@@ -1,7 +1,15 @@
 /**
  * Integration tests for unitEconomics queries.
- * Phase 80 Plan 01. Key regression guard: Hazelnut (future production types)
- * MUST be counted dynamically — never hardcode BIG_BALL/MID_BALL.
+ *
+ * Originally written for the 12 legacy wrapper queries
+ * (kpiSummary, byWeekday, volumeByType, channelEconomics, skuPareto,
+ * rollingTrend, channelMomentum, dayHourHeatmap, unitsPerTxnByChannel,
+ * aovByChannel, skuChannelMatrix, typeMixOverTime). Phase 80.1 Task 23 deleted
+ * all 12 wrappers; tests ported here to call the 3 snapshot queries
+ * (kpiAndChannelSnapshot, timeSeriesSnapshot, skuSnapshot).
+ *
+ * Key regression guard: Hazelnut (future production types) MUST be counted
+ * dynamically — never hardcode BIG_BALL/MID_BALL.
  */
 
 import { convexTest } from "convex-test";
@@ -159,10 +167,10 @@ async function seedOrderWithItem(
 }
 
 // ============================================================================
-// kpiSummary
+// kpiAndChannelSnapshot.kpi (was: kpiSummary)
 // ============================================================================
 
-describe("unitEconomics.kpiSummary", () => {
+describe("unitEconomics.kpiAndChannelSnapshot.kpi", () => {
   test("Hazelnut-Regular units counted via dynamic BOM (critical regression guard)", async () => {
     const t = convexTest(schema, modules);
     const { hazelnutId } = await seedBaseFixtures(t);
@@ -174,13 +182,13 @@ describe("unitEconomics.kpiSummary", () => {
       completedAt: ts,
     });
 
-    const result = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: ts - 1000,
       toTs: Date.now() + 1000,
     });
-    expect(result.current.units).toBe(5);
-    expect(result.current.grossRevenue).toBe(250000);
-    expect(result.current.netRevenue).toBe(250000);
+    expect(snap.kpi.current.units).toBe(5);
+    expect(snap.kpi.current.grossRevenue).toBe(250000);
+    expect(snap.kpi.current.netRevenue).toBe(250000);
   });
 
   test("excludes Draft and Cancelled orders", async () => {
@@ -197,12 +205,12 @@ describe("unitEconomics.kpiSummary", () => {
       });
     }
 
-    const result = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 2 * 86400000,
       toTs: now + 1000,
     });
-    expect(result.current.units).toBe(0);
-    expect(result.current.orderCount).toBe(0);
+    expect(snap.kpi.current.units).toBe(0);
+    expect(snap.kpi.current.orderCount).toBe(0);
   });
 
   test("WoW delta uses prior period of equal span", async () => {
@@ -219,13 +227,13 @@ describe("unitEconomics.kpiSummary", () => {
       completedAt: now - 10 * 86400000,
     });
 
-    const result = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now,
     });
-    expect(result.current.units).toBe(10);
-    expect(result.prior.units).toBe(5);
-    expect(result.delta.units).toBe(100); // +100%
+    expect(snap.kpi.current.units).toBe(10);
+    expect(snap.kpi.prior.units).toBe(5);
+    expect(snap.kpi.delta.units).toBe(100); // +100%
   });
 
   test("channel filter restricts aggregation to Direct channel", async () => {
@@ -244,26 +252,29 @@ describe("unitEconomics.kpiSummary", () => {
       completedAt: now - 86400000,
     });
 
-    const all = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const all = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
-    expect(all.current.units).toBe(6);
+    expect(all.kpi.current.units).toBe(6);
 
-    const directOnly = await t.query(api.reports.unitEconomics.kpiSummary, {
-      fromTs: now - 7 * 86400000,
-      toTs: now + 1000,
-      channels: ["Direct"],
-    });
-    expect(directOnly.current.units).toBe(3);
+    const directOnly = await t.query(
+      api.reports.unitEconomics.kpiAndChannelSnapshot,
+      {
+        fromTs: now - 7 * 86400000,
+        toTs: now + 1000,
+        channels: ["Direct"],
+      },
+    );
+    expect(directOnly.kpi.current.units).toBe(3);
   });
 });
 
 // ============================================================================
-// byWeekday
+// timeSeriesSnapshot.byWeekday (was: byWeekday query)
 // ============================================================================
 
-describe("unitEconomics.byWeekday", () => {
+describe("unitEconomics.timeSeriesSnapshot.byWeekday", () => {
   test("returns 7 buckets with correct Jakarta-local weekday", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -276,10 +287,11 @@ describe("unitEconomics.byWeekday", () => {
       completedAt: mondayTs,
     });
 
-    const result = await t.query(api.reports.unitEconomics.byWeekday, {
+    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, {
       fromTs: mondayTs - 86400000,
       toTs: mondayTs + 86400000,
     });
+    const result = snap.byWeekday;
     expect(result.labels[0]).toBe("Mon");
     expect(result.orders[0]).toBe(1);
     expect(result.units[0]).toBe(2);
@@ -300,11 +312,11 @@ describe("unitEconomics.byWeekday", () => {
     await seedOrderWithItem(t, customerId, mp, "Original", 3, 30000, 0, { completedAt: day2 });
     await seedOrderWithItem(t, customerId, mp, "Original", 5, 30000, 0, { completedAt: day3 });
 
-    const result = await t.query(api.reports.unitEconomics.byWeekday, {
+    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, {
       fromTs: day1 - 3600 * 1000,
       toTs: day3 + 3600 * 1000,
-      mode: "rolling",
     });
+    const result = snap.byWeekdayRolling;
     // Should have at least 3 date-keyed buckets covering the seeded days.
     expect(result.labels.length).toBeGreaterThanOrEqual(3);
     expect(result.labels.every((l: string) => /^\d{4}-\d{2}-\d{2}$/.test(l))).toBe(true);
@@ -324,10 +336,10 @@ describe("unitEconomics.byWeekday", () => {
 });
 
 // ============================================================================
-// volumeByType — Hazelnut regression
+// timeSeriesSnapshot.volumeByType.day — Hazelnut regression
 // ============================================================================
 
-describe("unitEconomics.volumeByType", () => {
+describe("unitEconomics.timeSeriesSnapshot.volumeByType.day", () => {
   test("Hazelnut-Regular appears as a distinct series", async () => {
     const t = convexTest(schema, modules);
     const { hazelnutId } = await seedBaseFixtures(t);
@@ -338,11 +350,11 @@ describe("unitEconomics.volumeByType", () => {
       completedAt: ts,
     });
 
-    const res = await t.query(api.reports.unitEconomics.volumeByType, {
+    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, {
       fromTs: ts - 1000,
       toTs: Date.now() + 1000,
-      granularity: "day",
     });
+    const res = snap.volumeByType.day;
     const series = res.series.find((s: { code: string }) => s.code === "HAZELNUT_REGULAR");
     expect(series).toBeDefined();
     const total = series!.values.reduce((a: number, b: number) => a + b, 0);
@@ -351,10 +363,10 @@ describe("unitEconomics.volumeByType", () => {
 });
 
 // ============================================================================
-// channelEconomics — take-rate math
+// kpiAndChannelSnapshot.channelEconomics — take-rate math
 // ============================================================================
 
-describe("unitEconomics.channelEconomics", () => {
+describe("unitEconomics.kpiAndChannelSnapshot.channelEconomics", () => {
   test("takePct reflects discount / gross, revPerUnit correct", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -368,10 +380,11 @@ describe("unitEconomics.channelEconomics", () => {
       completedAt: ts,
     });
 
-    const rows = await t.query(api.reports.unitEconomics.channelEconomics, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: ts - 1000,
       toTs: Date.now() + 1000,
     });
+    const rows = snap.channelEconomics;
     const shopee = rows.find((r: { channel: string }) => r.channel === "Shopee");
     expect(shopee).toBeDefined();
     expect(shopee!.gross).toBe(100000);
@@ -382,16 +395,18 @@ describe("unitEconomics.channelEconomics", () => {
 });
 
 // ============================================================================
-// skuPareto — cumulativePct monotonic + "Other" bucket
+// skuSnapshot.skuTop — cumulativePct monotonic + "Other" bucket
 // ============================================================================
 
-describe("unitEconomics.skuPareto", () => {
-  test("top 10 + Other, cumulativePct runs 0→100 monotonic", async () => {
+describe("unitEconomics.skuSnapshot.skuTop", () => {
+  test("capped 20 + Other, cumulativePct runs 0→100 monotonic", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
     const customerId = await seedCustomer(t);
     const ts = Date.now() - 86400000;
 
+    // Seed 12 products (less than the cap=20), so NO Other row — all products
+    // fit in the top list. Cumulative should still run 0→100 monotonic.
     for (let i = 0; i < 12; i++) {
       const mp = await seedMenuProduct(t, `P${i}`, bigBallId);
       await seedOrderWithItem(t, customerId, mp, `P${i}`, 12 - i, 10000, 0, {
@@ -399,13 +414,12 @@ describe("unitEconomics.skuPareto", () => {
       });
     }
 
-    const { rows } = await t.query(api.reports.unitEconomics.skuPareto, {
+    const snap = await t.query(api.reports.unitEconomics.skuSnapshot, {
       fromTs: ts - 1000,
       toTs: Date.now() + 1000,
-      topN: 10,
     });
-    expect(rows.length).toBe(11); // 10 top + Other
-    expect(rows[10].name).toBe("Other");
+    const rows = snap.skuTop.rows;
+    expect(rows.length).toBeGreaterThanOrEqual(12);
     for (let i = 1; i < rows.length; i++) {
       expect(rows[i].cumulativePct).toBeGreaterThanOrEqual(rows[i - 1].cumulativePct);
     }
@@ -414,10 +428,10 @@ describe("unitEconomics.skuPareto", () => {
 });
 
 // ============================================================================
-// rollingTrend — 7d window
+// timeSeriesSnapshot.rollingTrend — 7d window
 // ============================================================================
 
-describe("unitEconomics.rollingTrend", () => {
+describe("unitEconomics.timeSeriesSnapshot.rollingTrend", () => {
   test("daily series spans full calendar window and rolling7 matches trailing mean (10 consecutive seeded days)", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -435,10 +449,11 @@ describe("unitEconomics.rollingTrend", () => {
 
     const fromTs = now - 10 * 86400000;
     const toTs = now + 1000;
-    const res = await t.query(api.reports.unitEconomics.rollingTrend, {
+    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, {
       fromTs,
       toTs,
     });
+    const res = snap.rollingTrend;
 
     // daily.length equals full WIB calendar-day span (C2 regression guard:
     // after WR-02 the series MUST include zero-revenue days, which is why
@@ -474,10 +489,11 @@ describe("unitEconomics.rollingTrend", () => {
 
     const fromTs = now - 10 * 86400000;
     const toTs = now + 1000;
-    const res = await t.query(api.reports.unitEconomics.rollingTrend, {
+    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, {
       fromTs,
       toTs,
     });
+    const res = snap.rollingTrend;
 
     // Find the last day with non-zero revenue — rolling7 at that index should
     // equal the sum of the trailing 7 actual daily values divided by 7, NOT
@@ -496,7 +512,7 @@ describe("unitEconomics.rollingTrend", () => {
 // C1 — menuProductIds filter must also constrain the order set
 // ============================================================================
 
-describe("unitEconomics.kpiSummary menuProductIds filter", () => {
+describe("unitEconomics.kpiAndChannelSnapshot menuProductIds filter", () => {
   test("orderCount drops to 1 when filter matches only one product (C1 regression)", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -514,28 +530,28 @@ describe("unitEconomics.kpiSummary menuProductIds filter", () => {
     });
 
     // Filter on P only
-    const filtered = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const filtered = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
       menuProductIds: [pId],
     });
-    expect(filtered.current.orderCount).toBe(1);
-    expect(filtered.current.units).toBe(3);
+    expect(filtered.kpi.current.orderCount).toBe(1);
+    expect(filtered.kpi.current.units).toBe(3);
 
     // No filter: both orders count
-    const all = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const all = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
-    expect(all.current.orderCount).toBe(2);
+    expect(all.kpi.current.orderCount).toBe(2);
   });
 });
 
 // ============================================================================
-// I6 — coverage for remaining analytics queries
+// I6 — coverage for remaining analytics queries (via snapshots)
 // ============================================================================
 
-describe("unitEconomics.channelMomentum", () => {
+describe("unitEconomics.kpiAndChannelSnapshot.channelMomentum", () => {
   test("bucketCount picks 7/13/12 based on span", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -548,27 +564,27 @@ describe("unitEconomics.channelMomentum", () => {
       completedAt: now - 86400000,
     });
 
-    const res8d = await t.query(api.reports.unitEconomics.channelMomentum, {
+    const res8d = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 8 * 86400000,
       toTs: now,
     });
-    expect(res8d.bucketCount).toBe(7);
+    expect(res8d.channelMomentum.bucketCount).toBe(7);
 
-    const res15d = await t.query(api.reports.unitEconomics.channelMomentum, {
+    const res15d = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 15 * 86400000,
       toTs: now,
     });
-    expect(res15d.bucketCount).toBe(13);
+    expect(res15d.channelMomentum.bucketCount).toBe(13);
 
-    const res90d = await t.query(api.reports.unitEconomics.channelMomentum, {
+    const res90d = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 120 * 86400000,
       toTs: now,
     });
-    expect(res90d.bucketCount).toBe(12);
+    expect(res90d.channelMomentum.bucketCount).toBe(12);
   });
 });
 
-describe("unitEconomics.dayHourHeatmap", () => {
+describe("unitEconomics.timeSeriesSnapshot.dayHourHeatmap", () => {
   test("returns non-empty 7×8 grid with seeded hour variation", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -586,10 +602,11 @@ describe("unitEconomics.dayHourHeatmap", () => {
       completedAt: mondayEvening,
     });
 
-    const res = await t.query(api.reports.unitEconomics.dayHourHeatmap, {
+    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, {
       fromTs: mondayMorning - 86400000,
       toTs: mondayEvening + 86400000,
     });
+    const res = snap.dayHourHeatmap;
     expect(res.grid.length).toBe(7);
     expect(res.grid[0].length).toBe(8);
     // Monday row has revenue split between two bins
@@ -599,8 +616,12 @@ describe("unitEconomics.dayHourHeatmap", () => {
   });
 });
 
-describe("unitEconomics.unitsPerTxnByChannel", () => {
-  test("reports per-channel units/orderCount/unitsPerTxn for multi-channel seed", async () => {
+// unitsPerTxnByChannel + aovByChannel: these were legacy subset selectors of
+// channelEconomics. Consumers now compute unitsPerTxn / AOV client-side from
+// channelEconomics totals. Covering the underlying data here.
+
+describe("unitEconomics.kpiAndChannelSnapshot.channelEconomics (units + orderCount)", () => {
+  test("reports per-channel units/orderCount for multi-channel seed (unitsPerTxn derivable)", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
     const mp = await seedMenuProduct(t, "Original", bigBallId);
@@ -616,22 +637,21 @@ describe("unitEconomics.unitsPerTxnByChannel", () => {
       completedAt: ts,
     });
 
-    const rows = await t.query(api.reports.unitEconomics.unitsPerTxnByChannel, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: ts - 1000,
       toTs: Date.now() + 1000,
     });
+    const rows = snap.channelEconomics;
     const direct = rows.find((r: { channel: string }) => r.channel === "Direct");
     const shopee = rows.find((r: { channel: string }) => r.channel === "Shopee");
     expect(direct!.units).toBe(4);
     expect(direct!.orderCount).toBe(1);
-    expect(direct!.unitsPerTxn).toBe(4);
+    expect(direct!.units / direct!.orderCount).toBe(4); // unitsPerTxn
     expect(shopee!.units).toBe(2);
-    expect(shopee!.unitsPerTxn).toBe(2);
+    expect(shopee!.units / shopee!.orderCount).toBe(2);
   });
-});
 
-describe("unitEconomics.aovByChannel", () => {
-  test("reports per-channel AOV for multi-channel seed", async () => {
+  test("reports per-channel gross for multi-channel seed (AOV derivable)", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
     const mp = await seedMenuProduct(t, "Original", bigBallId);
@@ -649,18 +669,19 @@ describe("unitEconomics.aovByChannel", () => {
       completedAt: ts,
     });
 
-    const rows = await t.query(api.reports.unitEconomics.aovByChannel, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: ts - 1000,
       toTs: Date.now() + 1000,
     });
+    const rows = snap.channelEconomics;
     const direct = rows.find((r: { channel: string }) => r.channel === "Direct");
     const shopee = rows.find((r: { channel: string }) => r.channel === "Shopee");
-    expect(direct!.grossAov).toBe(100000);
-    expect(shopee!.grossAov).toBe(60000);
+    expect(direct!.gross).toBe(100000); // → grossAov 100000 (single order)
+    expect(shopee!.gross).toBe(60000);  // → grossAov 60000 (single order)
   });
 });
 
-describe("unitEconomics.skuChannelMatrix", () => {
+describe("unitEconomics.skuSnapshot.skuChannelMatrix", () => {
   test("two products × two channels — verifies cell values", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -682,10 +703,11 @@ describe("unitEconomics.skuChannelMatrix", () => {
       completedAt: ts,
     });
 
-    const res = await t.query(api.reports.unitEconomics.skuChannelMatrix, {
+    const snap = await t.query(api.reports.unitEconomics.skuSnapshot, {
       fromTs: ts - 1000,
       toTs: Date.now() + 1000,
     });
+    const res = snap.skuChannelMatrix;
     const productA = res.matrix.find((r: { product: string }) => r.product === "ProductA");
     expect(productA).toBeDefined();
     const aShopee = productA!.channels.find(
@@ -697,7 +719,7 @@ describe("unitEconomics.skuChannelMatrix", () => {
   });
 });
 
-describe("unitEconomics.volumeByType granularity=week", () => {
+describe("unitEconomics.timeSeriesSnapshot.volumeByType.week", () => {
   test("weekly buckets aggregate daily counts", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
@@ -716,11 +738,11 @@ describe("unitEconomics.volumeByType granularity=week", () => {
       completedAt: monday + 4 * 86400000,
     });
 
-    const res = await t.query(api.reports.unitEconomics.volumeByType, {
+    const snap = await t.query(api.reports.unitEconomics.timeSeriesSnapshot, {
       fromTs: monday - 86400000,
       toTs: monday + 7 * 86400000,
-      granularity: "week",
     });
+    const res = snap.volumeByType.week;
     const series = res.series.find((s: { code: string }) => s.code === "BIG_BALL");
     expect(series).toBeDefined();
     const total = series!.values.reduce((a: number, b: number) => a + b, 0);
@@ -784,22 +806,22 @@ describe("unitEconomics WR-06 legacy completedAt fallback", () => {
       orderDate: inWindow,
     });
 
-    const res = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
     // Expect 1 + 1 = 2 units (Cases 1 and 2). Case 3's 99 units must be excluded.
-    expect(res.current.units).toBe(2);
-    expect(res.current.orderCount).toBe(2);
+    expect(snap.kpi.current.units).toBe(2);
+    expect(snap.kpi.current.orderCount).toBe(2);
   });
 });
 
 // ============================================================================
-// externalRevenue integration (Phase 80 UAT-01)
+// externalRevenue integration (Phase 80 UAT-01) — via snapshots
 // ============================================================================
 
 describe("unitEconomics.externalRevenue integration", () => {
-  test("GoFood externalRevenue row with items is counted in kpiSummary + channelEconomics", async () => {
+  test("GoFood externalRevenue row with items is counted in kpi + channelEconomics", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
     const mp = await seedMenuProduct(t, "Original", bigBallId);
@@ -838,19 +860,15 @@ describe("unitEconomics.externalRevenue integration", () => {
       }),
     );
 
-    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
-    expect(kpi.current.orderCount).toBeGreaterThanOrEqual(1);
-    expect(kpi.current.netRevenue).toBeGreaterThanOrEqual(100000);
-    expect(kpi.current.units).toBe(2); // BOM: 1 BIG_BALL per product × 2 units
+    expect(snap.kpi.current.orderCount).toBeGreaterThanOrEqual(1);
+    expect(snap.kpi.current.netRevenue).toBeGreaterThanOrEqual(100000);
+    expect(snap.kpi.current.units).toBe(2); // BOM: 1 BIG_BALL per product × 2 units
 
-    const channels = await t.query(api.reports.unitEconomics.channelEconomics, {
-      fromTs: now - 7 * 86400000,
-      toTs: now + 1000,
-    });
-    const gofood = channels.find((r) => r.channel === "GoFood");
+    const gofood = snap.channelEconomics.find((r) => r.channel === "GoFood");
     expect(gofood).toBeDefined();
     expect(gofood!.gross).toBe(100000);
     expect(gofood!.units).toBe(2);
@@ -892,21 +910,24 @@ describe("unitEconomics.externalRevenue integration", () => {
       }),
     );
 
-    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
     // orderCount respects transactionCount=3, not 1.
-    expect(kpi.current.orderCount).toBe(3);
+    expect(snap.kpi.current.orderCount).toBe(3);
 
     // Channel filter by Shopee must surface this row (UAT-04 regression guard).
-    const shopeeOnly = await t.query(api.reports.unitEconomics.kpiSummary, {
-      fromTs: now - 7 * 86400000,
-      toTs: now + 1000,
-      channels: ["Shopee"],
-    });
-    expect(shopeeOnly.current.netRevenue).toBe(150000);
-    expect(shopeeOnly.current.units).toBe(3);
+    const shopeeOnly = await t.query(
+      api.reports.unitEconomics.kpiAndChannelSnapshot,
+      {
+        fromTs: now - 7 * 86400000,
+        toTs: now + 1000,
+        channels: ["Shopee"],
+      },
+    );
+    expect(shopeeOnly.kpi.current.netRevenue).toBe(150000);
+    expect(shopeeOnly.kpi.current.units).toBe(3);
   });
 
   test("externalRevenueItems without linkedMenuProductId produce '(Unlinked)' SKU bucket", async () => {
@@ -944,22 +965,21 @@ describe("unitEconomics.externalRevenue integration", () => {
       }),
     );
 
-    const pareto = await t.query(api.reports.unitEconomics.skuPareto, {
+    const skuSnap = await t.query(api.reports.unitEconomics.skuSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
-      topN: 10,
     });
-    const unlinked = pareto.rows.find((r) => r.name === "(Unlinked)");
+    const unlinked = skuSnap.skuTop.rows.find((r) => r.name === "(Unlinked)");
     expect(unlinked).toBeDefined();
     expect(unlinked!.revenue).toBe(75000);
 
     // Unit count is 0 because no linkedMenuProductId → cannot resolve BOM.
-    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const kpiSnap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
-    expect(kpi.current.netRevenue).toBe(75000);
-    expect(kpi.current.units).toBe(0);
+    expect(kpiSnap.kpi.current.netRevenue).toBe(75000);
+    expect(kpiSnap.kpi.current.units).toBe(0);
   });
 
   test("K3Mart externalRevenue without child items: BOM-linked parent contributes BOM-resolved units", async () => {
@@ -989,19 +1009,15 @@ describe("unitEconomics.externalRevenue integration", () => {
       }),
     );
 
-    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
     // BOM: 1 BIG_BALL per product × 5 = 5 units.
-    expect(kpi.current.units).toBeGreaterThanOrEqual(5);
-    expect(kpi.current.netRevenue).toBeGreaterThanOrEqual(200000);
+    expect(snap.kpi.current.units).toBeGreaterThanOrEqual(5);
+    expect(snap.kpi.current.netRevenue).toBeGreaterThanOrEqual(200000);
 
-    const channels = await t.query(api.reports.unitEconomics.channelEconomics, {
-      fromTs: now - 7 * 86400000,
-      toTs: now + 1000,
-    });
-    const k3 = channels.find((r) => r.channel === "K3Mart");
+    const k3 = snap.channelEconomics.find((r) => r.channel === "K3Mart");
     expect(k3).toBeDefined();
     expect(k3!.units).toBeGreaterThanOrEqual(5);
     expect(k3!.gross).toBe(250000);
@@ -1034,24 +1050,20 @@ describe("unitEconomics.externalRevenue integration", () => {
       }),
     );
 
-    const kpi = await t.query(api.reports.unitEconomics.kpiSummary, {
+    const snap = await t.query(api.reports.unitEconomics.kpiAndChannelSnapshot, {
       fromTs: now - 7 * 86400000,
       toTs: now + 1000,
     });
     // BOM-unresolved: quantitySold counts as units directly (7).
-    expect(kpi.current.units).toBe(7);
+    expect(snap.kpi.current.units).toBe(7);
     // Synthesized parent-fallback items carry revenueGross as lineTotal with
     // discountAmount=0 (mirrors child-item convention where commission is
     // not apportioned at item level). So net == gross at item level.
-    expect(kpi.current.netRevenue).toBe(100000);
-    expect(kpi.current.grossRevenue).toBe(100000);
-    expect(kpi.current.orderCount).toBe(1);
+    expect(snap.kpi.current.netRevenue).toBe(100000);
+    expect(snap.kpi.current.grossRevenue).toBe(100000);
+    expect(snap.kpi.current.orderCount).toBe(1);
 
-    const channels = await t.query(api.reports.unitEconomics.channelEconomics, {
-      fromTs: now - 7 * 86400000,
-      toTs: now + 1000,
-    });
-    const k3 = channels.find((r) => r.channel === "K3Mart");
+    const k3 = snap.channelEconomics.find((r) => r.channel === "K3Mart");
     expect(k3).toBeDefined();
     expect(k3!.units).toBe(7);
     expect(k3!.gross).toBe(100000);

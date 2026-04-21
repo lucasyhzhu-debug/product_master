@@ -1,8 +1,16 @@
 /**
  * Depot Auto-Seed Helper
  *
- * Auto-creates depot storage locations and links them to GoFood outlets
- * when processGofoodSales encounters an outlet with no linkedStorageLocationId.
+ * Auto-creates depot storage locations and links them to GoFood outlets.
+ *
+ * Phase 74.5.2 Plan 08 note: the original caller (the retired per-source
+ * GoFood deduction mutation) no longer exists. The unified
+ * `processChannelSaleInternal` path resolves locations via
+ * `resolveChannelRoute` (admin-configured `channelRouting` table) and does
+ * NOT invoke this helper. The helper is retained as a utility exported
+ * for future admin tooling or tests; when the admin UI is extended to
+ * auto-seed depot locations on outlet creation, this helper is the
+ * intended mechanism.
  *
  * Follows the same field structure as convex/migrations/seedFinishedGoodsLocations.ts.
  * Idempotent: safe to call multiple times for the same outlet.

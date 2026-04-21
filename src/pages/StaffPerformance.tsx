@@ -20,6 +20,7 @@ import {
   downloadDetailedStaffCSV,
 } from "@/lib/staffPerformanceExport";
 import { getCurrentWibMonth } from "@/lib/dateUtils";
+import { formatHoursMinutes } from "@/lib/utils";
 import { MONTH_NAMES } from "@/lib/financialHelpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,7 +151,7 @@ function StaffDetailRow({
         <TableCell className="text-right">{staff.daysWorked}</TableCell>
         {/* Hours column (Phase 74) — between Days Worked and (implicit) next column */}
         <TableCell className="text-right tabular-nums">
-          {(staff.totalHoursWorked ?? 0).toFixed(1)}
+          {formatHoursMinutes(staff.totalHoursWorked ?? 0)}
         </TableCell>
       </TableRow>
 

@@ -3,8 +3,85 @@
 import { v } from "convex/values";
 import { action } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import type { Id } from "../../_generated/dataModel";
 import { decodeJwtPayload } from "../../lib/jwt";
 import { BIGSELLER_PLATFORM_ID } from "./config";
+import type { ChannelAdapter } from "../_shared/channelAdapter";
+import type { ChannelSaleEvent } from "../_shared/channelSaleEvent";
+
+// ─── ChannelAdapter: normalize() + adapter export (Phase 74.5.1 Plan 06) ─────
+//
+// RESEARCH Pitfall 3: BigSeller's nominal source is aggregate-only; items only
+// exist for the `shopee` + `tiktok` platform branches. The live :804-866 emit
+// gate in ./sync.ts stays intact — this pure normalize() mirrors that
+// semantic: `platform === "bigseller"` (aggregate) → skipped, no events.
+//
+// event.source is the PLATFORM literal (`shopee` | `tiktok`), NOT `bigseller`,
+// matching the live saveRevenueItems call shape. ChannelAdapter.source is the
+// adapter's nominal literal (`bigseller`) — these are intentionally different
+// and the interface does not constrain them to be equal.
+export interface BigsellerRawOrder {
+  readonly platform: "shopee" | "tiktok" | "bigseller";
+  readonly orderId: string;
+  readonly completedAt: number;
+  readonly outletId?: string;
+  readonly items: ReadonlyArray<{
+    readonly sku?: string;
+    readonly productName?: string;
+    readonly menuProductId?: string;
+    readonly quantity: number;
+    readonly unitPrice: number;
+    readonly totalPrice: number;
+  }>;
+}
+
+export interface BigsellerRawBatch {
+  readonly orders: ReadonlyArray<BigsellerRawOrder>;
+}
+
+/**
+ * Pure projection: BigSeller batch → ChannelSaleEvent[].
+ *
+ * Per-order platform branch:
+ *   - `platform === "bigseller"`: aggregate row with no items — skipped.
+ *   - `platform === "shopee" | "tiktok"`: emit events with `source: platform`.
+ *
+ * Side-effect free, consumed by Wave 0 normalize test + Plan 05 dispatch hook.
+ */
+export function bigsellerNormalize(
+  payload: BigsellerRawBatch
+): ChannelSaleEvent[] {
+  if (!payload || !payload.orders || payload.orders.length === 0) return [];
+
+  const events: ChannelSaleEvent[] = [];
+  for (const order of payload.orders) {
+    // Pitfall 3 — aggregate branch has no items to emit.
+    if (order.platform === "bigseller") continue;
+
+    for (let i = 0; i < order.items.length; i++) {
+      const item = order.items[i];
+      events.push({
+        source: order.platform, // "shopee" | "tiktok" — NOT "bigseller"
+        occurredAt: order.completedAt,
+        externalTransactionId: order.orderId,
+        externalItemId: item.sku ?? `${order.orderId}-${i}`,
+        outletId: order.outletId as Id<"externalOutlets"> | undefined,
+        menuProductId: item.menuProductId as Id<"menuProducts"> | undefined,
+        externalProductCode: item.sku,
+        externalProductName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      });
+    }
+  }
+  return events;
+}
+
+export const bigsellerAdapter: ChannelAdapter<BigsellerRawBatch> = {
+  source: "bigseller",
+  normalize: bigsellerNormalize,
+};
 
 // ─── Token Preview (AUTH-02) ──────────────────────────────────────────────────
 

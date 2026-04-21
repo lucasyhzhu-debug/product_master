@@ -150,6 +150,23 @@ const BankRulesManager = lazyWithPreload(() =>
 const AnalyticsDashboard = lazyWithPreload(() =>
   import('./pages/AnalyticsDashboard').then(m => ({ default: m.AnalyticsDashboard }))
 );
+const UnlinkedProductsBackfill = lazyWithPreload(() =>
+  import('./pages/UnlinkedProductsBackfill').then(m => ({ default: m.UnlinkedProductsBackfill }))
+);
+
+// BEGIN 74.5.1 ROUTES — lazy imports
+// Plan 09 (ChannelRoutingManager + ProductInventorySettings) adds these.
+// Plan 10 (ChannelAuditWorkbench) appends the audit workbench.
+const ChannelRoutingManager = lazyWithPreload(() =>
+  import('./pages/ChannelRoutingManager').then(m => ({ default: m.ChannelRoutingManager }))
+);
+const ProductInventorySettings = lazyWithPreload(() =>
+  import('./pages/ProductInventorySettings').then(m => ({ default: m.ProductInventorySettings }))
+);
+const ChannelAuditWorkbench = lazyWithPreload(() =>
+  import('./pages/ChannelAuditWorkbench').then(m => ({ default: m.ChannelAuditWorkbench }))
+);
+// END 74.5.1 ROUTES — lazy imports
 
 function App() {
   return (
@@ -464,6 +481,46 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* Phase 80.2: Unlinked Products Backfill — admin-only one-time data repair */}
+                  <Route
+                    path="admin/unlinked-products-backfill"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <UnlinkedProductsBackfill />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* BEGIN 74.5.1 ROUTES — Channel Routing Spine admin surfaces */}
+                  {/* Plan 09: /admin/channel-routing — routing rule CRUD + resolution preview */}
+                  <Route
+                    path="admin/channel-routing"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <ChannelRoutingManager />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Plan 09: /admin/product-inventory-settings — 8-key flag map + thresholds */}
+                  <Route
+                    path="admin/product-inventory-settings"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <ProductInventorySettings />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Plan 10: /admin/channel-audit — 5-issue-type audit workbench */}
+                  <Route
+                    path="admin/channel-audit"
+                    element={
+                      <ProtectedRoute allowedRoles={["admin"]}>
+                        <ChannelAuditWorkbench />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* END 74.5.1 ROUTES */}
 
                   {/* Asset Register (manager + admin, Phase 60) */}
                   <Route

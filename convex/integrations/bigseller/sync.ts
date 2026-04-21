@@ -37,6 +37,12 @@ import {
   type BigSellerOrderRow,
 } from "./helpers";
 
+// bigsellerNormalize + bigsellerAdapter live in ./adapter.ts (co-located with
+// existing AUTH-02 action exports). Wave 0 normalize test imports from
+// ../adapter so that's the canonical location for the adapter export.
+// This sync.ts file owns the live saveRevenueItems emit branch (:804-866),
+// now migrated to saveRevenueItemsWithCounts for R9 counter wiring.
+
 type ActionCtx = {
   runQuery: (...args: any[]) => Promise<any>;
   runMutation: (...args: any[]) => Promise<any>;
@@ -561,6 +567,10 @@ export const fetchOrders = internalAction({
     let totalInserted = 0;
     let totalUpdated = 0;
     let totalRevenue = 0;
+    // Phase 74.5.1 Plan 06 (R9): per-sync counters — accumulated across the
+    // shopee/tiktok emit branch (below). Wired to updateSyncLog at completion.
+    let totalItemsDeducted = 0;
+    let totalItemsSkipped = 0;
     const allSkuCodes = new Set<string>();
     const allPlatforms = new Set<string>();
 
@@ -857,10 +867,21 @@ export const fetchOrders = internalAction({
               };
             });
             if (items.length > 0) {
-              await ctx.runMutation(
-                internal.externalData.mutations.saveRevenueItems,
+              // Phase 74.5.1 Plan 06 (R9): migrated to saveRevenueItemsWithCounts
+              // (Option A) to read `deducted` + `skipped` counters for syncLog
+              // wiring. Gate to shopee/tiktok at :808 is PRESERVED — this call
+              // only runs when platform is shopee or tiktok.
+              const itemsResult: {
+                ids: Id<"externalRevenueItems">[];
+                inserted: number;
+                deducted: number;
+                skipped: number;
+              } = await ctx.runMutation(
+                internal.externalData.mutations.saveRevenueItemsWithCounts,
                 { revenueId, items }
               );
+              totalItemsDeducted += itemsResult.deducted;
+              totalItemsSkipped += itemsResult.skipped;
             }
           }
         }
@@ -927,12 +948,15 @@ export const fetchOrders = internalAction({
     });
 
     // Update sync log to success
+    // Phase 74.5.1 Plan 06 (R9): wire itemsDeducted + itemsSkipped.
     const durationMs = Date.now() - startTime;
     await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
       logId: args.syncLogId,
       status: "success",
       productsCount: totalOrders,
       durationMs,
+      itemsDeducted: totalItemsDeducted,
+      itemsSkipped: totalItemsSkipped,
     });
 
     console.log(

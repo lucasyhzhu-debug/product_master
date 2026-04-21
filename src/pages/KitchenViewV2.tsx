@@ -11,8 +11,9 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ChevronDown, ChevronUp, Eye, Settings } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, Settings, BarChart2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ProductionTargetsBar } from '@/components/kitchen/ProductionTargetsBar';
@@ -48,6 +49,10 @@ export function KitchenViewV2() {
   const { user, hasPermission } = useAuth();
   const canEditKitchen = hasPermission('canEditKitchen');
   const isManager = user?.role === 'manager' || user?.role === 'admin';
+
+  // Phase 74: Attendance
+  const openShift = useCurrentOpenShift();
+  const [nudgeOpen, setNudgeOpen] = useState(false);
 
   // ============================================
   // Kitchen targets + shift records (Phase 21)
@@ -179,13 +184,6 @@ export function KitchenViewV2() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // ============================================
-  // Phase 74 — Attendance: open-shift lookup + D-08 self-clock-out nudge state
-  // ============================================
-
-  const openShift = useCurrentOpenShift();
-  const [nudgeOpen, setNudgeOpen] = useState(false);
-
-  // ============================================
   // Wake lock to prevent phone sleep
   // ============================================
 
@@ -223,8 +221,7 @@ export function KitchenViewV2() {
 
   return (
     <div className="flex flex-col gap-6 p-4 max-w-4xl mx-auto pb-12">
-      {/* Phase 74: Attendance strip — running timer + Clock-Out button when clocked in;
-          renders null otherwise, so zero visual footprint in default state. */}
+      {/* Phase 74: Attendance strip */}
       <AttendanceStrip />
 
       {/* Page header */}
@@ -238,19 +235,28 @@ export function KitchenViewV2() {
             </Badge>
           )}
         </div>
-        <div className="flex flex-col items-end gap-0.5">
-          <div className="text-sm text-muted-foreground font-medium">
-            {new Date().toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-            })}
-          </div>
-          {latestChefName && (
-            <div className="text-xs text-muted-foreground">
-              Shift for: <span className="font-medium text-foreground">{latestChefName}</span>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/my-performance"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <BarChart2 className="h-3.5 w-3.5" />
+            My Performance
+          </Link>
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="text-sm text-muted-foreground font-medium">
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+              })}
             </div>
-          )}
+            {latestChefName && (
+              <div className="text-xs text-muted-foreground">
+                Shift for: <span className="font-medium text-foreground">{latestChefName}</span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -291,6 +297,7 @@ export function KitchenViewV2() {
           unitByCode={unitByCode}
           isManager={isManager}
           currentUserId={user?.userId}
+          isClockedIn={!!openShift && !openShift.deletedAt}
           onSubmitted={(selectedChefId: string) => {
             const isSelf =
               selectedChefId === "" ||
@@ -435,10 +442,7 @@ export function KitchenViewV2() {
           )}
         </section>
       )}
-
-      {/* Phase 74 D-08: Self-clock-out nudge. Opens ONLY when the submitter is
-          clocking out themselves (see onSubmitted handler above). Renders null when
-          attendanceId is null — safe to render unconditionally. */}
+      {/* Phase 74: Clock-out nudge dialog */}
       <ClockOutNudgeDialog
         open={nudgeOpen}
         onOpenChange={setNudgeOpen}

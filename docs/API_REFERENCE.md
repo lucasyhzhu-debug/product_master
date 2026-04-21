@@ -814,23 +814,37 @@ inventory.expireBatch({                    // Mark expired (blocked if reserved)
 
 ---
 
-## Reports: Unit Economics (Phase 80)
+## Reports: Unit Economics (Phases 80 + 80.1)
 
 Manager/admin analytics queries in `convex/reports/unitEconomics.ts`. All queries share filter args: `{ fromTs: number, toTs: number, channels?: string[], menuProductIds?: Id<"menuProducts">[] }`. Excludes `Draft` and `Cancelled` orders. Uses `by_completed_at` (primary) + `by_order_date` (legacy fallback) indexes for bounded scans. Revenue math sourced from denormalized `orderItems.lineTotal` via `itemNetRevenue`/`itemGrossRevenue`/`itemDiscount` helpers. Production-unit counting iterates `componentTypes` where `category="production" AND unit="pcs"` — Big Ball + Mid Ball + Hazelnut (+future) counted automatically.
 
-| Query | Returns | Used by |
-|---|---|---|
-| `kpiSummary` | `{ current, prior, delta }` across 6 KPIs | A: KPI Row |
-| `byWeekday` | `{ labels, orders[7], units[7] }` (Mon-Sun) | B1 |
-| `dayHourHeatmap` | `{ grid: number[7][8], max, rowLabels, colLabels }` | B2 |
-| `channelEconomics` | per-channel `{ gross, discount, fees, net, units, takePct, revPerUnit, netPerUnit }` | C3, C4 |
-| `volumeByType` | `{ buckets, series: [{ code, name, values[] }] }` with day/week granularity | D1, D4 |
-| `unitsPerTxnByChannel` | per-channel `{ units, orderCount, unitsPerTxn }` | D2 |
-| `aovByChannel` | per-channel `{ grossAov, netAov }` | D3 |
-| `skuPareto` | `{ rows: [{ name, revenue, cumulativePct }], totalRevenue }` (topN + "Other") | E1 |
-| `skuChannelMatrix` | `{ products, channels, matrix: [{ product, channels: [{channel, revenue, pctOfChannel}] }] }` | E2 |
-| `channelMomentum` | `{ bucketCount, channels: [{ channel, revenueSpark, unitsSpark, aovSpark, totalRevenue, priorRevenue, wowPct }] }` with adaptive buckets (7/13/12 by span) | F1 |
-| `rollingTrend` | `{ dates, daily, rolling7, rolling28 }` | F2 |
+**Phase 80.1 consolidated 12 per-widget wrapper queries into 3 grouped snapshot queries.** `/analytics` now issues 3 Convex subscriptions (not 12) per filter click. Internal pure-function reducers remain exported for unit tests.
+
+### Snapshot queries (current — consumed by `/analytics`)
+
+- **`kpiAndChannelSnapshot({ fromTs, toTs, channels?, menuProductIds? })` → `{ kpi, channelEconomics, channelMomentum }`**
+  Loads current + prior period (one `loadFilteredData` each — 2 loads total) and runs `precomputeBomMaps` once. `kpi` carries `{ current, prior, delta }` across 6 KPIs. `channelEconomics` is `Array<{ channel, gross, discount, fees, net, units, orderCount, takePct, revPerUnit }>`. `channelMomentum` carries `{ bucketCount, channels[{ channel, revenueSpark, unitsSpark, aovSpark, totalRevenue, priorRevenue, wowPct }] }` with adaptive buckets (7 / 13 / 12 by span).
+  Widgets: KPI Row, RevPerUnitChart, TakeRateTable, ChannelSparklineTable, UnitsPerTxnByChannel, AovByChannel (AOV + unitsPerTxn computed client-side from channelEconomics totals).
+
+- **`timeSeriesSnapshot({ fromTs, toTs, channels?, menuProductIds? })` → `{ byWeekday, byWeekdayRolling, rollingTrend, dayHourHeatmap, volumeByType: { day, week }, typeMixOverTime: { day, week } }`**
+  Single `loadFilteredData` call. Both granularities (day + week) computed server-side so the granularity toggle is a client-side slice (no new subscription). `dayHourHeatmap` returns `{ grid: number[7][8], max, rowLabels, colLabels }` (uncollapsed — overnight collapse happens in DayHourHeatmap.tsx via `useMemo`).
+  Widgets: WeekdayDualAxisChart (mode-dispatches byWeekday vs byWeekdayRolling), RollingTrendChart, DayHourHeatmap (Nivo), UnitsByTypeStackedBars, TypeMixOverTime.
+
+- **`skuSnapshot({ fromTs, toTs, channels?, menuProductIds? })` → `{ skuTop, skuChannelMatrix }`**
+  Server-side cap: `SKU_SNAPSHOT_TOP_CAP = 20` on both `skuTop.rows` and `skuChannelMatrix`. Clients slice for display topN (Pareto=10, channel matrix=8). Single `loadFilteredData` call. `skuTop` returns `{ rows[{ productKey, name, revenue, cumulativePct }], totalRevenue }`. `skuChannelMatrix` returns `{ products, channels, matrix: [{ productKey, product, channels: [{channel, revenue, pctOfChannel}] }] }`.
+  Widgets: SkuParetoChart, SkuChannelHeatmap (Nivo).
+
+### Removed in Phase 80.1
+
+All 12 per-widget wrappers deleted after `/analytics` migrated to snapshot hooks:
+
+`kpiSummary`, `channelEconomics`, `channelMomentum`, `byWeekday`, `rollingTrend`, `dayHourHeatmap`, `volumeByType`, `typeMixOverTime`, `unitsPerTxnByChannel`, `aovByChannel`, `skuPareto`, `skuChannelMatrix`.
+
+Any external caller depending on these paths must migrate to the equivalent snapshot field. See `docs/CHANGELOG.md` for the migration timeline.
+
+### Reducers (pure functions, exported for unit tests)
+
+`reduceKpi`, `reduceChannelEconomics`, `reduceChannelMomentum`, `reduceByWeekday`, `reduceRollingTrend`, `reduceDayHourHeatmap`, `reduceVolumeByType(current, pre, granularity)`, `reduceTypeMixOverTime(current, pre, granularity)`, `reduceSkuTop(current, pre, topN)`, `reduceSkuChannelMatrix(current, pre, topN)`. All accept `WindowData` + `Precomputed` — no `ctx` access.
 
 ### Display Channel Taxonomy (`convex/reports/channelTaxonomy.ts`)
 
@@ -1503,6 +1517,52 @@ Returns a map of outlet display name to document ID for a given platform source.
 
 Used by `syncK3MartSales` to link revenue records to outlet docs by matching `txn.outletName`.
 
+### Admin Mutations (Phase 80.2 — Unlinked Products Fix)
+
+#### `externalData.mutations.backfillInternalRevenueItems` (admin-only)
+
+Paginated-WRITE mutation that repairs orphan Direct (source=`internal`) `externalRevenue` parents by rebuilding their `externalRevenueItems` children from the native `orders` + `orderItems` tables. Idempotent via `saveRevenueItems`' existing `(revenueId, externalItemId)` dedup — re-runs on already-backfilled data return all-zero counters. Writes one audit row to `externalSyncLogs.summary` per invocation.
+
+Fixes the 219/262 Direct parents synced before 2026-04-10 that were permanently orphaned because `syncInternalOrders` had an unconditional skip-if-not-new guard before `saveRevenueItems` was added to the flow.
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| token | string | Admin session token (enforced via `requireRole(ctx, token, ["admin"])`) |
+| cursor | string? \| null | Pagination cursor — null or omit for first call |
+| limit | number? | Page size (default 200, hard cap `Math.min(limit, 4000)` — matches Convex per-mutation write ceiling) |
+
+**Returns:**
+
+```typescript
+{
+  parentsScanned: number;         // total externalRevenue[source=internal] rows visited in this page
+  parentsBackfilled: number;      // orphan parents that received new children in this page
+  itemsInserted: number;          // total externalRevenueItems rows inserted in this page
+  skippedHasChildren: number;     // parents with children already — no-op skip
+  skippedMissingOrder: number;    // parents whose native order was deleted since sync
+  skippedEmptyOrderItems: number; // parents whose native order has no items
+  continueCursor: string | null;  // pass back into next invocation until isDone=true
+  isDone: boolean;                // true when no more pages remain
+}
+```
+
+**Idempotency guarantee:** second run on the same data returns `{ parentsBackfilled: 0, itemsInserted: 0, skippedHasChildren: <total> }`. Safe to re-invoke after partial failure.
+
+**Usage — CLI:**
+```bash
+npx convex run externalData:mutations:backfillInternalRevenueItems --prod '{"token": "<admin-token>", "limit": 500}'
+# If isDone: false, loop with returned cursor:
+npx convex run externalData:mutations:backfillInternalRevenueItems --prod '{"token": "<admin-token>", "cursor": "<cursor>", "limit": 500}'
+```
+
+**Phase:** 80.2 Unlinked Products Fix (2026-04-19) — first paginated-WRITE mutation in this codebase.
+
+#### `externalData.mutations.applyRetroactiveProductMapping` (admin-only)
+
+Existing cascade mutation — extended in Phase 80.2 with a K3Mart branch (after Shopee/TikTok). Return type widened additively with new `externalRevenueUpdated: number` field. Idempotent via `linkedMenuProductId` equality check.
+
+**New field in return object:** `externalRevenueUpdated: number` — count of `externalRevenue` parent rows patched in the K3Mart cascade branch (0 for Shopee/TikTok/other sources). All 3 existing call sites (admin UI mapping save handlers) continue to work unchanged — the change is purely additive.
+
 ### Migration Mutations (one-time, run from dashboard)
 
 #### `externalData.mutations.seedK3MartOutletNames`
@@ -1518,6 +1578,22 @@ Patches existing K3Mart revenue records with `outletId` by parsing the outlet na
 **Returns:** `{ patched, skipped, total }`
 
 **Run order:** Must run AFTER `seedK3MartOutletNames`.
+
+#### `migrations.gofoodSaleToChannelSale.runGofoodSaleToChannelSaleMigration` (Phase 74.5.2)
+Admin-gated scheduler trigger. Schedules a paginated forward-only migration of `productInventoryTransactions` rows from `transactionType: "gofood_sale"` to `transactionType: "channel_sale" + source: "gobiz"`.
+
+**Args:** `{ token: string }` (admin role required via `requireRole`)
+
+**Returns:** `{ scheduled: true }` — non-blocking; actual migration runs in the scheduler via `migrateGofoodSaleToChannelSale` internalAction.
+
+**Behavior:**
+- Paginated: 500-row chunks, MAX_PAGES=1000 safety cap (500K-row ceiling).
+- Self-healing on re-run: `by_type` index filter narrows to remaining `gofood_sale` rows only, so rerun is a no-op if migration already complete.
+- Preserves `gofoodOrderRef` on migrated rows (legacy compat for `TransactionLogPanel`).
+- Writes `externalRef = gofoodOrderRef ?? legacy-{_id}` (fallback for legacy rows with null ref).
+- **Landmine guard:** writes `source: "gobiz"` (integration literal), NEVER `"gofood"` (surface name not in `externalSource` union).
+
+**Frontend integration:** Admin triggers via Convex dashboard or future admin UI button. Non-blocking — UI polls `externalSyncLogs` for completion.
 
 ### Queries
 
@@ -2154,6 +2230,63 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 
 ---
 
+### Product Inventory — Channel Deduction Backfill (Phase 74.5.2)
+
+Per-source historical backfill for channel deductions. Flag-independent (runs regardless of `productInventorySettings.channelDeductionEnabled[source]`) and idempotent (set-once `externalRevenueItems.inventoryDeductedAt`).
+
+#### `productInventory.backfill.runChannelBackfill` (mutation, admin)
+Schedules a full paginated backfill for the given source. Dispatches `backfillChannelDeductions` internalAction which drains `externalRevenueItems` where `inventoryDeductedAt IS NULL` for the source.
+
+**Args:** `{ source: ExternalSource, token: string }`
+
+**Returns:** `{ scheduled: true }` — non-blocking.
+
+**Behavior:**
+- Uses `by_source_deductedAt` compound index (Phase 74.5.2) to narrow to un-deducted rows in O(n).
+- 200-item chunks, MAX_ITERATIONS=500 runaway cap (100K-row ceiling per run).
+- Silent-drop guard: items with `linkedMenuProductId === null` are skipped (D74.5.2-L4).
+- Timestamp preservation: backfilled `productInventoryTransactions.createdAt` uses `externalRevenue.transactionDate` (D-16) — not the current clock.
+
+#### `productInventory.backfill.runOneChannelBackfillPage` (mutation, admin)
+Single-page variant for UI loop-polling (used by `ChannelBackfillCard`).
+
+**Args:** `{ source: ExternalSource, token: string }`
+
+**Returns:** `{ itemsProcessed: number, deducted: number, skipped: number, isDone: boolean }` — client loops until `isDone`.
+
+#### `productInventory.backfill.getChannelBackfillPreflight` (query, admin)
+Reactive query returning pending-item counts and audit blockers for the source.
+
+**Args:** `{ source: ExternalSource, token: string }`
+
+**Returns:** `{ pendingItems: number, blockingAuditIssues: number }` — per-source gate, not global. UI renders informational warning when `blockingAuditIssues > 0` but does NOT disable the button (D-17, Pitfall 4).
+
+**Frontend integration:**
+- `src/hooks/convex/useChannelBackfill.ts` — `useChannelBackfillPreflight`, `useRunChannelBackfill` hooks.
+- `src/pages/UnlinkedProductsBackfill.tsx` — 6 per-source `ChannelBackfillCard` components under "Channel Deduction Backfill" section.
+- GrabFood card renders permanent-OFF degraded state ("Awaiting OAuth scope") per D74.5.2-L15.
+
+---
+
+### Consignment — Per-Product Breakdown (Phase 74.5.2)
+
+#### `consignment.queries.getSettlementItems` (query, admin + manager)
+Returns enriched per-product breakdown for a settlement. Joins `externalRevenueItems` (linked via `consignmentSettlements.linkedRevenueId`) with `menuProducts` for display names.
+
+**Args:** `{ settlementId: Id<"consignmentSettlements">, token: string }`
+
+**Returns:** `Array<{ itemId, productName, menuProductId?, unitPrice, quantity, totalPrice }>`
+
+**Behavior:**
+- Pre-74.5.1 settlements (no `linkedRevenueId`) return empty array gracefully — no error, no null.
+- Lazy-loaded from `SettlementTimeline.tsx` via `useQuery(…, expanded ? args : "skip")` — zero network cost on collapsed rows.
+
+**Frontend integration:**
+- `src/components/salesAnalytics/SettlementFormDialog.tsx` — optional item-row inputs with ±Rp1 sum validation on create.
+- `src/components/salesAnalytics/SettlementTimeline.tsx` — per-settlement expandable "Products sold" sub-section.
+
+---
+
 ### Library Utilities
 
 #### `buildProductCOGSMap` (convex/lib/costCalculator.ts)
@@ -2188,3 +2321,37 @@ Pure function. Computes current + previous week boundaries.
 | Reference not found | "Customer not found" / "Recipe version not found" |
 | Invalid status transition | "Invalid status transition from X to Y" |
 | Missing required field | Convex validator error (automatic) |
+
+---
+
+## Convex Quick Reference
+
+```typescript
+// Frontend: Reading data (reactive, auto-updates)
+const recipes = useQuery(api.recipes.list);
+const recipe = useQuery(api.recipes.getById, { id: recipeId });
+const conditional = useQuery(api.recipes.getById, id ? { id } : "skip");
+if (recipes === undefined) return <Loading />;
+
+// Frontend: Writing data
+const createRecipe = useMutation(api.recipes.create);
+await createRecipe({ name: "Recipe Name", tagIds: [], createdBy: "admin" });
+
+// Backend: Query
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("recipes").collect();
+  },
+});
+
+// Backend: Mutation with auth
+export const create = mutation({
+  args: { token: v.string(), name: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["admin"]);
+    const { token: _, ...data } = args;
+    return await ctx.db.insert("recipes", data);
+  },
+});
+```

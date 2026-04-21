@@ -246,3 +246,102 @@ erDiagram
 17. **customer**: Customer entity for order management
 18. **order**: Order entity (standalone, links to customer)
 19. **order_item**: Order line items (standalone text-based product link)
+
+---
+
+## Project Structure
+
+```
+product_master/
++-- convex/                           # Backend (59 tables)
+|   +-- _generated/                   # Auto-generated types & API
+|   +-- lib/
+|   |   +-- costCalculator.ts         # Cost calculation logic
+|   |   +-- auth.ts                   # requireRole() helper
+|   +-- auth/                         # Login, sessions, user management
+|   +-- channels/                     # Channel usage tracking
+|   +-- componentTypes/               # Unified BOM component types
+|   +-- customers/                    # Customer CRUD
+|   +-- dashboard/                    # Dashboard aggregation queries
+|   +-- externalData/                 # External data sync (GoFood, etc.)
+|   +-- feedback/                     # Visual feedback overlay
+|   +-- gofoodDepot/                  # GoFood depot integration
+|   +-- ingredients/                  # Ingredient CRUD
+|   +-- integrations/                 # Third-party integrations (GoBiz)
+|   +-- integrityChecks/              # Data integrity validation
+|   +-- inventory/                    # Inventory batches, stock, transactions
+|   +-- k3martCockpit/                # K3Mart cockpit dashboard
+|   +-- k3martKitchen/                # K3Mart kitchen operations
+|   +-- kitchenConfig/                # Kitchen configuration settings
+|   +-- materials/                    # Packaging materials CRUD
+|   +-- menuProductComponents/        # Menu product -> component type links
+|   +-- menuProducts/                 # Menu product definitions
+|   +-- migrations/                   # Data migrations
+|   +-- orders/                       # Order management
+|   |   +-- queries.ts
+|   |   +-- mutations/                # Split: orderCrud, inventoryIntegration
+|   |   +-- whatsapp.ts               # WhatsApp message templates
+|   |   +-- helpers.ts                # Pure functions (no ctx)
+|   |   +-- helpers/                  # Ctx-dependent helpers
+|   +-- packaging/                    # Packaging recipes
+|   +-- platformCredentials/          # Platform API credentials
+|   +-- productionCounts/             # Production counts (archived, read-only)
+|   +-- productionLog/                # Production log entries (source of truth)
+|   +-- productionTargets/            # Daily production targets
+|   +-- productionUnitTypes/          # Production unit types (Big Ball, Mid Ball)
+|   +-- products/                     # Product management
+|   +-- recipes/                      # Recipe management
+|   +-- reports/                      # Report generation
+|   +-- restock/                      # Restock planning
+|   +-- shipping/                     # Shipping agency tracking
+|   +-- storageLocations/             # Storage location CRUD
+|   +-- tags/                         # Tag management
+|   +-- vouchers/                     # Voucher codes + usage tracking
+|   +-- whatsappTemplates/            # Editable WhatsApp templates
+|   +-- crons.ts                      # Scheduled jobs
+|   +-- http.ts                       # HTTP endpoints
+|   +-- schema.ts                     # Database schema
++-- src/                              # Frontend
+|   +-- components/
+|   |   +-- ui/                       # shadcn/ui primitives
+|   |   +-- layout/                   # Header, Layout, PageHeader
+|   |   +-- auth/                     # ProtectedRoute, LoginForm
+|   |   +-- shared/                   # CostTooltip, ConfirmDialog, FormBuilder, etc.
+|   |   +-- (feature folders)
+|   +-- pages/                        # Page components
+|   +-- hooks/
+|   |   +-- convex/                   # Convex query/mutation hooks + index.ts
+|   +-- contexts/
+|   |   +-- AuthContext.tsx           # Auth state (useAuth)
+|   +-- lib/
+|   |   +-- types.ts                  # TypeScript interfaces
+|   |   +-- utils.ts                  # cn, formatCurrency
+|   +-- App.tsx                       # Router setup
+|   +-- main.tsx                      # Entry with ConvexProvider
+|   +-- index.css                     # Tailwind CSS + theme
++-- docs/                             # Documentation
++-- .claude/agents/                   # Specialized agents
++-- .agent/skills/                    # Custom skills
+```
+
+---
+
+## Critical File Paths
+
+**Backend (Convex) — 59 tables in `convex/schema.ts`:**
+- `convex/schema.ts` — Database schema definition
+- `convex/lib/costCalculator.ts` — Cost calculation logic
+- `convex/lib/auth.ts` — `requireRole()` authorization helper
+- `convex/orders/whatsapp.ts` — WhatsApp receipt generation
+- `convex/orders/helpers.ts` — Pure order calculation helpers (no ctx)
+- `convex/orders/helpers/` — Ctx-dependent helpers (ballDistribution, statusTransitions, usageTracking, productionRecords, voucherHandling, batchFetching, statusFetching)
+- `convex/orders/mutations/` — Order mutations (split into orderCrud, inventoryIntegration)
+
+**Frontend:**
+- `src/App.tsx` — Router setup (all routes use ProtectedRoute)
+- `src/main.tsx` — Entry point with ConvexProvider
+- `src/contexts/AuthContext.tsx` — Auth state management
+- `src/hooks/convex/` — Convex query/mutation hooks
+- `src/lib/types.ts` — TypeScript interfaces
+- `src/lib/utils.ts` — Utilities (cn, formatCurrency)
+- `src/components/auth/ProtectedRoute.tsx` — Route permission guards

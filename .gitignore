@@ -102,3 +102,21 @@ bundlemeta.json
 
 # Git worktrees
 .worktrees/
+
+# =============================================================================
+# GRAPHIFY — knowledge graph machine artifacts (human-readable reports ARE committed)
+# =============================================================================
+# Machine graph files — regenerate with: graphify build
+graphify-out/graph.json
+graphify-out/graph.html
+graphify-out/cache/
+# GSD-integrated graph files
+.planning/graphs/graph.json
+.planning/graphs/graph.html
+.planning/graphs/.last-build-snapshot.json
+# Keep human-readable reports (Claude reads these; committed intentionally)
+!graphify-out/GRAPH_REPORT.md
+!.planning/graphs/GRAPH_REPORT.md
+
+# Scheduled task lockfile
+.claude/scheduled_tasks.lock

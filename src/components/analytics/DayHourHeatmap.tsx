@@ -1,42 +1,25 @@
-import { Fragment, useMemo } from "react";
-import { Card } from "@/components/ui/card";
+import { useMemo } from "react";
+import { ResponsiveHeatMap } from "@nivo/heatmap";
 import { useDayHourHeatmap } from "@/hooks/convex/useAnalytics";
-import { formatCurrency } from "@/lib/utils";
+import { ChartFrame, ChartTooltip, formatCurrencyCompact } from "@/lib/chartPrimitives";
 
-function intensityClass(value: number, max: number): string {
-  if (max === 0) return "bg-muted";
-  const ratio = value / max;
-  if (ratio === 0) return "bg-muted";
-  if (ratio < 0.2) return "bg-purple-500/20";
-  if (ratio < 0.4) return "bg-purple-500/40";
-  if (ratio < 0.6) return "bg-purple-500/60";
-  if (ratio < 0.8) return "bg-purple-500/80";
-  return "bg-purple-500";
-}
-
-/**
- * Collapse backend colLabels ["0-3","3-6","6-9","9-12","12-15","15-18","18-21","21-24"]
- * into 6 display rows: ["Overnight (0-9)","9-12","12-15","15-18","18-21","21-24"].
- * The Overnight row sums the revenue from hours 0-3 + 3-6 + 6-9 per day.
- *
- * Keep scaling based on the transformed cells (max recomputed post-collapse)
- * so the color ramp accurately reflects what's visible.
- */
 function collapseOvernight(
   grid: number[][],
   colLabels: string[],
-): { labels: string[]; grid: number[][]; max: number } {
+): { labels: string[]; grid: number[][] } {
   const OVERNIGHT_IDX = colLabels
     .map((l, i) => ({ l, i }))
     .filter(({ l }) => {
-      const [start] = l.split("-").map(Number);
+      const start = Number(l.split("-")[0]);
+      if (isNaN(start)) return false;
       return start < 9;
     })
     .map(({ i }) => i);
   const keepIdx = colLabels
     .map((l, i) => ({ l, i }))
     .filter(({ l }) => {
-      const [start] = l.split("-").map(Number);
+      const start = Number(l.split("-")[0]);
+      if (isNaN(start)) return false;
       return start >= 9;
     });
   const newLabels = ["Overnight (0-9)", ...keepIdx.map(({ l }) => l)];
@@ -45,76 +28,97 @@ function collapseOvernight(
     const rest = keepIdx.map(({ i }) => dayRow[i] ?? 0);
     return [overnightSum, ...rest];
   });
-  let max = 0;
-  for (const row of newGrid) {
-    for (const v of row) if (v > max) max = v;
-  }
-  return { labels: newLabels, grid: newGrid, max };
+  return { labels: newLabels, grid: newGrid };
 }
 
 export function DayHourHeatmap() {
   const data = useDayHourHeatmap();
 
-  const collapsed = useMemo(() => {
-    if (!data) return null;
-    return collapseOvernight(data.grid, data.colLabels);
+  const { transformed, rawValues, maxPct } = useMemo(() => {
+    if (data === undefined)
+      return { transformed: [], rawValues: new Map<string, number>(), maxPct: 1 };
+    const { grid, rowLabels, colLabels } = data;
+    const collapsed = collapseOvernight(grid, colLabels);
+    const { labels: hourLabels, grid: newGrid } = collapsed;
+
+    // Per-day revenue totals (column sums in original day×hour grid)
+    const dayTotals = rowLabels.map((_d, dayIdx) =>
+      hourLabels.reduce((s, _h, hourIdx) => s + (newGrid[dayIdx]?.[hourIdx] ?? 0), 0),
+    );
+
+    // Store raw IDR values for tooltip lookup
+    const rawValues = new Map<string, number>();
+
+    // Transposed: rows = hour bins, columns = days
+    // y = % of that day's total revenue (cell intensity reflects share-of-day, not absolute IDR)
+    const transformed = hourLabels.map((hourLabel, hourIdx) => ({
+      id: hourLabel,
+      data: rowLabels.map((day: string, dayIdx: number) => {
+        const raw = newGrid[dayIdx]?.[hourIdx] ?? 0;
+        const pct = dayTotals[dayIdx] > 0 ? (raw / dayTotals[dayIdx]) * 100 : 0;
+        rawValues.set(`${hourLabel}|${day}`, raw);
+        return { x: day, y: pct };
+      }),
+    }));
+
+    const maxPct = Math.max(...transformed.flatMap((r) => r.data.map((d) => d.y)), 1);
+    return { transformed, rawValues, maxPct };
   }, [data]);
 
-  if (data === undefined || collapsed === null) {
-    return <Card className="h-64 animate-pulse p-4" />;
+  if (data === undefined) {
+    return (
+      <ChartFrame title="Day × Hour heatmap (% of day revenue)" height={320} loading>
+        {null}
+      </ChartFrame>
+    );
   }
-  // Backend returns grid[dayIdx][hourBinIdx]. We render transposed:
-  // rows = hour bins (after overnight collapse), columns = days (rowLabels).
-  const dayLabels = data.rowLabels; // ["Mon" .. "Sun"]
-  const hourLabels = collapsed.labels; // 6 rows after collapse
-  const numDays = dayLabels.length;
-  const max = collapsed.max;
+
   return (
-    <Card className="p-4">
-      <h4 className="mb-2 text-sm font-semibold">Day × Hour heatmap (revenue)</h4>
-      <div
-        className="grid gap-1 text-xs"
-        style={{ gridTemplateColumns: `80px repeat(${numDays}, 1fr)` }}
-      >
-        {/* Top-row day labels */}
-        <div />
-        {dayLabels.map((d) => (
-          <div key={"top-" + d} className="text-center text-muted-foreground">
-            {d}
-          </div>
-        ))}
-        {/* Body: one row per hour bin */}
-        {hourLabels.map((hourLabel, hi) => (
-          <Fragment key={hourLabel}>
-            <div className="flex items-center justify-end pr-1 text-muted-foreground">
-              {hourLabel}
-            </div>
-            {Array.from({ length: numDays }).map((_, di) => {
-              const val = collapsed.grid[di][hi];
-              const pct = max === 0 ? 0 : Math.round((val / max) * 100);
-              const tooltip =
-                val === 0
-                  ? `${dayLabels[di]} · ${hourLabel} · Rp 0`
-                  : `${dayLabels[di]} · ${hourLabel} · ${formatCurrency(val)} · ${pct}% of weekly peak`;
-              return (
-                <div
-                  key={`${hi}-${di}`}
-                  className={`aspect-square rounded ${intensityClass(val, max)}`}
-                  title={tooltip}
-                  aria-label={tooltip}
-                />
-              );
-            })}
-          </Fragment>
-        ))}
-        {/* Bottom-row day labels */}
-        <div />
-        {dayLabels.map((d) => (
-          <div key={"bot-" + d} className="text-center text-muted-foreground">
-            {d}
-          </div>
-        ))}
-      </div>
-    </Card>
+    <ChartFrame title="Day × Hour heatmap (% of day revenue)" height={320}>
+      <ResponsiveHeatMap
+        data={transformed}
+        margin={{ top: 50, right: 20, bottom: 20, left: 115 }}
+        valueFormat={(v) => `${Math.round(Number(v))}%`}
+        axisTop={{
+          tickRotation: 0,
+          legend: "",
+          legendPosition: "middle",
+          legendOffset: -36,
+        }}
+        axisBottom={null}
+        axisRight={null}
+        axisLeft={{
+          legend: "Hour (WIB)",
+          legendPosition: "middle",
+          legendOffset: -100,
+        }}
+        colors={{ type: "quantize", scheme: "purples", steps: 5 }}
+        emptyColor="hsl(var(--muted))"
+        labelTextColor={(cell) =>
+          Number(cell.value ?? 0) / maxPct > 0.4 ? "#ffffff" : "#1e293b"
+        }
+        tooltip={({ cell }) => {
+          const raw = rawValues.get(`${String(cell.serieId)}|${String(cell.data.x)}`) ?? 0;
+          return (
+            <ChartTooltip
+              active
+              label={`${String(cell.data.x)} · ${String(cell.serieId)}`}
+              payload={[{ name: "Revenue", value: raw }]}
+              valueFormatter={(v) =>
+                typeof v === "number" ? formatCurrencyCompact(v) : String(v)
+              }
+            />
+          );
+        }}
+        theme={{
+          text: { fill: "hsl(var(--foreground))" },
+          axis: {
+            ticks: { text: { fill: "hsl(var(--muted-foreground))", fontSize: 11 } },
+            legend: { text: { fill: "hsl(var(--muted-foreground))", fontSize: 11 } },
+          },
+          labels: { text: { fontSize: 11, fontWeight: 500 } },
+        }}
+      />
+    </ChartFrame>
   );
 }

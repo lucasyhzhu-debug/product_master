@@ -12,7 +12,7 @@
 - [x] **v1.7 Expense & Accounting** - Phases 41-54 (shipped 2026-03-16)
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
-- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80 (in progress)
+- [ ] **v2.0 Financial Management & Data Quality** - Phases 70-80.3 (in progress)
 
 ## Phases
 
@@ -181,12 +181,23 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 71: Bulk Expense Upload & Asset Reclassification** - CSV expense import with approval modes, asset disposal reclassification (completed 2026-04-11)
 - [x] **Phase 72: Bank Statement Parser & Auto-Match** - BCA XLSX/CSV upload with reconciliation checksum and auto-matching engine (Mandiri deferred per D-07) (completed 2026-04-13)
 - [x] **Phase 73: Bank Reconciliation UI & Workflow** - Manual match/unmatch split-view UI and reconciliation status tracking (completed 2026-04-15)
-- [x] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries (completed 2026-04-16)
+- [x] **Phase 74: Staff Attendance** - Kitchen clock-in/out, per-staff production tracking, monthly summaries (completed 2026-04-17)
+- [~] **Phase 74.5: Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19 into 74.5.1 / 74.5.2)** - Parent scope kept for reference; actual work splits into 74.5.1 (additive spine + admin UI, flag-gated) and 74.5.2 (cutover + backfill + retire legacy). See parent README + RESEARCH.md for migration matrix across 8 channels.
+- [x] **Phase 74.5.1: Channel Routing Spine + Admin UI (INSERTED 2026-04-19, split from 74.5)** - Additive spine behind `productInventorySettings.channelDeductionEnabled` flag map (8 channels, all default OFF). Ships: `channelRouting` table + indexes, `ChannelSaleEvent` canonical type + `ChannelAdapter` interface, all 5 adapter refactors to emit `ChannelSaleEvent[]` (gated dispatch — no actual deduction), K3Mart parent→parent+child shape change (semantic, non-flag-gated), consignment emit branch, `ChannelRoutingManager` + `ChannelAuditWorkbench` admin UIs, Grabfood `Not implemented` stub, K3Mart analytics reconciliation, routing seed migration. Read-only correctness gate — no behavioral change to inventory deduction. Depends on 78/79/80/80.3 (all complete).
+ (completed 2026-04-20)
+- [x] **Phase 74.5.2: Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19, split from 74.5)** - Behavioral cutover phase. Ships: staged flag flips per channel, six historical-backfill admin buttons with `externalRevenueItems.inventoryDeductedAt` idempotency, `gofood_sale` → `channel_sale` literal migration, retirement of `processGofoodSales` + order-fulfillment direct-GoJek deduct path, schema cleanup (drop deprecated transaction types), consignment per-product breakdown UI, `docs/CHANNEL_INTEGRATION.md` runbook. Depends on 74.5.1 verified + merged. Runs its own lightweight inline research pass to absorb surprises from 74.5.1 execution. (completed 2026-04-21)
+- [x] **Phase 74.5.2.1: Ops Automation (INSERTED 2026-04-21, follow-up to 74.5.2)** — Closes 74.5.2 operational gaps: (a) gobiz defaults ON via code-level read-site change (superseded the originally-planned CI post-deploy mutation because a new mutation cannot flip a flag before its own code deploys); (b) D74.5.2-L14 K3Mart composite toggle UI (`flipK3MartBundle` admin mutation + single-button affordance in `ProductInventorySettings.tsx` that atomically flips both `k3mart` + `consignment` flags); (c) docs cleanup — resolved deferred item #5, documented item #7 (gobiz manual-flip → code default), repointed item #2 to concrete 74.5.3 phase name. Executed inline on the 74.5.2 branch before merge; scaffold phase dir kept as documentation. (completed 2026-04-21)
+- [ ] **Phase 74.5.3: Packaging BOM Auto-Deduction (PLANNED — absorbs 74.5.2 deferred item #2)** — Extend `processChannelSaleInternal` to BOM-resolve packaging components (sticker, small-box, etc.) and emit paired `packagingInventoryTransactions` rows per sale. Eliminates the daily manual sticker adjustment procedure from the 74.5.2 runbook. Design pass required: per-source packaging SKU mapping strategy. Not yet scheduled.
 - [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
 - [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
 - [x] **Phase 79: Shopee Item-Level Revenue** - Capture per-item Shopee/TikTok transactions (SKU, qty, unit price, customer data) into externalRevenueItems for BOM-driven analytics parity with GoJek/GoFood; includes historical backfill and daily BigSeller sync cron (completed 2026-04-14)
+- [x] **Phase 80: Unit Economics Analytics Dashboard** - New /analytics page with 13 widgets across 6 lenses answering unit-economics questions (completed 2026-04-15)
+- [x] **Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)** - Cut /analytics subscriptions 11→3 via grouped snapshot queries, enforce WCAG-AA tooltip contrast + no-clip axis labels via shared primitives, adopt @nivo/heatmap lazy-loaded behind the route (completed 2026-04-18)
+- [x] **Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)** - Eliminate the `(Unlinked)` bucket in SKU Pareto / SKU Channel Matrix reports caused by two independent bugs: K3Mart mapping cascade not covering `source="k3mart"` (737/737 parents affected) and syncInternalOrders skipping child-item creation on historical re-syncs (219/262 Direct parents affected)
+ (completed 2026-04-18)
+- [x] **Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)** - Fixed `/analytics` double-counting of every Direct/WhatsApp/Instagram order via one-line R5 skip in `loadExternalStream` + 14 regression tests across all 11 reducers consuming `loadFilteredData` (completed 2026-04-19, merged via PR #149).
 
 ## Phase Details
 
@@ -275,7 +286,7 @@ Plans:
   2. Per-staff production tracking page shows balls produced by type (Big Ball, Mid Ball) and total grams during each shift
   3. Monthly attendance summary displays hours worked and production output per staff member
   4. Manager can correct a missed clock-out with the correction logged in an audit trail
-**Plans:** 4/4 plans complete
+**Plans:** 4 plans
 Plans:
 - [x] 74-01-PLAN.md -- Backend: staffAttendance schema + clockIn/clockOut/correctAttendance mutations + extended getStaffPerformanceSummary with hours/flags
 - [x] 74-02-PLAN.md -- Frontend: ClockInGate at /kitchen/clock + DashboardHeader running timer + Clock-Out nudge dialog
@@ -283,15 +294,176 @@ Plans:
 - [x] 74-04-PLAN.md -- Tests: mutation + summary integration tests + Playwright E2E scaffold + SCHEMA/API_REFERENCE/CHANGELOG docs + verification gate
 **UI hint**: yes
 
+### Phase 74.5: Unified Channel Integration Architecture (INSERTED 2026-04-19, promoted from Phase 1000)
+**Goal**: Build a single coherent pipeline from external sale events to inventory transactions so all channels (GoFood, Shopee, TikTok, BigSeller, K3Mart, internal) flow through one atomic `saveRevenueItems` + admin-configurable routing table, with backfilled historical deductions.
+
+**Why promoted into v2.0 (2026-04-19)**: Was parked as Phase 1000 ("post-milestone strategic work"). Promoted into v2.0 to run between Phase 80.3 and Phase 75 because (a) all three dependencies (78/79/80) are now complete, (b) every additional week of divergent inventory deductions means another week of drift that the Phase 77 Data Health Dashboard will surface as bugs, (c) Phase 75's Free Cash Flow math silently trusts inventory COGS — running 74.5 first keeps those numbers honest.
+
+**Depends on**:
+- Phase 78 (substitution + stock tracker) — ✓ complete
+- Phase 79 (Shopee item pipeline with `linkedMenuProductId` populated) — ✓ complete
+- Phase 80 (`externalSourceToDisplayChannel` + `channelTaxonomy.ts` — reuse, do not reinvent) — ✓ complete
+- Phase 80.3 (must merge first — avoids conflict with `loadExternalStream` edits) — ✓ complete (merged 2026-04-19)
+
+**Load-bearing references (read before planning/executing)**:
+- Design spec: `docs/superpowers/specs/2026-04-17-unified-channel-integration-architecture-design.md` (15 sections, 500 LOC)
+- Implementation plan: `docs/superpowers/plans/2026-04-17-unified-channel-integration.md` (12 tasks, 3376 LOC, TDD rhythm)
+- Phase README: `.planning/phases/74.5-unified-channel-integration/README.md`
+- Feature branch with pre-existing spec work: `feature/999.4-channel-integration-spec`
+
+**Scope (α + 999.5 folded in)**:
+1. `ChannelAdapter` interface + `ChannelSaleEvent` canonical type (new contract)
+2. `channelRouting` table with 3-tier precedence (source / source+outlet / source+product)
+3. `saveRevenueItems` becomes single atomic revenue-write + inventory-deduction entry
+4. Audit + curation workbench gates historical backfill (5 issue types: unmapped_sku, stale_mapping, malformed_item, duplicate_transaction, orphan_item)
+5. Historical deduction backfill preserves original sale timestamps (analytics-grade ledger)
+6. Refactor all 5 adapters (gobiz, bigseller, internal, k3mart, grabfood) to emit `ChannelSaleEvent[]`
+7. Two new admin pages: `ChannelRoutingManager`, `ChannelAuditWorkbench`
+8. Negative stock allowed universally (all channels = post-sale); `channel_sale` transaction type + `source` column replace per-source literals
+
+**Deferred to follow-on phases (documented in spec)**:
+- 999.6 / future — pricing consolidation (`menuProductChannelPricing` table; deprecate scattered pricing fields)
+- 999.7 / future — SKU resolver auto-match service with confidence threshold + manager review queue
+- 999.8 / future — channel onboarding recipe in `docs/CHANNEL_INTEGRATION.md`
+
+**Success Criteria (what must be TRUE)**:
+1. Every channel's inventory deduction flows through one mutation (no per-channel deduct functions remain)
+2. Admin can reassign `{source → storageLocation}` via UI without a code deploy; change takes effect on next sale event
+3. Historical deduction backfill is idempotent and preserves original sale timestamps for analytics
+4. Audit workbench surfaces all 5 issue types and blocks backfill until curated
+5. Shopee and TikTok sales deduct inventory for the first time (fixes the daily drift)
+6. `npm run build` + full test suite green; no behavioral regression on existing GoFood deductions
+
+**Estimated size**: 12 tasks, ~4 weeks, refactors 5 adapters; highest-risk integration phase in v2.0.
+
+**Recommended execution pipeline**:
+1. `/gsd-spec-phase 74.5` — lock falsifiable success criteria with ambiguity scoring
+2. `/gsd-discuss-phase 74.5` — gray-area advisor on routing-table schema, backfill window, feature-flag rollout, coexistence with `processGofoodSales` during transition
+3. `/gsd-research-phase 74.5` — codify the four current paths as a migration matrix
+4. **Split into sub-phases** (mirrors 80 → 80.1/80.2/80.3 pattern):
+   - `74.5.1` routing-table schema + admin UI (read-only correctness gate)
+   - `74.5.2` centralised deduct mutation + per-adapter refactor (behind feature flag)
+   - `74.5.3` historical backfill + retire legacy paths
+5. `/gsd-plan-phase 74.5.x` per sub-phase, with `/triple-review` before executing each plan
+6. `/gsd-execute-phase 74.5.x`
+
+**Plans**: Umbrella only — work split across 74.5.1 / 74.5.2. See each sub-phase section below.
+
+Plans:
+- [~] Split into 74.5.1 / 74.5.2 on 2026-04-19 per researcher's split verdict (74.5.3 folded into 74.5.2 as mostly-operational tail: flag flips, backfill, retirement).
+
+**UI hint**: yes (two new admin pages: `ChannelRoutingManager`, `ChannelAuditWorkbench`) — both ship in 74.5.1
+
+### Phase 74.5.1: Channel Routing Spine + Admin UI (INSERTED 2026-04-19, split from 74.5)
+**Goal**: Land the additive architectural spine for unified channel integration behind an 8-key feature flag map (`productInventorySettings.channelDeductionEnabled`, all default OFF). No behavioral change to inventory deduction — deduct paths remain the existing ones until 74.5.2 flips flags.
+
+**Depends on**:
+- Phase 78, 79, 80, 80.3 — ✓ complete
+- Parent 74.5 RESEARCH.md — codifies migration matrix across 8 channels
+
+**Load-bearing references**:
+- `.planning/phases/74.5-unified-channel-integration/74.5-CONTEXT.md` (locked decisions — reused verbatim)
+- `.planning/phases/74.5-unified-channel-integration/74.5-RESEARCH.md` (migration matrix, split verdict, pitfalls — reused verbatim)
+- `.planning/phases/74.5-unified-channel-integration/74.5-SPEC.md` (falsifiable criteria — subset maps to 74.5.1)
+- `docs/superpowers/specs/2026-04-17-unified-channel-integration-architecture-design.md` (§3, §4, §7 load-bearing)
+- `docs/superpowers/plans/2026-04-17-unified-channel-integration.md` (tasks 0, 1, 2, 3, 5, 6, 7, 8 map to 74.5.1)
+
+**Scope (additive only, flag-gated)**:
+1. `channelRouting` table + 3-tier precedence indexes (source / source+outlet / source+product)
+2. `productInventorySettings.channelDeductionEnabled` flag map — 8 booleans (gobiz, bigseller, internal, k3mart, grabfood, consignment, shopee, tiktok), all default `false`
+3. `ChannelSaleEvent` canonical type + `ChannelAdapter` interface
+4. Refactor all 5 adapters (gobiz, bigseller, internal, k3mart, grabfood) to emit `ChannelSaleEvent[]` — gated dispatch, no deduct yet
+5. K3Mart parent → parent+child shape change (semantic, ships regardless of flag state) + analytics reconciliation
+6. Consignment emit branch + `createSettlement` signature accepts optional `items`
+7. `ChannelRoutingManager` admin page (CRUD over `channelRouting` — read-only correctness gate)
+8. `ChannelAuditWorkbench` admin page (5 issue types: unmapped_sku, stale_mapping, malformed_item, duplicate_transaction, orphan_item)
+9. Grabfood `Not implemented` stub adapter (OAuth scope still blocked)
+10. Routing seed migration — populate `channelRouting` with current defaults
+
+**Success Criteria (what must be TRUE)**:
+1. `channelRouting` table exists with 3 indexes; admin UI reads/writes without touching any deduction path
+2. All 5 adapters emit `ChannelSaleEvent[]`; gated dispatch logs events when flag ON but calls no deduct mutation yet
+3. K3Mart historical + new rows have both parent and child (`externalRevenueItems`) records
+4. `channelDeductionEnabled` map present in schema with all 8 keys; missing key coerces to `false`
+5. `ChannelAuditWorkbench` surfaces all 5 issue types against current `externalRevenue` data
+6. `npm run build` + test suite green; `/analytics`, `/financials`, `/sku-pareto`, `/sku-channel-matrix` show no regressions (K3Mart shape change is the only semantic change — analytics reconciliation covers it)
+7. Deduct behavior for every channel is identical to pre-74.5.1 (grep/diff verifiable)
+
+**Plans**: 12 plans across 5 waves (Wave 0 TDD scaffolding, Waves 1-3 implementation, Wave 4 verification)
+
+Plans:
+- [x] 74.5.1-00-wave0-tests-PLAN.md — TDD test scaffolding + regression fixtures
+- [x] 74.5.1-01-schema-PLAN.md — 3 new tables + 2 modified + 8-key flag map
+- [x] 74.5.1-02-types-adapter-interface-PLAN.md — ChannelSaleEvent + ChannelAdapter types
+- [x] 74.5.1-03-resolve-channel-route-PLAN.md — 5-tier routing + CRUD mutations + preview queries
+- [x] 74.5.1-04-channel-sale-core-PLAN.md — processChannelSaleInternal + audit helpers
+- [x] 74.5.1-05-save-revenue-items-hook-PLAN.md — atomic revenue + gated dispatch hook
+- [x] 74.5.1-06-adapters-existing-saveitems-PLAN.md — gobiz/bigseller/internal normalize() + R9 counters
+- [x] 74.5.1-07-adapters-k3mart-consignment-grabfood-PLAN.md — k3mart emit + consignment items + grabfood stub
+- [x] 74.5.1-08-k3mart-analytics-reconciliation-PLAN.md — unitEconomics audit + seed migration
+- [x] 74.5.1-09-channel-routing-manager-ui-PLAN.md — ChannelRoutingManager + ProductInventorySettings pages
+- [x] 74.5.1-10-channel-audit-workbench-ui-PLAN.md — ChannelAuditWorkbench page + audit badge
+- [x] 74.5.1-11-verification-and-changelog-PLAN.md — full test battery + CHANGELOG + merge gate
+
+**UI hint**: yes — `ChannelRoutingManager`, `ChannelAuditWorkbench`, `ProductInventorySettings`
+
+### Phase 74.5.2: Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19, split from 74.5)
+**Goal**: Flip every channel's `channelDeductionEnabled` flag in a staged cutover, backfill historical deductions with timestamp-preserving idempotency, migrate `gofood_sale` → `channel_sale` transaction literal, and retire the 4 legacy deduct paths (`processGofoodSales`, order-fulfillment direct GoJek, K3Mart custom, per-source transaction types).
+
+**Depends on**: 74.5.1 verified + merged to main
+
+**Runs inline lightweight research pass** to absorb any surprises from 74.5.1 execution (schema drift, analytics reconciliation fallout, audit-workbench performance findings).
+
+**Scope (behavioral cutover)**:
+1. Staged flag-flip rollout — per channel (recommended order: internal → consignment → k3mart → gobiz → shopee → tiktok; bigseller permanent-OFF, grabfood blocked on OAuth)
+2. Six historical-backfill admin buttons (one per active channel) — idempotency via `externalRevenueItems.inventoryDeductedAt IS NULL` set-once
+3. `gofood_sale` transaction literal → `channel_sale` migration (strip-data-before-drop: add `channel_sale` + `source` column in 74.5.1, remove `gofood_sale` in 74.5.2)
+4. Retire `processGofoodSales` silent-try/catch wrapper (line 747-753, 1004-1009 gobiz adapter)
+5. Retire order-fulfillment direct-GoJek deduct path
+6. Schema cleanup — drop per-source transaction literals
+7. Consignment per-product breakdown UI (expands 74.5.1 consignment emit branch)
+8. `docs/CHANNEL_INTEGRATION.md` runbook — channel onboarding recipe (999.8 folded in)
+9. Retirement PRs land behind confirmation runbook
+
+**Success Criteria (what must be TRUE)**:
+1. Every active channel's inventory deduction flows through the unified `saveRevenueItems` path
+2. Zero references to `processGofoodSales` or `gofood_sale` literal remain in `convex/` (grep verifiable)
+3. Historical backfill is idempotent — rerun after partial crash produces zero double-deductions (verifiable via `inventoryDeductedAt` audit query)
+4. Shopee + TikTok inventory deductions match `externalRevenueItems.quantity` row-for-row for any `transactionDate` past cutover
+5. Admin can reassign `{source → storageLocation}` via UI without code deploy; change takes effect on next sale event
+6. `npm run build` + test suite + full regression harness green
+
+**Plans:** 10/10 plans complete
+
+Plans:
+- [x] 74.5.2-01-channel-audit-test-fix-PLAN.md — Wave 0: fix convex-test module resolution (4 red tests → green) + tighten BigSeller normalize platform literal
+- [x] 74.5.2-02-backfill-schema-and-action-PLAN.md — Wave 1: add by_source_deductedAt compound index + create convex/productInventory/backfill.ts (per-source action + chunked mutation + admin trigger + preflight)
+- [x] 74.5.2-03-backfill-tests-PLAN.md — Wave 1: TDD suite (idempotency, timestamp preservation, null-menuProduct skip, admin-only gate)
+- [x] 74.5.2-04-gofood-migration-action-PLAN.md — Wave 2: forward-only migration gofood_sale → channel_sale + source=gobiz (paginated internalAction + 500-row internalMutation)
+- [x] 74.5.2-05-gofood-migration-tests-PLAN.md — Wave 2: migration tests (chunking, landmine literal, preservation, self-heal, admin gate)
+- [x] 74.5.2-06-admin-backfill-ui-PLAN.md — Wave 3: extend UnlinkedProductsBackfill.tsx with 6 per-source cards + useChannelBackfill hooks
+- [x] 74.5.2-07-consignment-breakdown-ui-PLAN.md — Wave 3: getSettlementItems query + tests + SettlementFormDialog item rows + OutletCard expandable breakdown
+- [x] 74.5.2-08-gofood-atomic-retirement-PLAN.md — Wave 4: delete processGofoodSales body + 2 gobiz adapter call sites + TransactionLogPanel hybrid display (ATOMIC commit per D74.5.2-L5)
+- [x] 74.5.2-09-runbook-PLAN.md — Wave 5: write docs/CHANNEL_INTEGRATION.md (onboarding + cutover runbook + audit triage + backfill ops + rollback)
+- [x] 74.5.2-10-polish-and-docs-PLAN.md — Wave 5: resolve 2 lint warnings (verified already clean from 74.5.1 triple-review) + update CHANGELOG / SCHEMA / API_REFERENCE / ROADMAP
+
+**UI hint**: yes (consignment breakdown expansion + backfill buttons on existing admin pages)
+
 ### Phase 75: Full P&L Extension
 **Goal**: Income Statement shows the complete path from Revenue to Free Cash Flow with per-channel detail
 **Depends on**: Phase 70 (needs accurate revenue and COGS from DA-01/02/03)
 **Requirements**: FIN-01, FIN-02
 **Success Criteria** (what must be TRUE):
-  1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income
-  2. Per-channel breakdown continues through the full P&L flow (each channel shows Revenue through FCF contribution)
-  3. FCF calculation is correct: Net Income + Depreciation - CapEx
-**Plans**: TBD
+  1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income in canonical EBITDA-first layout (Revenue -> Net Revenue -> COGS -> Contribution Margin -> OpEx-excl-D/A -> EBITDA -> D/A -> EBIT -> Other -> Net Income -> CapEx -> FCF)
+  2. Per-channel breakdown flows through Contribution Margin (renamed from Gross Margin); no per-channel OpEx/D/A/CapEx/FCF allocation (D-11)
+  3. FCF calculation is correct: Net Income + D/A - CapEx; CapEx sourced from fixedAssets.cost where acquisitionDate in period
+**Plans:** 12/12 plans complete
+Plans:
+- [ ] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
+- [ ] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
+- [ ] 75-02-PLAN.md -- Wave 2 Frontend: EBITDA-first layout in FinancialStatement.tsx, helperText prop on PLRow, Contribution Margin rename in ChannelRow, missingReversals section in DataQualityPanel
+- [ ] 75-03-PLAN.md -- Wave 2 CSV: extend generateIncomeStatementCSV with new rows in canonical order, per-channel blank below Contribution Margin
+- [ ] 75-04-PLAN.md -- Wave 3 Verification: type-check/lint/test/build + human smoke on /financials + CHANGELOG/ROADMAP/API_REFERENCE updates
 **UI hint**: yes
 
 ### Phase 76: Financial Data Export
@@ -376,10 +548,113 @@ Plans:
 - Plan addendum: `docs/superpowers/plans/2026-04-13-unit-economics-analytics-dashboard-ADDENDUM.md`
 - Staff review: `docs/reviews/staffreview-unit-economics-analytics-dashboard-2026-04-13.md`
 
+### Phase 80.1: Analytics Dashboard Perf & Chart Primitives Consolidation (INSERTED)
+
+**Goal**: Eliminate reactive fan-out on `/analytics` (11 Convex subscriptions → 3 grouped snapshots), enforce WCAG-AA tooltip contrast + non-clipping axis labels across all 13 widgets via shared chart primitives, and adopt `@nivo/heatmap` lazy-loaded behind the route to replace hand-rolled heatmaps.
+
+**Depends on**: Phase 80 (closes out deferred work from 80's staff review — I-04 reactive fan-out, plus readability defects R1/R2 surfaced during 80.1 brainstorming)
+
+**Why inserted**: Phase 80 shipped with the staff review explicitly flagging I-04 (11 subscriptions × 2 loadFilteredData calls for KPI/momentum = 22-scan burst per filter click; `orders` writes invalidate all 11 subs) with two mitigation options deferred to a perf follow-up phase. Plus two UX defects caught post-ship: SkuParetoChart X-axis labels truncate with no hover recovery, and chart tooltips fail WCAG AA contrast against the dark page chrome (light-green `Cumulative %` ~2.1:1, light-orange `Revenue` ~3.0:1).
+
+**Success Criteria** (what must be TRUE):
+  1. `/analytics` uses exactly 3 Convex subscriptions (`kpiAndChannelSnapshot`, `timeSeriesSnapshot`, `skuSnapshot`) covering all 13 widgets — verified by call-counter regression test asserting `loadFilteredData` fires 4 times per filter click (3 current + 1 prior-period), not 13
+  2. `precomputeBomMaps` runs once per snapshot invocation — guards against future unfactoring via regression test
+  3. Shared `ChartFrame` + `ChartAxis` + `ChartTooltip` primitives in `src/lib/chartPrimitives.tsx` absorb per-widget boilerplate and centrally enforce R1 (no-clip axis labels with hover-reveal for truncated strings) and R2 (tooltip dark background + light text, WCAG AA contrast ≥4.5:1, category colors as swatches only)
+  4. Automated tooltip-contrast test passes (jsdom + inline WCAG luminance compute, asserts ≥4.5:1 on title + every value row)
+  5. `@nivo/heatmap` powers `DayHourHeatmap` + `SkuChannelHeatmap` (~280 hand-rolled LOC → ~110)
+  6. `/analytics` is `React.lazy` — Nivo chunk only loads when the route is visited (verified via build output and DevTools Network)
+  7. 11 deprecated per-widget query wrappers removed from `convex/reports/unitEconomics.ts`; consumers migrated to the 3 snapshots
+  8. `npm run type-check` + `npm run build` (within vendor-bundle cap) + `npm run test` all pass
+  9. HUMAN-UAT: every chart label, every tooltip on production data passes the readability checklist at `.planning/phases/80.1-analytics-perf-consolidation/80.1-HUMAN-UAT.md`
+
+**Plans:** 3/3 plans complete
+
+Plans:
+- [x] 80.1-01-PLAN.md -- Wave A Backend (Tasks 1-9): extract 12 pure reducers, add `precomputeBomMaps` + `loadPriorPeriodFilteredData`, build 3 snapshot queries, convert 11 existing queries to thin wrappers, call-counter regression test, inline `jakartaHour` alias
+- [x] 80.1-02-PLAN.md -- Wave B Frontend (Tasks 10-18): `truncateWithTooltip`, `formatCurrencyCompact`, `ChartTooltip` with WCAG contrast test, `ChartFrame` + `CHART_MARGIN` + `X_AXIS_STRING_LABEL_PROPS`, rewrite `useAnalytics.ts` hooks as 3 snapshots + field selectors, migrate `SkuParetoChart` first (R1/R2 screenshot subject), then 7 remaining Recharts widgets
+- [x] 80.1-03-PLAN.md -- Wave C Nivo + cleanup (Tasks 19-24): install `@nivo/core` + `@nivo/heatmap`, migrate `DayHourHeatmap` + `SkuChannelHeatmap`, verify `/analytics` lazy-load, delete deprecated query wrappers, docs + HUMAN-UAT checklist (completed 2026-04-18)
+
+**UI hint**: yes
+
+**Source artifacts**:
+- Spec: `docs/superpowers/specs/2026-04-17-analytics-perf-consolidation-design.md`
+- Plan: `docs/superpowers/plans/2026-04-17-analytics-perf-consolidation.md`
+- Upstream staff review flagging I-04/M-02/M-03: `docs/reviews/staffreview-gsd-phase-80-unit-economics-analytics-dashboard-2026-04-15.md`
+
+### Phase 80.2: Unlinked Products Fix — K3Mart + Direct (INSERTED, gap-closure for Phase 80)
+
+**Goal**: Eliminate the `(Unlinked)` bucket in Unit Economics SKU Pareto / SKU Channel Matrix reports for K3Mart (737/737 parents) and Direct (219/262 parents) by fixing two independent bugs that funnel through the same loader-synthesis branch in `convex/reports/unitEconomics.ts`.
+
+**Depends on**: Phase 80 (the reports affected are Phase 80 deliverables). Can run in parallel with Phase 80.1 — no file overlap.
+
+**Why inserted**: Root cause investigation on 2026-04-17 (`.planning/debug/unlinked-products-k3mart-direct.md`) confirmed two independent bugs producing the same symptom: (1) `applyRetroactiveProductMappingImpl` at `convex/externalData/mutations.ts:458-596` has no branch for `source="k3mart"` — mapping a K3Mart SKU in admin UI saves the mapping row but never patches any `externalRevenue` parent; and (2) `syncInternalOrders` at `convex/integrations/internal/adapter.ts:126` has unconditional `if (!isNew) continue;` before `saveRevenueItems`, leaving 219 Direct parents synced before 2026-04-10 permanently orphaned (no children). Both flow through the "no item-level detail" branch in unitEconomics loader and land in UNLINKED_KEY. Plan was drafted and staff-reviewed (v2 incorporates review feedback C1-C3 + I1) before reframing from `/gsd:quick` to a proper phase.
+
+**Success Criteria** (what must be TRUE):
+  1. `applyRetroactiveProductMapping` with `source="k3mart"` patches all matching `externalRevenue` parents in one invocation (4000-row cap respected)
+  2. Future K3Mart syncs insert records with `linkedMenuProductId` set when a mapping exists — verified by dev fresh-sync test
+  3. `backfillInternalRevenueItems` admin mutation restores `externalRevenueItems` for all 219 orphan Direct parents — idempotent on re-run (all counters zero)
+  4. `syncInternalOrders` self-heals missing child rows on re-sync without duplicating existing children (relies on `saveRevenueItems` dedup at mutations.ts:752)
+  5. Return shape of `applyRetroactiveProductMappingImpl` is additive-compatible — new `externalRevenueUpdated: number` field alongside existing `updatedItems` and `bigsellerUpdated`; zero call-site breakage
+  6. New `by_source_productCode` index on `externalRevenue` deployed and rebuild completes; queries use both bounds inside `.withIndex(...)`
+  7. `npm run type-check` + `npm run lint` + `npm run build` + `npm run test` all pass
+  8. 5 new test files cover all 4 sub-fixes + remap idempotency + empty-orderItems edge case
+  9. Post-prod-backfill visual verification: Unit Economics SKU Pareto / SKU Channel Matrix reports show no `(Unlinked)` bucket for K3Mart or Direct channels
+ 10. Rollback procedure documented and tested (Convex export as point-in-time restore before prod run)
+
+**Plans:** 4/4 plans complete
+
+Plans:
+- [x] 80.2-01-PLAN.md — Wave 1: Schema + K3Mart cascade + sync-time linking (4 tasks, autonomous)
+- [x] 80.2-02-PLAN.md — Wave 2: Direct historical backfill mutation + re-sync heal (4 tasks, autonomous, NOVEL paginated-WRITE pattern flagged)
+- [x] 80.2-03-PLAN.md — Wave 3: Tests — 5 new test files (5 tasks, autonomous; sync-linking test refactored to pure-helper test per PATTERNS.md)
+- [x] 80.2-04-PLAN.md — Wave 4: Verification + prod backfill + docs (11 tasks, NOT autonomous — user checkpoint at 4.4)
+
+**UI hint**: no (backend-only data-attribution fix)
+
+**Source artifacts**:
+- Debug session: `.planning/debug/unlinked-products-k3mart-direct.md` (evidence table, eliminated hypotheses, confirmed root cause)
+- Staff-reviewed plan v2: `.planning/phases/80.2-unlinked-products-fix/80.2-01-PLAN.md`
+- Context: `.planning/phases/80.2-unlinked-products-fix/80.2-CONTEXT.md`
+
+### Phase 80.3: Analytics Internal-Mirror Dedup — R5 Skip (INSERTED, gap-closure for Phase 80)
+
+**Goal**: Fix Analytics page double-counting every Direct/WhatsApp/Instagram order — `loadExternalStream` in `convex/reports/unitEconomics.ts` reads BOTH the native `orders`+`orderItems` stream AND the `externalRevenue[source="internal"]` mirror of those same orders (created by `syncInternalOrders` so the Sales Aggregation page can count them). The R5 dedup rule was specified in the Phase 80 Task 4b staff-review addendum and referenced in commit `59069988`, but that commit only modified plan docs — the code change was never shipped. This phase ships the rule plus regression-test coverage across every query that calls `loadFilteredData`.
+
+**Depends on**: Phase 80 (primary bug is in Phase 80's loader). Compatible with Phase 80.1 in progress — if 80.1 ships first, the fix should be re-validated against the grouped-snapshot query shape. Compatible with Phase 80.2 — no file overlap (80.2 fixes `externalData/mutations.ts` + `integrations/*/adapter.ts`; 80.3 fixes `reports/unitEconomics.ts`).
+
+**Why inserted**: Debug session on 2026-04-17 (`.planning/debug/analytics-sales-mismatch.md`) confirmed Analytics headline KPIs are inflated 2× for Direct-channel orders vs the canonical Sales Aggregation page (`/k3mart-cockpit` Overview tab) over matching date ranges. Deltas are internally consistent: 265 duplicate orders × Rp 129,936,000 native `lineTotal` × 617 BOM-expanded balls, all produced by the same double-count through `externalRevenue[source="internal"]`. The Phase 80 staff-review addendum (`docs/reviews/staffreview-phase-80-task-4b-addendum-2026-04-14.md` lines 26-72) already wrote the exact rule needed (`if (parentRev.source === "internal") continue;`) and commit `59069988 fix(80): apply Task 4b staff-review fixes — gobiz is GoFood, R5 skip internal only` (on main) claims to apply it — but `git show --stat 59069988` shows only plan doc changes and `git grep 'source === "internal"' convex/reports/unitEconomics.ts` returns 0 hits. Business impact: every Direct-channel KPI (revenue, units, AOV, units/txn, channel mix ranking, WoW/MoM momentum) is currently inflated; Sales Aggregation + Income Statement + Bank Reconciliation are unaffected (they read `externalRevenue` correctly with internal-mirror awareness).
+
+**Success Criteria** (what must be TRUE):
+  1. `loadExternalStream` in `convex/reports/unitEconomics.ts` skips `source === "internal"` rows — verified by grep
+  2. Analytics `/analytics` page headline KPIs (Revenue, Units, Orders, AOV) match Sales Aggregation page within 1% on identical date ranges for the All-Time window
+  3. The 6 observed deltas collapse to zero: Revenue ≈ Rp 387M (not Rp 517M), Units ≈ 8,876 (not 9,493), Orders ≈ 2,364 (not 2,629)
+  4. Test 12 (internal skip): insert a native direct order, run `syncInternalOrders`, assert `kpiSummary.orders === 1` (not 2)
+  5. Test 12b (gobiz contributes — negative regression test): insert a `source="gobiz"` externalRevenue row, assert it IS counted
+  6. Test 17 (internal-skip symmetry): every query that calls `loadFilteredData` (11 known: `kpiSummary`, `byWeekday`, `dayHourHeatmap`, `channelEconomics`, `volumeByType`, `unitsPerTxnByChannel`, `aovByChannel`, `skuPareto`, `skuChannelMatrix`, `channelMomentum`, `rollingTrend`) returns zero internal-source rows
+  7. `npm run type-check` + `npm run lint` + `npm run build` + `npm run test` all pass
+  8. No regression in Phase 80.1 grouped-snapshot query shape (if 80.1 ships first)
+  9. CHANGELOG.md updated with user-visible note explaining why Direct-channel KPIs dropped in Analytics after the fix
+ 10. Triple-review executed on 80.3-01-PLAN.md before implementation starts
+
+**Plans:** 1 plan covering research-driven implementation
+
+Plans:
+- [ ] 80.3-01-PLAN.md — Wave 1 Single-line R5 skip in `loadExternalStream`; Wave 2 Regression tests (12, 12b, 17 symmetry across all `loadFilteredData` callers); Wave 3 Verification (type-check/build/test) + post-deploy parity check against Sales Aggregation
+
+**UI hint**: no (backend-only aggregation fix; Analytics numbers simply drop to correct values on next reactive query)
+
+**Source artifacts**:
+- Debug session: `.planning/debug/analytics-sales-mismatch.md` (math verification, eliminated hypotheses, confirmed root cause, file pointers)
+- Originating staff-review (R5 spec): `docs/reviews/staffreview-phase-80-task-4b-addendum-2026-04-14.md` lines 26-72
+- Context: `.planning/phases/80.3-analytics-internal-mirror-dedup/80.3-CONTEXT.md`
+- Ghost commit: `59069988` (claims R5 applied; touches only plan docs)
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 -> 78 -> 79 -> 80
+Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 78 -> 79 -> 80 -> 80.1 -> 80.2 -> 80.3 -> **74.5.1 -> 74.5.2 -> 74.5.2.1 -> 74.5.3** -> 75 -> 76 -> 77
+
+Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Phase 1000 into v2.0 on 2026-04-19, then split into 74.5.1 (additive spine, flag-gated) and 74.5.2 (cutover + backfill + retire legacy) on the same day per researcher's split verdict. Runs after Phase 80.3 merges and before Phase 75 so the Full P&L Extension's FCF math rests on honest inventory COGS. Each sub-phase runs its own `/triple-review` per CONTEXT D-05.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -387,13 +662,19 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | 71. Bulk Expense Upload & Asset Reclassification | v2.0 | 4/4 | Complete    | 2026-04-11 |
 | 72. Bank Statement Parser & Auto-Match | v2.0 | 6/6 | Complete    | 2026-04-13 |
 | 73. Bank Reconciliation UI & Workflow | v2.0 | 6/6 | Complete    | 2026-04-15 |
-| 74. Staff Attendance | v2.0 | 4/4 | Complete   | 2026-04-16 |
-| 75. Full P&L Extension | v2.0 | 0/TBD | Not started | - |
+| 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
+| 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
+| 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
+| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 10/10 | Complete   | 2026-04-21 |
+| 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
 | 79. Shopee Item-Level Revenue | v2.0 | 7/7 | Complete   | 2026-04-14 |
 | 80. Unit Economics Analytics Dashboard | v2.0 | 3/3 | Complete   | 2026-04-15 |
+| 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete    | 2026-04-18 |
+| 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 4/4 | Complete   | 2026-04-18 |
+| 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 1/1 | Complete — merged via PR #149 | 2026-04-19 |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -407,7 +688,7 @@ Phases execute in numeric order: 70 -> 71 -> 72 -> 73 -> 74 -> 75 -> 76 -> 77 ->
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-80 | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80.3 (+ 74.5 promoted 2026-04-19 from Phase 1000) | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
@@ -450,9 +731,11 @@ Plans:
 Plans:
 - [ ] TBD (promote with /gsd-review-backlog when ready)
 
----
+### Phase 999.4: Unified Cross-Channel Inventory Deduction (PROMOTED 2026-04-17 → Phase 1000 → 2026-04-19 → Phase 74.5)
 
-### Phase 999.4: Unified Cross-Channel Inventory Deduction (BACKLOG, URGENT — promote after 80)
+**Status:** Promoted through two steps. First promoted to Phase 1000 on 2026-04-17 with scope expanded (adapter refactor 999.5 folded in). Then on 2026-04-19 promoted again into milestone v2.0 as **Phase 74.5 Unified Channel Integration Architecture** so it runs after Phase 80.3 merges and before Phase 75 (see `## Phase Details → ### Phase 74.5` above for the active entry). The content below is preserved for historical context only.
+
+---
 
 **Cross-reference (added 2026-04-14):** Phase 80 Task 4b establishes the READ side of cross-channel unification (reads from `externalRevenueItems` via `externalSourceToDisplayChannel` in `convex/reports/channelTaxonomy.ts`). This phase is the WRITE side — it deducts inventory when those same external sales happen. **Reuse, do not reinvent**: import `externalSourceToDisplayChannel` from `convex/reports/channelTaxonomy.ts`, import `getProductionUnitsByTypePerProduct` from `convex/reports/productionUnitHelpers.ts` (Phase 80) when resolving BOM components to deduct. The `externalRevenueItems.linkedMenuProductId` field is the shared integration pivot — Phase 79 populates it, Phase 80 reads from it, this phase writes inventory transactions from it.
 

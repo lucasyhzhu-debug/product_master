@@ -130,3 +130,74 @@ export function formatIndonesianDate(date: Date | number): string {
   const d = typeof date === "number" ? new Date(date) : date;
   return format(d, "EEEE, d MMMM yyyy", { locale: id });
 }
+
+/**
+ * Format a UTC epoch ms as the short WIB admin-UI timestamp:
+ *   "Apr 19, 2026 14:32 WIB"
+ *
+ * Introduced for Phase 74.5.1 admin surfaces (ChannelRoutingManager,
+ * ProductInventorySettings, audit/backfill pages) per UI-SPEC §WIB Timezone
+ * Display. Single source of truth — do NOT reimplement ad-hoc.
+ */
+export function formatShortWIB(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = MONTHS[wib.getUTCMonth()];
+  const day = wib.getUTCDate();
+  const year = wib.getUTCFullYear();
+  const hh = wib.getUTCHours().toString().padStart(2, "0");
+  const mm = wib.getUTCMinutes().toString().padStart(2, "0");
+  return `${month} ${day}, ${year} ${hh}:${mm} WIB`;
+}
+
+/**
+ * Long WIB format for detail views: "Monday, April 19 2026 at 2:32 PM WIB".
+ */
+export function formatLongWIB(utcMs: number): string {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const WEEKDAYS = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const MONTHS = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const weekday = WEEKDAYS[wib.getUTCDay()];
+  const month = MONTHS[wib.getUTCMonth()];
+  const day = wib.getUTCDate();
+  const year = wib.getUTCFullYear();
+  let h = wib.getUTCHours();
+  const m = wib.getUTCMinutes().toString().padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${weekday}, ${month} ${day} ${year} at ${h}:${m} ${ampm} WIB`;
+}

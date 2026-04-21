@@ -196,15 +196,6 @@
             "command": "node .claude/hooks/gsd-check-update.js"
           }
         ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-hooks-health.js",
-            "timeout": 5
-          }
-        ]
       }
     ],
     "PostToolUse": [

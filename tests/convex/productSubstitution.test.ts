@@ -82,6 +82,7 @@ async function createLocation(t: TestContext): Promise<Id<"storageLocations">> {
       name: "Office",
       locationType: "office",
       isActive: true,
+      isDefault: false,
       createdBy: "test",
       createdAt: Date.now(),
     });
@@ -609,65 +610,16 @@ describe("fulfillFromInventory with substitution", () => {
 });
 
 // ============================================
-// 3b. processGofoodSales Integration Tests
+// 3b. RETIRED — GoFood deduction with substitution
 // ============================================
-
-describe("processGofoodSales with substitution", () => {
-  test("two sales sharing same substitute source get correct cumulative deductions", async () => {
-    // Regression for C1: BUG-4 from triple review — processGofoodSales must track
-    // running quantity so a second item sharing the same substitute doesn't double-deduct
-    // from the pre-batch quantity.
-    const t = convexTest(schema, modules);
-    const locationId = await createLocation(t);
-
-    const singleId = await createMenuProduct(t, { name: "Dubai Single", productType: "food" });
-    const tripleAId = await createMenuProduct(t, {
-      name: "Dubai Triple",
-      productType: "food",
-      fulfillFromProductId: singleId,
-      fulfillMultiplier: 3,
-    });
-    const tripleBId = await createMenuProduct(t, {
-      name: "Nutella Triple",
-      productType: "food",
-      fulfillFromProductId: singleId,
-      fulfillMultiplier: 3,
-    });
-
-    // Single has 10 stock, triples have 0
-    await createStockRow(t, tripleAId, locationId, 0);
-    await createStockRow(t, tripleBId, locationId, 0);
-    await createStockRow(t, singleId, locationId, 10);
-
-    // Create outlet linked to location (gobiz is the GoFood-related source literal)
-    const outletId = await t.run(async (ctx) =>
-      ctx.db.insert("externalOutlets", {
-        name: "Test Outlet",
-        source: "gobiz",
-        externalId: "OUTLET-001",
-        isActive: true,
-        linkedStorageLocationId: locationId,
-        createdBy: "test",
-        createdAt: Date.now(),
-      })
-    );
-
-    await t.mutation(api.productInventory.mutations.processGofoodSales, {
-      items: [
-        { menuProductId: tripleAId, quantity: 1, outletId, gofoodOrderRef: "GO-001" },
-        { menuProductId: tripleBId, quantity: 1, outletId, gofoodOrderRef: "GO-002" },
-      ],
-    } as any);
-
-    // Single should be 10 - 3 - 3 = 4 (both sales deducted from running qty)
-    const singleStock = await t.run(async (ctx) =>
-      ctx.db.query("productInventory").withIndex("by_product_location", (q) =>
-        q.eq("menuProductId", singleId).eq("locationId", locationId)
-      ).first()
-    );
-    expect(singleStock?.quantity).toBe(4);
-  });
-});
+//
+// Phase 74.5.2 Plan 08 retired the per-source legacy GoFood deduction
+// mutation that this block covered. GoFood deductions now run through
+// the unified dispatch path, which shares the same `createStockTracker`
+// helper (see `convex/productInventory/stockTracker.ts`) — so the
+// in-file `fulfillFromInventory` tests above that exercise
+// cross-item running-quantity aggregation continue to cover the
+// underlying invariant. Unified-path coverage: `channelSale.test.ts`.
 
 // ============================================
 // 4. getStockForOrder Integration Tests

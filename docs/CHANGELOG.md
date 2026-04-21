@@ -16,46 +16,331 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
-### Feat: Phase 74 -- Staff Attendance -- 2026-04-16
+### Phase 74.5.2.1 — Ops Automation (gobiz default-ON + K3Mart composite) -- 2026-04-21
 
-**For the team:** Kitchen staff now clock in and out of their shifts with a single tap. After PIN login, kitchen users land on a dedicated gate screen (`/kitchen/clock`) with a welcome card, live WIB clock, one-tap Clock-In button, and a "Last shift" recap ("Yesterday 6h 23m • 42 balls"). Once clocked in, the kitchen view shows a running timer + Clock-Out button at the top; submitting a shift record prompts a non-blocking nudge to clock out. Managers get a revamped `/staff-performance` with an Hours-Worked column, a flagged-shifts banner for missing clock-outs / overlapping sessions / shifts-before-hire-date, and an expandable per-day breakdown with dynamic component columns (unit shown in the header, native units preserved — no cross-unit summing). Staff can view their own attendance at `/my-performance`. Managers correct missed clock-outs via a dialog with a required note; the full edit history is preserved in a `corrections[]` audit array.
+**For the team:** Two manual ops rituals from the 74.5.2 runbook are now automated. GoFood deduction turns ON automatically the moment 74.5.2 deploys (no admin flag-flip needed). K3Mart flags now flip together as a single button click with out-of-sync detection.
 
-**What shipped:**
-- New `staffAttendance` table + 3 indexes (`by_user_date`, `by_user_open`, `by_date`) — D-06 (no FK to production; joined at query time).
-- 3 mutations (D-01, D-04, D-05, D-19): `clockIn` (session-derived userId per T-74-01), `clockOut` (owner-or-manager gate + D-04 server enforcement), `correctAttendance` (manager/admin, required trimmed note, 4 actions: `edit_timestamps` / `add_missed` / `reassign` / `delete`).
-- 4 queries: `getCurrentOpenShift`, `getMyLastShiftSummary` (BOM-resolved balls), `getFlaggedShifts` (manager/admin), `getMyPerformance` (T-74-03 self-scoped). Plus additive extension to `getStaffPerformanceSummary` with `totalHoursWorked` / `daysAttended` / `flaggedShiftCount` / `perDayBreakdown[]`.
-- Pure-function flag engine covering D-18 rules: `missing_clockout`, `over_16h`, `overlapping`, `before_hire`. Query-time computation — no stored flags.
-- D-14 adapter: `aggregateStaffPerformance` runtime-probes `kitchenConfig` for optional `componentTracking` array (worktree-merged shape). When present, authoritative. Otherwise falls back to legacy `enabledProductionComponents` / `enabledKitchenComponents` arrays + derives units from `componentTypes` (production → pcs) and `kitchenComponents` (→ g). Subsetting is intentional behavior (C-5 regression test locked in).
-- Frontend: `/kitchen/clock` gate, `AttendanceStrip` (null-render when no open shift), `RunningTimer` (minute-resolution, tabular-nums), `ClockOutButton`, `ClockOutNudgeDialog` (D-08), `AttendanceCorrectionDialog` (D-16/D-17 with input → review step machine), `FlaggedShiftsBanner` (D-15), `PerDayBreakdownTable` (D-11/D-14), extended `StaffPerformance.tsx`, new `MyPerformance.tsx` (D-13), 3 hooks (`useFlaggedShifts`, `useMyPerformance`, `useCorrectAttendance`), header nav entry gated to kitchen/order_staff, additive CSV columns (Hours Worked / Days Attended / Flagged Shifts).
-- Tests: 47 phase-74 tests green (18 flag-engine unit + 5 clockIn + 6 clockOut + 8 correctAttendance + 10 summary integration). Full suite 1555/1555 passing. Playwright E2E scaffold at `tests/e2e/staff-attendance.spec.ts` (gated by `PLAYWRIGHT_E2E_FULL=1`).
+**Added:**
+- `convex/productInventory/channelFlags.ts::flipK3MartBundle` — admin mutation that atomically sets both `channelDeductionEnabled.k3mart` and `channelDeductionEnabled.consignment` in one `ctx.db.patch` call. Plus `_flipK3MartBundleForTest` direct-handler shim (D74.5.2-L1 pattern).
+- `src/pages/ProductInventorySettings.tsx` — K3Mart Bundle composite card above per-source switches. Shows `ON` / `OFF` / `OUT OF SYNC` state pill; single button click atomically flips both flags or restores consistency when drifted.
+- `convex/productInventory/__tests__/flipK3MartBundle.test.ts` — 4 regression tests (admin-ON, admin-OFF, non-admin rejected, siblings preserved).
+- 3 regression tests in `saveRevenueItemsHook.test.ts` for the gobiz default-ON contract.
 
-**Schema additions:**
-- `staffAttendance` table with 8 fields (userId, date, clockIn, clockOut?, durationMs?, corrections?, deletedAt?, deletedBy?) and 3 indexes.
-- `corrections[]` audit array preserves full multi-correction history (D-17): `{ correctedAt, correctedBy, correctedByUserId, correctionNote, previousClockIn?, previousClockOut?, previousUserId?, action: "edit_timestamps"|"add_missed"|"reassign"|"delete" }`.
+**Changed:**
+- `convex/externalData/mutations.ts:819` — `saveRevenueItemsImpl` read-site now treats `gobiz` as default-ON when the settings row / `channelDeductionEnabled` field is undefined. No legacy path exists for gobiz post-74.5.2 retirement, so the old ship-dark default would silently under-deduct every GoFood sale. Atomic-with-deploy: the moment 74.5.2 ships, gobiz deducts without any flag-flip ritual. Explicit `gobiz: false` still honored for rollback.
+- `convex/productInventory/channelFlags.ts::DEFAULT_FLAGS.gobiz = true` — mirrors the read-site default so freshly-created settings rows (via admin UI) seed gobiz=ON.
+- `src/hooks/convex/useChannelRouting.ts::useChannelFlags` — now exposes `flipK3MartBundle` alongside existing `flags` + `setFlag`.
+- `docs/CHANNEL_INTEGRATION.md` — GoFood atomic cutover sequence no longer instructs admin to flip flag manually post-deploy; K3Mart bundle flip section now references the composite toggle. Removed the 2-step manual ritual from both sections.
 
-**Requirements satisfied:** ATT-01, ATT-02, ATT-03, ATT-04.
+**Closes 74.5.2 deferred items:**
+- #5 (K3Mart bundle composite UI, D74.5.2-L14) — RESOLVED via `flipK3MartBundle` + composite toggle UI.
+- Original runbook manual flag-flip instruction — RESOLVED via code-level default (new item #7 in deferred-items.md documents the resolution rationale).
 
-**Files added (highlights):**
-- Backend: `convex/staffAttendance/{constants, flagEngine, mutations, queries, aggregation}.ts` + 5 `__tests__/*.test.ts` files.
-- Frontend: `src/hooks/convex/useAttendance.ts`, `src/components/staffAttendance/` (6 components + barrel + RunningTimer test), `src/pages/{ClockInGate, MyPerformance}.tsx`.
+**Still open:**
+- 74.5.2 deferred item #2 (sticker auto-deduction gap) — will be resolved by **Phase 74.5.3 — Packaging BOM Auto-Deduction** (next phase, to be planned).
+- Items #3 (shim pattern governance), #4 (migration drain-loop test coverage), #6 (token-in-query-args pattern) — remain open as longer-horizon follow-ups.
 
-**Migration:** None — purely additive. Existing `kitchenShiftRecords` consumers unchanged via additive field propagation through TypeScript inference.
+**Verified:** `npm run type-check`, `npm run build`, and full test suite (1709 pass, 0 fail, 2 skip) all green.
 
 ---
 
-### Fix: Quick task 260416-jm7 — Test Debt Cleanup -- 2026-04-16
+### Phase 74.5.2 — Unified Deduct Cutover + Backfill + Retire Legacy -- 2026-04-21
 
-**For the team:** CI test suite restored to fully green. 17 pre-existing test failures that had accumulated across phases 41–69 have been fixed. Future test regressions will no longer be masked by this noise.
+**For the team:** Flips the switch on unified channel deductions. Historical sales are backfilled in admin UI (per-source, idempotent). Legacy GoFood deduct path retired and replaced with the unified pipeline. Consignment settlements now show per-product breakdowns. Full channel-onboarding runbook shipped.
 
-**What was fixed (test code only — zero production changes):**
-- `tests/convex/gobizAdapter.test.ts` — 2 tests: updated `ctx.db.get(ids[0])` to `ctx.db.get(ids[0].id)` after `saveRevenue` return shape changed to `Array<{id, isNew}>`
-- `tests/convex/k3martCockpit.test.ts` — 4 tests: removed dead `getStockMovementHistory` describe block (the underlying query was deleted from production)
-- `convex/bigsellerOrders/__tests__/integration.test.ts` — 1 test: tightened commission assertion to `toBe(order.commissionFee ?? 0)` to verify BigSeller pass-through semantics (negative commissions are valid deductions)
-- `src/lib/__tests__/csvImportValidation.test.ts` — 10 tests: added required `paymentMethod` + `submitterName` columns to CSV fixtures after Phase 72 asset import added these as mandatory
+Behavioral cutover of Phase 74.5.1's additive spine. Delivers: per-source historical backfill, `gofood_sale → channel_sale+source` forward-only migration, atomic retirement of `processGofoodSales`, consignment per-product breakdown UI, and `docs/CHANNEL_INTEGRATION.md` operational runbook.
 
-**Results:** Full suite now 1509/1509 passing across 108 files (was 1492/1509).
+**Added:**
+- `convex/productInventory/backfill.ts` — per-source historical backfill for channel deductions. Admin-gated, flag-independent (D74.5.2-L13). Idempotent via set-once `externalRevenueItems.inventoryDeductedAt` (D-19). 200-item chunks, MAX_ITERATIONS=500 runaway cap. Exports: `backfillOnePage` / `backfillChannelDeductions` / `runChannelBackfill` / `runOneChannelBackfillPage` / `getChannelBackfillPreflight`.
+- `convex/migrations/gofoodSaleToChannelSale.ts` — forward-only migration of `productInventoryTransactions.transactionType` from `gofood_sale` to `channel_sale + source: "gobiz"` (NOT `"gofood"` — Pitfall 1 landmine). 500-row paginated chunks, MAX_PAGES=1000 cap. Self-healing on re-run via `by_type` index filter narrowing. Preserves `gofoodOrderRef` so `TransactionLogPanel` legacy reader still functions.
+- `convex/consignment/queries.ts::getSettlementItems` — admin+manager-gated query returning per-product breakdown (externalRevenueItems joined with menuProduct). Pre-74.5.1 settlements return empty array gracefully.
+- `src/hooks/convex/useChannelBackfill.ts` — React hooks (`useChannelBackfillPreflight`, `useRunChannelBackfill`) for per-source admin UI.
+- Admin UI extension at `/admin/unlinked-products-backfill` — "Channel Deduction Backfill" section with 6 per-source `ChannelBackfillCard` components (Shopee, TikTok, K3Mart, GoBiz/GoFood, Consignment, Direct). GrabFood shows permanent-OFF degraded state per D74.5.2-L15. Client-loop paginated via `runOneChannelBackfillPage`.
+- `SettlementFormDialog.tsx` — optional dynamic item-row inputs with ±Rp1 sum validation on create. Passes items to `createSettlement` which now emits `externalRevenueItems` via `saveRevenueItems`.
+- `SettlementTimeline.tsx` — per-settlement expandable "Products sold" sub-section, lazy-loaded via `useQuery(… , "skip")`.
+- `docs/CHANNEL_INTEGRATION.md` — 459-line operational runbook: onboarding recipe, per-channel cutover procedure, GoFood atomic flip-and-retire protocol, 5-issue audit triage matrix (literals grep-verified against `channelAudit.ts::AuditIssueType`), backfill operations, 4-case rollback playbook, sticker auto-deduction gap doc.
+- `by_source_deductedAt` compound index on `externalRevenueItems` — `[source, inventoryDeductedAt]`. Enables O(n) backfill queries narrowed to un-deducted rows per source.
 
-**Files modified:** 4 test files only. No production code touched.
+**Changed:**
+- `src/components/inventory/TransactionLogPanel.tsx` — hybrid GoFood display via shared `isGoFoodTransaction` predicate + `resolveDisplayConfig` resolver. Renders both legacy `gofood_sale` rows AND migrated `channel_sale + source=gobiz` rows identically during the schema-literal soak period. Filter chip uses client-side filtering fallback to bridge the legacy/unified literal mismatch.
+- `convex/productInventory/__tests__/channelAudit.test.ts` — fixed convex-test module-resolution bug on `t.action(internal.*)` invocations for `productInventory/*` subtree via direct-handler test shim pattern (`_runFullAuditForTest`). 4 previously red tests now green (D74.5.2-L1).
+- `convex/integrations/bigseller/__tests__/normalize.test.ts` — tightened `platform: string` to `Extract<ExternalSource, …>` union type per D74.5.2-L2; removed all `any` casts.
+- `convex/consignment/createSettlement` — optional `items` arg emits `externalRevenueItems` via `saveRevenueItems` (same `collapseRevenuePeriod` helper as Phase 74.5.1).
+
+**Removed:**
+- `convex/productInventory/mutations.ts::processGofoodSales` — retired atomically (D74.5.2-L5). All GoFood deductions now flow through `saveRevenueItems → processChannelSaleInternal` with `source: "gobiz"`.
+- Both `processGofoodSales` call sites in `convex/integrations/gobiz/adapter.ts` (try/catch wrappers around manual-sync Phase C/D + auto-sync Phase C/D blocks).
+- Stale reference in `convex/productInventory/stockTracker.ts` comment.
+- `tests/unit/depotAutoSeed.test.ts` — deleted; tests that invoked the retired handler were realigned or removed per Rule 3 (Blocking test realignment).
+
+**Fixed:**
+- `convex/migrations/gofoodSaleToChannelSale.ts` — `tsc -b` build errors from Plan 05 (shim commit `4408fab3`) kept resolved via `_args` rename + explicit `result` type annotation on the `internalAction` handler. `npm run build` passes clean.
+- (No-op) AuditIssueTypeBadge.tsx react-refresh `only-export-components` warning — already resolved in Phase 74.5.1 triple-review (commit `bf036387`) by extracting `TYPE_META` to `AuditIssueTypeMeta.ts`. Verified clean under Plan 10 review.
+- (No-op) ChannelRoutingManager.tsx `react-hooks/exhaustive-deps` useMemo warning — already resolved in Phase 74.5.1 triple-review; all useMemo deps now complete. Verified clean under Plan 10 review.
+
+**Deferred (tracked as 74.5.3 TBD):**
+- `gofood_sale` literal drop from `productInventoryTransactions.transactionType` union — strip-before-drop rule, awaits 72h post-migration soak.
+- `channelDeductionEnabled` flag field removal — pending cutover completion across all channels + soak.
+- Sticker auto-deduction gap — retired Phase C of `processGofoodSales` broke sticker side-effect until unified path extends to BOM-resolve packaging. Documented in `docs/CHANNEL_INTEGRATION.md` follow-ups section.
+
+**Operational notes:**
+- See `docs/CHANNEL_INTEGRATION.md` for per-channel flag-flip runbook. Recommended cutover order: Shopee → TikTok → BigSeller (permanent-OFF) → K3Mart → GoFood (atomic with retirement deploy).
+- GoFood flag MUST be flipped immediately after Plan 08 deploy-complete confirmation to minimise under-deduction window (D74.5.2-L5 + Pitfall 2). Runbook §"GoFood atomic flip-and-retire" provides step-by-step protocol.
+- Backfill is idempotent and flag-independent (D74.5.2-L13) — admin can pre-populate historical deductions before flipping a channel's flag ON.
+- Forward-only migration: re-running `runGofoodSaleToChannelSaleMigration` on an already-migrated database is a no-op (filter narrowing + `by_type` index skip).
+
+---
+
+### Phase 74.5.1 — Channel Routing Spine + Admin UI -- 2026-04-20
+
+**For the team:** Foundation work for unified channel integration (Shopee, TikTok, BigSeller, K3Mart, GoFood, Consignment, Grabfood, Direct). No behavior change in production yet — every new code path is gated behind per-source feature flags that default OFF. Cutover + flag flips are a separate follow-up phase (74.5.2).
+
+Additive architectural spine for unified channel integration. All code lands behind an 8-key feature-flag map (`productInventorySettings.channelDeductionEnabled`, all default OFF). Ship-dark contract per CONTEXT D-10 — no prod behavior change.
+
+**Schema additions:**
+- 3 new tables: `channelRouting`, `channelAuditReports`, `channelAuditIssues` (4/2/4 indexes respectively).
+- `externalRevenueItems.inventoryDeductedAt` (optional idempotency key).
+- `productInventoryTransactions`: new `channel_sale` literal + `source` + `externalRef` fields + `by_source_externalRef` index.
+- `productInventoryTransactions.gofood_sale` literal **PRESERVED** (retires in 74.5.2).
+- `productInventorySettings.channelDeductionEnabled` (optional object, 8 source keys).
+- `externalSyncLogs.itemsDeducted` + `itemsSkipped` (R9).
+
+**New helpers (convex/productInventory/):**
+- `channelRouting.ts` — 5-tier `resolveChannelRoute` (exact → outlet+source → source → default → reject) + admin CRUD (R2).
+- `channelSale.ts` — `processChannelSaleInternal` + `buildEventFromRow` (reuses Phase 78 substitution + stockTracker) (R4).
+- `channelAudit.ts` — `detectAuditIssuesForItem` (pure, cheap) + `runFullAudit` (internal action, all 5 types) (R6).
+- `channelAuditMutations.ts` — resolveAuditIssue / dismissAuditIssue / triggerFullAudit + list queries.
+- `channelFlags.ts` — `getChannelDeductionFlags` + `setChannelDeductionFlag` admin mutations.
+
+**saveRevenueItems — atomic dispatch hook (R3):**
+- `saveRevenueItemsImpl` now reads `channelDeductionEnabled[source]`; dispatches `processChannelSaleInternal` for eligible items when the flag is ON.
+- Public `saveRevenueItems` return shape (`Id[]`) preserved for backward compat (`bigsellerOrders/mutations.ts:288-292`).
+- Atomicity contract: deduction throw rolls back revenue + deduction together.
+
+**Adapter refactors (R1, R9):**
+- `gobizAdapter`, `bigsellerAdapter`, `internalAdapter`, `k3martAdapter`, `grabfoodAdapter` all export `ChannelAdapter` — satisfying the unified contract.
+- `convex/integrations/_shared/channelAdapter.ts` + `channelSaleEvent.ts` — new canonical types.
+- GoFood `processGofoodSales` coexists in parallel (retires in 74.5.2).
+- BigSeller preserves `platform === "shopee" || "tiktok"` emit gate at `sync.ts:804` (Pitfall 3).
+- Internal adapter preserves Phase 80.2 existence-based guard at `adapter.ts:150-156` verbatim.
+- K3Mart transitions from parent-only to parent+child shape (RESEARCH Caveat 1). Analytics reconciled in `convex/reports/unitEconomics.ts`.
+- Grabfood ships as a stub (`normalize()` throws `Not implemented` per D74.5.1-L5 — OAuth `orders:read` scope still pending).
+- Consignment `createSettlement` signature grows optional `items` arg (preserves `collapseRevenuePeriod` helper).
+
+**Admin UIs:**
+- `/admin/channel-routing` → `ChannelRoutingManager.tsx` — CRUD routing rules + Resolution Preview panel + Seed-from-outlets button.
+- `/admin/channel-audit` → `ChannelAuditWorkbench.tsx` — 5 issue-type tabs (unmapped_sku, malformed_item, stale_mapping, duplicate_transaction, orphan_item) + resolve / dismiss flows.
+- `/admin/product-inventory-settings` → `ProductInventorySettings.tsx` — 8-key flag map. `bigseller` / `grabfood` / `internal` permanently disabled per D74.5.1-L1 / D74.5.1-L2.
+- Shared components: `SourceBadge`, `ResolutionPreviewPanel`, `ChannelFlagRow`, `AuditIssueTypeBadge`.
+- All routes `<ProtectedRoute roles={["admin"]}>`; all mutations `requireRole(ctx, token, ["admin"])`.
+
+**Migrations:**
+- `convex/migrations/channelRoutingSeed.ts` — one-shot idempotent seed from `externalOutlets.linkedStorageLocationId`. Admin-triggerable via the ChannelRoutingManager button.
+
+**Tests:**
+- Wave 0 TDD: 11 new test files scaffold all R1–R7 requirements.
+- Unit + integration tests green post-implementation.
+- E2E specs: `tests/e2e/channel-routing.spec.ts` (R7), `tests/e2e/channel-audit.spec.ts` (R6) — full CRUD + resolution round-trip.
+- Regression fixtures directory: `tests/fixtures/channel-regression/` (prod payload capture deferred to 74.5.2 per CONTEXT D-08).
+
+**Deferred to 74.5.2:**
+- Per-source backfill buttons in `/admin/unlinked-products-backfill`.
+- Staged flag-flip rollout (Shopee → TikTok → K3Mart → GoFood last).
+- `gofood_sale → channel_sale + source` transaction migration.
+- `processGofoodSales` retirement.
+- Schema cleanup (drop `gofood_sale` literal).
+- Consignment per-product breakdown UI.
+- `docs/CHANNEL_INTEGRATION.md` runbook.
+- Historical backfill actions.
+
+**Known limitations (74.5.1):**
+- `grep` confirms `processGofoodSales` + `gofood_sale` literal **STILL present** — 74.5.2 removes them.
+- `channelDeductionEnabled.internal` permanent OFF per D74.5.1-L2 (`reserveStockForOrderInternal` remains the authoritative internal stock path).
+- Grabfood adapter stub — OAuth `orders:read` scope blocker unchanged.
+
+**Files changed:** See per-plan SUMMARYs under `.planning/phases/74.5.1-channel-routing-spine/*-SUMMARY.md`.
+
+---
+
+### Phase 80.3 — Analytics Internal-Mirror Dedup (R5 Skip) -- 2026-04-19
+
+**For the team:** The `/analytics` Unit Economics dashboard was double-counting every Direct-channel order (WhatsApp, Instagram, walk-in). Direct-channel revenue, units, and orders now match the Sales Aggregation page (K3Mart Cockpit Overview) on equivalent date ranges. **If you set revenue or unit targets from the Analytics page before this fix, those targets were inflated ~2x for the Direct channel; the corrected numbers are the real figures.**
+
+**Expected All Time impact at the time of the fix:**
+- Revenue (Net) drops from ~Rp 517M → ~Rp 387M
+- Units sold drops from 9,493 → 8,876 (delta 617 BOM-expanded balls)
+- Orders drops from 2,629 → 2,364 (delta 265 duplicate Direct orders)
+
+Other channels (GoFood, Shopee, Tokopedia, K3Mart, TikTok, Consignment) are unaffected.
+
+**Root cause:** `loadExternalStream` in `convex/reports/unitEconomics.ts` was unioning native `orders` + `orderItems` rows with the `externalRevenue[source="internal"]` mirror that `syncInternalOrders` writes for the Sales Aggregation pipeline. Every Direct order therefore appeared twice — once via the native path, once via the internal-mirror path. The R5 dedup rule was specified in the Phase 80 Task 4b staff-review addendum (2026-04-14) but the production code change was never shipped — commit `59069988` only modified plan documents.
+
+**Fix:** One line inside `loadExternalStream` skips externalRevenue rows where `source === "internal"`. The internal mirror remains in `externalRevenue` for the Sales Aggregation pipeline (which only reads `externalRevenue` and never unions `orders`).
+
+**Tests:** New file `convex/reports/__tests__/unitEconomics.test.ts` with 13 regression tests across 11 analytics reducers (kpiSummary, channelEconomics, channelMomentum, byWeekday, byWeekdayRolling, rollingTrend, dayHourHeatmap, volumeByType, typeMixOverTime, skuTop, skuChannelMatrix). Includes a hard negative-regression guard that the GoFood (`gobiz`) channel is NOT skipped — preventing a future over-aggressive widen of R5 that would zero out GoFood revenue.
+
+**Files modified:** `convex/reports/unitEconomics.ts`, `convex/reports/__tests__/unitEconomics-unlinked.test.ts` (re-seeded an existing test to use a native order instead of the internal mirror), `convex/reports/__tests__/unitEconomics.test.ts` (new).
+
+---
+
+### Phase 80.2 — Unlinked Products Fix (K3Mart + Direct) -- 2026-04-19
+
+**For the team:** The `(Unlinked)` bucket on the `/analytics` SKU Pareto and SKU Channel Matrix reports will collapse for K3Mart and Direct channels — every K3Mart SKU mapped in the admin UI now retroactively attaches to its historical revenue, and every Direct order (historical + future) now carries the line-item detail the reports need. Only Consignment (expected) remains in the unlinked bucket.
+
+**Two independent bugs producing the same symptom:**
+1. K3Mart mapping cascade never ran for `source === "k3mart"`. Admin UI mappings saved but never patched `externalRevenue` parents — 737/737 K3Mart parents were unlinked.
+2. `syncInternalOrders` skipped child-item creation for any parent that already existed (`if (!isNew) continue;`), leaving 219/262 Direct parents synced before 2026-04-10 permanently orphaned (no children) and falling through to the reports' synthesis-path "Unlinked" bucket.
+
+**Fixes:**
+- **K3Mart retroactive cascade** — `applyRetroactiveProductMappingImpl` extended with a K3Mart branch (after Shopee/TikTok) that scans `externalRevenue` by `[source, externalProductCode]` and patches `linkedMenuProductId` with a 4000-row safety cap + idempotency guard.
+- **K3Mart sync-time linking** — `syncK3MartSales` pre-fetches the SKU→menuProduct map once per sync and attaches `linkedMenuProductId` per record before `saveRevenue` (no more "new unlinked rows every sync").
+- **Direct historical backfill** — new admin-only paginated-WRITE mutation `backfillInternalRevenueItems` rebuilds `externalRevenueItems` for orphan Direct parents from the native `orders` + `orderItems` tables. Idempotent via `saveRevenueItems`' existing `(revenueId, externalItemId)` dedup.
+- **Direct re-sync heal** — `syncInternalOrders` guard at `adapter.ts:126` now checks child-existence instead of `if (!isNew) continue;`. Re-syncs now self-heal orphan parents.
+
+**Schema:**
+- Added index `by_source_productCode` on `externalRevenue` (composite `[source, externalProductCode]`) for efficient K3Mart cascade lookup.
+- Added optional `summary: string` field on `externalSyncLogs` — holds audit counter JSON for backfill runs without polluting `errorMessage` (which would corrupt existing monitoring filters).
+
+**API:**
+- New admin mutation: `externalData.mutations.backfillInternalRevenueItems` — paginated, idempotent, writes one audit row to `externalSyncLogs.summary` per invocation. NOVEL PATTERN for this codebase — first paginated-WRITE mutation.
+- `applyRetroactiveProductMappingImpl` return type widened additively with new `externalRevenueUpdated: number` field. All 3 existing call sites continue to work unchanged.
+- New shared helpers: `getK3MartMappingBySku` + `attachLinkedMenuProductId` (K3Mart) and `hasExternalRevenueItems` (externalData).
+
+**Tests:** 5 new test files / 19 new tests — cascade, pure helper attach, backfill counters, Direct adapter self-heal (novel `t.action(...)` pattern), unitEconomics attribution regression. All green.
+
+**Prod data run:** ~219 Direct parents backfilled, ~737 K3Mart parents linked (pending user-gated execution). Convex export captured as rollback insurance before any prod mutation.
+
+**Files modified:** `convex/schema.ts`, `convex/integrations/k3mart/adapter.ts`, `convex/integrations/k3mart/helpers.ts`, `convex/integrations/k3mart/queries.ts` (new), `convex/externalData/mutations.ts`, `convex/externalData/queries.ts`, `convex/externalData/helpers/revenueItemsHelpers.ts` (new), `convex/integrations/internal/adapter.ts`, 5 new test files under `convex/integrations/k3mart/__tests__/`, `convex/externalData/__tests__/`, `convex/integrations/internal/__tests__/`, `convex/reports/__tests__/`. Docs updated: CHANGELOG.md, SCHEMA.md, API_REFERENCE.md.
+
+---
+
+### Phase 80.1 — Analytics Dashboard Perf & Chart Primitives Consolidation -- 2026-04-18
+
+**For the team:** `/analytics` now loads faster and is visually consistent. Filter changes (date range, channel, product) trigger 3 backend queries instead of 12 — roughly 75% less write-invalidation traffic. Chart axis labels never silently hide, every truncated label reveals its full text on hover, and every tooltip has dark-background / light-text (WCAG-AA) with category colors rendered as small swatches instead of colored value text.
+
+**Performance:**
+- `/analytics` consolidated 12 per-widget Convex queries into 3 grouped snapshot queries (`kpiAndChannelSnapshot`, `timeSeriesSnapshot`, `skuSnapshot`). Filter changes trigger 3 subscriptions, not 12. `orders`-write re-invalidation surface cut by ~75%. Call-counter regression test locks the invariant (kpiAndChannel=2 loads, time=1, sku=1, precomputeBomMaps=1 per invocation).
+- `/analytics` route is lazy-loaded (existing `lazyWithPreload` wrap preserved) — Nivo chunk (`vendor-nivo-*.js`) only loads when the page is visited. Verified via build output + DevTools Network.
+
+**UX (R1 — no-clip + hover-reveal):** Shared `ChartFrame` / `CHART_MARGIN` / `X_AXIS_STRING_LABEL_PROPS` / `truncateWithTooltip` primitives in `src/lib/chartPrimitives.tsx` enforce non-clipping axis labels across 8 Recharts widgets. Every truncated label (e.g. long SKU name in SkuPareto or SkuChannelHeatmap) now reveals the full text via tooltip hover.
+
+**UX (R2 — WCAG-AA tooltips):** Shared `ChartTooltip` primitive enforces dark-popover + light-text contrast (≥4.5:1 verified by inline luminance test). Category colors render as small swatches only — never as value text color.
+
+**UX (R3 — heatmaps transposed + contrast-adaptive labels):** `DayHourHeatmap` now displays days (Mon–Sun) across the top axis and hour bins as rows; cell values show % share of that day's revenue (raw IDR in tooltip). `SkuChannelHeatmap` channels axis moved to top. Both heatmaps use contrast-adaptive `labelTextColor` (white text on dark cells, dark text on light cells) — `hsl(var(...))` CSS variables replaced with plain hex so react-spring animation doesn't crash. `SkuParetoChart` x-axis labels no longer clip at chart edges (SVG `overflow-visible` + wider left margin).
+
+**Library:** Added pinned `@nivo/core` + `@nivo/heatmap` (0.99.0, no caret). `manualChunks` splits `@nivo/*` + `@react-spring/*` into `vendor-nivo` chunk (~111 kB uncompressed) so the main vendor bundle stays under the 600 kB cap.
+
+**Cleanup:** Deleted 12 deprecated per-widget query wrappers from `convex/reports/unitEconomics.ts` (`kpiSummary`, `channelEconomics`, `channelMomentum`, `byWeekday`, `rollingTrend`, `dayHourHeatmap`, `volumeByType`, `typeMixOverTime`, `unitsPerTxnByChannel`, `aovByChannel`, `skuPareto`, `skuChannelMatrix`). All 25 tests in `tests/convex/unitEconomics.test.ts` ported to call the 3 snapshot queries. Safety grep (src/ + tests/ + convex/) confirmed zero remaining references before deletion.
+
+**Files modified:** `convex/reports/unitEconomics.ts`, `src/components/analytics/DayHourHeatmap.tsx`, `src/components/analytics/SkuChannelHeatmap.tsx`, `src/lib/chartPrimitives.tsx` (existing from Wave B), `src/hooks/convex/useAnalytics.ts` (existing from Wave B), 8 migrated chart widgets (existing from Wave B), `tests/convex/unitEconomics.test.ts`, `tests/convex/unitEconomicsSnapshots.test.ts`, `package.json`, `package-lock.json`, `vite.config.ts`.
+
+**Breaking change:** External Convex clients calling the 12 deprecated paths must migrate to the 3 snapshot paths. Frollie Recipe Master has no external clients — internal impact only.
+
+---
+
+### Chore: GSD — extend quad_review consolidation to /gsd:quick --full -- 2026-04-17
+
+**For the team:** The quad_review consolidation applied to phase execution earlier today also applies to `/gsd:quick --full` — that workflow also had a sequential code-review-then-triple-review pattern (Step 6.25 followed by Step 6.3). Collapsed them into a single `Step 6.3: Quad review` that writes REVIEW.md via `gsd-code-reviewer` and then feeds it into triple-review's synthesis as a 4th reviewer.
+
+**What shipped:**
+- `get-shit-done/workflows/quick.md` — deleted old `Step 6.25: Code review (auto)` and old `Step 6.3: Triple review` blocks; replaced with a single `Step 6.3: Quad review` step that runs both skills and wires REVIEW.md into triple-review via `--external-review=${QUICK_DIR}/${quick_id}-REVIEW.md`. Same config-matrix degradation as execute-phase: supports full quad, code-only, triple-only, and both-disabled. Fix commits renamed from `fix(quick-N): address triple-review findings` to `fix(quick-N): address quad-review findings`.
+- `gsd-local-patches/PATCHES.md` — Patch 2 entry rewritten from "Triple-review, simplify, document & merge" to "Quad review, simplify, document & merge". Verification greps tightened to confirm the old step headers are gone and the new consolidated step is present.
+
+**Scope of consolidation:**
+- `execute-phase.md` — done in previous commit (`quad_review` step before `verify_phase_goal`)
+- `quick.md` — done in this commit (`Step 6.3: Quad review` before verification)
+- `debug.md` — NOT applicable (no upstream code-review step before our triple review)
+- `plan-phase.md` — NOT applicable (uses `staffreview` on plans, a different skill targeting different artifacts)
+
+### Chore: GSD — consolidate code_review_gate + triple_review into quad_review -- 2026-04-17
+
+**For the team:** Phase execution used to run two overlapping review passes — first the upstream `gsd:code-review` skill (producing `REVIEW.md`), then later our triple-review — both reading the same changed files and reporting against the same codebase. Now they run as one consolidated `quad_review` step that fires before verification: `gsd:code-review` runs first to produce REVIEW.md, then triple-review consumes that file as a 4th reviewer perspective alongside its three live agents, and the synthesis produces a single unified tiered report covering all four perspectives.
+
+**What shipped:**
+- `get-shit-done/workflows/execute-phase.md` — deleted upstream `code_review_gate` step; replaced with new `quad_review` step positioned where `code_review_gate` used to be (before `close_parent_artifacts` → `verify_phase_goal`), so review fixes get verified. Removed the late-position `triple_review` step I added last patch cycle — it's now consolidated into `quad_review`. `simplify` and `document_and_merge` stay late (after verification passes).
+- `.claude/commands/triple-review.md` — accepts new `--external-review=PATH` argument. When set, parses the referenced review file (handling YAML frontmatter + section-based finding lists with severity-vocabulary mapping for formats that use "blocker"/"warning"/"suggestion"/etc.) and folds its findings into the synthesis as a 4th reviewer vote. Report header reads "Quad Review" and names `gsd-code-reviewer` alongside the three live agents. Graceful fallback: if the external file is missing or unparseable, the skill runs as a standard 3-reviewer triple review without blocking.
+- `gsd-local-patches/PATCHES.md` — Patch 1 entry rewritten to document the consolidation; verification greps tightened to match step tags specifically rather than narrative mentions.
+
+**Config matrix (all three supported):**
+- `workflow.code_review=true` + `workflow.triple_review=true` → full quad review (recommended)
+- `workflow.code_review=true` + `workflow.triple_review=false` → code review only (upstream behavior)
+- `workflow.code_review=false` + `workflow.triple_review=true` → 3-reviewer synthesis only
+- both false → skipped entirely
+
+**Why better:** (1) Eliminates redundant work — one pass reads changed files, not two. (2) Triple-review synthesis now benefits from the gsd-code-reviewer's structured finding output as a 4th vote when applying the "flagged by 2+ reviewers → bump tier" consensus rule. (3) Moving the review step BEFORE verification means fixes get verified — the verifier sees post-fix code, not pre-fix. (4) Failure of either skill is non-blocking and degrades gracefully to the other.
+
+### Chore: GSD — remove startup hook that scans for broken hooks -- 2026-04-17
+
+**For the team:** The `gsd-hooks-health.js` SessionStart hook printed a "BROKEN HOOKS DETECTED" banner at every session start while settings.json referenced hook files that didn't exist. The 1.36.0 clean install restored all referenced hook files so the banner no longer fires — and the scanner itself is now vestigial. Removed both the script and its SessionStart entry.
+
+### Chore: GSD — reapply local patches 1-5 against v1.36.0 -- 2026-04-17
+
+**For the team:** The GSD 1.34.2 → 1.36.0 clean install yesterday wiped all local workflow customizations (11 patches). Five of those have been reapplied against v1.36.0 so automated quality gates and PR-merge ceremony are back in every GSD workflow that produces code changes. The other six were evaluated as obsolete or no longer wanted and dropped from `PATCHES.md`.
+
+**What shipped:**
+- `get-shit-done/workflows/execute-phase.md` — new `triple_review`, `simplify`, and `document_and_merge` steps between `update_project_md` and `offer_next`. Phase merges now auto-update `CHANGELOG.md`, open a PR, squash-merge, and sync `main`.
+- `get-shit-done/workflows/quick.md` — new Steps 6.3 (triple review), 6.4 (simplify), and 9 (document & merge) for `--full` mode quick tasks.
+- `commands/gsd/debug.md` — new Steps 5 (quality gates: triple review + simplify) and 6 (document & merge) after a debug session applies a fix. Skipped on `--diagnose` and `ABANDONED` sessions.
+- `get-shit-done/workflows/plan-phase.md` — new Step 12.6 "Staff Review Gate" after Plan Bounce. Routes the COMPLETE tiered findings list (Critical + Important + Refinements + Minor + Nitpick) back through the revision loop — not just Critical. Step 11 and Step 12 exits renumbered accordingly.
+- `gsd-local-patches/PATCHES.md` — rewritten to document only the 5 surviving patches. Dropped entries retained in a traceability table.
+
+**Config gates added (all opt-in, default `false` where marked):**
+- `workflow.triple_review` — runs `/triple-review` skill after code changes
+- `workflow.simplify` — runs `/simplify` skill after code changes
+- `workflow.staffreview` (default `true`) — runs `/staffreview` skill on plan-phase output
+
+**Dropped patches:** `--quick` default inversion, parallel `/gsd-progress`, auto-reapply on update, auto-run Convex seeds, explicit TaskCreate task tree. See `PATCHES.md` traceability table.
+
+### Chore: CI — run Deploy workflow on PRs for pre-merge gating -- 2026-04-17
+
+**For the team:** Broken TypeScript (or any build failure) now blocks the PR merge button, not just the post-merge deploy. PRs targeting `main` will show a red "Deploy" check if lint or `npm run build` fails.
+
+**What shipped:** Added `pull_request: branches: [main]` trigger to `.github/workflows/deploy.yml`. The `lint-convex` and `build-frontend` jobs run on every PR. Deploy jobs (`check-convex-changes`, `deploy-convex`, `trigger-vercel`) are gated on `github.event_name != 'pull_request'` so nothing deploys from a PR context.
+
+**To fully enforce:** Add the "Deploy / build-frontend" and "Deploy / lint-convex" checks as **required status checks** in GitHub branch protection rules for `main`. Without branch protection, the red check is advisory.
+
+### Chore: CI — add `npm run build` gate before Convex deploy -- 2026-04-17
+
+**For the team:** Prevents split-brain deploys where Convex ships but Vercel can't. If the frontend won't compile, neither system deploys — you'll see a red build on the PR merge commit and main stays on the last good deploy.
+
+**What shipped:** New `build-frontend` job in `.github/workflows/deploy.yml` runs `npm run build` (`tsc -b && vite build`) on every push to `main` and every manual dispatch. Both `deploy-convex` and `trigger-vercel` now depend on it — a failed frontend build blocks both.
+
+**Background:** Phase 74 merge ship-blocked prod because 18 TS errors passed local `tsc --noEmit` but failed Vercel's `tsc -b` (project-reference mode is stricter). GitHub Actions "Deploy" only ran `npx convex deploy`, so the frontend regression wasn't caught until Vercel's deploy hook fired — by which time Convex had already deployed, creating a backend/frontend schema mismatch.
+
+### Fix: Phase 74 prod build — restore per-unit component split + botched-merge residue -- 2026-04-17
+
+**For the team:** Vercel production build was failing with 18 TypeScript errors after Phase 74 merged. Staff Performance page now builds and deploys. No user-visible behavior change — the page already showed grams correctly in dev; prod was blocked from deploying at all.
+
+**Root cause:** Three drifts from the merge commit `2031e615`:
+1. `EndOfShiftForm.tsx` kept two copies of `selectedChefId` useState (kept both sides of merge).
+2. `aggregateStaffPerformance` helper, when lifted out of `kitchenShiftRecords/queries.ts` in Phase 74, dropped the per-unit split (`totalComponentPieces`, `totalComponentWastePieces`, breakdown `unit` tag) added earlier in the kitchen-dedupe round 2. Frontend (`staffPerformanceExport.ts` + `StaffPerformance.tsx`) was still reading those fields, silently breaking.
+3. `ClockOutNudgeDialog` renamed its prop `onClose` → `onOpenChange`; `KitchenViewV2.tsx:451` was still passing the stale name.
+
+**Why CI missed it:** GitHub Actions "Deploy" workflow only runs `npx convex deploy` (backend). Vercel is the only pipeline running `npm run build` (`tsc -b && vite build`). `tsc --noEmit` (local type-check) is looser than `tsc -b` project-reference mode.
+
+**What shipped:**
+- `convex/staffAttendance/aggregation.ts` — restored per-unit split; uses shared `ComponentUnit` / `resolveUnit` from new `convex/lib/componentUnit.ts` (mirrors frontend `src/lib/componentUnit.ts`).
+- `convex/lib/componentUnit.ts` — new backend helper (type + resolveUnit + sumByUnit).
+- `src/components/kitchen/EndOfShiftForm.tsx` — removed duplicate useState.
+- `src/pages/KitchenViewV2.tsx` — `onClose` → `onOpenChange`.
+
+**Follow-up tech debt:** aggregation uses per-record `c.unit` with silent last-write-wins on conflict. Should trust `unitByCode` config as source of truth (same pattern already in per-day loop). Same issue mirrored in `kitchenShiftRecords/queries.ts`. Separate refactor.
+
+### Quick task 260417-hyv -- Nav bar simplification -- 2026-04-17
+
+**For the team:** The top nav bar is now much less cluttered. Collapsed from 8 top-level items + 5 dropdowns to just **Dashboards ▾ Orders Ops ▾ Finance ▾ Config ▾**. Sales/Analytics now live under Dashboards; Kitchen/Inventory/Planner/My Perf/K3 Mart/GoFood/GrabFood under Ops; Financials+Accounting merged into Finance; Help and Admin folded into Config. Every page you could reach before is still reachable — just one extra click for items that moved into a dropdown.
+
+**What shipped:** `src/components/layout/Header.tsx` 688 → 519 lines (−169). NavItem restructured as a discriminated union; `navGroups[]` drives both desktop and mobile rendering. All 35 routes preserved, permissions unchanged.
+
+### Feat: Phase 74 -- Staff Attendance -- 2026-04-17
+
+**For the team:** Kitchen staff now clock in/out with one tap. Gate screen at `/kitchen/clock`, running timer, clock-out nudge after shift submission. Managers see hours, flagged shifts, per-day breakdowns on `/staff-performance`. Staff view own data at `/my-performance`. Manager correction dialog with audit trail.
+
+**What shipped:** `staffAttendance` table + 3 mutations + 4 queries + flag engine (missing_clockout, over_16h, overlapping, before_hire) + 7 frontend components + `aggregateStaffPerformance` extension + 57 tests.
+
+**UAT fixes:** Aggregation join fallback (submittedByUserId), hours as h:mm, component grams summary, chef dropdown in ShiftEditDialog, chef selector hidden when clocked in, My Performance link on kitchen page.
+
+**Requirements:** ATT-01, ATT-02, ATT-03, ATT-04.
 
 ---
 

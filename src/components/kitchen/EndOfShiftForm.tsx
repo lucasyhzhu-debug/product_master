@@ -91,12 +91,14 @@ interface EndOfShiftFormProps {
   enabledKitchenComponentCodes?: string[];
   /** Configured unit per component code from componentTracking */
   unitByCode?: Record<string, ComponentUnit>;
+  /** Called after a shift record is submitted successfully. */
   onSubmitted?: (selectedChefId: string) => void;
-  /** When true, show chef selector (managers submit on behalf of others).
-   *  When false, auto-assign to current user — no selector shown. */
+  /** When true, show chef selector (managers submit on behalf of others). */
   isManager?: boolean;
   /** Current user's ID — used to auto-assign chef when isManager is false. */
   currentUserId?: string;
+  /** When true, the current user has an active clock-in — hide chef selector. */
+  isClockedIn?: boolean;
 }
 
 // -------------------------------------------------------
@@ -115,6 +117,7 @@ export function EndOfShiftForm({
   onSubmitted,
   isManager = false,
   currentUserId,
+  isClockedIn = false,
 }: EndOfShiftFormProps) {
   const submitShiftRecord = useProtectedMutation(
     api.kitchenShiftRecords.mutations.submitShiftRecord
@@ -138,15 +141,15 @@ export function EndOfShiftForm({
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Chef selector — hide when clocked in or non-manager
+  const showChefSelector = isManager && !isClockedIn;
+  const [selectedChefId, setSelectedChefId] = useState<string>(
+    (!showChefSelector && currentUserId) ? currentUserId : "",
+  );
+
   // Submitted data (for success screen)
   const [submittedProduced, setSubmittedProduced] = useState<ProducedItem[]>([]);
   const [submittedWaste, setSubmittedWaste] = useState<WasteEntry[]>([]);
-
-  // Chef selector — non-managers auto-assign to themselves (no dropdown needed
-  // when clock-in already identifies who's working).
-  const [selectedChefId, setSelectedChefId] = useState<string>(
-    !isManager && currentUserId ? currentUserId : "",
-  );
 
   // Inline error from mutation failure on review screen
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -374,10 +377,6 @@ export function EndOfShiftForm({
       setSubmittedProduced(producedList);
       setSubmittedWaste(wasteList);
       setStep("success");
-      // Phase 74 D-08: Notify parent so it can decide whether to open the
-      // self-clock-out nudge. Pass the current selectedChefId — the parent checks
-      // it against the current user to avoid nudging when the submitter was
-      // recording a shift on behalf of another chef (T-74-17).
       onSubmitted?.(selectedChefId);
     } catch (error) {
       const msg =
@@ -492,8 +491,8 @@ export function EndOfShiftForm({
         <CardTitle className="text-base">End of Shift</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Chef selector — only shown for managers who submit on behalf of others. */}
-        {isManager && users && users.length > 0 && (
+        {/* Chef selector — hidden when clocked in (clock-in identifies the chef) */}
+        {showChefSelector && users && users.length > 0 && (
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Chef (actual cook)</Label>
             <Select value={selectedChefId} onValueChange={setSelectedChefId}>

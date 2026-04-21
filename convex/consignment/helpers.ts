@@ -96,3 +96,31 @@ export function consignmentRecognitionDate(s: {
 }): number {
   return s.paidAt ?? s.periodEnd;
 }
+
+/**
+ * Phase 74.5.1 — D74.5.1-L3 / RESEARCH Pitfall 2.
+ *
+ * Assert that an optional per-product breakdown sums to the settlement's
+ * totalRevenue within ±1 IDR (rounding tolerance). When items is empty, the
+ * check is a no-op (parent-only path is valid — 74.5.1 frontend still submits
+ * lump sum).
+ *
+ * Pure, ctx-free. Unit tested in __tests__/settlement-items.test.ts.
+ *
+ * @throws Error describing both numbers when variance > 1 IDR
+ */
+export const ITEMS_VARIANCE_TOLERANCE_IDR = 1;
+
+export function assertItemsMatchTotalRevenue(
+  totalRevenue: number,
+  items: ReadonlyArray<{ totalPrice: number }>,
+): void {
+  if (items.length === 0) return;
+  const itemsSum = items.reduce((acc, it) => acc + it.totalPrice, 0);
+  if (Math.abs(itemsSum - totalRevenue) > ITEMS_VARIANCE_TOLERANCE_IDR) {
+    throw new Error(
+      `Per-product breakdown total (${itemsSum}) does not match settlement totalRevenue (${totalRevenue}). ` +
+        `Difference exceeds 1 IDR tolerance.`,
+    );
+  }
+}
