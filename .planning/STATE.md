@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: executing
-stopped_at: Phase 74.5 context gathered
-last_updated: "2026-04-21T03:55:00.000Z"
-last_activity: 2026-04-21 -- Phase 74.5.2 Plan 01 complete (channelAudit test fix + BigSeller normalize tightening)
+stopped_at: Completed 74.5.2-02-backfill-schema-and-action-PLAN.md — ready for Plan 03 (backfill tests)
+last_updated: "2026-04-21T03:12:00.000Z"
+last_activity: 2026-04-21 -- Phase 74.5.2 Plan 02 complete (by_source_deductedAt index + backfill.ts with 4 exports)
 progress:
   total_phases: 21
   completed_phases: 13
   total_plans: 70
-  completed_plans: 57
-  percent: 81
+  completed_plans: 58
+  percent: 83
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 74.5.2
-Plan: 02 (backfill schema + action)
-Status: Executing — Plan 01 complete
-Last activity: 2026-04-21 -- Phase 74.5.2 Plan 01 complete (channelAudit test fix + BigSeller normalize tightening)
+Plan: 03 (backfill tests)
+Status: Executing — Plans 01-02 complete
+Last activity: 2026-04-21 -- Phase 74.5.2 Plan 02 complete (by_source_deductedAt index + backfill.ts with 4 exports)
 
-Progress: [█████████▌] 86%
+Progress: [█████████▋] 87%
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ No new decisions yet for v2.0.
 - [Phase 80.2]: Plan 03 Wave 3: Replaced plan's skuPareto reference with consolidated skuSnapshot.skuTop (Phase 80.1 refactor); used novel convex-test t.action() pattern for syncInternalOrders guard-swap test (no fallback needed).
 - [Phase 80.2]: Plan 04 partially executed (Task 4.1 + 4.10 auto); Tasks 4.2-4.9 + 4.11-4.12 pending human verification (prod access, admin tokens, UI check, merge authority)
 - [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
+- [Phase 74.5.2]: Plan 02: Added `by_source_deductedAt` compound index on `externalRevenueItems` + created `convex/productInventory/backfill.ts` with 4 exports (backfillOnePage / backfillChannelDeductions / runChannelBackfill / getChannelBackfillPreflight). Admin-gated, flag-independent (D74.5.2-L13), preserves revenue.transactionDate as createdAt (D-16), set-once idempotency via inventoryDeductedAt patched ONLY on result.deducted===true (D-19), silent-drop guard for null linkedMenuProductId (D74.5.2-L4), 100K row runaway cap via MAX_ITERATIONS=500.
 
 ### Open Blockers (carried forward)
 
@@ -82,6 +83,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-04-21T03:55:00.000Z
-Stopped at: Completed 74.5.2-01-channel-audit-test-fix-PLAN.md — ready for Plan 02 (backfill schema + action)
-Resume file: .planning/phases/74.5.2-unified-deduct-cutover/74.5.2-02-backfill-schema-and-action-PLAN.md
+Last session: 2026-04-21T03:12:00.000Z
+Stopped at: Completed 74.5.2-02-backfill-schema-and-action-PLAN.md — ready for Plan 03 (backfill tests)
+Resume file: .planning/phases/74.5.2-unified-deduct-cutover/74.5.2-03-backfill-tests-PLAN.md
