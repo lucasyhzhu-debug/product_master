@@ -166,6 +166,7 @@ import type * as migrations_consignmentRecognitionDate from "../migrations/consi
 import type * as migrations_fixConfirmedOrders from "../migrations/fixConfirmedOrders.js";
 import type * as migrations_fixDispatchPlanOutlets from "../migrations/fixDispatchPlanOutlets.js";
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
+import type * as migrations_gofoodSaleToChannelSale from "../migrations/gofoodSaleToChannelSale.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
 import type * as migrations_restoreCapexReimbursements from "../migrations/restoreCapexReimbursements.js";
 import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
@@ -206,6 +207,7 @@ import type * as payroll_queries from "../payroll/queries.js";
 import type * as platformCredentials_actions from "../platformCredentials/actions.js";
 import type * as platformCredentials_mutations from "../platformCredentials/mutations.js";
 import type * as platformCredentials_queries from "../platformCredentials/queries.js";
+import type * as productInventory_backfill from "../productInventory/backfill.js";
 import type * as productInventory_channelAudit from "../productInventory/channelAudit.js";
 import type * as productInventory_channelAuditMutations from "../productInventory/channelAuditMutations.js";
 import type * as productInventory_channelFlags from "../productInventory/channelFlags.js";
@@ -418,6 +420,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/fixConfirmedOrders": typeof migrations_fixConfirmedOrders;
   "migrations/fixDispatchPlanOutlets": typeof migrations_fixDispatchPlanOutlets;
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
+  "migrations/gofoodSaleToChannelSale": typeof migrations_gofoodSaleToChannelSale;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
   "migrations/restoreCapexReimbursements": typeof migrations_restoreCapexReimbursements;
   "migrations/schemaCleanup": typeof migrations_schemaCleanup;
@@ -458,6 +461,7 @@ declare const fullApi: ApiFromModules<{
   "platformCredentials/actions": typeof platformCredentials_actions;
   "platformCredentials/mutations": typeof platformCredentials_mutations;
   "platformCredentials/queries": typeof platformCredentials_queries;
+  "productInventory/backfill": typeof productInventory_backfill;
   "productInventory/channelAudit": typeof productInventory_channelAudit;
   "productInventory/channelAuditMutations": typeof productInventory_channelAuditMutations;
   "productInventory/channelFlags": typeof productInventory_channelFlags;
