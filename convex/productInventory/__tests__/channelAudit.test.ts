@@ -1,4 +1,10 @@
 /// <reference types="vite/client" />
+// Plan 01 Task 0 diagnostic:
+//   diff channelSale.test.ts (green) channelAudit.test.ts (red)
+//   Delta: red uses `t.action(internal.productInventory.channelAudit.runFullAudit, ...)`;
+//   green uses `t.run(async (ctx) => ...)` with direct handler invocation.
+//   The failing code path is convex-test's actionFromPath resolver, not our test shape.
+//   Fix 4 (direct-handler via `_runFullAuditForTest` export) is the preferred fix.
 /**
  * Phase 74.5.1 — Tests for channel audit detection (R6).
  *
