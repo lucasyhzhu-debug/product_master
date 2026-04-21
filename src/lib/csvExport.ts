@@ -41,6 +41,13 @@ interface GapAnalysis {
   }>;
   totalMappedProducts: number;
   totalProducts: number;
+  // Phase 75 D-15: converted expenses whose reversal JE is missing (P&L may double-count)
+  missingReversals: Array<{
+    expenseId: string;
+    description: string;
+    expenseDate: number;
+    journalEntryId: string;
+  }>;
 }
 
 // TODO: This WeekData interface is duplicated from the canonical definition in
@@ -76,6 +83,12 @@ interface WeekData {
   totalOther: number;
   netIncome: number;
   netMarginPercent: number | null;
+  // Phase 75 FIN-01: Full P&L extension (D-07, D-08, D-13)
+  opexExcludingDA: number;
+  depreciationAmortization: number;
+  capExAmount: number;
+  freeCashFlow: number;
+  fcfMarginPercent: number | null;
 }
 
 export interface IncomeStatementData {
@@ -101,6 +114,12 @@ export interface IncomeStatementData {
     totalOther: { amount: number; percent: number | null };
     netIncome: { amount: number; percent: number | null };
     netMarginPp: number | null;
+    // Phase 75 FIN-01 deltas
+    opexExcludingDA: { amount: number; percent: number | null };
+    depreciationAmortization: { amount: number; percent: number | null };
+    capExAmount: { amount: number; percent: number | null };
+    freeCashFlow: { amount: number; percent: number | null };
+    fcfMarginPp: number | null;
   };
 }
 
