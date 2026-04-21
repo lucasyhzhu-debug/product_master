@@ -4,9 +4,10 @@
  * `source: "gobiz"`.
  *
  * WHY: 74.5.1 introduced the unified `channel_sale` literal + `source` field. 74.5.2
- * cuts over all active sync paths to the unified dispatch and retires
- * `processGofoodSales`. The migration rewrites every historical `gofood_sale` row so
- * readers (TransactionLogPanel, queries, analytics) can drop the legacy literal.
+ * cuts over all active sync paths to the unified dispatch and retires the legacy
+ * per-source GoFood deduction mutation. The migration rewrites every historical
+ * `gofood_sale` row so readers (TransactionLogPanel, queries, analytics) can drop
+ * the legacy literal.
  *
  * CRITICAL — LITERAL LANDMINE (RESEARCH Pitfall 1):
  *   Write `source: "gobiz"`, NOT `"gofood"`. The `externalSource` union at
