@@ -205,8 +205,27 @@ export function TransactionLogPanel({
       {status !== "LoadingFirstPage" && displayedResults.length === 0 && (
         <div className="py-4 text-center text-sm text-muted-foreground">
           {typeFilter ? `No ${TYPE_FILTERS.find(f => f.value === typeFilter)?.label.toLowerCase() ?? typeFilter} transactions` : "No transactions yet"}
+          {isGoFoodFilter && status === "CanLoadMore" && (
+            <div className="mt-2 text-xs">
+              GoFood rows are interleaved with other types — load more pages to
+              find older transactions.
+            </div>
+          )}
         </div>
       )}
+
+      {/* Sparse-page hint: GoFood filter client-side narrows the loaded page,
+          so even when some rows exist, older GoFood transactions may be on
+          later pages. SOAK BRIDGE: remove in 74.5.3 once server-side filter
+          switches to channel_sale+source=gobiz (after gofood_sale literal drop). */}
+      {isGoFoodFilter &&
+        status === "CanLoadMore" &&
+        displayedResults.length > 0 &&
+        displayedResults.length < 5 && (
+          <div className="py-2 text-center text-xs text-muted-foreground">
+            Showing {displayedResults.length} GoFood row{displayedResults.length === 1 ? "" : "s"} on the current page. Load more to see older transactions.
+          </div>
+        )}
 
       {/* Transaction list */}
       {displayedResults.length > 0 && (

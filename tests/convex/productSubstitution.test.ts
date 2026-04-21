@@ -82,6 +82,7 @@ async function createLocation(t: TestContext): Promise<Id<"storageLocations">> {
       name: "Office",
       locationType: "office",
       isActive: true,
+      isDefault: false,
       createdBy: "test",
       createdAt: Date.now(),
     });

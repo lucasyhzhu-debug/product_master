@@ -52,13 +52,16 @@ export function useChannelBackfillPreflight(source: ExternalSource): {
   isLoading: boolean;
 } {
   const { user } = useAuth();
+  const hasToken = Boolean(user?.token);
   const data = useQuery(
     api.productInventory.backfill.getChannelBackfillPreflight,
-    user?.token ? { source, token: user.token } : "skip",
+    hasToken ? { source, token: user!.token } : "skip",
   ) as ChannelBackfillPreflight | undefined;
+  // Skipped queries never resolve — don't report isLoading:true forever when
+  // the hook is used outside an authenticated route.
   return {
     data,
-    isLoading: data === undefined,
+    isLoading: hasToken ? data === undefined : false,
   };
 }
 

@@ -160,10 +160,15 @@ function ChannelBackfillCard({
   const pending = preflight.data?.pendingItems ?? 0;
   const blocking = preflight.data?.blockingAuditIssues ?? 0;
   const isEmpty = !preflight.isLoading && pending === 0;
+  // Backend caps at 5000 (see CHANNEL_BACKFILL_PREFLIGHT_CAP); anything at or above
+  // the cap means "5000+" — display with a trailing + so the user knows it's truncated.
+  const PREFLIGHT_CAP = 5000;
+  const pendingDisplay =
+    pending >= PREFLIGHT_CAP ? `${PREFLIGHT_CAP}+` : String(pending);
   // GrabFood permanent-OFF: distinct branch from generic isEmpty so the UI can
   // communicate "awaiting OAuth scope" instead of silently showing "No pending items".
   const isGrabFoodAwaitingScope =
-    source.value === "grabfood" && !preflight.isLoading && pending === 0;
+    source.value === "grabfood" && isEmpty;
 
   const handleRun = async () => {
     if (!token) {
@@ -236,7 +241,7 @@ function ChannelBackfillCard({
           <div>
             Pending items:{" "}
             <span className="font-semibold tabular-nums">
-              {preflight.isLoading ? "…" : pending}
+              {preflight.isLoading ? "…" : pendingDisplay}
             </span>
           </div>
           {blocking > 0 && (
