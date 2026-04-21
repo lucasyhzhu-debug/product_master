@@ -220,8 +220,20 @@ function aggregateWeek(
   journalAggregation: {
     opex: { items: Array<{ code: string; name: string; total: number }>; total: number };
     other: { items: Array<{ code: string; name: string; total: number }>; total: number };
-  }
+  },
+  // Phase 75 new params:
+  fixedAssets: Doc<"fixedAssets">[],
+  missingReversals: GapAnalysis["missingReversals"],
+  periodStart: number,
+  periodEnd: number
 ): WeekData {
+  // Phase 75: params threaded through for Task 3 (CapEx/FCF math) and Task 4 (missingReversals wiring).
+  // Intentional no-op to satisfy TypeScript without disabling strict unused-var checks.
+  void fixedAssets;
+  void missingReversals;
+  void periodStart;
+  void periodEnd;
+
   // ── 4a: Per-channel revenue aggregation ──
 
   // Group revenue records by source
@@ -558,6 +570,8 @@ async function fetchAndAggregate(
     otherAccounts,
     currentJournalLines,
     previousJournalLines,
+    allFixedAssets,
+    convertedExpenses,
   ] = await Promise.all([
     // externalRevenue for current period — both bounds applied at index level
     ctx.db
@@ -609,6 +623,13 @@ async function fetchAndAggregate(
       .collect(),
     ctx.db.query("journalEntryLines")
       .withIndex("by_entryDate", (q) => q.gte("entryDate", previousStart).lt("entryDate", previousEnd))
+      .collect(),
+    // Phase 75 FIN-01: All fixedAssets (scan acceptable at current scale per RESEARCH §1)
+    ctx.db.query("fixedAssets").collect(),
+    // Phase 75 D-15: Expenses converted to assets (scan — tiny subset)
+    ctx.db
+      .query("expenses")
+      .filter((q) => q.neq(q.field("convertedToAssetId"), undefined))
       .collect(),
   ]);
 
@@ -678,6 +699,52 @@ async function fetchAndAggregate(
     fetchInternalOrderDataMap(ctx, previousRevenue),
   ]);
 
+  // Phase 75 D-15: Fetch journal entries for converted expenses (parallel, small subset)
+  const convertedExpenseJeIds = convertedExpenses
+    .filter((e) => e.journalEntryId)
+    .map((e) => e.journalEntryId!);
+  const convertedExpenseJes = await Promise.all(
+    convertedExpenseJeIds.map((id) => ctx.db.get(id))
+  );
+  const jeByIdMap = new Map<string, Doc<"journalEntries"> | null>();
+  for (let i = 0; i < convertedExpenseJeIds.length; i++) {
+    jeByIdMap.set(convertedExpenseJeIds[i] as string, convertedExpenseJes[i]);
+  }
+
+  // Phase 75 D-15: Build missingReversals lists per period (converted expenses with un-reversed JEs)
+  function buildMissingReversals(
+    start: number,
+    end: number
+  ): GapAnalysis["missingReversals"] {
+    return convertedExpenses
+      .filter(
+        (e) =>
+          e.expenseDate >= start &&
+          e.expenseDate < end &&
+          e.journalEntryId
+      )
+      .map((e) => ({
+        expense: e,
+        je: jeByIdMap.get(e.journalEntryId! as string) ?? null,
+      }))
+      .filter(({ je }) => je && je.isReversed !== true)
+      .map(({ expense, je }) => ({
+        expenseId: expense._id,
+        description: expense.description,
+        expenseDate: expense.expenseDate,
+        journalEntryId: je!._id,
+      }));
+  }
+
+  const currentMissingReversals = buildMissingReversals(
+    currentStart,
+    currentEnd
+  );
+  const previousMissingReversals = buildMissingReversals(
+    previousStart,
+    previousEnd
+  );
+
   // Build COGS map
   // Filter inactive componentTypes to exclude discontinued items from cost calculations.
   const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
@@ -706,7 +773,11 @@ async function fetchAndAggregate(
     cogsMap,
     currentOrderDataMap,
     allComponentTypes,
-    { opex: currentOpex, other: currentOther }
+    { opex: currentOpex, other: currentOther },
+    allFixedAssets,
+    currentMissingReversals,
+    currentStart,
+    currentEnd
   );
   const previousPeriod = aggregateWeek(
     previousRevenue,
@@ -715,7 +786,11 @@ async function fetchAndAggregate(
     cogsMap,
     previousOrderDataMap,
     allComponentTypes,
-    { opex: previousOpex, other: previousOther }
+    { opex: previousOpex, other: previousOther },
+    allFixedAssets,
+    previousMissingReversals,
+    previousStart,
+    previousEnd
   );
 
   // Compute deltas
