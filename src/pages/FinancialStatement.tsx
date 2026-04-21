@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useFinancials } from "@/hooks/convex/useFinancials";
 import { useDepreciationReminder } from "@/hooks/convex/useFixedAssets";
 import { useAuth } from "@/contexts/AuthContext";
@@ -587,9 +587,9 @@ export function FinancialStatement() {
                 showComparison={showComparison}
               />
 
-              {/* -- GROSS PROFIT -- */}
+              {/* -- CONTRIBUTION MARGIN / GROSS PROFIT (Phase 75 D-07 canonical layout) -- */}
               <PLRow
-                label="GROSS PROFIT"
+                label="CONTRIBUTION MARGIN"
                 currentAmount={data.current.grossProfit}
                 previousAmount={data.previous.grossProfit}
                 delta={data.deltas.grossProfit}
@@ -608,9 +608,9 @@ export function FinancialStatement() {
                 showComparison={showComparison}
               />
 
-              {/* -- OPERATING EXPENSES SECTION -- */}
+              {/* -- OPERATING EXPENSES (excl. D/A) SECTION (Phase 75 D-08) -- */}
               <SectionHeaderRow
-                label="Operating Expenses"
+                label="Operating Expenses (excl. D/A)"
                 isExpanded={opexExpanded}
                 onToggle={() => setOpexExpanded(!opexExpanded)}
               />
@@ -633,16 +633,54 @@ export function FinancialStatement() {
                 />
               ))}
 
-              {/* Total Operating Expenses (always visible) */}
+              {/* Total Operating Expenses (excl. D/A) — Phase 75 D-08 */}
               <PLRow
-                label="Total Operating Expenses"
-                currentAmount={data.current.totalOpEx}
-                previousAmount={data.previous.totalOpEx}
-                delta={data.deltas.totalOpEx}
+                label="Total Operating Expenses (excl. D/A)"
+                currentAmount={data.current.opexExcludingDA}
+                previousAmount={data.previous.opexExcludingDA}
+                delta={data.deltas.opexExcludingDA}
                 isNegative
                 invertColor
                 isBold
                 showComparison={showComparison}
+              />
+
+              {/* -- EBITDA (Phase 75 D-07: EBITDA first, then D/A, then EBIT) -- */}
+              <PLRow
+                label="EBITDA"
+                currentAmount={data.current.ebitda}
+                previousAmount={data.previous.ebitda}
+                delta={data.deltas.ebitda}
+                isBold
+                showComparison={showComparison}
+                isTopBorder
+              />
+
+              {/* EBITDA Margin % row */}
+              <MarginRow
+                label="EBITDA Margin %"
+                currentPct={data.current.ebitdaMarginPercent}
+                previousPct={data.previous.ebitdaMarginPercent}
+                deltaPp={data.deltas.ebitdaMarginPp}
+                showComparison={showComparison}
+              />
+
+              {/* Phase 75 FIN-01 D-08, D-09: Depreciation & Amortization as its own line */}
+              <PLRow
+                label="Depreciation & Amortization"
+                currentAmount={data.current.depreciationAmortization}
+                previousAmount={data.previous.depreciationAmortization}
+                delta={data.deltas.depreciationAmortization}
+                isNegative
+                invertColor
+                indent={1}
+                confidence="exact"
+                showComparison={showComparison}
+                labelTooltip={
+                  data.current.amortizationAmount > 0 || data.current.depreciationAmount > 0
+                    ? `Depreciation: ${formatCurrency(data.current.depreciationAmount)} | Amortization: ${formatCurrency(data.current.amortizationAmount)}`
+                    : undefined
+                }
               />
 
               {/* -- EBIT -- */}
@@ -662,26 +700,6 @@ export function FinancialStatement() {
                 currentPct={data.current.ebitMarginPercent}
                 previousPct={data.previous.ebitMarginPercent}
                 deltaPp={data.deltas.ebitMarginPp}
-                showComparison={showComparison}
-              />
-
-              {/* -- EBITDA -- */}
-              <PLRow
-                label="EBITDA"
-                currentAmount={data.current.ebitda}
-                previousAmount={data.previous.ebitda}
-                delta={data.deltas.ebitda}
-                isBold
-                showComparison={showComparison}
-                isTopBorder
-              />
-
-              {/* EBITDA Margin % row */}
-              <MarginRow
-                label="EBITDA Margin %"
-                currentPct={data.current.ebitdaMarginPercent}
-                previousPct={data.previous.ebitdaMarginPercent}
-                deltaPp={data.deltas.ebitdaMarginPp}
                 showComparison={showComparison}
               />
 
@@ -733,6 +751,48 @@ export function FinancialStatement() {
                 currentPct={data.current.netMarginPercent}
                 previousPct={data.previous.netMarginPercent}
                 deltaPp={data.deltas.netMarginPp}
+                showComparison={showComparison}
+              />
+
+              {/* Phase 75 FIN-01 D-13, D-14: CapEx (always render, even at 0) */}
+              <PLRow
+                label="CapEx (Fixed Asset Acquisitions)"
+                currentAmount={data.current.capExAmount}
+                previousAmount={data.previous.capExAmount}
+                delta={data.deltas.capExAmount}
+                isNegative
+                invertColor
+                isBold
+                confidence="exact"
+                showComparison={showComparison}
+                isTopBorder
+                helperText={
+                  data.current.capExAmount === 0
+                    ? "No asset acquisitions this period"
+                    : undefined
+                }
+              />
+
+              {/* Phase 75 FIN-01 D-13: Free Cash Flow */}
+              <PLRow
+                label="FREE CASH FLOW"
+                currentAmount={data.current.freeCashFlow}
+                previousAmount={data.previous.freeCashFlow}
+                delta={data.deltas.freeCashFlow}
+                indent={0}
+                isBold
+                confidence="calculated"
+                showComparison={showComparison}
+                isTopBorder
+                labelTooltip="Free Cash Flow = Net Income + Depreciation & Amortization − CapEx"
+              />
+
+              {/* FCF Margin % row */}
+              <MarginRow
+                label="FCF Margin %"
+                currentPct={data.current.fcfMarginPercent}
+                previousPct={data.previous.fcfMarginPercent}
+                deltaPp={data.deltas.fcfMarginPp}
                 showComparison={showComparison}
               />
             </tbody>
