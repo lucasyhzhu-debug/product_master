@@ -117,6 +117,28 @@
 - [x] EntityManager `canDelete` prop enhancement (reusable for all entity pages)
 - [x] Two rounds of triple-review fixes applied
 
+### v2.0 Financial Management & Data Quality (In Progress)
+
+#### Phase 75: Full P&L Extension (Completed 2026-04-21)
+
+**Requirements:** FIN-01 (P&L extends Net Income → D/A → CapEx → Free Cash Flow), FIN-02 (per-channel flows through Contribution Margin)
+
+**Plans:** 5/5 complete — Status: **Complete**
+
+- [x] 75-00: Wave 0 TDD scaffolding — 14 failing tests across 4 files (CapEx/FCF, missingReversals, CSV rows, ChannelRow)
+- [x] 75-01: Backend CapEx / FCF / D/A extraction — extends `getIncomeStatement` with 5 new `WeekData` fields + `gapAnalysis.missingReversals`
+- [x] 75-02: Frontend EBITDA-first canonical layout — `/financials` page reorganised; D/A row between EBITDA and EBIT; CapEx + FCF rows; `DataQualityPanel` surfaces missingReversals
+- [x] 75-03: CSV export extension — `generateIncomeStatementCSV` emits canonical rows matching on-screen layout; channel column `All` below Contribution Margin
+- [x] 75-04: Wave 3 verification + docs — full test suite green (1727 pass), `npm run build` clean, CHANGELOG / ROADMAP / API_REFERENCE updated
+
+**Delivered:**
+- [x] Canonical EBITDA-first P&L layout (Revenue → Net Revenue → COGS → Contribution Margin → OpEx excl. D/A → EBITDA → D/A → EBIT → Net Income → CapEx → Free Cash Flow)
+- [x] FCF formula tooltip: `Free Cash Flow = Net Income + Depreciation & Amortization − CapEx`
+- [x] Zero-CapEx helper text: `No asset acquisitions this period`
+- [x] Per-channel rows stop at Contribution Margin (label renamed from Gross Margin)
+- [x] `missingReversals` gap check flags Phase 71 converted expenses whose reversal JE is missing (silent double-count guard)
+- [x] CSV export mirrors on-screen layout 1:1
+
 ---
 
 ## Not Yet Implemented
@@ -188,6 +210,7 @@
 
 | Version | Date | Major Changes |
 |---------|------|---------------|
+| 6.0 | 2026-04-21 | Full P&L Extension: canonical EBITDA-first layout, CapEx + Free Cash Flow, Contribution Margin rename (v2.0 Phase 75, closes FIN-01 / FIN-02) |
 | 5.0 | 2026-03-13 | Accounting foundation: schema + journal engine + Chart of Accounts UI (v1.7 Phases 41-43) |
 | 4.0 | 2026-03-02 | Income Statement: backend query + frontend P&L page + CSV export (v1.5 Phases 32-33) |
 | 3.4 | 2026-02-09 | GoBiz journal-level integration (5-metric revenue + item details) |
