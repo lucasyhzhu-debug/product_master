@@ -46,5 +46,12 @@ export function useChannelFlags(token: string | undefined) {
   const setFlag = useMutation(
     api.productInventory.channelFlags.setChannelDeductionFlag,
   );
-  return { flags, setFlag };
+  // Phase 74.5.2.1 — D74.5.2-L14 composite flip. Atomically sets both
+  // `k3mart` and `consignment` flags in one mutation. Prevents the
+  // accidental out-of-sync state that occurs when an operator flips only
+  // one flag via the individual per-source switches above.
+  const flipK3MartBundle = useMutation(
+    api.productInventory.channelFlags.flipK3MartBundle,
+  );
+  return { flags, setFlag, flipK3MartBundle };
 }
