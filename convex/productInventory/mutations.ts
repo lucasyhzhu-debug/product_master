@@ -8,10 +8,9 @@
 
 import { mutation, internalMutation } from "../_generated/server";
 import { ConvexError, v } from "convex/values";
-import type { Id, Doc } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { logStatusTransition } from "../orders/helpers/statusTransitions";
-import { ensureDepotLocation } from "./depotAutoSeed";
 import { resolveSubstitutionPlan } from "./substitution";
 import { createStockTracker, type StockEntry } from "./stockTracker";
 
@@ -703,165 +702,9 @@ export const bulkStockCount = mutation({
   },
 });
 
-/**
- * Process GoFood sales — Auto-deduct finished goods for GoFood sync.
- *
- * Internal-only (called from GoBiz adapter Phase D).
- * Deducts from the storage location linked to each outlet.
- * Negative stock is ALLOWED — GoFood sales must never be blocked.
- *
- * Items are keyed by (outletId, menuProductId) — deduct from the outlet's
- * linked depot location.
- */
-export const processGofoodSales = internalMutation({
-  args: {
-    items: v.array(v.object({
-      menuProductId: v.id("menuProducts"),
-      quantity: v.number(),
-      outletId: v.id("externalOutlets"),
-      gofoodOrderRef: v.optional(v.string()),
-    })),
-  },
-  handler: async (ctx, args) => {
-    if (args.items.length === 0) {
-      return { processed: 0, lowStockAlerts: 0 };
-    }
-
-    // Load global threshold from settings (for low-stock detection)
-    const settings = await ctx.db.query("productInventorySettings").first();
-    const globalThreshold = settings?.globalLowStockThreshold ?? 5;
-
-    // Cache outletId -> linkedStorageLocationId mapping to avoid repeated queries
-    const outletLocationCache = new Map<string, Id<"storageLocations"> | null>();
-    const menuProductCache = new Map<string, Doc<"menuProducts"> | null>();
-    const stockTracker = createStockTracker(ctx);
-
-    const getMenuProduct = async (id: Id<"menuProducts">): Promise<Doc<"menuProducts"> | null> => {
-      const key = String(id);
-      if (menuProductCache.has(key)) return menuProductCache.get(key) ?? null;
-      const row = await ctx.db.get(id);
-      menuProductCache.set(key, row);
-      return row;
-    };
-
-    const now = Date.now();
-    let processed = 0;
-    let lowStockAlerts = 0;
-
-    for (const item of args.items) {
-      // Resolve the linked storage location for this outlet
-      const outletIdStr = item.outletId as string;
-      let linkedLocationId: Id<"storageLocations"> | null;
-
-      if (outletLocationCache.has(outletIdStr)) {
-        linkedLocationId = outletLocationCache.get(outletIdStr) ?? null;
-      } else {
-        const outlet = await ctx.db.get(item.outletId);
-        linkedLocationId = outlet?.linkedStorageLocationId ?? null;
-
-        if (!linkedLocationId) {
-          // Auto-seed: create depot location and link outlet (reuse fetched outlet)
-          if (!outlet) {
-            console.warn(`processGofoodSales: outlet ${outletIdStr} not found in DB — skipping item`);
-            outletLocationCache.set(outletIdStr, null);
-            continue;
-          }
-          const autoSeeded = await ensureDepotLocation(ctx, item.outletId, outlet.name);
-          if (!autoSeeded) {
-            console.warn(`processGofoodSales: outlet ${outletIdStr} could not be auto-seeded — skipping item`);
-            outletLocationCache.set(outletIdStr, null);
-            continue;
-          }
-          linkedLocationId = autoSeeded;
-        }
-
-        outletLocationCache.set(outletIdStr, linkedLocationId);
-      }
-
-      if (!linkedLocationId) {
-        // Cached null from a previous failed auto-seed attempt
-        continue;
-      }
-
-      const locationId: Id<"storageLocations"> = linkedLocationId;
-
-      // Phase 78: Use cached menuProduct + stock tracker so multiple items sharing
-      // the same direct product or substitute source aggregate correctly.
-      const menuProduct = await getMenuProduct(item.menuProductId);
-      if (!menuProduct) {
-        console.warn(`processGofoodSales: menuProduct ${item.menuProductId} not found — skipping item`);
-        continue;
-      }
-      const directStock = await stockTracker.getStock(item.menuProductId, locationId);
-
-      let sourceProduct: Doc<"menuProducts"> | null = null;
-      let substituteStock: StockEntry | null = null;
-
-      if (menuProduct.fulfillFromProductId && menuProduct.fulfillMultiplier) {
-        sourceProduct = await getMenuProduct(menuProduct.fulfillFromProductId);
-        if (sourceProduct) {
-          substituteStock = await stockTracker.getStock(menuProduct.fulfillFromProductId, locationId);
-        }
-      }
-
-      const plan = resolveSubstitutionPlan(
-        item.quantity,
-        directStock.runningQty,
-        menuProduct,
-        sourceProduct,
-      );
-
-      // Deduct direct stock (if any)
-      if (plan.directUnits > 0) {
-        const prevQty = directStock.runningQty;
-        const newQty = prevQty - plan.directUnits;
-        directStock.runningQty = newQty;
-
-        await ctx.db.insert("productInventoryTransactions", {
-          menuProductId: item.menuProductId,
-          locationId,
-          transactionType: "gofood_sale",
-          quantity: -plan.directUnits,
-          previousQuantity: prevQty,
-          newQuantity: newQty,
-          gofoodOrderRef: item.gofoodOrderRef,
-          performedBy: "system:gobiz_sync",
-          createdAt: now,
-        });
-
-        if (prevQty > globalThreshold && newQty <= globalThreshold) {
-          lowStockAlerts++;
-        }
-      }
-
-      // Deduct substitute stock (if needed)
-      if (plan.needsSubstitution && plan.substituteUnits > 0 && sourceProduct && substituteStock) {
-        const subPrevQty = substituteStock.runningQty;
-        const subNewQty = subPrevQty - plan.substituteUnits;
-        substituteStock.runningQty = subNewQty;
-
-        await ctx.db.insert("productInventoryTransactions", {
-          menuProductId: sourceProduct._id,
-          locationId,
-          transactionType: "gofood_sale",
-          quantity: -plan.substituteUnits,
-          previousQuantity: subPrevQty,
-          newQuantity: subNewQty,
-          gofoodOrderRef: item.gofoodOrderRef,
-          performedBy: "system:gobiz_sync",
-          createdAt: now,
-        });
-
-        if (subPrevQty > globalThreshold && subNewQty <= globalThreshold) {
-          lowStockAlerts++;
-        }
-      }
-
-      processed++;
-    }
-
-    await stockTracker.flush(now);
-
-    return { processed, lowStockAlerts };
-  },
-});
+// Phase 74.5.2 Plan 08: legacy per-source GoFood deduction mutation retired.
+// GoFood deductions now flow through the unified `saveRevenueItems` →
+// `processChannelSaleInternal` path (writes `transactionType: "channel_sale"`
+// + `source: "gobiz"`). The `channelDeductionEnabled.gobiz` flag gates
+// dispatch; historical legacy-typed ledger rows are rewritten by
+// `convex/migrations/gofoodSaleToChannelSale.ts` (Plan 04).

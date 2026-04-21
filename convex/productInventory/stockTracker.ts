@@ -7,7 +7,9 @@
  *
  * Used by:
  * - productInventory/mutations.ts > fulfillFromInventory (single location)
- * - productInventory/mutations.ts > processGofoodSales (multi-location)
+ * - productInventory/channelSale.ts > processChannelSaleInternal (multi-location
+ *   via saveRevenueItems batches; this is the only remaining deduct path after
+ *   Phase 74.5.2 Plan 08 retired the per-source legacy GoFood mutation).
  */
 
 import type { MutationCtx } from "../_generated/server";
