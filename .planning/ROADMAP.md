@@ -431,7 +431,7 @@ Plans:
 5. Admin can reassign `{source → storageLocation}` via UI without code deploy; change takes effect on next sale event
 6. `npm run build` + test suite + full regression harness green
 
-**Plans:** 10/10 plans complete (2026-04-21)
+**Plans:** 10/10 plans complete
 
 Plans:
 - [x] 74.5.2-01-channel-audit-test-fix-PLAN.md — Wave 0: fix convex-test module resolution (4 red tests → green) + tighten BigSeller normalize platform literal
@@ -663,7 +663,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
 | 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
-| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 10/10 | Complete    | 2026-04-21 |
+| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 10/10 | Complete   | 2026-04-21 |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |

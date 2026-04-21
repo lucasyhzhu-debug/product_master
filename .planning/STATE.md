@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: executing
-stopped_at: Completed 74.5.2-03-backfill-tests-PLAN.md — ready for Plan 04 (gofood migration action)
-last_updated: "2026-04-21T03:37:13.577Z"
-last_activity: 2026-04-21 -- Phase 74.5.2 execution started
+stopped_at: Completed 74.5.2-10-polish-and-docs-PLAN.md — Phase 74.5.2 at 10/10 plans, ready for verifier/merge
+last_updated: "2026-04-21T05:26:33.723Z"
+last_activity: 2026-04-21
 progress:
   total_phases: 21
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 70
-  completed_plans: 58
-  percent: 83
+  completed_plans: 65
+  percent: 93
 ---
 
 # Project State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 74.5.2 (unified-deduct-cutover) — EXECUTING
-Plan: 1 of 10
-Status: Executing Phase 74.5.2
-Last activity: 2026-04-21 -- Phase 74.5.2 execution started
+Plan: 2 of 10
+Status: Ready to execute
+Last activity: 2026-04-21
 
 Progress: [████████▌░] 84%
 
@@ -50,6 +50,7 @@ No new decisions yet for v2.0.
 - [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
 - [Phase 74.5.2]: Plan 02: Added `by_source_deductedAt` compound index on `externalRevenueItems` + created `convex/productInventory/backfill.ts` with 4 exports (backfillOnePage / backfillChannelDeductions / runChannelBackfill / getChannelBackfillPreflight). Admin-gated, flag-independent (D74.5.2-L13), preserves revenue.transactionDate as createdAt (D-16), set-once idempotency via inventoryDeductedAt patched ONLY on result.deducted===true (D-19), silent-drop guard for null linkedMenuProductId (D74.5.2-L4), 100K row runaway cap via MAX_ITERATIONS=500.
 - [Phase 74.5.2]: Plan 03: 8 regression tests for backfill.ts (idempotency, timestamp preservation, D74.5.2-L4 silent-drop guard, admin gate, D74.5.2-L13 flag-independence, per-source isolation, 200+ item chunking, preflight per-source audit gate). Applied Plan 01 / D74.5.2-L1 precedent: convex-test's module resolver fails for t.mutation(internal.*) / t.query(api.*) against the productInventory subtree; fixed by adding _backfillOnePageForTest / _runChannelBackfillForTest / _getChannelBackfillPreflightForTest test-only direct-handler exports to backfill.ts (mirrors channelAudit.ts _runFullAuditForTest).
+- [Phase 74.5.2]: Plan 10: Task 1 (lint polish on AuditIssueTypeBadge + ChannelRoutingManager) was a no-op — both files already lint-clean from 74.5.1 triple-review commit bf036387. Documented as (No-op) entries in CHANGELOG Fixed section. Task 2 shipped comprehensive docs sweep: CHANGELOG + SCHEMA + API_REFERENCE + ROADMAP. Bonus scope: closed deferred-items.md tsc -b entry via appended Resolution section (kept existing _args + explicit result type annotation as structural fix).
 
 ### Open Blockers (carried forward)
 
@@ -72,6 +73,7 @@ No new decisions yet for v2.0.
 | Phase 80.2 P03 | 8min | 5 tasks | 5 files |
 | Phase 80.2 P04 | 10min | 2 tasks | 6 files |
 | Phase 74.5.2 P03 | 12 | 1 tasks | 2 files |
+| Phase 74.5.2 P10 | 14 | 2 tasks | 5 files |
 
 ### Roadmap Evolution
 
@@ -85,6 +87,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-04-21T03:24:55.741Z
-Stopped at: Completed 74.5.2-03-backfill-tests-PLAN.md — ready for Plan 04 (gofood migration action)
-Resume file: .planning/phases/74.5.2-unified-deduct-cutover/74.5.2-04-gofood-migration-action-PLAN.md
+Last session: 2026-04-21T05:26:33.717Z
+Stopped at: Completed 74.5.2-10-polish-and-docs-PLAN.md — Phase 74.5.2 at 10/10 plans, ready for verifier/merge
+Resume file: None
