@@ -23,9 +23,11 @@
  * historical transactionDate is preserved, NOT the wall-clock Date.now().
  */
 import { v } from "convex/values";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalAction, internalMutation, mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { externalSource } from "../schema";
+import type { ExternalSource } from "../lib/externalSource";
 import { requireRole } from "../lib/auth";
 import { buildEventFromRow, processChannelSaleInternal } from "./channelSale";
 
@@ -172,3 +174,90 @@ export const getChannelBackfillPreflight = query({
     };
   },
 });
+
+// ============================================================================
+// Test-only direct-handler helpers (D74.5.2-L1 / Plan 01 precedent).
+//
+// convex-test's `t.mutation(internal.*)` / `t.query(api.*)` resolver fails
+// with "Could not find module for: productInventory/backfill" for this
+// subtree despite an identical glob + module registration that works for
+// sibling tests. The same bug was diagnosed in Plan 01 for channelAudit.ts
+// (`_runFullAuditForTest`) and fixed via direct-handler exports.
+//
+// These helpers replicate the registered handlers verbatim against a single
+// ctx. Tests call them via `await t.run(async (ctx) => await _fooForTest(ctx, args))`.
+// Production behavior is unchanged — the registered endpoints continue to
+// call the same logic they always have.
+//
+// DO NOT call these from production code. Exported only for test access.
+// ============================================================================
+
+export const _backfillOnePageForTest = async (
+  ctx: MutationCtx,
+  args: { source: ExternalSource },
+): Promise<{ itemsProcessed: number; deducted: number; skipped: number }> => {
+  const items = await ctx.db
+    .query("externalRevenueItems")
+    .withIndex("by_source_deductedAt", (q) =>
+      q.eq("source", args.source).eq("inventoryDeductedAt", undefined))
+    .take(BATCH_SIZE);
+
+  let deducted = 0;
+  let skipped = 0;
+  for (const item of items) {
+    if (!item.linkedMenuProductId) {
+      skipped++;
+      continue;
+    }
+    const revenue = await ctx.db.get(item.revenueId);
+    if (!revenue) {
+      skipped++;
+      continue;
+    }
+    const event = buildEventFromRow(revenue, item);
+    const result = await processChannelSaleInternal(ctx, event);
+    if (result.deducted) {
+      await ctx.db.patch(item._id, { inventoryDeductedAt: Date.now() });
+      deducted++;
+    } else {
+      skipped++;
+    }
+  }
+  return { itemsProcessed: items.length, deducted, skipped };
+};
+
+export const _runChannelBackfillForTest = async (
+  ctx: MutationCtx,
+  args: { source: ExternalSource; token: string },
+): Promise<{ scheduled: true }> => {
+  // Mirror runChannelBackfill admin-gate. Skips scheduler.runAfter so the test
+  // can assert on gating alone (scheduler invocation is covered by Convex itself).
+  await requireRole(ctx, args.token, ["admin"]);
+  return { scheduled: true };
+};
+
+export const _getChannelBackfillPreflightForTest = async (
+  ctx: QueryCtx,
+  args: { source: ExternalSource; token: string },
+): Promise<{ pendingItems: number; blockingAuditIssues: number }> => {
+  await requireRole(ctx, args.token, ["admin"]);
+
+  const PREFLIGHT_CAP = 5000;
+  const pending = await ctx.db
+    .query("externalRevenueItems")
+    .withIndex("by_source_deductedAt", (q) =>
+      q.eq("source", args.source).eq("inventoryDeductedAt", undefined))
+    .take(PREFLIGHT_CAP);
+
+  const blockingIssues = await ctx.db
+    .query("channelAuditIssues")
+    .withIndex("by_source_open", (q) =>
+      q.eq("source", args.source).eq("resolvedAt", undefined))
+    .filter((q) => q.eq(q.field("severity"), "block"))
+    .take(1000);
+
+  return {
+    pendingItems: pending.length,
+    blockingAuditIssues: blockingIssues.length,
+  };
+};
