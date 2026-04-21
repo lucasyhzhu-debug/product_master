@@ -41,6 +41,13 @@ interface GapAnalysis {
   }>;
   totalMappedProducts: number;
   totalProducts: number;
+  // Phase 75 D-15: converted expenses whose reversal JE is missing (P&L may double-count)
+  missingReversals: Array<{
+    expenseId: string;
+    description: string;
+    expenseDate: number;
+    journalEntryId: string;
+  }>;
 }
 
 // TODO: This WeekData interface is duplicated from the canonical definition in
@@ -76,6 +83,12 @@ interface WeekData {
   totalOther: number;
   netIncome: number;
   netMarginPercent: number | null;
+  // Phase 75 FIN-01: Full P&L extension (D-07, D-08, D-13)
+  opexExcludingDA: number;
+  depreciationAmortization: number;
+  capExAmount: number;
+  freeCashFlow: number;
+  fcfMarginPercent: number | null;
 }
 
 export interface IncomeStatementData {
@@ -101,6 +114,12 @@ export interface IncomeStatementData {
     totalOther: { amount: number; percent: number | null };
     netIncome: { amount: number; percent: number | null };
     netMarginPp: number | null;
+    // Phase 75 FIN-01 deltas
+    opexExcludingDA: { amount: number; percent: number | null };
+    depreciationAmortization: { amount: number; percent: number | null };
+    capExAmount: { amount: number; percent: number | null };
+    freeCashFlow: { amount: number; percent: number | null };
+    fcfMarginPp: number | null;
   };
 }
 
@@ -341,13 +360,13 @@ export function generateIncomeStatementCSV(
     formatPrecomputedDelta(data.deltas.totalCogs),
   ]);
 
-  // --- GROSS PROFIT ---
+  // --- GROSS PROFIT / CONTRIBUTION MARGIN (Phase 75 FIN-02 D-10) ---
 
   rows.push([
     periodStr,
     "summary",
     "All",
-    "Gross Profit",
+    "Gross Profit / Contribution Margin",
     String(data.current.grossProfit),
     "calculated",
     String(data.previous.grossProfit),
@@ -409,53 +428,21 @@ export function generateIncomeStatementCSV(
     }
   }
 
-  // Total Operating Expenses
+  // Total Operating Expenses (excl. D/A) — Phase 75 D-08
+  // RENAMED from "Total Operating Expenses" to signal D/A has been split out.
+  // Amount uses opexExcludingDA (backend pre-filtered 6150/6160); previously used totalOpEx.
   rows.push([
     periodStr,
     "opex",
     "All",
-    "Total Operating Expenses",
-    String(-data.current.totalOpEx),
+    "Total Operating Expenses (excl. D/A)",
+    String(-data.current.opexExcludingDA),
     "exact",
-    String(-data.previous.totalOpEx),
-    formatPrecomputedDelta(data.deltas.totalOpEx),
+    String(-data.previous.opexExcludingDA),
+    formatPrecomputedDelta(data.deltas.opexExcludingDA),
   ]);
 
-  // EBIT (Operating Profit)
-  rows.push([
-    periodStr,
-    "summary",
-    "All",
-    "EBIT (Operating Profit)",
-    String(data.current.ebit),
-    "exact",
-    String(data.previous.ebit),
-    formatPrecomputedDelta(data.deltas.ebit),
-  ]);
-
-  // EBIT Margin %
-  const ebitMarginStr =
-    data.current.ebitMarginPercent !== null
-      ? data.current.ebitMarginPercent.toFixed(1) + "%"
-      : "N/A";
-  const prevEbitMarginStr =
-    data.previous.ebitMarginPercent !== null
-      ? data.previous.ebitMarginPercent.toFixed(1) + "%"
-      : "N/A";
-  rows.push([
-    periodStr,
-    "summary",
-    "All",
-    "EBIT Margin %",
-    ebitMarginStr,
-    "",
-    prevEbitMarginStr,
-    data.deltas.ebitMarginPp !== null
-      ? data.deltas.ebitMarginPp.toFixed(1) + "pp"
-      : "",
-  ]);
-
-  // EBITDA
+  // EBITDA — Phase 75 D-07 (moved ABOVE EBIT per canonical EBITDA-first order)
   rows.push([
     periodStr,
     "summary",
@@ -486,6 +473,53 @@ export function generateIncomeStatementCSV(
     prevEbitdaMarginStr,
     data.deltas.ebitdaMarginPp !== null
       ? data.deltas.ebitdaMarginPp.toFixed(1) + "pp"
+      : "",
+  ]);
+
+  // Depreciation & Amortization — Phase 75 D-08, D-09 NEW
+  // Extracted from 6150/6160 OpEx accounts; rendered as negative cash flow.
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "Depreciation & Amortization",
+    String(-data.current.depreciationAmortization),
+    "exact",
+    String(-data.previous.depreciationAmortization),
+    formatPrecomputedDelta(data.deltas.depreciationAmortization),
+  ]);
+
+  // EBIT (Operating Profit) — Phase 75 D-07 (moved BELOW D/A per canonical order)
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "EBIT (Operating Profit)",
+    String(data.current.ebit),
+    "exact",
+    String(data.previous.ebit),
+    formatPrecomputedDelta(data.deltas.ebit),
+  ]);
+
+  // EBIT Margin %
+  const ebitMarginStr =
+    data.current.ebitMarginPercent !== null
+      ? data.current.ebitMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  const prevEbitMarginStr =
+    data.previous.ebitMarginPercent !== null
+      ? data.previous.ebitMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "EBIT Margin %",
+    ebitMarginStr,
+    "",
+    prevEbitMarginStr,
+    data.deltas.ebitMarginPp !== null
+      ? data.deltas.ebitMarginPp.toFixed(1) + "pp"
       : "",
   ]);
 
@@ -569,6 +603,55 @@ export function generateIncomeStatementCSV(
       : "",
   ]);
 
+  // --- CAPEX + FREE CASH FLOW BLOCK (Phase 75 D-13) ---
+  // Always emit, even at 0 (D-14 — structural row for accountant handoff).
+
+  // CapEx (Fixed Asset Acquisitions) — D-13 NEW (negative cash outflow)
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "CapEx (Fixed Asset Acquisitions)",
+    String(-data.current.capExAmount),
+    "exact",
+    String(-data.previous.capExAmount),
+    formatPrecomputedDelta(data.deltas.capExAmount),
+  ]);
+
+  // Free Cash Flow — D-13 NEW (can be negative if acquisitions > NI + D&A)
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "Free Cash Flow",
+    String(data.current.freeCashFlow),
+    "exact",
+    String(data.previous.freeCashFlow),
+    formatPrecomputedDelta(data.deltas.freeCashFlow),
+  ]);
+
+  // FCF Margin %
+  const fcfMarginStr =
+    data.current.fcfMarginPercent !== null
+      ? data.current.fcfMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  const prevFcfMarginStr =
+    data.previous.fcfMarginPercent !== null
+      ? data.previous.fcfMarginPercent.toFixed(1) + "%"
+      : "N/A";
+  rows.push([
+    periodStr,
+    "summary",
+    "All",
+    "FCF Margin %",
+    fcfMarginStr,
+    "",
+    prevFcfMarginStr,
+    data.deltas.fcfMarginPp !== null
+      ? data.deltas.fcfMarginPp.toFixed(1) + "pp"
+      : "",
+  ]);
+
   // --- FOOTER: Data Quality Notes ---
 
   rows.push([]); // Empty row separator
@@ -596,6 +679,16 @@ export function generateIncomeStatementCSV(
   if (gap.zeroCostComponents.length > 0) {
     rows.push([
       `# Zero-cost components: ${gap.zeroCostComponents.map((c) => c.name).join(", ")}`,
+    ]);
+  }
+
+  // Phase 75 D-15: flag expenses converted to fixed assets without a reversal JE
+  // (P&L may double-count — expense row still posted while asset depreciation also hits D/A).
+  if (gap.missingReversals.length > 0) {
+    rows.push([
+      `# Missing reversal JEs (P&L may double-count): ${gap.missingReversals
+        .map((r) => `${r.description} [${new Date(r.expenseDate).toISOString().slice(0, 10)}]`)
+        .join("; ")}`,
     ]);
   }
 
