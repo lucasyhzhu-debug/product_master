@@ -36,7 +36,7 @@ import { describe, expect, test } from "vitest";
 import schema from "../../schema";
 import type { Id } from "../../_generated/dataModel";
 
-// @ts-expect-error — module created in Wave 2a (Plan 04, parallel worktree)
+// Direct-handler test shims per D74.5.2-L1 (added in bridge commit after Wave 2 merge).
 import {
   _migrateOnePageForTest,
   _migrateGofoodSaleToChannelSaleForTest,

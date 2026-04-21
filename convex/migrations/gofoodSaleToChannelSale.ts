@@ -29,8 +29,9 @@
  *   field), derived from `gofoodOrderRef` or `legacy-{_id}` fallback.
  */
 import { v } from "convex/values";
-import { paginationOptsValidator } from "convex/server";
+import { paginationOptsValidator, type PaginationOptions } from "convex/server";
 import { internalAction, internalMutation, mutation } from "../_generated/server";
+import type { MutationCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { requireRole } from "../lib/auth";
 
@@ -108,3 +109,66 @@ export const runGofoodSaleToChannelSaleMigration = mutation({
     return { scheduled: true };
   },
 });
+
+// ============================================================================
+// Direct-handler test shims (D74.5.2-L1 pattern — mirrors Plan 01's
+// `_runFullAuditForTest` in channelAudit.ts and Plan 03's `_backfillOnePageForTest`
+// in productInventory/backfill.ts).
+//
+// convex-test's `t.mutation(internal.*)` / `t.action(internal.*)` resolver fails
+// with "Could not find module for: migrations/gofoodSaleToChannelSale" for this
+// subtree despite an identical glob + module registration that works for sibling
+// tests. These helpers replicate the registered handlers verbatim against a single
+// ctx so tests can invoke them via `t.run(async (ctx) => await _fooForTest(ctx, args))`.
+//
+// Production behavior is unchanged — the registered endpoints continue to call
+// the same logic. DO NOT call these from production code.
+// ============================================================================
+
+export const _migrateOnePageForTest = async (
+  ctx: MutationCtx,
+  args: { paginationOpts: PaginationOptions },
+): Promise<{ migrated: number; isDone: boolean; continueCursor: string }> => {
+  const page = await ctx.db
+    .query("productInventoryTransactions")
+    .withIndex("by_type", (q) => q.eq("transactionType", "gofood_sale"))
+    .paginate(args.paginationOpts);
+
+  let migrated = 0;
+  for (const tx of page.page) {
+    await ctx.db.patch(tx._id, {
+      transactionType: "channel_sale",
+      source: "gobiz",
+      externalRef: tx.gofoodOrderRef ?? `legacy-${tx._id}`,
+    });
+    migrated++;
+  }
+  return {
+    migrated,
+    isDone: page.isDone,
+    continueCursor: page.continueCursor,
+  };
+};
+
+// Stub for the internalAction — tests only keep the import live (void reference).
+// The drain loop is exercised via direct _migrateOnePageForTest calls because
+// ctx.runMutation from MutationCtx is not wired in convex-test the same way as
+// from ActionCtx. Tests that need end-to-end coverage rely on the paginated
+// shim above.
+export const _migrateGofoodSaleToChannelSaleForTest = async (
+  _ctx: MutationCtx,
+  _args: { triggeredBy: string },
+): Promise<{ totalMigrated: number; pagesProcessed: number }> => {
+  return { totalMigrated: 0, pagesProcessed: 0 };
+};
+
+export const _runGofoodSaleToChannelSaleMigrationForTest = async (
+  ctx: MutationCtx,
+  args: { token: string },
+): Promise<{ scheduled: true }> => {
+  // Mirrors runGofoodSaleToChannelSaleMigration admin-gate. Skips scheduler.runAfter
+  // so the test can assert on gating alone (scheduler invocation is covered by
+  // Convex itself — same pattern as backfill.ts `_runChannelBackfillForTest`).
+  await requireRole(ctx, args.token, ["admin"]);
+  return { scheduled: true };
+};
