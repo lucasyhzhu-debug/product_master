@@ -431,7 +431,7 @@ Plans:
 5. Admin can reassign `{source → storageLocation}` via UI without code deploy; change takes effect on next sale event
 6. `npm run build` + test suite + full regression harness green
 
-**Plans:** 5/10 plans executed
+**Plans:** 7/10 plans executed
 
 Plans:
 - [x] 74.5.2-01-channel-audit-test-fix-PLAN.md — Wave 0: fix convex-test module resolution (4 red tests → green) + tighten BigSeller normalize platform literal
@@ -439,8 +439,8 @@ Plans:
 - [x] 74.5.2-03-backfill-tests-PLAN.md — Wave 1: TDD suite (idempotency, timestamp preservation, null-menuProduct skip, admin-only gate)
 - [x] 74.5.2-04-gofood-migration-action-PLAN.md — Wave 2: forward-only migration gofood_sale → channel_sale + source=gobiz (paginated internalAction + 500-row internalMutation)
 - [x] 74.5.2-05-gofood-migration-tests-PLAN.md — Wave 2: migration tests (chunking, landmine literal, preservation, self-heal, admin gate)
-- [ ] 74.5.2-06-admin-backfill-ui-PLAN.md — Wave 3: extend UnlinkedProductsBackfill.tsx with 6 per-source cards + useChannelBackfill hooks
-- [ ] 74.5.2-07-consignment-breakdown-ui-PLAN.md — Wave 3: getSettlementItems query + tests + SettlementFormDialog item rows + OutletCard expandable breakdown
+- [x] 74.5.2-06-admin-backfill-ui-PLAN.md — Wave 3: extend UnlinkedProductsBackfill.tsx with 6 per-source cards + useChannelBackfill hooks
+- [x] 74.5.2-07-consignment-breakdown-ui-PLAN.md — Wave 3: getSettlementItems query + tests + SettlementFormDialog item rows + OutletCard expandable breakdown
 - [ ] 74.5.2-08-gofood-atomic-retirement-PLAN.md — Wave 4: delete processGofoodSales body + 2 gobiz adapter call sites + TransactionLogPanel hybrid display (ATOMIC commit per D74.5.2-L5)
 - [ ] 74.5.2-09-runbook-PLAN.md — Wave 5: write docs/CHANNEL_INTEGRATION.md (onboarding + cutover runbook + audit triage + backfill ops + rollback)
 - [ ] 74.5.2-10-polish-and-docs-PLAN.md — Wave 5: resolve 2 lint warnings + update CHANGELOG / SCHEMA / API_REFERENCE / ROADMAP
@@ -663,7 +663,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
 | 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
-| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 5/10 | In Progress|  |
+| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 7/10 | In Progress|  |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
