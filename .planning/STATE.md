@@ -4,14 +4,14 @@ milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: executing
 stopped_at: Completed 74.5.2-03-backfill-tests-PLAN.md — ready for Plan 04 (gofood migration action)
-last_updated: "2026-04-21T03:24:55.746Z"
-last_activity: 2026-04-21 -- Phase 74.5.2 Plan 03 complete (8 backfill regression tests + direct-handler test shims)
+last_updated: "2026-04-21T03:37:13.577Z"
+last_activity: 2026-04-21 -- Phase 74.5.2 execution started
 progress:
   total_phases: 21
   completed_phases: 13
   total_plans: 70
-  completed_plans: 59
-  percent: 84
+  completed_plans: 58
+  percent: 83
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-08)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 74.5.2 — cutover + backfill + retire legacy (in progress)
+**Current focus:** Phase 74.5.2 — unified-deduct-cutover
 
 ## Current Position
 
-Phase: 74.5.2
-Plan: 04 (gofood migration action) — next up
-Status: Executing — Plans 01-03 complete
-Last activity: 2026-04-21 -- Phase 74.5.2 Plan 03 complete (8 backfill regression tests, direct-handler test shims per D74.5.2-L1 precedent)
+Phase: 74.5.2 (unified-deduct-cutover) — EXECUTING
+Plan: 1 of 10
+Status: Executing Phase 74.5.2
+Last activity: 2026-04-21 -- Phase 74.5.2 execution started
 
 Progress: [████████▌░] 84%
 
