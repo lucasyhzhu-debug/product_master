@@ -814,9 +814,19 @@ async function saveRevenueItemsImpl(
   // Absent settings row / absent `channelDeductionEnabled` field / absent key
   // all coerce to `false` (D74.5.1-L1) → zero prod behavior change while every
   // flag defaults off. This is the "ship dark" contract per CONTEXT D-10.
+  //
+  // Phase 74.5.2.1 exception: `gobiz` defaults to TRUE when the settings row or
+  // `channelDeductionEnabled` field is entirely absent. Rationale — 74.5.2
+  // retired `processGofoodSales`, so there is no legacy deduction path for
+  // gobiz sales anymore. Ship-dark would cause silent under-deduction. Admin
+  // can still set `gobiz: false` explicitly to disable (e.g., rollback), and
+  // that explicit false is honored.
   const settings = await ctx.db.query("productInventorySettings").first();
   const flagMap = settings?.channelDeductionEnabled;
-  const deductionEnabled = flagMap !== undefined && flagMap[revenue.source] === true;
+  const deductionEnabled =
+    flagMap === undefined
+      ? revenue.source === "gobiz" // 74.5.2.1 default — no legacy path
+      : flagMap[revenue.source] === true;
 
   const ids: Id<"externalRevenueItems">[] = [];
   let deducted = 0;

@@ -26,11 +26,22 @@ import { externalSource } from "../schema";
 import { requireRole } from "../lib/auth";
 import type { ExternalSource } from "../lib/externalSource";
 
-/** Full 8-key default map. All flags default OFF until admin flips. */
+/**
+ * Full 8-key default map.
+ *
+ * - All channels default OFF (ship-dark per D74.5.1-L1) EXCEPT:
+ * - `gobiz` defaults ON as of Phase 74.5.2.1. Rationale — 74.5.2 retired
+ *   `processGofoodSales`, so there is no legacy deduction path anymore.
+ *   Defaulting OFF would cause silent under-deduction on every GoFood sale.
+ *   The unified `saveRevenueItemsImpl` read-site at
+ *   `convex/externalData/mutations.ts` treats `flagMap === undefined` as
+ *   gobiz-ON; this constant mirrors that contract for the admin UI so a
+ *   freshly-created settings row shows gobiz=ON by default.
+ */
 const DEFAULT_FLAGS: Record<ExternalSource, boolean> = {
   bigseller: false,
   consignment: false,
-  gobiz: false,
+  gobiz: true, // 74.5.2.1 — no legacy path post-74.5.2 retirement
   grabfood: false,
   internal: false,
   k3mart: false,
