@@ -4,14 +4,14 @@ milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: executing
 stopped_at: Phase 74.5 context gathered
-last_updated: "2026-04-20T23:13:27.051Z"
-last_activity: 2026-04-20 -- Phase 74.5.2 planning complete
+last_updated: "2026-04-21T03:55:00.000Z"
+last_activity: 2026-04-21 -- Phase 74.5.2 Plan 01 complete (channelAudit test fix + BigSeller normalize tightening)
 progress:
   total_phases: 21
   completed_phases: 13
   total_plans: 70
-  completed_plans: 55
-  percent: 79
+  completed_plans: 57
+  percent: 81
 ---
 
 # Project State
@@ -20,16 +20,16 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-08)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 74.5.2 — cutover + backfill + retire legacy (next)
+**Current focus:** Phase 74.5.2 — cutover + backfill + retire legacy (in progress)
 
 ## Current Position
 
 Phase: 74.5.2
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-20 -- Phase 74.5.2 planning complete
+Plan: 02 (backfill schema + action)
+Status: Executing — Plan 01 complete
+Last activity: 2026-04-21 -- Phase 74.5.2 Plan 01 complete (channelAudit test fix + BigSeller normalize tightening)
 
-Progress: [█████████▌] 85%
+Progress: [█████████▌] 86%
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ No new decisions yet for v2.0.
 - [Phase 80.2]: Phase 80.2 Plan 02: Paginated-WRITE backfill mutation + self-heal guard — repairs 219 orphan Direct externalRevenue parents, fixes syncInternalOrders:126 unconditional skip (first paginated-WRITE mutation pattern in convex/)
 - [Phase 80.2]: Plan 03 Wave 3: Replaced plan's skuPareto reference with consolidated skuSnapshot.skuTop (Phase 80.1 refactor); used novel convex-test t.action() pattern for syncInternalOrders guard-swap test (no fallback needed).
 - [Phase 80.2]: Plan 04 partially executed (Task 4.1 + 4.10 auto); Tasks 4.2-4.9 + 4.11-4.12 pending human verification (prod access, admin tokens, UI check, merge authority)
+- [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
 
 ### Open Blockers (carried forward)
 
@@ -81,6 +82,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-04-19T15:19:46.804Z
-Stopped at: Phase 74.5 context gathered
-Resume file: .planning/phases/74.5-unified-channel-integration/74.5-CONTEXT.md
+Last session: 2026-04-21T03:55:00.000Z
+Stopped at: Completed 74.5.2-01-channel-audit-test-fix-PLAN.md — ready for Plan 02 (backfill schema + action)
+Resume file: .planning/phases/74.5.2-unified-deduct-cutover/74.5.2-02-backfill-schema-and-action-PLAN.md

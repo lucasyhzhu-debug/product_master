@@ -431,10 +431,10 @@ Plans:
 5. Admin can reassign `{source → storageLocation}` via UI without code deploy; change takes effect on next sale event
 6. `npm run build` + test suite + full regression harness green
 
-**Plans:** 10 plans across 6 waves (awaiting execution after triple-review per D-05)
+**Plans:** 1/10 plans executed
 
 Plans:
-- [ ] 74.5.2-01-channel-audit-test-fix-PLAN.md — Wave 0: fix convex-test module resolution (4 red tests → green) + tighten BigSeller normalize platform literal
+- [x] 74.5.2-01-channel-audit-test-fix-PLAN.md — Wave 0: fix convex-test module resolution (4 red tests → green) + tighten BigSeller normalize platform literal
 - [ ] 74.5.2-02-backfill-schema-and-action-PLAN.md — Wave 1: add by_source_deductedAt compound index + create convex/productInventory/backfill.ts (per-source action + chunked mutation + admin trigger + preflight)
 - [ ] 74.5.2-03-backfill-tests-PLAN.md — Wave 1: TDD suite (idempotency, timestamp preservation, null-menuProduct skip, admin-only gate)
 - [ ] 74.5.2-04-gofood-migration-action-PLAN.md — Wave 2: forward-only migration gofood_sale → channel_sale + source=gobiz (paginated internalAction + 500-row internalMutation)
@@ -663,7 +663,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 74. Staff Attendance | v2.0 | 4/4 | Complete    | 2026-04-17 |
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
 | 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
-| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 0/10 | Planned — ready for triple-review + execute | - |
+| 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 1/10 | In Progress|  |
 | 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
