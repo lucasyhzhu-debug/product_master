@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: executing
 stopped_at: Completed 74.5.2-10-polish-and-docs-PLAN.md — Phase 74.5.2 at 10/10 plans, ready for verifier/merge
-last_updated: "2026-04-21T05:26:33.723Z"
-last_activity: 2026-04-21
+last_updated: "2026-04-21T10:57:01.318Z"
+last_activity: 2026-04-21 -- Phase 75 execution started
 progress:
   total_phases: 21
   completed_phases: 14
@@ -20,14 +20,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-08)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 74.5.2 — unified-deduct-cutover
+**Current focus:** Phase 75 — full-p-l-extension
 
 ## Current Position
 
-Phase: 74.5.2 (unified-deduct-cutover) — EXECUTING
-Plan: 2 of 10
-Status: Ready to execute
-Last activity: 2026-04-21
+Phase: 75 (full-p-l-extension) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 75
+Last activity: 2026-04-21 -- Phase 75 execution started
 
 Progress: [████████▌░] 84%
 
