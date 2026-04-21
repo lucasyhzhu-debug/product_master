@@ -34,41 +34,66 @@ import { buildEventFromRow, processChannelSaleInternal } from "./channelSale";
 const BATCH_SIZE = 200; // D-16: 200-item chunks per page
 const MAX_ITERATIONS = 500; // 500 × 200 = 100K items hard cap — safety against runaway loops
 
+/**
+ * Shared helper: processes a single page of unprocessed `externalRevenueItems`
+ * for the given source. Called by both:
+ *   - `backfillOnePage` (internalMutation) — scheduler-triggered ceremonial wrapper
+ *   - `runOneChannelBackfillPage` (admin mutation) — UI client-loop path
+ *
+ * No `ctx.runMutation` indirection. Mirrors the `saveRevenueItemsImpl` pattern
+ * at `convex/externalData/mutations.ts:804` — both the public and internal
+ * registered endpoints call this function inline against a single ctx.
+ *
+ * Contract guarantees (identical across both callers):
+ *  - D-19 idempotency: `inventoryDeductedAt` patched ONLY on `result.deducted === true`.
+ *  - D74.5.2-L4 silent-drop: unmapped `linkedMenuProductId` rows are skipped WITHOUT
+ *    patching so they can be re-processed once admin resolves the SKU mapping.
+ *  - D-16 timestamp preservation: delegates to `buildEventFromRow` which sets
+ *    `occurredAt = revenue.transactionDate ?? revenue.periodStart ?? _creationTime`.
+ *  - D74.5.2-L13 flag-independence: does NOT read `channelDeductionEnabled`.
+ */
+export async function backfillOnePageImpl(
+  ctx: MutationCtx,
+  source: ExternalSource,
+): Promise<{ itemsProcessed: number; deducted: number; skipped: number }> {
+  const items = await ctx.db
+    .query("externalRevenueItems")
+    .withIndex("by_source_deductedAt", (q) =>
+      q.eq("source", source).eq("inventoryDeductedAt", undefined))
+    .take(BATCH_SIZE);
+
+  let deducted = 0;
+  let skipped = 0;
+  for (const item of items) {
+    // Pitfall 3: pre-filter null linkedMenuProductId — do NOT patch inventoryDeductedAt on skip.
+    // D74.5.2-L4 silent-drop guard: unmapped items stay un-patched so they can be
+    // re-processed once admin maps the SKU; patching here would orphan them.
+    if (!item.linkedMenuProductId) {
+      skipped++;
+      continue;
+    }
+    const revenue = await ctx.db.get(item.revenueId);
+    if (!revenue) {
+      skipped++;
+      continue;
+    }
+    const event = buildEventFromRow(revenue, item);
+    const result = await processChannelSaleInternal(ctx, event);
+    if (result.deducted) {
+      // Only mark deducted when the ledger row actually landed.
+      await ctx.db.patch(item._id, { inventoryDeductedAt: Date.now() });
+      deducted++;
+    } else {
+      skipped++;
+    }
+  }
+  return { itemsProcessed: items.length, deducted, skipped };
+}
+
 export const backfillOnePage = internalMutation({
   args: { source: externalSource },
   handler: async (ctx, args) => {
-    const items = await ctx.db
-      .query("externalRevenueItems")
-      .withIndex("by_source_deductedAt", (q) =>
-        q.eq("source", args.source).eq("inventoryDeductedAt", undefined))
-      .take(BATCH_SIZE);
-
-    let deducted = 0;
-    let skipped = 0;
-    for (const item of items) {
-      // Pitfall 3: pre-filter null linkedMenuProductId — do NOT patch inventoryDeductedAt on skip.
-      // D74.5.2-L4 silent-drop guard: unmapped items stay un-patched so they can be
-      // re-processed once admin maps the SKU; patching here would orphan them.
-      if (!item.linkedMenuProductId) {
-        skipped++;
-        continue;
-      }
-      const revenue = await ctx.db.get(item.revenueId);
-      if (!revenue) {
-        skipped++;
-        continue;
-      }
-      const event = buildEventFromRow(revenue, item);
-      const result = await processChannelSaleInternal(ctx, event);
-      if (result.deducted) {
-        // Only mark deducted when the ledger row actually landed.
-        await ctx.db.patch(item._id, { inventoryDeductedAt: Date.now() });
-        deducted++;
-      } else {
-        skipped++;
-      }
-    }
-    return { itemsProcessed: items.length, deducted, skipped };
+    return await backfillOnePageImpl(ctx, args.source);
   },
 });
 
@@ -127,6 +152,32 @@ export const runChannelBackfill = mutation({
       { source: args.source, triggeredBy: user.name },
     );
     return { scheduled: true };
+  },
+});
+
+/**
+ * Admin-facing public wrapper for UI-driven iteration (client-loop).
+ * Pairs with `useRunChannelBackfill` (Plan 06). The UI calls this in a loop,
+ * advancing until `itemsProcessed === 0`, matching the existing
+ * `useDirectBackfillPage` pattern on /admin/unlinked-products-backfill.
+ *
+ * Idempotent; admin-only; flag-independent (D74.5.2-L13). Shares the exact
+ * same body as `backfillOnePage` via the `backfillOnePageImpl` helper —
+ * no `ctx.runMutation` indirection.
+ *
+ * GrabFood: returns `{ itemsProcessed: 0, deducted: 0, skipped: 0 }` because
+ * the source has no ingested items to backfill (D74.5.2-L15). UI disables the
+ * button via `isEmpty` based on the preflight query.
+ */
+export const runOneChannelBackfillPage = mutation({
+  args: { source: externalSource, token: v.string() },
+  handler: async (ctx, args): Promise<{
+    itemsProcessed: number;
+    deducted: number;
+    skipped: number;
+  }> => {
+    await requireRole(ctx, args.token, ["admin"]);
+    return await backfillOnePageImpl(ctx, args.source);
   },
 });
 

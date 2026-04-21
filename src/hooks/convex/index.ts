@@ -540,3 +540,11 @@ export {
   type CascadeK3MartResult,
   type BackfillPageResult,
 } from "./useUnlinkedBackfill";
+
+// Channel Deduction Backfill (Phase 74.5.2 — per-source historical backfill)
+export {
+  useChannelBackfillPreflight,
+  useRunChannelBackfill,
+  type ChannelBackfillPreflight,
+  type ChannelBackfillPageResult,
+} from "./useChannelBackfill";

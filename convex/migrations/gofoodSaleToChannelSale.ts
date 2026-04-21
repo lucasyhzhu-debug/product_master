@@ -73,7 +73,7 @@ export const migrateOnePage = internalMutation({
 
 export const migrateGofoodSaleToChannelSale = internalAction({
   args: { triggeredBy: v.string() },
-  handler: async (ctx, args): Promise<{
+  handler: async (ctx, _args): Promise<{
     totalMigrated: number;
     pagesProcessed: number;
   }> => {
@@ -83,7 +83,11 @@ export const migrateGofoodSaleToChannelSale = internalAction({
     const MAX_PAGES = 1000; // safety cap: 1000 × 500 = 500K rows
 
     while (pagesProcessed < MAX_PAGES) {
-      const result = await ctx.runMutation(
+      const result: {
+        migrated: number;
+        isDone: boolean;
+        continueCursor: string | null;
+      } = await ctx.runMutation(
         internal.migrations.gofoodSaleToChannelSale.migrateOnePage,
         { paginationOpts: { numItems: PAGE_SIZE, cursor } },
       );
