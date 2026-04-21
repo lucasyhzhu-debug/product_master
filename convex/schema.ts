@@ -1191,7 +1191,11 @@ export default defineSchema({
     .index("by_product_name", ["source", "productName"])
     // Phase 79 Plan 04: cascade lookup for Shopee/TikTok retroactive mapping
     // (key by (source, externalItemId=SKU))
-    .index("by_source_external_item", ["source", "externalItemId"]),
+    .index("by_source_external_item", ["source", "externalItemId"])
+    // Phase 74.5.2 Plan 02: per-source backfill query — narrows to rows with inventoryDeductedAt=undefined
+    // Enables .withIndex("by_source_deductedAt", q => q.eq("source", source).eq("inventoryDeductedAt", undefined)).take(200)
+    // without O(N) post-scan over already-deducted rows.
+    .index("by_source_deductedAt", ["source", "inventoryDeductedAt"]),
 
   externalSyncLogs: defineTable({
     source: externalSource,
