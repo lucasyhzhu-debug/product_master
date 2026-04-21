@@ -15,7 +15,6 @@ import { describe, test, expect } from "vitest";
 
 // @ts-expect-error — ChannelSaleEvent added in Wave 1 shared module
 import type { ChannelSaleEvent } from "../../_shared/channelAdapter";
-// @ts-expect-error — gobizAdapter gains `normalize()` method in Wave 2
 import { gobizAdapter } from "../adapter";
 
 describe("Req R1 — gobiz normalize() (TDD red; Wave 2 makes green)", () => {

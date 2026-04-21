@@ -22,7 +22,6 @@ import schema from "../../schema";
 import type { Id } from "../../_generated/dataModel";
 import type { ExternalSource } from "../../lib/externalSource";
 
-// @ts-expect-error — module created in Wave 2 (74.5.1-03-channel-sale-helper)
 import { processChannelSaleInternal } from "../channelSale";
 // Phase 78 helpers — exist today, imported for contract reuse assertions.
 import { resolveSubstitutionPlan } from "../substitution";
@@ -91,7 +90,6 @@ async function seedRoutingDefault(
   storageLocationId: Id<"storageLocations">,
 ) {
   await t.run(async (ctx) => {
-    // @ts-expect-error — table added in Wave 1
     await ctx.db.insert("channelRouting", {
       source,
       outletId: undefined,
@@ -157,9 +155,7 @@ describe("Req R4 — processChannelSaleInternal (TDD red; Waves 1-2 make green)"
 
     expect(txns).toHaveLength(1);
     expect(txns[0].quantity).toBe(-3);
-    // @ts-expect-error — transactionType "channel_sale" added to schema in Wave 1
     expect(txns[0].transactionType).toBe("channel_sale");
-    // @ts-expect-error — `source` field added to productInventoryTransactions in Wave 1
     expect(txns[0].source).toBe("shopee");
   });
 
@@ -289,7 +285,6 @@ describe("Req R4 — processChannelSaleInternal (TDD red; Waves 1-2 make green)"
     );
 
     expect(txns).toHaveLength(1);
-    // @ts-expect-error — externalRef field added to productInventoryTransactions in Wave 1
     expect(txns[0].externalRef).toBe("TXN-123ITM-ABC");
   });
 
