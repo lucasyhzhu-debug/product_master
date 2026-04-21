@@ -91,6 +91,12 @@ function buildFixture(overrides: Partial<WeekData> = {}): IncomeStatementData {
     totalOther: { amount: 0, percent: null },
     netIncome: { amount: 0, percent: null },
     netMarginPp: null,
+    // Phase 75 FIN-01 deltas (Plan 01 extended the deltas block)
+    opexExcludingDA: { amount: 0, percent: null },
+    depreciationAmortization: { amount: 0, percent: null },
+    capExAmount: { amount: 0, percent: null },
+    freeCashFlow: { amount: 0, percent: null },
+    fcfMarginPp: null,
   };
 
   return {
