@@ -227,10 +227,6 @@ function aggregateWeek(
   periodStart: number,
   periodEnd: number
 ): WeekData {
-  // Phase 75: missingReversals threaded through for Task 4 wiring.
-  // Intentional no-op until Task 4 consumes it via gapAnalysis.
-  void missingReversals;
-
   // ── 4a: Per-channel revenue aggregation ──
 
   // Group revenue records by source
@@ -444,7 +440,7 @@ function aggregateWeek(
     missingChannels,
     totalMappedProducts: counters.totalMappedProducts,
     totalProducts: counters.totalProducts,
-    missingReversals: [], // ← Phase 75 D-15 placeholder; Task 2+4 wire the real data
+    missingReversals, // ← Phase 75 D-15, passed in as param (Task 2)
   };
 
   // ── 4e: Compute totals ──
