@@ -11,7 +11,7 @@
 
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { buildProductCOGSMap } from "../lib/costCalculator";
 import { calculateWeekRange } from "../lib/periodRange";
 import { type Confidence, worstConfidence } from "../lib/confidence";
@@ -62,6 +62,13 @@ interface GapAnalysis {
   }>;
   totalMappedProducts: number;
   totalProducts: number;
+  // Phase 75 D-15: Gap check for Phase-71 converted expenses whose reversal JE is missing
+  missingReversals: Array<{
+    expenseId: Id<"expenses">;
+    description: string;
+    expenseDate: number;
+    journalEntryId: Id<"journalEntries">;
+  }>;
 }
 
 interface WeekData {
@@ -90,6 +97,12 @@ interface WeekData {
   amortizationAmount: number;
   ebitda: number;
   ebitdaMarginPercent: number | null;
+  // Phase 75 FIN-01: Full P&L extension
+  opexExcludingDA: number;
+  depreciationAmortization: number;
+  capExAmount: number;
+  freeCashFlow: number;
+  fcfMarginPercent: number | null;
   otherItems: Array<{ code: string; name: string; total: number }>;
   totalOther: number;
   netIncome: number;
@@ -422,6 +435,7 @@ function aggregateWeek(
     missingChannels,
     totalMappedProducts: counters.totalMappedProducts,
     totalProducts: counters.totalProducts,
+    missingReversals: [], // ← Phase 75 D-15 placeholder; Task 2+4 wire the real data
   };
 
   // ── 4e: Compute totals ──
@@ -505,6 +519,12 @@ function aggregateWeek(
     amortizationAmount,
     ebitda,
     ebitdaMarginPercent,
+    // Phase 75 FIN-01 placeholders — Task 3 replaces with real computation
+    opexExcludingDA: 0,
+    depreciationAmortization: 0,
+    capExAmount: 0,
+    freeCashFlow: 0,
+    fcfMarginPercent: null,
     otherItems: other.items,
     totalOther,
     netIncome: netIncomeValue,
@@ -751,6 +771,28 @@ async function fetchAndAggregate(
       currentPeriod.netMarginPercent !== null &&
       previousPeriod.netMarginPercent !== null
         ? currentPeriod.netMarginPercent - previousPeriod.netMarginPercent
+        : null,
+    // Phase 75 FIN-01 deltas (values are zero until Task 3 wires real computation)
+    opexExcludingDA: computeDelta(
+      currentPeriod.opexExcludingDA,
+      previousPeriod.opexExcludingDA
+    ),
+    depreciationAmortization: computeDelta(
+      currentPeriod.depreciationAmortization,
+      previousPeriod.depreciationAmortization
+    ),
+    capExAmount: computeDelta(
+      currentPeriod.capExAmount,
+      previousPeriod.capExAmount
+    ),
+    freeCashFlow: computeDelta(
+      currentPeriod.freeCashFlow,
+      previousPeriod.freeCashFlow
+    ),
+    fcfMarginPp:
+      currentPeriod.fcfMarginPercent !== null &&
+      previousPeriod.fcfMarginPercent !== null
+        ? currentPeriod.fcfMarginPercent - previousPeriod.fcfMarginPercent
         : null,
   };
 
