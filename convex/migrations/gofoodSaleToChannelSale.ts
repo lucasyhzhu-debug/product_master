@@ -73,6 +73,9 @@ export const migrateOnePage = internalMutation({
 
 export const migrateGofoodSaleToChannelSale = internalAction({
   args: { triggeredBy: v.string() },
+  // `triggeredBy` is intentionally accepted by the action contract (audit trail
+  // on the scheduler invocation) even though the action body itself does not
+  // read it. Prefix with underscore to silence noUnusedParameters.
   handler: async (ctx, _args): Promise<{
     totalMigrated: number;
     pagesProcessed: number;
@@ -83,10 +86,13 @@ export const migrateGofoodSaleToChannelSale = internalAction({
     const MAX_PAGES = 1000; // safety cap: 1000 × 500 = 500K rows
 
     while (pagesProcessed < MAX_PAGES) {
+      // Explicit annotation — the `internal.*` return type flows via project
+      // references and tsc -b cannot always reconstruct it before the action's
+      // own return type is known; the annotation breaks the cycle.
       const result: {
         migrated: number;
         isDone: boolean;
-        continueCursor: string | null;
+        continueCursor: string;
       } = await ctx.runMutation(
         internal.migrations.gofoodSaleToChannelSale.migrateOnePage,
         { paginationOpts: { numItems: PAGE_SIZE, cursor } },
