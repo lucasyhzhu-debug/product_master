@@ -85,11 +85,14 @@ is flipped ON, every new GoFood sale will NOT auto-deduct stickers.
 - Frequency: batch-deduct daily based on `externalRevenueItems` count for the day
   (filter `source=gobiz`, sum over `quantity`).
 
-**Follow-up candidate:** 74.5.3 or standalone phase — extend
+**Follow-up candidate:** **Phase 74.5.3 — Packaging BOM Auto-Deduction** (scaffolded in ROADMAP 2026-04-21, to be planned via `/gsd-spec-phase 74.5.3`). Extends
 `processChannelSaleInternal` to resolve `menuProductComponents` (category: `packaging`)
-and emit a paired `packagingInventoryTransactions` entry per sale.
+and emit a paired entry on the `componentTransactions` ledger per sale.
 
-**Owner action:** create phase 74.5.3 backlog ticket.
+**Owner action:** plan Phase 74.5.3 next. Interim manual procedure (daily sticker
+adjustment in CHANNEL_INTEGRATION.md) stays in place until 74.5.3 ships.
+
+**Status:** OPEN — deferred to 74.5.3.
 
 ---
 
@@ -145,11 +148,74 @@ composite UI affordance is NOT shipped in Phase 74.5.2. Operators must remember
 to flip both flags manually — if they flip only one, the K3Mart bundle invariant
 is violated.
 
-**Interim operational guidance:** flip both `k3mart` and `consignment` flags
-together at `/admin/product-inventory-settings`; do not flip only one.
+**Interim operational guidance:** ~~flip both `k3mart` and `consignment` flags
+together at `/admin/product-inventory-settings`; do not flip only one.~~
+Superseded — composite toggle shipped in 74.5.2.1 (see Resolution below).
 
-**Follow-up candidate:** 74.5.3 — add composite toggle button to ProductInventorySettings
-that mutates both flags in a single `updateChannelDeductionFlags` call.
+**Follow-up candidate:** ~~74.5.3~~ — ~~add composite toggle button~~ Shipped in 74.5.2.1.
+
+### Resolution — 2026-04-21 (Phase 74.5.2.1, commit `83ad452e`)
+
+**Status:** RESOLVED.
+
+Shipped `flipK3MartBundle` admin mutation + composite toggle UI on
+`/admin/product-inventory-settings`. Single button atomically flips both
+`k3mart` and `consignment` flags in one `ctx.db.patch` call. UI shows an
+`OUT OF SYNC` pill if the two flags ever drift (defensive — restores
+consistency on next click).
+
+Files:
+- `convex/productInventory/channelFlags.ts` — `flipK3MartBundle` mutation +
+  `_flipK3MartBundleForTest` direct-handler shim (D74.5.2-L1 pattern).
+- `convex/productInventory/__tests__/flipK3MartBundle.test.ts` — 4 tests:
+  admin-ON, admin-OFF, non-admin rejected, sibling flags preserved.
+- `src/hooks/convex/useChannelRouting.ts` — `useChannelFlags` exposes
+  `flipK3MartBundle` alongside existing `flags` + `setFlag`.
+- `src/pages/ProductInventorySettings.tsx` — composite card above per-source
+  switches with OUT-OF-SYNC detection.
+
+---
+
+## 7. Manual gobiz flag-flip post-deploy (original 74.5.2 runbook instruction)
+
+**Discovered during:** quad-review synthesis. Was documented in
+`docs/CHANNEL_INTEGRATION.md` as "GoFood atomic cutover step 4 — flip flag
+immediately after deploy" but not a formal deferred item.
+
+**Summary:** Phase 74.5.2 retired `processGofoodSales` but left
+`channelDeductionEnabled.gobiz` at its ship-dark default of `false`. Admin was
+instructed to flip the flag manually via the admin UI immediately post-deploy.
+The window between deploy-complete and flag-flip was a recoverable
+under-deduction window.
+
+### Resolution — 2026-04-21 (Phase 74.5.2.1, commit `61a2a6c3`)
+
+**Status:** RESOLVED via code-level default change (NOT via CI post-deploy
+mutation — a mutation cannot flip a flag before its own code deploys).
+
+Changed the read-site default at `convex/externalData/mutations.ts`:
+```ts
+const deductionEnabled =
+  flagMap === undefined
+    ? revenue.source === "gobiz" // 74.5.2.1 default — no legacy path
+    : flagMap[revenue.source] === true;
+```
+
+And `DEFAULT_FLAGS.gobiz = true` in `channelFlags.ts` so a freshly-created
+settings row seeds gobiz=ON consistent with the read-site default. Explicit
+`gobiz: false` is still honored (rollback path).
+
+Atomic with the 74.5.2 deploy — no CI step, no deploy-to-flip window, no
+under-deduction risk.
+
+Files:
+- `convex/externalData/mutations.ts:819` — read-site default.
+- `convex/productInventory/channelFlags.ts` — `DEFAULT_FLAGS.gobiz = true`.
+- `convex/productInventory/__tests__/saveRevenueItemsHook.test.ts` — 3
+  regression tests: no-settings-row + gobiz deducts, no-settings-row + shopee
+  stays ship-dark, explicit `gobiz: false` honored.
+- `tests/convex/externalData.test.ts` — one existing gobiz test adapted
+  (explicit `gobiz: false` seed) to preserve read-side test intent.
 
 ---
 

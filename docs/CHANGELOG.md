@@ -16,6 +16,34 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 74.5.2.1 — Ops Automation (gobiz default-ON + K3Mart composite) -- 2026-04-21
+
+**For the team:** Two manual ops rituals from the 74.5.2 runbook are now automated. GoFood deduction turns ON automatically the moment 74.5.2 deploys (no admin flag-flip needed). K3Mart flags now flip together as a single button click with out-of-sync detection.
+
+**Added:**
+- `convex/productInventory/channelFlags.ts::flipK3MartBundle` — admin mutation that atomically sets both `channelDeductionEnabled.k3mart` and `channelDeductionEnabled.consignment` in one `ctx.db.patch` call. Plus `_flipK3MartBundleForTest` direct-handler shim (D74.5.2-L1 pattern).
+- `src/pages/ProductInventorySettings.tsx` — K3Mart Bundle composite card above per-source switches. Shows `ON` / `OFF` / `OUT OF SYNC` state pill; single button click atomically flips both flags or restores consistency when drifted.
+- `convex/productInventory/__tests__/flipK3MartBundle.test.ts` — 4 regression tests (admin-ON, admin-OFF, non-admin rejected, siblings preserved).
+- 3 regression tests in `saveRevenueItemsHook.test.ts` for the gobiz default-ON contract.
+
+**Changed:**
+- `convex/externalData/mutations.ts:819` — `saveRevenueItemsImpl` read-site now treats `gobiz` as default-ON when the settings row / `channelDeductionEnabled` field is undefined. No legacy path exists for gobiz post-74.5.2 retirement, so the old ship-dark default would silently under-deduct every GoFood sale. Atomic-with-deploy: the moment 74.5.2 ships, gobiz deducts without any flag-flip ritual. Explicit `gobiz: false` still honored for rollback.
+- `convex/productInventory/channelFlags.ts::DEFAULT_FLAGS.gobiz = true` — mirrors the read-site default so freshly-created settings rows (via admin UI) seed gobiz=ON.
+- `src/hooks/convex/useChannelRouting.ts::useChannelFlags` — now exposes `flipK3MartBundle` alongside existing `flags` + `setFlag`.
+- `docs/CHANNEL_INTEGRATION.md` — GoFood atomic cutover sequence no longer instructs admin to flip flag manually post-deploy; K3Mart bundle flip section now references the composite toggle. Removed the 2-step manual ritual from both sections.
+
+**Closes 74.5.2 deferred items:**
+- #5 (K3Mart bundle composite UI, D74.5.2-L14) — RESOLVED via `flipK3MartBundle` + composite toggle UI.
+- Original runbook manual flag-flip instruction — RESOLVED via code-level default (new item #7 in deferred-items.md documents the resolution rationale).
+
+**Still open:**
+- 74.5.2 deferred item #2 (sticker auto-deduction gap) — will be resolved by **Phase 74.5.3 — Packaging BOM Auto-Deduction** (next phase, to be planned).
+- Items #3 (shim pattern governance), #4 (migration drain-loop test coverage), #6 (token-in-query-args pattern) — remain open as longer-horizon follow-ups.
+
+**Verified:** `npm run type-check`, `npm run build`, and full test suite (1709 pass, 0 fail, 2 skip) all green.
+
+---
+
 ### Phase 74.5.2 — Unified Deduct Cutover + Backfill + Retire Legacy -- 2026-04-21
 
 **For the team:** Flips the switch on unified channel deductions. Historical sales are backfilled in admin UI (per-source, idempotent). Legacy GoFood deduct path retired and replaced with the unified pipeline. Consignment settlements now show per-product breakdowns. Full channel-onboarding runbook shipped.

@@ -205,11 +205,13 @@ For each channel, in order. Do NOT parallelize — one channel at a time, 24–4
    }
    ```
 
-### K3Mart bundle flip (D74.5.2-L14)
+### K3Mart bundle flip (D74.5.2-L14) — automated in 74.5.2.1
 
 K3Mart has TWO flag keys that MUST flip together: `channelDeductionEnabled.k3mart` (sync path) and `channelDeductionEnabled.consignment` (settlement path). Per parent D-12, "K3Mart sync + consignment move together".
 
-**How to flip:** `/admin/product-inventory-settings` — the K3Mart card surfaces both toggles prominently. Admin ergonomically flips both in one session. Separate keys are retained so that if ONE path misbehaves post-flip, the admin can rollback only the offending path (fine-grained rollback).
+**How to flip (as of 74.5.2.1):** `/admin/product-inventory-settings` now shows a **K3Mart Bundle** composite card above the per-source switches. A single button (`Flip bundle ON` / `Flip bundle OFF`) atomically sets both flags in one mutation. If the two flags ever drift out of sync (someone used the per-source switches), the card shows an `OUT OF SYNC` pill in red and a single button click restores consistency. No more two-click ritual.
+
+**Fine-grained rollback:** the per-source switches below the composite card are retained — if ONE path misbehaves post-flip, the admin can rollback only the offending path.
 
 ### GoFood atomic cutover (D74.5.2-L5 + Pitfall 2)
 
@@ -218,7 +220,7 @@ GoFood is the one channel where flip and legacy-path-retirement ship in the **sa
 **Prereqs:**
 - Plans 02–07 merged (backfill infra, migration action, admin UI, consignment breakdown).
 - Plan 08 feature branch merged to main (retires `processGofoodSales` + both gobiz adapter call sites).
-- Admin has `/admin/product-inventory-settings` OPEN in a browser tab BEFORE deploy kicks off — you will flip the flag seconds after deploy-complete.
+- Phase 74.5.2.1 merged — gobiz now defaults ON in code at the `saveRevenueItemsImpl` read-site (no manual flag-flip needed).
 
 **Sequence (single admin working session):**
 
@@ -238,17 +240,18 @@ GoFood is the one channel where flip and legacy-path-retirement ship in the **sa
    - Visit `/admin/unlinked-products-backfill` → GoFood card (dispatches with `source: "gobiz"`) → click **Backfill GoFood**.
    - Wait for completion.
 
-3. **Deploy Plan 08 PR** (the `processGofoodSales` retirement + hybrid `TransactionLogPanel.tsx`):
-   - Merge feature branch `feature/74.5.2-cutover` (or equivalent) to `main`.
+3. **Deploy Plan 08 + 74.5.2.1 PR** (the `processGofoodSales` retirement + hybrid `TransactionLogPanel.tsx` + gobiz default-ON):
+   - Merge feature branch `gsd/phase-74.5.2-unified-deduct-cutover` (or equivalent) to `main`.
    - CI runs: Convex deploy → Vercel rebuild.
    - **DO NOT proceed until deploy-complete confirmation** (GitHub Actions green + Vercel build green).
 
-4. **IMMEDIATELY flip `channelDeductionEnabled.gobiz` to ON**:
-   - With `/admin/product-inventory-settings` already open, toggle the GoFood flag ON within seconds of CI green.
-   - **Window analysis:** Between deploy-complete and flag-flip, the code path changes but the flag is still OFF, meaning GoFood sales produce ZERO deductions during that window (under-deduction). This window is acceptable because it is recoverable via re-running the GoFood backfill afterward — re-run picks up any items with `inventoryDeductedAt=undefined` from the window. In contrast, if Plan 08 had shipped with flag already ON, the legacy path and unified path could have overlapped for a moment, producing double-deductions (non-recoverable without manual row deletion).
+4. **Gobiz deduction is already active** — NO manual flag-flip required.
+   - The 74.5.2.1 code-level default change means `channelDeductionEnabled.gobiz` is treated as ON in code whenever the settings object / key is absent. The moment the new code deploys, gobiz sales deduct automatically.
+   - Atomic-with-deploy — zero deploy-to-flip window, zero under-deduction risk.
+   - **Explicit rollback available:** if needed, visit `/admin/product-inventory-settings` and toggle GoFood OFF (the per-source switch writes `gobiz: false` explicitly, which overrides the default).
 
-5. **Re-run GoFood backfill** (covers the under-deduction window):
-   - Visit `/admin/unlinked-products-backfill` → **Backfill GoFood** once more.
+5. **Run GoFood backfill once** (catches any edge-case `externalRevenueItems` with `inventoryDeductedAt=undefined`):
+   - Visit `/admin/unlinked-products-backfill` → **Backfill GoFood**.
    - Idempotent; no-op if zero items remain.
 
 6. **Soak 48h + verify** (same SC4 parity query as other channels, run against `source: "gobiz"`).
