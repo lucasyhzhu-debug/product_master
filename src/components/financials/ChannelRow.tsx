@@ -142,10 +142,10 @@ export function ChannelRow({
       </tr>
       {expanded && (
         <>
-          {/* Gross margin sub-row with previous week comparison */}
+          {/* Contribution Margin sub-row with previous week comparison (Phase 75 D-10, D-11) */}
           <tr className="bg-muted/10">
             <td className="py-1 pl-16 text-xs text-muted-foreground">
-              Gross Margin
+              Contribution Margin
             </td>
             <td className="py-1 text-xs text-right tabular-nums font-medium">
               {channelGrossMargin != null
