@@ -54,3 +54,15 @@ genuinely.
 
 **Suggested home:** Plan 10 (polish-and-docs) already touches 74.5.2 tidy-up;
 add a single-paragraph task to fix these two errors before milestone close.
+
+---
+
+## Resolution — Plan 10 review (2026-04-21)
+
+**Status:** Kept as-is. The `_args` rename + explicit `result` type annotation
+(commit `4408fab3`) are the minimal correct fixes for the `tsc -b` build mode.
+Revisiting in Plan 10 was considered but no cleaner refactor presented itself
+(the `triggeredBy` arg is part of the public action contract and must stay in
+the signature for scheduler invocation audit trails; the result-type annotation
+breaks a legitimate tsc project-reference cycle — it IS the structural fix).
+No code change made. Deferred item closed.
