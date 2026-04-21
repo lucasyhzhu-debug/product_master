@@ -227,12 +227,9 @@ function aggregateWeek(
   periodStart: number,
   periodEnd: number
 ): WeekData {
-  // Phase 75: params threaded through for Task 3 (CapEx/FCF math) and Task 4 (missingReversals wiring).
-  // Intentional no-op to satisfy TypeScript without disabling strict unused-var checks.
-  void fixedAssets;
+  // Phase 75: missingReversals threaded through for Task 4 wiring.
+  // Intentional no-op until Task 4 consumes it via gapAnalysis.
   void missingReversals;
-  void periodStart;
-  void periodEnd;
 
   // ── 4a: Per-channel revenue aggregation ──
 
@@ -507,6 +504,26 @@ function aggregateWeek(
   const netMarginPercentValue =
     totalGross !== 0 ? (netIncomeValue / totalGross) * 100 : null;
 
+  // Phase 75 FIN-01 D-01, D-03, D-04, D-05, D-06: CapEx from fixedAssets
+  // Half-open interval [periodStart, periodEnd) matches externalRevenue.by_period convention.
+  // D-04: include ALL acquisitions regardless of disposalType (including reclassify_to_expense).
+  // D-03: gross acquisitions only — disposal proceeds flow through Net Income via Other Income.
+  // D-02: Phase-71 converted expenses (convertedToAssetId) are included automatically because
+  //       convertToCapex creates a fixedAssets row AND posts a reversal JE that removes the
+  //       expense from OpEx — no separate subtraction needed here.
+  // D-06: acquisitionDate already stamped = original expenseDate for converted expenses (verified RESEARCH §2).
+  const capExAmount = fixedAssets
+    .filter((a) => a.acquisitionDate >= periodStart && a.acquisitionDate < periodEnd)
+    .reduce((sum, a) => sum + a.cost, 0);
+
+  // D-08: separate D/A from OpEx
+  const depreciationAmortization = depreciationAmount + amortizationAmount;
+  const opexExcludingDA = totalOpEx - depreciationAmortization;
+
+  // D-13: FCF = NI + D/A − CapEx
+  const freeCashFlow = netIncomeValue + depreciationAmortization - capExAmount;
+  const fcfMarginPercent = totalGross !== 0 ? (freeCashFlow / totalGross) * 100 : null;
+
   return {
     channels,
     totalGross,
@@ -523,7 +540,13 @@ function aggregateWeek(
     grossProfit,
     grossMarginPercent,
     gapAnalysis,
-    opex: opex.items,
+    // Phase 75 D-08: filter depreciation/amortization codes out of opex list — they render as a separate D/A row.
+    // totalOpEx stays inclusive for back-compat; opexExcludingDA is the post-filter sum.
+    opex: opex.items.filter(
+      (item) =>
+        item.code !== DEPRECIATION_EXPENSE_CODE &&
+        item.code !== AMORTIZATION_EXPENSE_CODE
+    ),
     totalOpEx,
     ebit,
     ebitMarginPercent,
@@ -531,12 +554,12 @@ function aggregateWeek(
     amortizationAmount,
     ebitda,
     ebitdaMarginPercent,
-    // Phase 75 FIN-01 placeholders — Task 3 replaces with real computation
-    opexExcludingDA: 0,
-    depreciationAmortization: 0,
-    capExAmount: 0,
-    freeCashFlow: 0,
-    fcfMarginPercent: null,
+    // Phase 75 FIN-01 (real values from computation above)
+    opexExcludingDA,
+    depreciationAmortization,
+    capExAmount,
+    freeCashFlow,
+    fcfMarginPercent,
     otherItems: other.items,
     totalOther,
     netIncome: netIncomeValue,
