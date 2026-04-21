@@ -391,6 +391,18 @@ These are known incomplete items post-74.5.2. None of them block the 74.5.2 cuto
 
 **Impact post-cutover:** Admin must manually track sticker consumption via the packaging inventory tab OR via a one-shot admin action until a follow-up phase extends the unified path. Sticker counts will drift from reality otherwise.
 
+**Operational fallback (mandatory daily task until 74.5.3 ships):**
+1. Once daily (end of day WIB), check the day's GoFood sale count:
+   - Query via Convex dashboard: `externalRevenueItems` filtered by `source="gobiz"` and `transactionDate` ≥ today 00:00 WIB.
+   - Sum `quantity` across the returned rows (one sticker per sale item).
+2. At `/admin/inventory` (packaging tab), select `Sticker` (or the active sticker SKU) and record a manual adjustment:
+   - **Adjustment type:** `consumption`
+   - **Quantity:** `-<sum from step 1>`
+   - **Reason:** `sticker auto-deduct bridge — 74.5.2 cutover (YYYY-MM-DD)`
+   - **Location:** `Office` (sticker fulfillment location).
+3. Log the adjustment in the phase retrospective if counts drift from physical reality (leftover or shortage) — these data points inform the 74.5.3 BOM resolution logic.
+4. Continue daily until the 74.5.3 (or standalone packaging-BOM phase) ships.
+
 **Follow-up candidates:** Phase 74.5.3 (if scoped for packaging deduction) or a standalone phase titled e.g. "Channel-sale packaging auto-deduction". Not yet scheduled.
 
 **Why not fixed in 74.5.2:** Scope discipline. The 74.5.2 charter is cutover + retire, not feature extension. Adding packaging BOM resolution to `processChannelSaleInternal` would require per-source packaging component mapping (each channel may use different packaging SKUs), a non-trivial design that deserves its own research pass.
