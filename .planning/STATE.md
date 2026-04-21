@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: executing
-stopped_at: Completed 74.5.2-02-backfill-schema-and-action-PLAN.md — ready for Plan 03 (backfill tests)
-last_updated: "2026-04-21T03:12:00.000Z"
-last_activity: 2026-04-21 -- Phase 74.5.2 Plan 02 complete (by_source_deductedAt index + backfill.ts with 4 exports)
+stopped_at: Completed 74.5.2-03-backfill-tests-PLAN.md — ready for Plan 04 (gofood migration action)
+last_updated: "2026-04-21T03:24:55.746Z"
+last_activity: 2026-04-21 -- Phase 74.5.2 Plan 03 complete (8 backfill regression tests + direct-handler test shims)
 progress:
   total_phases: 21
   completed_phases: 13
   total_plans: 70
-  completed_plans: 58
-  percent: 83
+  completed_plans: 59
+  percent: 84
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-04-08)
 ## Current Position
 
 Phase: 74.5.2
-Plan: 03 (backfill tests)
-Status: Executing — Plans 01-02 complete
-Last activity: 2026-04-21 -- Phase 74.5.2 Plan 02 complete (by_source_deductedAt index + backfill.ts with 4 exports)
+Plan: 04 (gofood migration action) — next up
+Status: Executing — Plans 01-03 complete
+Last activity: 2026-04-21 -- Phase 74.5.2 Plan 03 complete (8 backfill regression tests, direct-handler test shims per D74.5.2-L1 precedent)
 
-Progress: [█████████▋] 87%
+Progress: [████████▌░] 84%
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ No new decisions yet for v2.0.
 - [Phase 80.2]: Plan 04 partially executed (Task 4.1 + 4.10 auto); Tasks 4.2-4.9 + 4.11-4.12 pending human verification (prod access, admin tokens, UI check, merge authority)
 - [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
 - [Phase 74.5.2]: Plan 02: Added `by_source_deductedAt` compound index on `externalRevenueItems` + created `convex/productInventory/backfill.ts` with 4 exports (backfillOnePage / backfillChannelDeductions / runChannelBackfill / getChannelBackfillPreflight). Admin-gated, flag-independent (D74.5.2-L13), preserves revenue.transactionDate as createdAt (D-16), set-once idempotency via inventoryDeductedAt patched ONLY on result.deducted===true (D-19), silent-drop guard for null linkedMenuProductId (D74.5.2-L4), 100K row runaway cap via MAX_ITERATIONS=500.
+- [Phase 74.5.2]: Plan 03: 8 regression tests for backfill.ts (idempotency, timestamp preservation, D74.5.2-L4 silent-drop guard, admin gate, D74.5.2-L13 flag-independence, per-source isolation, 200+ item chunking, preflight per-source audit gate). Applied Plan 01 / D74.5.2-L1 precedent: convex-test's module resolver fails for t.mutation(internal.*) / t.query(api.*) against the productInventory subtree; fixed by adding _backfillOnePageForTest / _runChannelBackfillForTest / _getChannelBackfillPreflightForTest test-only direct-handler exports to backfill.ts (mirrors channelAudit.ts _runFullAuditForTest).
 
 ### Open Blockers (carried forward)
 
@@ -70,6 +71,7 @@ No new decisions yet for v2.0.
 | Phase 80.2 P02 | 13min | 4 tasks | 5 files |
 | Phase 80.2 P03 | 8min | 5 tasks | 5 files |
 | Phase 80.2 P04 | 10min | 2 tasks | 6 files |
+| Phase 74.5.2 P03 | 12 | 1 tasks | 2 files |
 
 ### Roadmap Evolution
 
@@ -83,6 +85,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-04-21T03:12:00.000Z
-Stopped at: Completed 74.5.2-02-backfill-schema-and-action-PLAN.md — ready for Plan 03 (backfill tests)
-Resume file: .planning/phases/74.5.2-unified-deduct-cutover/74.5.2-03-backfill-tests-PLAN.md
+Last session: 2026-04-21T03:24:55.741Z
+Stopped at: Completed 74.5.2-03-backfill-tests-PLAN.md — ready for Plan 04 (gofood migration action)
+Resume file: .planning/phases/74.5.2-unified-deduct-cutover/74.5.2-04-gofood-migration-action-PLAN.md
