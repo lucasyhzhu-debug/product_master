@@ -457,12 +457,12 @@ Plans:
   1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income in canonical EBITDA-first layout (Revenue -> Net Revenue -> COGS -> Contribution Margin -> OpEx-excl-D/A -> EBITDA -> D/A -> EBIT -> Other -> Net Income -> CapEx -> FCF)
   2. Per-channel breakdown flows through Contribution Margin (renamed from Gross Margin); no per-channel OpEx/D/A/CapEx/FCF allocation (D-11)
   3. FCF calculation is correct: Net Income + D/A - CapEx; CapEx sourced from fixedAssets.cost where acquisitionDate in period
-**Plans:** 2/5 plans executed
+**Plans:** 4/5 plans executed
 Plans:
 - [x] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
 - [x] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
-- [ ] 75-02-PLAN.md -- Wave 2 Frontend: EBITDA-first layout in FinancialStatement.tsx, helperText prop on PLRow, Contribution Margin rename in ChannelRow, missingReversals section in DataQualityPanel
-- [ ] 75-03-PLAN.md -- Wave 2 CSV: extend generateIncomeStatementCSV with new rows in canonical order, per-channel blank below Contribution Margin
+- [x] 75-02-PLAN.md -- Wave 2 Frontend: EBITDA-first layout in FinancialStatement.tsx, helperText prop on PLRow, Contribution Margin rename in ChannelRow, missingReversals section in DataQualityPanel
+- [x] 75-03-PLAN.md -- Wave 2 CSV: extend generateIncomeStatementCSV with new rows in canonical order, per-channel blank below Contribution Margin
 - [ ] 75-04-PLAN.md -- Wave 3 Verification: type-check/lint/test/build + human smoke on /financials + CHANGELOG/ROADMAP/API_REFERENCE updates
 **UI hint**: yes
 
@@ -666,7 +666,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
 | 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
 | 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 10/10 | Complete   | 2026-04-21 |
-| 75. Full P&L Extension | v2.0 | 2/5 | In Progress|  |
+| 75. Full P&L Extension | v2.0 | 4/5 | In Progress|  |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
