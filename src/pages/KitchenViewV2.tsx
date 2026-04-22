@@ -282,9 +282,6 @@ export function KitchenViewV2() {
           users={kitchenUsers}
           kitchenComponents={kitchenComponents ?? []}
           enabledKitchenComponentCodes={
-            // Restrict to codes that exist in the kitchen (leaf) set —
-            // otherwise a componentTracking entry for a tier-1 ball leaks
-            // into the kitchen component toggles.
             (() => {
               const kitchenCodeSet = new Set((kitchenComponents ?? []).map((c) => c.code));
               if (config?.componentTracking && config.componentTracking.length > 0) {

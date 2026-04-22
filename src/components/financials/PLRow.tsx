@@ -28,6 +28,7 @@ export interface PLRowProps {
   showComparison: boolean;
   isTopBorder?: boolean;
   labelTooltip?: string;
+  helperText?: string; // Phase 75 D-14: muted note below label (e.g. "No asset acquisitions this period")
 }
 
 export function PLRow({
@@ -43,6 +44,7 @@ export function PLRow({
   showComparison,
   isTopBorder = false,
   labelTooltip,
+  helperText,
 }: PLRowProps) {
   const formatAmount = isNegative ? formatNegative : formatCurrency;
   const paddingClass =
@@ -78,6 +80,11 @@ export function PLRow({
     >
       <td className={cn("py-2 text-sm", paddingClass, fontClass)}>
         {labelContent}
+        {helperText && (
+          <span className="text-xs text-muted-foreground mt-0.5 block font-normal">
+            {helperText}
+          </span>
+        )}
       </td>
       <td className={cn("py-2 text-sm text-right tabular-nums", fontClass)}>
         <span className="inline-flex items-center justify-end">

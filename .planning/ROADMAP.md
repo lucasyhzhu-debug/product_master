@@ -188,7 +188,7 @@ Full details: `.planning/milestones/v1.9-ROADMAP.md`
 - [x] **Phase 74.5.2: Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19, split from 74.5)** - Behavioral cutover phase. Ships: staged flag flips per channel, six historical-backfill admin buttons with `externalRevenueItems.inventoryDeductedAt` idempotency, `gofood_sale` → `channel_sale` literal migration, retirement of `processGofoodSales` + order-fulfillment direct-GoJek deduct path, schema cleanup (drop deprecated transaction types), consignment per-product breakdown UI, `docs/CHANNEL_INTEGRATION.md` runbook. Depends on 74.5.1 verified + merged. Runs its own lightweight inline research pass to absorb surprises from 74.5.1 execution. (completed 2026-04-21)
 - [x] **Phase 74.5.2.1: Ops Automation (INSERTED 2026-04-21, follow-up to 74.5.2)** — Closes 74.5.2 operational gaps: (a) gobiz defaults ON via code-level read-site change (superseded the originally-planned CI post-deploy mutation because a new mutation cannot flip a flag before its own code deploys); (b) D74.5.2-L14 K3Mart composite toggle UI (`flipK3MartBundle` admin mutation + single-button affordance in `ProductInventorySettings.tsx` that atomically flips both `k3mart` + `consignment` flags); (c) docs cleanup — resolved deferred item #5, documented item #7 (gobiz manual-flip → code default), repointed item #2 to concrete 74.5.3 phase name. Executed inline on the 74.5.2 branch before merge; scaffold phase dir kept as documentation. (completed 2026-04-21)
 - [ ] **Phase 74.5.3: Packaging BOM Auto-Deduction (PLANNED — absorbs 74.5.2 deferred item #2)** — Extend `processChannelSaleInternal` to BOM-resolve packaging components (sticker, small-box, etc.) and emit paired `packagingInventoryTransactions` rows per sale. Eliminates the daily manual sticker adjustment procedure from the 74.5.2 runbook. Design pass required: per-source packaging SKU mapping strategy. Not yet scheduled.
-- [ ] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow
+- [x] **Phase 75: Full P&L Extension** - Extend income statement through depreciation, CapEx, and free cash flow (completed 2026-04-21)
 - [ ] **Phase 76: Financial Data Export** - Raw transaction and P&L summary CSV export with date range picker
 - [ ] **Phase 77: Data Health Dashboard** - Centralized integrity checks across all financial data pipelines
 - [ ] **Phase 78: Product Inventory Substitution** - Allow triple products to fulfill from single product inventory when direct stock insufficient
@@ -457,13 +457,13 @@ Plans:
   1. Income Statement displays Depreciation/Amortization, CapEx, and Free Cash Flow lines below Net Income in canonical EBITDA-first layout (Revenue -> Net Revenue -> COGS -> Contribution Margin -> OpEx-excl-D/A -> EBITDA -> D/A -> EBIT -> Other -> Net Income -> CapEx -> FCF)
   2. Per-channel breakdown flows through Contribution Margin (renamed from Gross Margin); no per-channel OpEx/D/A/CapEx/FCF allocation (D-11)
   3. FCF calculation is correct: Net Income + D/A - CapEx; CapEx sourced from fixedAssets.cost where acquisitionDate in period
-**Plans:** 12/12 plans complete
+**Plans:** 5/5 plans complete
 Plans:
-- [ ] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
-- [ ] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
-- [ ] 75-02-PLAN.md -- Wave 2 Frontend: EBITDA-first layout in FinancialStatement.tsx, helperText prop on PLRow, Contribution Margin rename in ChannelRow, missingReversals section in DataQualityPanel
-- [ ] 75-03-PLAN.md -- Wave 2 CSV: extend generateIncomeStatementCSV with new rows in canonical order, per-channel blank below Contribution Margin
-- [ ] 75-04-PLAN.md -- Wave 3 Verification: type-check/lint/test/build + human smoke on /financials + CHANGELOG/ROADMAP/API_REFERENCE updates
+- [x] 75-00-PLAN.md -- Wave 0 (TDD): 4 failing test files covering FIN-01 CapEx/FCF, D-15 missingReversals, D-16 CSV rows, FIN-02 ChannelRow label (~14 tests)
+- [x] 75-01-PLAN.md -- Wave 1 Backend: extend incomeStatement.ts WeekData with capExAmount/freeCashFlow/opexExcludingDA/depreciationAmortization/fcfMarginPercent + fixedAssets query + missingReversals gap (single file)
+- [x] 75-02-PLAN.md -- Wave 2 Frontend: EBITDA-first layout in FinancialStatement.tsx, helperText prop on PLRow, Contribution Margin rename in ChannelRow, missingReversals section in DataQualityPanel
+- [x] 75-03-PLAN.md -- Wave 2 CSV: extend generateIncomeStatementCSV with new rows in canonical order, per-channel blank below Contribution Margin
+- [x] 75-04-PLAN.md -- Wave 3 Verification: type-check/lint/test/build + human smoke on /financials + CHANGELOG/ROADMAP/API_REFERENCE updates
 **UI hint**: yes
 
 ### Phase 76: Financial Data Export
@@ -666,7 +666,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
 | 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
 | 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 10/10 | Complete   | 2026-04-21 |
-| 75. Full P&L Extension | v2.0 | 0/5 | Not started | - |
+| 75. Full P&L Extension | v2.0 | 5/5 | Complete    | 2026-04-22 |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |

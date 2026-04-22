@@ -16,6 +16,45 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 75 — Full P&L Extension -- 2026-04-21
+
+**For the team:** The Income Statement on `/financials` now reads like a proper textbook P&L. Instead of stopping at Net Income, the statement continues through Depreciation & Amortization, CapEx, and lands on **Free Cash Flow** — giving a true sense of how much cash the business actually generated after reinvestment. Per-channel breakdowns honestly stop at Contribution Margin: we won't pretend to allocate overhead to individual sales channels when we don't actually have that data.
+
+Delivers FIN-01 (P&L extends Net Income → D/A → CapEx → Free Cash Flow) and FIN-02 (per-channel flow through Contribution Margin). Canonical EBITDA-first layout with a dedicated D&A line between EBITDA and EBIT. CapEx sourced from `fixedAssets` table (same source as Asset Register). CSV export mirrors the on-screen layout 1:1.
+
+**Added:**
+- Canonical EBITDA-first P&L layout on `/financials`: Revenue → (deductions) → Net Revenue → COGS → **Contribution Margin** → Operating Expenses (excl. D/A) → **EBITDA** → **Depreciation & Amortization** → EBIT → Other → Net Income → **CapEx** → **Free Cash Flow** (D-07)
+- FCF formula surfaced via row tooltip: `Free Cash Flow = Net Income + Depreciation & Amortization − CapEx` (D-13)
+- `CapEx (Fixed Asset Acquisitions)` row always renders — zero-period shows muted helper text `No asset acquisitions this period` to preserve bridge visibility (D-14)
+- `Depreciation & Amortization` row with hover tooltip showing split breakdown `Depreciation: Rp X | Amortization: Rp Y` when either component non-zero (D-08, D-09)
+- `DataQualityPanel` surfaces converted-expense reversal JE gaps (`gapAnalysis.missingReversals`) with error-tinted `AlertCircle` icon to catch potential P&L double-counts from Phase 71 reclassification bridge (D-15)
+- New `helperText` prop on `PLRow` for muted below-label notes — reusable infrastructure for any future conditional zero-state hints
+- 14 Wave-0 unit tests across 4 new files (`incomeStatement-capex.test.ts`, `incomeStatement-gap-missingReversals.test.ts`, `csvExport.test.ts`, `ChannelRow.test.tsx`)
+
+**Changed:**
+- Per-channel row label renamed from `Gross Margin` to `Contribution Margin` — per-channel breakdowns now explicitly stop at Contribution Margin with no OpEx / D&A / CapEx / FCF allocation. Honest about the limits of cost attribution at channel level (D-10, D-11).
+- Company-level subtotal `Gross Profit` renamed to `Contribution Margin` for consistency with per-channel label (D-07 Claude's Discretion).
+- Operating Expenses section header + total renamed to `Operating Expenses (excl. D/A)`; amount source swapped to `opexExcludingDA` (pre-filtered by backend to exclude codes 6150/6160).
+- `generateIncomeStatementCSV` in `src/lib/csvExport.ts` extended with new rows (OpEx-excl-D/A, EBITDA, D/A, EBIT, Net Income, CapEx, FCF, FCF Margin %) matching on-screen layout. Channel column is `All` for every row below Contribution Margin; the company-total row is labelled `Gross Profit / Contribution Margin` to bridge accountant familiarity with the contribution-margin interpretation (D-16).
+- `convex/reports/incomeStatement.ts::WeekData` gains: `opexExcludingDA`, `depreciationAmortization`, `capExAmount`, `freeCashFlow`, `fcfMarginPercent`. `deltas` block gains parallel entries (`fcfMarginPp` for percentage-point delta). Returned `opex.items[]` no longer contains codes `6150` (Depreciation) or `6160` (Amortization) — downstream consumers that destructure or iterate `opex.items` must account for the trimmed list. `totalOpEx` kept inclusive of D/A for back-compat.
+- `gapAnalysis` block on `WeekData` gains `missingReversals: Array<{ expenseId, description, expenseDate, journalEntryId }>`.
+
+**Technical:**
+- CapEx computed as sum of `fixedAssets.cost` where `acquisitionDate ∈ [periodStart, periodEnd)` (half-open interval matching `externalRevenue.by_period` convention). Includes all disposalTypes per D-04 — gross acquisitions, not net (D-03).
+- FCF formula applied server-side: `netIncomeValue + depreciationAmortization − capExAmount`.
+- Converted expenses (Phase 71 bridge) use original `expenseDate` for `acquisitionDate` stamping (D-06) — already verified in existing `convertToCapex` mutation; no fix needed.
+- No schema migration; no new indexes; `fixedAssets` table scanned in-memory via single Promise.all fetch (acceptable <1000 assets per RESEARCH §1; revisit at >10k).
+- `buildMissingReversals(start, end)` closure pattern — single `convertedExpenses` fetch + `jeByIdMap`, filtered per period. DRY across current/previous period calls.
+- Confidence classification on new rows: D&A = `exact` (journal-sourced), CapEx = `exact` (validated at creation), FCF = `calculated` (derived NI + D/A − CapEx).
+
+**Requirements Closed:**
+- FIN-01: Income Statement extends through D/A, CapEx, to Free Cash Flow — delivered.
+- FIN-02: Per-channel breakdown flows through Contribution Margin — delivered.
+
+**Verified:** `npm run type-check`, `npm run test` (1727 pass, 2 skipped; all 14 Wave-0 tests green), `npm run build` (22.02s) all clean.
+
+---
+
 ### Phase 74.5.2.1 — Ops Automation (gobiz default-ON + K3Mart composite) -- 2026-04-21
 
 **For the team:** Two manual ops rituals from the 74.5.2 runbook are now automated. GoFood deduction turns ON automatically the moment 74.5.2 deploys (no admin flag-flip needed). K3Mart flags now flip together as a single button click with out-of-sync detection.

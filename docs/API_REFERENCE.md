@@ -2085,6 +2085,45 @@ const statement = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement,
 - `netIncomeMarginPercent` — Net income / net revenue * 100, or `null`
 - CSV export available on frontend via download button
 
+**Phase 75 Extensions (CapEx / FCF / D/A split / missingReversals):**
+
+`WeekData` gains 5 new fields — all additive, no existing field removed:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `current.opexExcludingDA` | `number` | Operating expenses excluding depreciation and amortization (IDR). Equals `totalOpEx − depreciationAmortization`. |
+| `current.depreciationAmortization` | `number` | Sum of depreciation (code `6150`) and amortization (code `6160`) OpEx lines (IDR). Sourced from `journalEntryLines` per existing EBITDA bridge. |
+| `current.capExAmount` | `number` | Sum of `fixedAssets.cost` where `acquisitionDate ∈ [periodStart, periodEnd)` (IDR). Includes all disposalTypes per D-04 — gross acquisitions, not net of disposal proceeds. |
+| `current.freeCashFlow` | `number` | `netIncome + depreciationAmortization − capExAmount` (IDR). Single subtotal. |
+| `current.fcfMarginPercent` | `number \| null` | `freeCashFlow / totalGross × 100`, or `null` if `totalGross === 0`. Uses gross revenue denominator to match EBITDA/EBIT/Net margin convention. |
+
+`current.opex[]` changed — codes `6150` (Depreciation) and `6160` (Amortization) are now **excluded** from the returned array. D/A is rendered as its own row from `depreciationAmortization`. Downstream consumers that destructure or iterate `opex.items` must account for the trimmed list. `totalOpEx` is preserved inclusive of D/A for back-compat.
+
+`deltas` block gains parallel entries:
+- `deltas.opexExcludingDA` / `depreciationAmortization` / `capExAmount` / `freeCashFlow` — each `{ amount, percent }` where `percent` is `null` if previous = 0.
+- `deltas.fcfMarginPp` — percentage-point change in FCF margin, or `null`.
+
+`gapAnalysis` gains:
+- `missingReversals[]` — converted-expense gap check: expenses with `convertedToAssetId != null` whose linked `journalEntries` row has `isReversed !== true`. Each item: `{ expenseId, description, expenseDate, journalEntryId }`. Non-empty array indicates a silent P&L double-count risk (Phase 71 reclassification bridge — the reversal JE should zero the original OpEx posting; if it never posted, the expense appears in both OpEx AND the CapEx bridge).
+
+**Example usage:**
+```typescript
+const stmt = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement, {
+  weekStart,
+});
+// stmt.current.capExAmount          — sum of fixedAssets.cost in period
+// stmt.current.freeCashFlow         — NI + D/A − CapEx
+// stmt.current.opexExcludingDA      — cleaner OpEx base for EBITDA computation
+// stmt.current.gapAnalysis.missingReversals.length > 0  — double-count warning
+```
+
+**Confidence propagation on new rows:**
+- D/A row: `"exact"` (journal-sourced 6150/6160 extraction).
+- CapEx row: `"exact"` (fixedAssets.cost validated at creation).
+- FCF row: `"calculated"` (derived: NI + D/A − CapEx).
+
+**Scale notes:** `fixedAssets` is scanned in-memory via a single Promise.all fetch per query (no `by_acquisitionDate` index added). Acceptable at <1000 assets; revisit if production asset count >10k or P&L query latency >200ms.
+
 ---
 
 ### Expense Analytics (Phase 50)

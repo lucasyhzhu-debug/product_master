@@ -11,7 +11,7 @@
 
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { buildProductCOGSMap } from "../lib/costCalculator";
 import { calculateWeekRange } from "../lib/periodRange";
 import { type Confidence, worstConfidence } from "../lib/confidence";
@@ -62,6 +62,13 @@ interface GapAnalysis {
   }>;
   totalMappedProducts: number;
   totalProducts: number;
+  // Phase 75 D-15: Gap check for Phase-71 converted expenses whose reversal JE is missing
+  missingReversals: Array<{
+    expenseId: Id<"expenses">;
+    description: string;
+    expenseDate: number;
+    journalEntryId: Id<"journalEntries">;
+  }>;
 }
 
 interface WeekData {
@@ -90,6 +97,12 @@ interface WeekData {
   amortizationAmount: number;
   ebitda: number;
   ebitdaMarginPercent: number | null;
+  // Phase 75 FIN-01: Full P&L extension
+  opexExcludingDA: number;
+  depreciationAmortization: number;
+  capExAmount: number;
+  freeCashFlow: number;
+  fcfMarginPercent: number | null;
   otherItems: Array<{ code: string; name: string; total: number }>;
   totalOther: number;
   netIncome: number;
@@ -207,7 +220,12 @@ function aggregateWeek(
   journalAggregation: {
     opex: { items: Array<{ code: string; name: string; total: number }>; total: number };
     other: { items: Array<{ code: string; name: string; total: number }>; total: number };
-  }
+  },
+  // Phase 75 new params:
+  fixedAssets: Doc<"fixedAssets">[],
+  missingReversals: GapAnalysis["missingReversals"],
+  periodStart: number,
+  periodEnd: number
 ): WeekData {
   // ── 4a: Per-channel revenue aggregation ──
 
@@ -422,6 +440,7 @@ function aggregateWeek(
     missingChannels,
     totalMappedProducts: counters.totalMappedProducts,
     totalProducts: counters.totalProducts,
+    missingReversals, // ← Phase 75 D-15, passed in as param (Task 2)
   };
 
   // ── 4e: Compute totals ──
@@ -476,10 +495,33 @@ function aggregateWeek(
   const ebitdaMarginPercent =
     totalGross !== 0 ? (ebitda / totalGross) * 100 : null;
 
+  // Sign convention: aggregateJournalLines returns debit−credit. Other Income accounts
+  // are credit-heavy (negative total); Other Expense are debit-heavy (positive total).
+  // ebit − totalOther is therefore correct: income reduces the subtracted value, expense increases it.
   const totalOther = other.total;
   const netIncomeValue = ebit - totalOther;
   const netMarginPercentValue =
     totalGross !== 0 ? (netIncomeValue / totalGross) * 100 : null;
+
+  // Phase 75 FIN-01 D-01, D-03, D-04, D-05, D-06: CapEx from fixedAssets
+  // Half-open interval [periodStart, periodEnd) matches externalRevenue.by_period convention.
+  // D-04: include ALL acquisitions regardless of disposalType (including reclassify_to_expense).
+  // D-03: gross acquisitions only — disposal proceeds flow through Net Income via Other Income.
+  // D-02: Phase-71 converted expenses (convertedToAssetId) are included automatically because
+  //       convertToCapex creates a fixedAssets row AND posts a reversal JE that removes the
+  //       expense from OpEx — no separate subtraction needed here.
+  // D-06: acquisitionDate already stamped = original expenseDate for converted expenses (verified RESEARCH §2).
+  const capExAmount = fixedAssets
+    .filter((a) => a.acquisitionDate >= periodStart && a.acquisitionDate < periodEnd)
+    .reduce((sum, a) => sum + a.cost, 0);
+
+  // D-08: separate D/A from OpEx
+  const depreciationAmortization = depreciationAmount + amortizationAmount;
+  const opexExcludingDA = totalOpEx - depreciationAmortization;
+
+  // D-13: FCF = NI + D/A − CapEx
+  const freeCashFlow = netIncomeValue + depreciationAmortization - capExAmount;
+  const fcfMarginPercent = totalGross !== 0 ? (freeCashFlow / totalGross) * 100 : null;
 
   return {
     channels,
@@ -497,7 +539,13 @@ function aggregateWeek(
     grossProfit,
     grossMarginPercent,
     gapAnalysis,
-    opex: opex.items,
+    // Phase 75 D-08: filter depreciation/amortization codes out of opex list — they render as a separate D/A row.
+    // totalOpEx stays inclusive for back-compat; opexExcludingDA is the post-filter sum.
+    opex: opex.items.filter(
+      (item) =>
+        item.code !== DEPRECIATION_EXPENSE_CODE &&
+        item.code !== AMORTIZATION_EXPENSE_CODE
+    ),
     totalOpEx,
     ebit,
     ebitMarginPercent,
@@ -505,6 +553,12 @@ function aggregateWeek(
     amortizationAmount,
     ebitda,
     ebitdaMarginPercent,
+    // Phase 75 FIN-01 (real values from computation above)
+    opexExcludingDA,
+    depreciationAmortization,
+    capExAmount,
+    freeCashFlow,
+    fcfMarginPercent,
     otherItems: other.items,
     totalOther,
     netIncome: netIncomeValue,
@@ -538,6 +592,8 @@ async function fetchAndAggregate(
     otherAccounts,
     currentJournalLines,
     previousJournalLines,
+    allFixedAssets,
+    convertedExpenses,
   ] = await Promise.all([
     // externalRevenue for current period — both bounds applied at index level
     ctx.db
@@ -589,6 +645,13 @@ async function fetchAndAggregate(
       .collect(),
     ctx.db.query("journalEntryLines")
       .withIndex("by_entryDate", (q) => q.gte("entryDate", previousStart).lt("entryDate", previousEnd))
+      .collect(),
+    // Phase 75 FIN-01: All fixedAssets (scan acceptable at current scale per RESEARCH §1)
+    ctx.db.query("fixedAssets").collect(),
+    // Phase 75 D-15: Expenses converted to assets (scan — tiny subset)
+    ctx.db
+      .query("expenses")
+      .filter((q) => q.neq(q.field("convertedToAssetId"), undefined))
       .collect(),
   ]);
 
@@ -658,6 +721,52 @@ async function fetchAndAggregate(
     fetchInternalOrderDataMap(ctx, previousRevenue),
   ]);
 
+  // Phase 75 D-15: Fetch journal entries for converted expenses (parallel, small subset)
+  const convertedExpenseJeIds = convertedExpenses
+    .filter((e) => e.journalEntryId)
+    .map((e) => e.journalEntryId!);
+  const convertedExpenseJes = await Promise.all(
+    convertedExpenseJeIds.map((id) => ctx.db.get(id))
+  );
+  const jeByIdMap = new Map<string, Doc<"journalEntries"> | null>();
+  for (let i = 0; i < convertedExpenseJeIds.length; i++) {
+    jeByIdMap.set(convertedExpenseJeIds[i] as string, convertedExpenseJes[i]);
+  }
+
+  // Phase 75 D-15: Build missingReversals lists per period (converted expenses with un-reversed JEs)
+  function buildMissingReversals(
+    start: number,
+    end: number
+  ): GapAnalysis["missingReversals"] {
+    return convertedExpenses
+      .filter(
+        (e) =>
+          e.expenseDate >= start &&
+          e.expenseDate < end &&
+          e.journalEntryId
+      )
+      .map((e) => ({
+        expense: e,
+        je: jeByIdMap.get(e.journalEntryId! as string) ?? null,
+      }))
+      .filter(({ je }) => je && je.isReversed !== true)
+      .map(({ expense, je }) => ({
+        expenseId: expense._id,
+        description: expense.description,
+        expenseDate: expense.expenseDate,
+        journalEntryId: je!._id,
+      }));
+  }
+
+  const currentMissingReversals = buildMissingReversals(
+    currentStart,
+    currentEnd
+  );
+  const previousMissingReversals = buildMissingReversals(
+    previousStart,
+    previousEnd
+  );
+
   // Build COGS map
   // Filter inactive componentTypes to exclude discontinued items from cost calculations.
   const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
@@ -686,7 +795,11 @@ async function fetchAndAggregate(
     cogsMap,
     currentOrderDataMap,
     allComponentTypes,
-    { opex: currentOpex, other: currentOther }
+    { opex: currentOpex, other: currentOther },
+    allFixedAssets,
+    currentMissingReversals,
+    currentStart,
+    currentEnd
   );
   const previousPeriod = aggregateWeek(
     previousRevenue,
@@ -695,7 +808,11 @@ async function fetchAndAggregate(
     cogsMap,
     previousOrderDataMap,
     allComponentTypes,
-    { opex: previousOpex, other: previousOther }
+    { opex: previousOpex, other: previousOther },
+    allFixedAssets,
+    previousMissingReversals,
+    previousStart,
+    previousEnd
   );
 
   // Compute deltas
@@ -751,6 +868,28 @@ async function fetchAndAggregate(
       currentPeriod.netMarginPercent !== null &&
       previousPeriod.netMarginPercent !== null
         ? currentPeriod.netMarginPercent - previousPeriod.netMarginPercent
+        : null,
+    // Phase 75 FIN-01 deltas
+    opexExcludingDA: computeDelta(
+      currentPeriod.opexExcludingDA,
+      previousPeriod.opexExcludingDA
+    ),
+    depreciationAmortization: computeDelta(
+      currentPeriod.depreciationAmortization,
+      previousPeriod.depreciationAmortization
+    ),
+    capExAmount: computeDelta(
+      currentPeriod.capExAmount,
+      previousPeriod.capExAmount
+    ),
+    freeCashFlow: computeDelta(
+      currentPeriod.freeCashFlow,
+      previousPeriod.freeCashFlow
+    ),
+    fcfMarginPp:
+      currentPeriod.fcfMarginPercent !== null &&
+      previousPeriod.fcfMarginPercent !== null
+        ? currentPeriod.fcfMarginPercent - previousPeriod.fcfMarginPercent
         : null,
   };
 
