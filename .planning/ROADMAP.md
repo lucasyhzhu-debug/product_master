@@ -666,7 +666,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 74.5. Unified Channel Integration Architecture (UMBRELLA — split 2026-04-19) | v2.0 | — | Split into 74.5.1 / 74.5.2 | - |
 | 74.5.1. Channel Routing Spine + Admin UI (INSERTED 2026-04-19) | v2.0 | 12/12 | Complete    | 2026-04-20 |
 | 74.5.2. Unified Deduct Cutover + Backfill + Retire Legacy Paths (INSERTED 2026-04-19) | v2.0 | 10/10 | Complete   | 2026-04-21 |
-| 75. Full P&L Extension | v2.0 | 5/5 | Complete   | 2026-04-21 |
+| 75. Full P&L Extension | v2.0 | 5/5 | Complete    | 2026-04-22 |
 | 76. Financial Data Export | v2.0 | 0/TBD | Not started | - |
 | 77. Data Health Dashboard | v2.0 | 0/TBD | Not started | - |
 | 78. Product Inventory Substitution | v2.0 | 2/2 | Complete   | 2026-04-12 |
