@@ -16,6 +16,20 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix — BigSeller pageList readiness-race retry -- 2026-05-08
+
+**For the team:** BigSeller sync now actually pulls the latest dates. Previously, BigSeller's upstream pull would finish (e.g., 89 orders ingested into their system) but our follow-up read fired 1 second later when their per-platform index wasn't ready yet, returning "Failed, please try again later" — and the admin card showed "No orders found." This change retries the read up to 3 times (10s / 30s / 60s), gated to BigSeller's documented warm-up message, so the orders flow through.
+
+**Changed:**
+- `convex/integrations/bigseller/sync.ts::fetchOrders` retries page 1 with backoff when the response is `code:-1 && msg ~= "try again later"` (the documented warm-up signal per `BIGSELLER_PROFIT_API.md:74-76`). Per-platform retry budget. Other `code:-1` modes (missing field, etc.) still fail fast at the page-1 transition shipped in PR #153.
+- New constant `BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS = [10000, 30000, 60000]` in `convex/integrations/bigseller/config.ts`.
+
+**Files:** `convex/integrations/bigseller/config.ts`, `convex/integrations/bigseller/sync.ts`
+
+PR #155 · merge `8ee77aee`
+
+---
+
 ### Feat — Staff performance "Detailed" CSV is now per-day -- 2026-05-08
 
 **For the team:** Exporting "Detailed (pivot-ready)" from `/staff-performance` now gives one row per staff member per day — same layout as the on-screen per-day breakdown — so overtime and bonus payouts can be calculated directly in Excel. Decimal hours sit alongside HH:MM, and each tracked component (Big Ball, Mid Ball, fillings, etc.) gets its own column for SUM-able totals. Same change applies to `/my-performance`.
