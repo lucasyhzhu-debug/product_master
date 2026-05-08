@@ -92,8 +92,9 @@ export function FinancialExportPage() {
       ? "End date must be on or after start date."
       : "";
 
-  // REAL debounce for preflight (Improvement 4). 300ms is the staffreview-confirmed minimum.
-  // Replaces useDeferredValue which only defers rendering, not state changes.
+  // REAL debounce for preflight (Improvement 4). 300ms is the staffreview-confirmed
+  // minimum — see useDebouncedValue.ts header for why a setTimeout-based hook is
+  // used here (deferring rendering alone is not equivalent to a true debounce).
   const debouncedStart = useDebouncedValue(periodStart, 300);
   const debouncedEnd = useDebouncedValue(periodEnd, 300);
   const debouncedGran = useDebouncedValue(granularity, 300);
