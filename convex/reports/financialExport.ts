@@ -1,11 +1,12 @@
 /**
  * Phase 76 — Financial Data Export Backend Queries
  *
- * Convex queries powering the multi-period financial export page.
- * Task 2.1 (this commit): getRawTransactionsExport — flat GL line export (FIN-03).
- * Task 2.2 (next commit): getMultiPeriodPLExport, getExportPreflight, label helpers.
+ * Three Convex queries powering the multi-period financial export page:
+ *   - getRawTransactionsExport  — flat GL line export (FIN-03)
+ *   - getMultiPeriodPLExport    — per-period P&L loop reusing Phase 75 fetchAndAggregate
+ *   - getExportPreflight        — cheap range stats for the UI summary panel
  *
- * Trust boundary: every handler starts with requireRole(ctx, args.token, ["manager", "admin"]).
+ * Trust boundary: every handler starts with a manager+admin role gate.
  * No N+1 — all ctx.db.get calls are wrapped in Promise.all over Set-deduped IDs.
  *
  * Schema name fidelity (per RESEARCH §"Schema name corrections"):
@@ -21,12 +22,13 @@ import { v } from "convex/values";
 import { query } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
-// WeekData imported here — consumed by Task 2.2's aggregateRangeGap typing (Critical 3).
-import type { WeekData } from "./incomeStatement";
-
-// Reference WeekData so the import isn't tree-shaken before Task 2.2 lands.
-// Task 2.2 will type aggregateRangeGap against `Array<{ current: WeekData }>`.
-export type _WeekDataReExport = WeekData;
+import { fetchAndAggregate, type WeekData } from "./incomeStatement";
+import { buildPeriodBuckets, type Granularity } from "../lib/periodBuckets";
+import {
+  WIB_OFFSET_MS,
+  getIsoWeekNumber,
+  utcToWibMonthStr,
+} from "../lib/periodRange";
 
 // ─── Raw transactions export (FIN-03 D-01..D-04, D-13, D-14) ───
 
@@ -138,5 +140,207 @@ export const getRawTransactionsExport = query({
     );
 
     return rows;
+  },
+});
+
+// ─── Period label helpers (Improvement 6 — implemented inline) ───
+// Format per RESEARCH §"Section 2" lines 384-388:
+//   weekly:  "2026-W15" if full ISO week, else "2026-W15 (partial)"
+//   monthly: "2026-04"  if full WIB month, else "2026-04 (partial)"
+//   custom:  "2026-04-01 to 2026-04-19" (inclusive end labelled via end-1)
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function formatWeekLabel(s: number, e: number): string {
+  const wibYear = new Date(s + WIB_OFFSET_MS).getUTCFullYear();
+  const week = getIsoWeekNumber(s); // returns "W15"
+  const isFullWeek = e - s === WEEK_MS;
+  return isFullWeek ? `${wibYear}-${week}` : `${wibYear}-${week} (partial)`;
+}
+
+export function formatMonthLabel(s: number, e: number): string {
+  const monthStr = utcToWibMonthStr(s); // "2026-04"
+  // Full WIB month: bucketStart aligns to day 1 AND bucketEnd aligns to next month day 1.
+  const startWib = new Date(s + WIB_OFFSET_MS);
+  const endWib = new Date(e + WIB_OFFSET_MS);
+  const isFullMonth =
+    startWib.getUTCDate() === 1 &&
+    endWib.getUTCDate() === 1 &&
+    (endWib.getUTCMonth() !== startWib.getUTCMonth() ||
+      endWib.getUTCFullYear() !== startWib.getUTCFullYear());
+  return isFullMonth ? monthStr : `${monthStr} (partial)`;
+}
+
+export function formatCustomLabel(s: number, e: number): string {
+  // [s, e) — label inclusive end via e-1
+  const startStr = new Date(s + WIB_OFFSET_MS).toISOString().slice(0, 10);
+  const endStr = new Date(e - 1 + WIB_OFFSET_MS).toISOString().slice(0, 10);
+  return `${startStr} to ${endStr}`;
+}
+
+function formatBucketLabel(
+  s: number,
+  e: number,
+  granularity: Granularity,
+): string {
+  if (granularity === "custom") return formatCustomLabel(s, e);
+  if (granularity === "weekly") return formatWeekLabel(s, e);
+  return formatMonthLabel(s, e);
+}
+
+// ─── Range gap aggregation (D-08) — typed against real WeekData (Critical 3) ───
+
+function aggregateRangeGap(periods: Array<{ current: WeekData }>): {
+  totalProducts: number;
+  totalMappedProducts: number;
+  unmappedProducts: Array<{ name: string; count: number; revenue: number }>;
+  missingChannels: Array<{
+    source: string;
+    displayName: string;
+    reason: string;
+  }>;
+  zeroCostComponents: Array<{ name: string; code: string }>;
+} {
+  const unmappedMap = new Map<
+    string,
+    { name: string; count: number; revenue: number }
+  >();
+  const missingChannelsMap = new Map<
+    string,
+    { source: string; displayName: string; reason: string }
+  >();
+  const zeroCostMap = new Map<string, { name: string; code: string }>();
+  let totalProducts = 0;
+  let totalMappedProducts = 0;
+
+  for (const p of periods) {
+    // Walk real WeekData.gapAnalysis fields (Critical 3 — typed via Array<{ current: WeekData }>).
+    totalProducts += p.current.gapAnalysis.totalProducts;
+    totalMappedProducts += p.current.gapAnalysis.totalMappedProducts;
+    for (const u of p.current.gapAnalysis.unmappedProducts) {
+      const existing = unmappedMap.get(u.name);
+      if (existing) {
+        existing.count += u.count;
+        existing.revenue += u.revenue;
+      } else {
+        unmappedMap.set(u.name, {
+          name: u.name,
+          count: u.count,
+          revenue: u.revenue,
+        });
+      }
+    }
+    for (const ch of p.current.gapAnalysis.missingChannels) {
+      missingChannelsMap.set(ch.source, ch);
+    }
+    for (const z of p.current.gapAnalysis.zeroCostComponents) {
+      zeroCostMap.set(z.code, z);
+    }
+  }
+
+  return {
+    totalProducts,
+    totalMappedProducts,
+    unmappedProducts: [...unmappedMap.values()],
+    missingChannels: [...missingChannelsMap.values()],
+    zeroCostComponents: [...zeroCostMap.values()],
+  };
+}
+
+// ─── Multi-period P&L export (FIN-04 D-05 D-07 D-08) ───
+
+export const getMultiPeriodPLExport = query({
+  args: {
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    granularity: v.union(
+      v.literal("weekly"),
+      v.literal("monthly"),
+      v.literal("custom"),
+    ),
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]); // D-13
+
+    const buckets = buildPeriodBuckets(
+      args.periodStart,
+      args.periodEnd,
+      args.granularity,
+    );
+    const periods: Array<{
+      bucketStart: number;
+      bucketEnd: number;
+      label: string;
+      current: WeekData;
+    }> = [];
+
+    for (const [s, e] of buckets) {
+      // D-05 + Pitfall 2: includePrevious=false — in-range delta computed in plan 03 helper
+      const result = await fetchAndAggregate(
+        ctx,
+        s,
+        e,
+        s,
+        s,
+        /* includePrevious */ false,
+      );
+      periods.push({
+        bucketStart: s,
+        bucketEnd: e,
+        label: formatBucketLabel(s, e, args.granularity),
+        current: result.currentPeriod,
+      });
+    }
+
+    // Range-wide gap aggregation (D-08) — union of unmappedProducts, missingChannels, etc.
+    const rangeGap = aggregateRangeGap(periods);
+
+    return { periods, rangeGap };
+  },
+});
+
+// ─── Pre-flight stats (D-12, D-16) ───
+
+export const getExportPreflight = query({
+  args: {
+    periodStart: v.number(),
+    periodEnd: v.number(),
+    granularity: v.union(
+      v.literal("weekly"),
+      v.literal("monthly"),
+      v.literal("custom"),
+    ),
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const [jeLines, revenueRows] = await Promise.all([
+      ctx.db
+        .query("journalEntryLines")
+        .withIndex("by_entryDate", (q) =>
+          q.gte("entryDate", args.periodStart).lt("entryDate", args.periodEnd),
+        )
+        .collect(),
+      ctx.db
+        .query("externalRevenue")
+        .withIndex("by_period", (q) =>
+          q
+            .gte("periodStart", args.periodStart)
+            .lt("periodStart", args.periodEnd),
+        )
+        .collect(),
+    ]);
+    const buckets = buildPeriodBuckets(
+      args.periodStart,
+      args.periodEnd,
+      args.granularity,
+    );
+    return {
+      journalLineCount: jeLines.length,
+      revenueRowCount: revenueRows.length,
+      periodCount: buckets.length,
+      isLargeRange: jeLines.length > 10_000, // D-16 soft warning threshold
+    };
   },
 });
