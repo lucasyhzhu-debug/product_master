@@ -234,6 +234,7 @@ import type * as reimbursements_mutations from "../reimbursements/mutations.js";
 import type * as reimbursements_queries from "../reimbursements/queries.js";
 import type * as reports_channelTaxonomy from "../reports/channelTaxonomy.js";
 import type * as reports_dailySales from "../reports/dailySales.js";
+import type * as reports_financialExport from "../reports/financialExport.js";
 import type * as reports_incomeStatement from "../reports/incomeStatement.js";
 import type * as reports_productionUnitHelpers from "../reports/productionUnitHelpers.js";
 import type * as reports_revenueHelpers from "../reports/revenueHelpers.js";
@@ -488,6 +489,7 @@ declare const fullApi: ApiFromModules<{
   "reimbursements/queries": typeof reimbursements_queries;
   "reports/channelTaxonomy": typeof reports_channelTaxonomy;
   "reports/dailySales": typeof reports_dailySales;
+  "reports/financialExport": typeof reports_financialExport;
   "reports/incomeStatement": typeof reports_incomeStatement;
   "reports/productionUnitHelpers": typeof reports_productionUnitHelpers;
   "reports/revenueHelpers": typeof reports_revenueHelpers;

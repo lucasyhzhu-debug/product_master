@@ -8,88 +8,12 @@
  */
 
 // ── Types matching the backend query return shape ──
-// These interfaces are intentionally duplicated (not imported from Convex)
-// because the CSV module runs on the client and must not import server code.
-
-type Confidence = "exact" | "calculated" | "inferred" | "missing";
-
-interface ChannelData {
-  source: string;
-  displayName: string;
-  gross: number;
-  netRevenue: number;
-  discount: number;
-  commission: number;
-  adBurn: number;
-  promoBurn: number;
-  revShare: number;
-  confidence: Confidence;
-  cogs: {
-    production: number;
-    packaging: number;
-    total: number;
-  };
-}
-
-interface GapAnalysis {
-  unmappedProducts: Array<{ name: string; count: number; revenue: number }>;
-  zeroCostComponents: Array<{ name: string; code: string }>;
-  missingChannels: Array<{
-    source: string;
-    displayName: string;
-    reason: string;
-  }>;
-  totalMappedProducts: number;
-  totalProducts: number;
-  // Phase 75 D-15: converted expenses whose reversal JE is missing (P&L may double-count)
-  missingReversals: Array<{
-    expenseId: string;
-    description: string;
-    expenseDate: number;
-    journalEntryId: string;
-  }>;
-}
-
-// TODO: This WeekData interface is duplicated from the canonical definition in
-// convex/reports/incomeStatement.ts. Consider extracting a shared type if Convex
-// ever supports importing server types on the client without bundling server code.
-interface WeekData {
-  channels: ChannelData[];
-  totalGross: number;
-  totalDiscounts: number;
-  totalCommission: number;
-  totalAdBurn: number;
-  totalPromoBurn: number;
-  totalRevShare: number;
-  totalDeductions: number;
-  netRevenue: number;
-  totalProductionCogs: number;
-  totalPackagingCogs: number;
-  totalCogs: number;
-  grossProfit: number;
-  grossMarginPercent: number | null;
-  gapAnalysis: GapAnalysis;
-  // P&L below Gross Profit (Phase 49)
-  opex: Array<{ code: string; name: string; total: number }>;
-  totalOpEx: number;
-  ebit: number;
-  ebitMarginPercent: number | null;
-  // EBITDA
-  depreciationAmount: number;
-  amortizationAmount: number;
-  ebitda: number;
-  ebitdaMarginPercent: number | null;
-  otherItems: Array<{ code: string; name: string; total: number }>;
-  totalOther: number;
-  netIncome: number;
-  netMarginPercent: number | null;
-  // Phase 75 FIN-01: Full P&L extension (D-07, D-08, D-13)
-  opexExcludingDA: number;
-  depreciationAmortization: number;
-  capExAmount: number;
-  freeCashFlow: number;
-  fcfMarginPercent: number | null;
-}
+// `WeekData` is sourced as a type-only import from the canonical definition in
+// convex/reports/incomeStatement.ts (see import below). Helper types
+// `ChannelData`, `GapAnalysis`, and `Confidence` were previously declared here
+// but only referenced by the local `WeekData` duplicate — they are removed
+// alongside that duplicate to keep this file's surface area minimal and avoid
+// silent drift from the canonical shape.
 
 export interface IncomeStatementData {
   weekStart?: number;
