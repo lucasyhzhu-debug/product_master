@@ -21,6 +21,7 @@ import {
   BIGSELLER_FROLLIE_SHOP_IDS,
   BIGSELLER_MAX_SYNC_DAYS,
   BIGSELLER_SHOP_PLATFORM_MAP,
+  BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS,
 } from "./config";
 import {
   buildBigSellerHeaders,
@@ -680,6 +681,11 @@ export const fetchOrders = internalAction({
 
       let pageNo = 1;
       let totalPage = 1;
+      // Tracks readiness-race retries on page 1 only. BigSeller can mark the
+      // generic sync task `taskStatus=complete` while the per-platform pageList
+      // index is still warming up (code:-1, msg:"Failed, please try again later").
+      // Reset per platform so each shop gets its own retry budget.
+      let page1ReadinessRetries = 0;
 
       while (pageNo <= totalPage) {
         const body = buildPageListBody(
@@ -751,6 +757,31 @@ export const fetchOrders = internalAction({
               `code=${parsed.code}, errorCode=${parsed.errorCode ?? "none"}, ` +
               `msg=${JSON.stringify(parsed.msg ?? null)}, body=${responseSnippet}`
           );
+          // Readiness-race retry: BigSeller's docs (BIGSELLER_PROFIT_API.md:74-76)
+          // confirm `code:-1, msg:"Failed, please try again later"` means the
+          // pageList index is still warming up after the generic sync task marked
+          // taskStatus=complete. Retry on page 1 only, gated to that exact msg.
+          // Other code:-1 modes (missing required field) still fail fast at the
+          // page-1 transition below.
+          const isReadinessLag =
+            pageNo === 1 &&
+            parsed.code === -1 &&
+            typeof parsed.msg === "string" &&
+            parsed.msg.toLowerCase().includes("try again later");
+          if (
+            isReadinessLag &&
+            page1ReadinessRetries < BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS.length
+          ) {
+            const delay = BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS[page1ReadinessRetries];
+            page1ReadinessRetries++;
+            console.log(
+              `BigSeller ${platform} pageList readiness lag — retry ` +
+                `${page1ReadinessRetries}/${BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS.length} ` +
+                `in ${delay}ms`,
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue; // retry same page
+          }
           // First-page failure on page 1 is fatal: BigSeller is rejecting the request
           // for the entire query. Marking the sync 'failed' (instead of silently
           // completing with 0 orders) lets the user see something is wrong rather
