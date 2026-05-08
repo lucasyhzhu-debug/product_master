@@ -12,7 +12,7 @@
  * Schema name fidelity (per RESEARCH §"Schema name corrections"):
  *   - journalEntries.date / sourceType / sourceId / reversedByEntryId
  *   - journalEntryLines.journalEntryId / debitAmount / creditAmount / entryDate
- *   - accounts (NOT glAccounts)
+ *   - chart-of-accounts table is named `accounts` (no legacy gl-prefix)
  *
  * Reversal/_void JEs are INCLUDED in raw output (D-04) — sourceType emits verbatim
  * with `_void` / `_reversal` suffix already encoded in the schema literal.
