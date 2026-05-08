@@ -78,6 +78,9 @@ const SalesAnalytics = lazyWithPreload(() =>
 const FinancialStatement = lazyWithPreload(() =>
   import('./pages/FinancialStatement').then(m => ({ default: m.FinancialStatement }))
 );
+const FinancialExportPage = lazyWithPreload(() =>
+  import('./pages/FinancialExportPage').then(m => ({ default: m.FinancialExportPage }))
+);
 const K3MartCockpit = lazyWithPreload(() =>
   import('./pages/K3MartCockpit').then(m => ({ default: m.K3MartCockpit }))
 );
@@ -626,6 +629,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessDashboard">
                         <FinancialStatement />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Phase 76 — Financial Data Export (FIN-03 + FIN-04) — Manager + Admin */}
+                  <Route
+                    path="financials/export"
+                    element={
+                      <ProtectedRoute allowedRoles={["manager", "admin"]}>
+                        <FinancialExportPage />
                       </ProtectedRoute>
                     }
                   />
