@@ -16,6 +16,15 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feat — Staff performance "Detailed" CSV is now per-day -- 2026-05-08
+
+**For the team:** Exporting "Detailed (pivot-ready)" from `/staff-performance` now gives one row per staff member per day — same layout as the on-screen per-day breakdown — so overtime and bonus payouts can be calculated directly in Excel. Decimal hours sit alongside HH:MM, and each tracked component (Big Ball, Mid Ball, fillings, etc.) gets its own column for SUM-able totals. Same change applies to `/my-performance`.
+
+**Changed:**
+- `src/lib/staffPerformanceExport.ts::generateDetailedStaffCSV` rewritten from "one row per product per staff" to "one row per (staff, day)" — matching `PerDayBreakdownTable`. Component columns are dynamic (union of `componentTotals[].code` across all staff×days, first-seen order, header reads `<name> (<unit>)`). Includes per-day Hours (decimal + HH:MM), Sessions, Time Range, Balls, Flagged, Flag Reasons; per-staff TOTAL row matches the UI; D-11 unit isolation preserved.
+
+**Files:** `src/lib/staffPerformanceExport.ts`
+
 ### Fix — BigSeller pageList code:-1 surfaces real error -- 2026-05-08
 
 **For the team:** When BigSeller's API rejects our sync request (e.g., for the latest dates), the admin card will now show the real error message from BigSeller instead of "No orders found for this date range." This unblocks diagnosis when sync silently returns zero.

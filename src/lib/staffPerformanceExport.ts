@@ -7,6 +7,8 @@
 
 import type { StaffPerformanceData } from "@/hooks/convex/useStaffPerformance";
 import { downloadCSV, escapeCell } from "./csvExport";
+import { utcToWibTimeStr } from "./dateUtils";
+import { formatHoursMinutes } from "./utils";
 
 function formatBreakdown(
   items: Array<{ name: string; quantity?: number; grams?: number; unit?: "g" | "pcs" }>,
@@ -115,56 +117,127 @@ export function downloadStaffPerformanceCSV(
 }
 
 /**
- * Generate a detailed per-staff CSV with one row per product per staff member.
- * Better for Excel pivot tables and payment modelling.
+ * Generate a detailed per-staff per-day CSV — one row per (staff, day) submission.
+ *
+ * Mirrors the per-day breakdown shown on /staff-performance when a staff row is
+ * expanded. Designed for overtime / bonus payout calculation in Excel:
+ * decimal hours sit alongside HH:MM so SUM formulas work directly, and component
+ * columns are pivoted wide so each ball/component type has its own SUM-able column.
+ *
+ * Component columns are dynamic — the union of `componentTotals[].code` across
+ * all staff×days, in first-seen order — matching `PerDayBreakdownTable` (D-14).
+ * Each header reads `<name> (<unit>)`, never mixing units in a single column (D-11).
  */
 export function generateDetailedStaffCSV(data: StaffPerformanceData): string {
+  // Build union of component columns across all staff×days, preserving
+  // first-seen order so the CSV layout is stable run-to-run for the same data.
+  const columnDefs: Array<{ code: string; name: string; unit: "g" | "pcs" }> = [];
+  const seen = new Map<string, number>();
+  for (const staff of data.staff) {
+    for (const day of staff.perDayBreakdown) {
+      for (const c of day.componentTotals) {
+        if (!seen.has(c.code)) {
+          seen.set(c.code, columnDefs.length);
+          columnDefs.push({ code: c.code, name: c.name, unit: c.unit });
+        }
+      }
+    }
+  }
+
   const rows: string[][] = [];
 
-  rows.push([
+  // Header row
+  const header = [
     "Staff Name",
-    "Type",
-    "Item",
-    "Quantity",
-    "Unit",
-  ]);
+    "Date",
+    "Hours (decimal)",
+    "Hours (HH:MM)",
+    "Sessions",
+    "Time Range",
+    "Balls",
+    ...columnDefs.map((c) => `${c.name} (${c.unit})`),
+    "Flagged",
+    "Flag Reasons",
+  ];
+  rows.push(header);
 
+  // Per-staff blocks. Within each staff, perDayBreakdown is already sorted
+  // newest-first by aggregateStaffPerformance — preserve that order so CSV
+  // matches the on-screen table exactly.
   for (const staff of data.staff) {
-    // Product production rows
-    for (const p of staff.productBreakdown) {
-      rows.push([staff.chefName, "Production", p.name, String(p.ballCount), "balls"]);
+    // Per-day rows
+    for (const day of staff.perDayBreakdown) {
+      const componentByCode = new Map(
+        day.componentTotals.map((c) => [c.code, c.quantity]),
+      );
+      const timeRange = day.sessions
+        .map(
+          (s) =>
+            `${utcToWibTimeStr(s.clockIn)}-${s.clockOut !== null ? utcToWibTimeStr(s.clockOut) : "open"}`,
+        )
+        .join(", ");
+      const flagged = day.sessions.some((s) => s.isFlagged);
+      const flagReasons = Array.from(
+        new Set(day.sessions.flatMap((s) => s.flagReasons)),
+      ).join("; ");
+
+      rows.push([
+        staff.chefName,
+        day.date,
+        day.hoursWorked.toFixed(2),
+        formatHoursMinutes(day.hoursWorked),
+        String(day.sessions.length),
+        timeRange,
+        String(day.ballsProduced),
+        ...columnDefs.map((c) => {
+          const q = componentByCode.get(c.code);
+          return q === undefined ? "" : String(q);
+        }),
+        flagged ? "TRUE" : "FALSE",
+        flagReasons,
+      ]);
     }
 
-    // Component production rows — C1: use per-component unit so pcs entries
-    // export with the correct suffix.
-    for (const c of staff.componentBreakdown) {
-      rows.push([staff.chefName, "Component", c.name, String(c.grams), c.unit ?? "g"]);
+    // Per-staff TOTAL row (matches the UI's TOTAL row inside each expanded staff).
+    const totalHours = staff.perDayBreakdown.reduce((a, d) => a + d.hoursWorked, 0);
+    const totalSessions = staff.perDayBreakdown.reduce(
+      (a, d) => a + d.sessions.length,
+      0,
+    );
+    const totalBalls = staff.perDayBreakdown.reduce(
+      (a, d) => a + d.ballsProduced,
+      0,
+    );
+    const totalByCode = new Map<string, number>();
+    for (const day of staff.perDayBreakdown) {
+      for (const c of day.componentTotals) {
+        totalByCode.set(c.code, (totalByCode.get(c.code) ?? 0) + c.quantity);
+      }
     }
-
-    // Component waste rows
-    for (const c of staff.componentWasteBreakdown) {
-      rows.push([staff.chefName, "Component Waste", c.name, String(c.grams), c.unit ?? "g"]);
-    }
-
-    // Product waste rows (with reason)
-    for (const w of staff.wasteByReason) {
-      rows.push([staff.chefName, "Product Waste", w.reason, String(w.quantity), "units"]);
-    }
-
-    // Summary row
     rows.push([
       staff.chefName,
-      "Summary",
-      `${staff.shiftCount} shifts / ${staff.daysWorked} days`,
-      String(staff.totalBallsProduced),
-      "total balls",
+      "TOTAL",
+      totalHours.toFixed(2),
+      formatHoursMinutes(totalHours),
+      String(totalSessions),
+      "",
+      String(totalBalls),
+      ...columnDefs.map((c) => {
+        const q = totalByCode.get(c.code);
+        return q === undefined ? "" : String(q);
+      }),
+      "",
+      "",
     ]);
+
+    // Blank separator between staff blocks
+    rows.push([]);
   }
 
   // Footer metadata
-  rows.push([]);
   rows.push([`# Period: ${data.startDate} to ${data.endDate}`]);
   rows.push([`# Staff count: ${data.staff.length}`]);
+  rows.push([`# Total shift records: ${data.totalRecords}`]);
 
   return rows.map((row) => row.map(escapeCell).join(",")).join("\n");
 }
