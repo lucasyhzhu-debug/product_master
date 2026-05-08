@@ -1,17 +1,19 @@
 /**
- * Phase 76 FIN-04: Frontend financial export helpers (Task 3.1 — preset/filename/format-label).
+ * Phase 76 FIN-04: Frontend financial export helpers.
  *
  * Pure-TypeScript helpers consumed by the financial export page (plan 04):
  *   - buildPeriodBuckets (RE-EXPORTED from convex/lib/periodBuckets — single source of truth)
  *   - buildExportFilenames (deterministic, path-traversal-safe filenames)
  *   - presetToRange (UI preset chips: last-week / last-month / last-quarter / ytd)
  *   - formatWeekLabel / formatMonthLabel / formatCustomLabel (period labels with `(partial)` suffix)
- *
- * CSV serializers added in Task 3.2.
+ *   - generateRawTransactionsCSV (D-01 schema, every cell through escapeCell — D-14)
+ *   - generateMultiPeriodPLCSV (one header, per-period bodies via buildIncomeStatementRows, one range-aggregated footer — D-08)
  *
  * Critical contracts (locked by plan 03):
  *   - "Last week" returns prior ISO week (Mon-Sun) in WIB — Improvement 9 / M4
  *   - Filename uses periodEnd-1 for inclusive end-date label — D-11
+ *   - First period in multi-period output has empty prev_period_idr / delta_pct — D-05
+ *   - buildIncomeStatementRows is called with 4 args (NO deltas) — plan 01 simplified signature
  *   - buildPeriodBuckets is RE-EXPORTED — no local re-implementation (Improvement 8)
  */
 
@@ -175,4 +177,186 @@ export function formatCustomLabel(s: number, e: number): string {
   const startStr = new Date(s + WIB_OFFSET_MS).toISOString().slice(0, 10);
   const endStr = new Date(e - 1 + WIB_OFFSET_MS).toISOString().slice(0, 10);
   return `${startStr} to ${endStr}`;
+}
+
+// ─── CSV serializers (Task 3.2) ───
+
+import { buildIncomeStatementRows, escapeCell } from "./csvExport";
+import type { WeekData } from "../../convex/reports/incomeStatement";
+
+// ─── Raw transactions CSV (D-01 schema, D-14 escapeCell, D-15 integer rupiah) ───
+
+/**
+ * Type matches the return shape from
+ * convex/reports/financialExport.ts:getRawTransactionsExport.
+ */
+export type RawTransactionRow = {
+  entryDate: number;
+  journalEntryId: string;
+  entryNumber: string;
+  sourceType: string;
+  accountCode: string;
+  accountName: string;
+  debitAmount: number;
+  creditAmount: number;
+  description: string;
+  sourceId: string | undefined;
+  createdByName: string | null;
+  _creationTime: number;
+};
+
+/**
+ * Serialize raw GL line rows to CSV.
+ *
+ * Column order verbatim per D-01:
+ *   entry_date, je_id, je_number, je_type, account_code, account_name,
+ *   debit_idr, credit_idr, description, source_doc_type, source_doc_id, created_by
+ *
+ * Every cell — header AND body — runs through `escapeCell` (D-14 + Pitfall 5).
+ * IDR amount cells emit as `String(amount)` — integer-only, no decimals/separators (D-15).
+ * `source_doc_type` column = `sourceType` (Pitfall 3 — verbatim, no mapping).
+ */
+export function generateRawTransactionsCSV(rows: RawTransactionRow[]): string {
+  const out: string[][] = [];
+
+  // D-01 — column order verbatim
+  out.push([
+    "entry_date",
+    "je_id",
+    "je_number",
+    "je_type",
+    "account_code",
+    "account_name",
+    "debit_idr",
+    "credit_idr",
+    "description",
+    "source_doc_type",
+    "source_doc_id",
+    "created_by",
+  ]);
+
+  for (const r of rows) {
+    out.push([
+      utcToWibDateStr(r.entryDate),
+      String(r.journalEntryId),
+      r.entryNumber,
+      r.sourceType, // D-01 + Pitfall 3 — verbatim, no mapping
+      r.accountCode,
+      r.accountName,
+      String(r.debitAmount), // D-15 — integer rupiah
+      String(r.creditAmount),
+      r.description ?? "",
+      r.sourceType, // D-01 source_doc_type column = sourceType
+      r.sourceId ?? "",
+      r.createdByName ?? "<unknown>", // Edge case 10 — deleted user
+    ]);
+  }
+
+  // D-14 + Pitfall 5: every row including header through escapeCell
+  return out.map((row) => row.map(escapeCell).join(",")).join("\n");
+}
+
+// ─── Multi-period P&L CSV (D-05 in-range deltas, D-08 single footer) ───
+
+/**
+ * Type matches return shape from
+ * convex/reports/financialExport.ts:getMultiPeriodPLExport.
+ *
+ * `rangeGap` shape uses real `WeekData.gapAnalysis` fields (per Critical 3 —
+ * NOT placeholder string-arrays). `unmappedProducts` is `Array<{name,count,revenue}>`
+ * not `string[]`; `missingChannels` is `Array<{source,displayName,reason}>`;
+ * `zeroCostComponents` replaces the placeholder `zeroCogsCount`.
+ */
+export type MultiPeriodPLData = {
+  periods: Array<{
+    bucketStart: number;
+    bucketEnd: number;
+    label: string;
+    current: WeekData;
+  }>;
+  rangeGap: {
+    totalProducts: number;
+    totalMappedProducts: number;
+    unmappedProducts: Array<{ name: string; count: number; revenue: number }>;
+    missingChannels: Array<{
+      source: string;
+      displayName: string;
+      reason: string;
+    }>;
+    zeroCostComponents: Array<{ name: string; code: string }>;
+  };
+};
+
+/**
+ * Serialize multi-period P&L data to CSV.
+ *
+ * Layout (D-08 — single header, single footer):
+ *   1 header row (8 cols, Phase 75 schema)
+ *   1 annotation comment row (CONTEXT.md <specifics> recommendation)
+ *   Per-period body rows via buildIncomeStatementRows (4-arg signature — no deltas
+ *     — plan 01 simplified signature; helper computes deltas internally)
+ *   1 blank separator + range-aggregated Data Quality Notes footer
+ *
+ * First period's prev_period_idr / delta_pct cells are empty strings (D-05 —
+ * passed via `firstInRange=true` flag). Subsequent periods compute prev as
+ * `periods[i-1].current` (in-range delta, NOT equal-length lookback).
+ */
+export function generateMultiPeriodPLCSV(data: MultiPeriodPLData): string {
+  const out: string[][] = [];
+
+  // 8-column header (Phase 75 schema, verbatim)
+  out.push([
+    "period",
+    "section",
+    "channel",
+    "line_item",
+    "amount_idr",
+    "confidence",
+    "prev_period_idr",
+    "delta_pct",
+  ]);
+
+  // Annotation comment row
+  out.push([
+    "# Multi-period export — prev_period_idr compares against the immediately prior period within the file.",
+  ]);
+
+  // Per-period body rows via buildIncomeStatementRows (D-05 in-range delta semantics)
+  // CRITICAL: 4 args — NO deltas (plan 01 simplified signature, helper computes internally).
+  for (let i = 0; i < data.periods.length; i++) {
+    const p = data.periods[i];
+    const prev = i > 0 ? data.periods[i - 1].current : null;
+    const isFirstInRange = i === 0;
+    out.push(
+      ...buildIncomeStatementRows(p.label, p.current, prev, isFirstInRange),
+    );
+  }
+
+  // D-08: single range-aggregated Data Quality footer at bottom (real rangeGap shape)
+  out.push([]);
+  out.push(["# Data Quality Notes (range-aggregated)"]);
+  out.push([
+    `# Mapped products: ${data.rangeGap.totalMappedProducts}/${data.rangeGap.totalProducts}`,
+  ]);
+  if (data.rangeGap.unmappedProducts.length > 0) {
+    const summary = data.rangeGap.unmappedProducts
+      .map((u) => `${u.name} (qty=${u.count}, IDR ${u.revenue})`)
+      .join("; ");
+    out.push([`# Unmapped products: ${summary}`]);
+  }
+  if (data.rangeGap.missingChannels.length > 0) {
+    const summary = data.rangeGap.missingChannels
+      .map((ch) => `${ch.displayName} (${ch.source}): ${ch.reason}`)
+      .join("; ");
+    out.push([`# Missing channels: ${summary}`]);
+  }
+  if (data.rangeGap.zeroCostComponents.length > 0) {
+    const summary = data.rangeGap.zeroCostComponents
+      .map((z) => `${z.name} (${z.code})`)
+      .join("; ");
+    out.push([`# Zero-cost components: ${summary}`]);
+  }
+
+  // D-14 + Pitfall 5: every row through escapeCell
+  return out.map((row) => row.map(escapeCell).join(",")).join("\n");
 }
