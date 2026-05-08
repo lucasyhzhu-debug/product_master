@@ -47,3 +47,13 @@ export const BIGSELLER_PLATFORM_ENDPOINTS: Record<string, string> = {
 
 /** Page size for BigSeller pageList API requests */
 export const BIGSELLER_PAGE_SIZE = 50;
+
+/**
+ * Per-platform pageList retry delays (in ms) for the readiness race where
+ * BigSeller marks the generic sync task `taskStatus=complete` but the per-
+ * platform `{shopee|tiktok}/pageList.json` index isn't queryable yet, returning
+ * `code:-1, msg:"Failed, please try again later"`. Each retry uses the next
+ * delay in this list. Total max wait per platform = sum of delays = 100s.
+ * Documented BigSeller behavior: docs/BIGSELLER_PROFIT_API.md:74-76.
+ */
+export const BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS = [10000, 30000, 60000];
