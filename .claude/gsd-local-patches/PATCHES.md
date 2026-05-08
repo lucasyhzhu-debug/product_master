@@ -2,7 +2,9 @@
 
 Frollie Recipe Master customizations to GSD workflows. These modifications add quality gates (triple-review, simplify, staff review) and automated documentation + PR merge so every workflow that produces code changes closes its own loop.
 
-**Scope:** Five patches reapplied against GSD v1.36.0 on 2026-04-17 after the 1.34.2 → 1.36.0 clean install wiped the original 11. The other 6 patches from the 1.34.2 era were evaluated against v1.36.0 intent and dropped — either obsolete, covered by upstream, or no longer needed.
+**Scope:** Five patches reapplied against GSD v1.41.0 on 2026-05-08 after the 1.36.0 → 1.41.0 clean install wiped the wave applied at 1.36.0. Patch 3's target file moved upstream — debug logic relocated from `commands/gsd/debug.md` (now a thin command shim) to `get-shit-done/workflows/debug.md` — patch retargeted to the new file. Patch 5 (updateGSD.md) and the triple-review.md side of Patch 1 are custom files outside the GSD-managed scope and survived the wipe untouched.
+
+**History:** First wave applied 2026-04-17 (1.34.2 → 1.36.0); 6 of 11 historical patches were dropped at that point — see "Dropped patches" tail. Second wave 2026-05-08 (1.36.0 → 1.41.0); all 5 active patches survived the upgrade with intent intact.
 
 **Tier handling rule (applies to every review step below):** When a review skill (triple-review, staffreview) returns tiered feedback (Critical + Important + Refinements + Minor + Nitpick), route the COMPLETE tiered list back to the fixer/planner. Do NOT filter by tier. Every finding is addressed, so review output is not silently discarded. This rule is embedded inline in each patch's review step rather than kept as a separate cross-cutting patch — it only exists where there's a review step to apply it to.
 
@@ -134,9 +136,9 @@ grep -c "Route the COMPLETE tiered list" .claude/get-shit-done/workflows/quick.m
 
 ## Patch 3: debug — Quality gates + document & merge
 
-**File:** `commands/gsd/debug.md`
+**File:** `get-shit-done/workflows/debug.md` (was `commands/gsd/debug.md` pre-1.41.0 — upstream moved logic to the workflow file in 1.41.0; the command file is now a thin shim with `<execution_context>` pointing here).
 **Purpose:** After a debug fix is applied, run quality gates (triple-review, simplify) and close the loop with CHANGELOG + PR merge. Prevents debug fixes from bypassing the quality bar that phased work enforces.
-**Insertion anchor:** Between the session manager return block (ending with `If summary shows 'ABANDONED': ...`) and `</process>`. Adds `## 5. Quality Gates` and `## 6. Document and Merge`.
+**Insertion anchor:** Between the session manager return block (ending with `If summary shows 'ABANDONED': ...`) and `</process>`. Adds `## 5. Quality Gates` and `## 6. Document and Merge` — the session-manager return text is also tweaked to say "proceed to Section 5 (Quality Gates)" on COMPLETE and "skip Sections 5 and 6" on ABANDONED.
 **Dependencies:**
 - `workflow.triple_review` config key
 - `workflow.simplify` config key
@@ -149,15 +151,13 @@ grep -c "Route the COMPLETE tiered list" .claude/get-shit-done/workflows/quick.m
 - Step 5b (Simplify): Runs after triple-review, commits as `refactor(debug-{slug}): simplify after review`.
 - Step 6 (Document and Merge): Skipped when on main or when no fix was applied. Updates CHANGELOG with bug-fix entry, creates PR titled `fix: {slug}`, squash-merges, syncs main.
 
-Also modifies the session manager's return-handling to route `DEBUG SESSION COMPLETE` into Step 5 (instead of stopping) and `ABANDONED` skips Steps 5-6.
+Session-manager return-handling is patched inline so `DEBUG SESSION COMPLETE` flows into Step 5 instead of stopping, and `ABANDONED` skips Steps 5-6.
 
 **Verification:**
 ```bash
-grep -c "## 5. Quality Gates" .claude/commands/gsd/debug.md
+grep -c "## 5. Quality Gates" .claude/get-shit-done/workflows/debug.md
 # Expected: >= 1
-grep -c "## 6. Document and Merge" .claude/commands/gsd/debug.md
-# Expected: >= 1
-grep -c "Route the COMPLETE tiered list" .claude/commands/gsd/debug.md
+grep -c "## 6. Document and Merge" .claude/get-shit-done/workflows/debug.md
 # Expected: >= 1
 ```
 
