@@ -393,7 +393,17 @@ export const pollSyncTask = internalAction({
       data?: {
         progressInfo?: {
           taskStatus?: string;
+          successOrderNum?: number;
+          failOrderNum?: number;
+          taskSchedule?: string;
         };
+        detailList?: Array<{
+          shopId?: number;
+          shopName?: string;
+          taskStatus?: string;
+          successOrderNum?: number;
+          errorMsg?: string | null;
+        }>;
       };
     };
     try {
@@ -420,6 +430,20 @@ export const pollSyncTask = internalAction({
     const taskStatus = parsed?.data?.progressInfo?.taskStatus;
 
     if (taskStatus === "complete") {
+      // Log per-shop successOrderNum so we know how many orders BigSeller's
+      // upstream Shopee/TikTok pull actually retrieved. Without this, an
+      // empty pageList response is indistinguishable from an upstream-empty
+      // pull on BigSeller's side. detailList is documented in
+      // docs/BIGSELLER_PROFIT_API.md §sync/task/detail/new/get.json.
+      const totalSuccess = parsed?.data?.progressInfo?.successOrderNum ?? -1;
+      const detailList = parsed?.data?.detailList ?? [];
+      const perShop = detailList
+        .map((d) => `${d.shopName ?? d.shopId}=${d.successOrderNum ?? "?"}${d.taskStatus !== "success" ? `/${d.taskStatus}` : ""}${d.errorMsg ? ` (err: ${d.errorMsg})` : ""}`)
+        .join(", ");
+      console.log(
+        `BigSeller poll complete: progressInfo.successOrderNum=${totalSuccess}, perShop=[${perShop}]`
+      );
+
       // Sync complete -- move to fetching orders
       await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
         stage: "fetching",
@@ -717,7 +741,41 @@ export const fetchOrders = internalAction({
         }
 
         if (parsed.code !== 0) {
-          console.error(`BigSeller ${platform} pageList error (page ${pageNo}): code=${parsed.code}`);
+          // Surface real diagnostic — BigSeller returns code:-1 with a msg explaining why
+          // (e.g., "sync task in progress", "invalid field"). The previous version
+          // logged only the code, which made root-causing impossible from logs alone.
+          // Truncate responseText to 500 chars to keep log lines bounded.
+          const responseSnippet = responseText.slice(0, 500);
+          console.error(
+            `BigSeller ${platform} pageList error (page ${pageNo}): ` +
+              `code=${parsed.code}, errorCode=${parsed.errorCode ?? "none"}, ` +
+              `msg=${JSON.stringify(parsed.msg ?? null)}, body=${responseSnippet}`
+          );
+          // First-page failure on page 1 is fatal: BigSeller is rejecting the request
+          // for the entire query. Marking the sync 'failed' (instead of silently
+          // completing with 0 orders) lets the user see something is wrong rather
+          // than "No orders found for this date range."
+          if (pageNo === 1) {
+            await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
+              stage: "failed",
+              pollAttempt: 0,
+              maxPolls: BIGSELLER_MAX_POLLS,
+              attempt: args.attempt,
+              startDate: args.startDate,
+              endDate: args.endDate,
+              errorMessage:
+                `BigSeller ${platform} rejected pageList request: ` +
+                `code=${parsed.code}` +
+                (parsed.msg ? ` (${parsed.msg})` : ""),
+              completedAt: Date.now(),
+            });
+            await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+              logId: args.syncLogId,
+              status: "error",
+              errorMessage: `BigSeller ${platform} pageList code=${parsed.code}: ${parsed.msg ?? "unknown"}`,
+            });
+            return;
+          }
           pageNo++;
           continue;
         }
