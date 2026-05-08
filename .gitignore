@@ -120,3 +120,9 @@ graphify-out/cache/
 
 # Scheduled task lockfile
 .claude/scheduled_tasks.lock
+
+# Matt Pocock's skills repo cache (skills themselves live in .claude/skills/)
+.claude/.cache/
+
+# Transient subagent worktrees (created by Agent tool with isolation: "worktree")
+.claude/worktrees/

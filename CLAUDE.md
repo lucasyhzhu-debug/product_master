@@ -229,6 +229,20 @@ Full per-route permission table: `docs/FILE_MAP.md` (Full Role → Route Permiss
 - **Learning:** When the developer asks a question, give a direct, targeted answer. Do not expand into tutorial mode or provide background they did not ask for. When they reference past work or solutions, locate and surface the specific information rather than re-explaining from scratch.
 <!-- GSD:profile-end -->
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `lucasyhzhu-debug/product_master` via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — `CONTEXT.md` + `docs/adr/` at the repo root (lazily created by `/grill-with-docs`). See `docs/agents/domain.md`.
+
 ## graphify
 
 This project has a graphify knowledge graph at graphify-out/.
