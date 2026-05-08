@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix — BigSeller pageList code:-1 surfaces real error -- 2026-05-08
+
+**For the team:** When BigSeller's API rejects our sync request (e.g., for the latest dates), the admin card will now show the real error message from BigSeller instead of "No orders found for this date range." This unblocks diagnosis when sync silently returns zero.
+
+**Changed:**
+- `convex/integrations/bigseller/sync.ts::pollSyncTask` now logs `progressInfo.successOrderNum` + per-shop `detailList[]` (`successOrderNum`, `taskStatus`, `errorMsg`) on task completion, so we can see how many orders BigSeller's upstream Shopee/TikTok pull actually ingested.
+- `convex/integrations/bigseller/sync.ts::fetchOrders` captures `parsed.msg` + `errorCode` + a 500-char body snippet on `code !== 0`, and transitions the sync to `stage: "failed"` with an actionable `errorMessage` when page 1 fails (instead of silently completing with `totalOrders: 0`).
+
+**Files:** `convex/integrations/bigseller/sync.ts`, `.planning/debug/bigseller-latest-dates-no-orders.md`
+
+**Follow-up:** Re-trigger a BigSeller sync from `/admin`. The surfaced error message will identify the deep root cause (likely a stale `orderState` filter literal or a newly-required body field on BigSeller's side).
+
+PR #153 · merge `e78fb90c`
+
+---
+
 ### Phase 75 — Full P&L Extension -- 2026-04-21
 
 **For the team:** The Income Statement on `/financials` now reads like a proper textbook P&L. Instead of stopping at Net Income, the statement continues through Depreciation & Amortization, CapEx, and lands on **Free Cash Flow** — giving a true sense of how much cash the business actually generated after reinvestment. Per-channel breakdowns honestly stop at Contribution Margin: we won't pretend to allocate overhead to individual sales channels when we don't actually have that data.
