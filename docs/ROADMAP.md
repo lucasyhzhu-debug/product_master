@@ -139,6 +139,25 @@
 - [x] `missingReversals` gap check flags Phase 71 converted expenses whose reversal JE is missing (silent double-count guard)
 - [x] CSV export mirrors on-screen layout 1:1
 
+#### Phase 76: Financial Data Export (Completed 2026-05-09)
+
+**Requirements:** FIN-03 (raw transaction CSV export for a date range), FIN-04 (multi-period P&L summary CSV export — weekly / monthly / custom)
+
+**Plans:** 5/5 complete — Status: **Complete**
+
+- [x] 76-01: Refactor `csvExport.ts` + re-export Phase 75 helpers — `buildIncomeStatementRows` extracted; `fetchAndAggregate` exported with `includePrevious` opt-out; `WeekData` / `GapAnalysis` / `WIB_OFFSET_MS` exported for cross-tier reuse
+- [x] 76-02: Backend financial export queries — `getRawTransactionsExport` + `getMultiPeriodPLExport` + `getExportPreflight` in `convex/reports/financialExport.ts`; shared `convex/lib/periodBuckets.ts` (single source of truth across tiers); 14 convex-test bodies
+- [x] 76-03: Frontend helpers + CSV serializers — `src/lib/financialExportHelpers.ts` with `buildExportFilenames` (path-traversal-safe), `presetToRange` (prior-ISO-week semantics), `formatWeekLabel/MonthLabel/CustomLabel`, `generateRawTransactionsCSV`, `generateMultiPeriodPLCSV`; 30 Vitest helper tests
+- [x] 76-04: Page UI + route — `FinancialExportPage` at `/financials/export` (manager+admin gated), `PreflightPanel` component, `useDebouncedValue` hook, "Export range…" button on `/financials`; 6 RTL tests
+- [x] 76-05: E2E + UAT + docs sweep + merge — 6 Playwright tests (happy-path multi-file, role-gate redirect, filename-WIB-date M6); manual UAT signed off; triple-review clean (no Critical findings)
+
+**Delivered:**
+- [x] **FIN-03**: Raw transaction CSV export (12-column GL line schema, WIB-correct filenames, formula-injection mitigated, integer rupiah)
+- [x] **FIN-04**: Multi-period P&L summary CSV export (single header + per-period bodies + range-aggregated footer; weekly / monthly / custom granularity; first-period no-delta semantics)
+- [x] `/financials/export` page (manager + admin) — 4-section form with 5 preset chips + preflight panel + filename preview
+- [x] Soft warnings: `isLargeRange` (>10k journal lines) and `isTooManyBuckets` (>26 buckets) — no hard caps
+- [x] Three role-gate enforcement layers: `<ProtectedRoute>` (UX), `requireRole()` per query (security boundary), Playwright E2E redirect tests for kitchen + order_staff
+
 ---
 
 ## Not Yet Implemented
@@ -210,6 +229,7 @@
 
 | Version | Date | Major Changes |
 |---------|------|---------------|
+| 6.1 | 2026-05-09 | Financial Data Export: raw GL transaction CSV + multi-period P&L summary CSV (weekly/monthly/custom) at `/financials/export` (v2.0 Phase 76, closes FIN-03 / FIN-04) |
 | 6.0 | 2026-04-21 | Full P&L Extension: canonical EBITDA-first layout, CapEx + Free Cash Flow, Contribution Margin rename (v2.0 Phase 75, closes FIN-01 / FIN-02) |
 | 5.0 | 2026-03-13 | Accounting foundation: schema + journal engine + Chart of Accounts UI (v1.7 Phases 41-43) |
 | 4.0 | 2026-03-02 | Income Statement: backend query + frontend P&L page + CSV export (v1.5 Phases 32-33) |

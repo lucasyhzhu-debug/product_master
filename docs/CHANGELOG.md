@@ -55,6 +55,53 @@ PR #153 · merge `e78fb90c`
 
 ---
 
+### Phase 76 — Financial Data Export -- 2026-05-09
+
+**For the team:** Managers and admins can now export financial data as CSV from a new `/financials/export` page. Two outputs in one click: (1) a flat raw transaction list (every journal entry line in the chosen date range, denormalized with account + JE + user details — exactly what an accountant needs to import into Excel or hand off to a bookkeeper) and (2) a multi-period P&L summary that loops weekly / monthly / custom buckets through the existing income statement engine and lets the spreadsheet do period-over-period comparisons. Filenames are timezone-correct (WIB), formula injection is blocked at the cell level (Excel and Google Sheets both render `=SUM(...)` as plain text), and IDR amounts emit as plain integers (no decimals, no separators, no currency symbol) so spreadsheet formulas just work.
+
+Delivers FIN-03 (raw transaction CSV export) and FIN-04 (multi-period P&L CSV export). New "Export range…" button on `/financials` opens the export form; preflight panel shows journal-line / revenue-row / period counts before Generate, with a soft warning for ranges over 10k journal lines or 26+ buckets.
+
+**Added:**
+- New `/financials/export` page (manager + admin only) — 4-section form (Export type / Date range / Granularity / Preflight) with 5 preset chips (Last week / Last month / Last quarter / Year to date / Custom) and a Generate CTA that triggers parallel backend queries followed by sequenced multi-file downloads.
+- "Export range…" entry button on `/financials` page header (alongside the existing "Export CSV" button — both equal-weight navigation actions).
+- 3 new Convex queries in `convex/reports/financialExport.ts`, all role-gated to manager+admin:
+  - `getRawTransactionsExport` (FIN-03) — flat 12-column GL line export, sorted by `entryDate ASC, entryNumber ASC, _creationTime ASC, debit-before-credit`. Reversal/_void JEs included verbatim. Set-deduped batch fetch over `journalEntries` / `accounts` / `users` (no N+1).
+  - `getMultiPeriodPLExport` (FIN-04) — loops weekly/monthly/custom buckets through `fetchAndAggregate(includePrevious=false)` (Phase 75 engine, with the previous-period I/O skip flag added in 76-01). Returns `periods[]` plus a range-aggregated `rangeGap` shape with deduped unmapped products / missing channels / zero-cost components / missing reversals.
+  - `getExportPreflight` (D-12, D-16) — cheap parallel index-bound counts for the UI preflight panel; returns `{ journalLineCount, revenueRowCount, periodCount, isLargeRange, isTooManyBuckets }`. `isLargeRange = journalLineCount > 10_000`; `isTooManyBuckets = bucketCount > 26`.
+- New shared helper `convex/lib/periodBuckets.ts` — single source of truth for weekly / monthly / custom bucket math (WIB-aware Monday snap for weekly, WIB calendar 1st for monthly). Imported by both backend and frontend so the bucket logic cannot drift across tiers.
+- New frontend helpers in `src/lib/financialExportHelpers.ts` (410 LOC, pure functions) — `buildExportFilenames` (path-traversal-safe via `^\d{8}$` assertion + literal granularity union), `presetToRange` (last-week locked to **prior ISO week** Mon-Sun in WIB per bookkeeper convention, NOT rolling 7 days), `formatWeekLabel` / `formatMonthLabel` / `formatCustomLabel` (with `(partial)` suffix), `generateRawTransactionsCSV` (every cell through `escapeCell`, integer rupiah), `generateMultiPeriodPLCSV` (single shared header + per-period bodies via `buildIncomeStatementRows` + single range-aggregated footer).
+- New `useDebouncedValue` hook (`src/hooks/useDebouncedValue.ts`) — real `setTimeout`-based debounce for the preflight subscription so typing into a date input doesn't fire a Convex query per keystroke. Docblock explains the choice (React's `useDeferredValue` defers rendering, not state changes).
+- Pre-flight stats panel (`src/components/financialExport/PreflightPanel.tsx`) — three states (invalid range / loading / has data) with `aria-live="polite"` + tabular-nums; soft Alert when `isLargeRange === true`.
+- Filename templates (D-11, WIB-correct):
+  - `frollie-transactions-{YYYYMMDD}-{YYYYMMDD}.csv`
+  - `frollie-pl-summary-{YYYYMMDD}-{YYYYMMDD}-{weekly|monthly|custom}.csv`
+
+**Changed:**
+- `src/lib/csvExport.ts` — `generateIncomeStatementCSV` now delegates body row construction to a new exported `buildIncomeStatementRows(periodStr, current, previous, firstInRange?)` helper. Helper computes deltas internally from `(current, previous)` — zero behavior change for existing callers; consumed by the new multi-period CSV generator. Removed dead local `WeekData` / `ChannelData` / `GapAnalysis` / `Confidence` declarations that conflicted with Phase 75's cross-tier `import type { WeekData }` (was blocking `npm run build` under `tsc -b` strict project-reference mode).
+- `convex/reports/incomeStatement.ts` — `fetchAndAggregate` is now exported with optional `includePrevious: boolean = true` parameter. Default preserves existing call sites; multi-period export passes `false` to skip 5 previous-period I/O blocks per bucket (~50% per-bucket query reduction). `WeekData` and `GapAnalysis` interfaces also exported so cross-tier consumers get real type safety.
+- `convex/lib/periodRange.ts` — `WIB_OFFSET_MS` now exported (was internal). Consumed by `convex/lib/periodBuckets.ts`.
+
+**Tests:**
+- `convex/reports/__tests__/financialExport.test.ts` — 14 convex-test bodies covering D-01..D-04 (12-column schema, half-open range, ordering, reversals included), D-07 (COGS override regression), D-08 (`rangeGap` union with deduped channels and unmapped products), D-12 (preflight stats), D-13 (manager+admin role gate, kitchen+order_staff rejection), D-14 (formula injection), D-16 (concrete >10k seed for `isLargeRange`).
+- `src/lib/__tests__/financialExportHelpers.test.ts` — 30 Vitest helper tests including year-boundary weekly bucket (Dec 28 → Jan 4), prior-ISO-week semantics for last-week preset, format-label `(partial)` suffix, path-traversal mitigation, first-period no-delta (D-05), single-footer (D-08).
+- `src/pages/__tests__/FinancialExportPage.test.tsx` — 6 RTL tests (granularity hidden when P&L unchecked, validation tooltips, deterministic filename preview via `vi.setSystemTime`, loading state).
+- `tests/e2e/financial-data-export.spec.ts` — 6 Playwright tests including happy-path multi-file download, single-file download, disabled-state tooltip, kitchen + order_staff role-gate redirect (uses `loginAsRole(page, "kitchen")` directly — no `test.skip` fallback), and a literal-date filename assertion (`20260413-20260419`) confirming WIB timezone correctness.
+
+**Security:**
+- T-76-01 mitigated — server-side `requireRole(ctx, args.token, ["manager", "admin"])` on every new query, plus `<ProtectedRoute allowedRoles={["manager","admin"]}>` on the route. Both layers are independently tested.
+- T-76-02 mitigated — every CSV cell (header AND body) flows through `escapeCell` (CWE-1236 formula injection). Excel + Google Sheets both render `=SUM(...)` as plain text, verified in manual UAT.
+- T-76-03 mitigated — filenames built from numeric epoch + literal granularity union; defensive `^\d{8}$` regex assertion blocks any non-digit characters surviving the date-strip.
+
+**Schema:** No schema changes. No new indexes. No new dependencies.
+
+**Triple-review (2026-05-09):** No Critical findings. 3 Important + 6 Minor + nitpicks documented in `docs/reviews/staffreview-feature-76-financial-data-export-2026-05-09.md`. Resolved before merge: hand-edited `convex/_generated/api.d.ts` regenerated via `npx convex dev` (byte-identical diff verified); other Important/Minor items either landed as follow-up commits or accepted with documented justification.
+
+**Files:** `convex/reports/financialExport.ts`, `convex/lib/periodBuckets.ts`, `convex/reports/incomeStatement.ts`, `convex/lib/periodRange.ts`, `convex/_generated/api.d.ts`, `src/pages/FinancialExportPage.tsx`, `src/components/financialExport/PreflightPanel.tsx`, `src/hooks/useDebouncedValue.ts`, `src/lib/financialExportHelpers.ts`, `src/lib/csvExport.ts`, `src/App.tsx`, `src/pages/FinancialStatement.tsx`, plus 4 test files (vitest + RTL + Playwright).
+
+**Verified:** `npm run type-check`, `npm run test` (14 backend + 31 helper + 6 RTL = 51 new tests, full suite green), `npm run build` (tsc -b + vite chunked + sized OK), `npx playwright test tests/e2e/financial-data-export.spec.ts` (6 passed) all clean. Manual UAT signed off: Excel + Google Sheets render formula-injection seed as text, IDR renders as integer, filenames WIB-correct.
+
+---
+
 ### Phase 75 — Full P&L Extension -- 2026-04-21
 
 **For the team:** The Income Statement on `/financials` now reads like a proper textbook P&L. Instead of stopping at Net Income, the statement continues through Depreciation & Amortization, CapEx, and lands on **Free Cash Flow** — giving a true sense of how much cash the business actually generated after reinvestment. Per-channel breakdowns honestly stop at Contribution Margin: we won't pretend to allocate overhead to individual sales channels when we don't actually have that data.

@@ -27,6 +27,7 @@ Quick lookup for which backend (`convex/`) and frontend (`src/`) files to modify
 | **Journal import** | `convex/journalImport/mutations.ts` | `src/pages/HistoricalImportPage.tsx`, `src/hooks/convex/useJournalImport.ts`, `src/lib/csvImportValidation.ts` |
 | **Manual journal** | `convex/manualJournal/mutations.ts`, `queries.ts` | `src/pages/ManualJournalEntry.tsx`, `src/hooks/convex/useManualJournal.ts` |
 | **Financial statement** | `convex/reports/incomeStatement.ts`, `convex/lib/journalHelpers.ts` | `src/pages/FinancialStatement.tsx`, `src/lib/csvExport.ts` |
+| **Financial data export (Phase 76)** | `convex/reports/financialExport.ts`, `convex/lib/periodBuckets.ts` | `src/pages/FinancialExportPage.tsx`, `src/components/financialExport/PreflightPanel.tsx`, `src/hooks/useDebouncedValue.ts`, `src/lib/financialExportHelpers.ts` |
 | **K3Mart cockpit** | `convex/k3martCockpit/`, `convex/k3martKitchen/` | `src/pages/K3MartCockpit.tsx`, `src/hooks/convex/useK3MartCockpit.ts` |
 | **External data (GoFood)** | `convex/externalData/`, `convex/gofoodDepot/`, `convex/integrations/` | `src/hooks/convex/useExternalData.ts` |
 | **Production targets** | `convex/productionTargets/`, `convex/productionLog/` | -- |
@@ -72,5 +73,6 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 | Restock Planner | `canAccessInventory` | Manager, Admin |
 | Historical Import | `canManageReimbursements` | Admin |
 | Asset Register | `canAccessAssets` | Manager, Admin |
+| Financial Data Export (`/financials/export`) | Roles: manager, admin | Phase 76 — Raw GL + multi-period P&L CSV exports for accountant handoff. Backend queries also enforce `requireRole(["manager","admin"])`. |
 
 **Backend enforcement:** `requireRole(ctx, args.token, ["admin"])` from `convex/lib/auth.ts`. Add `token: v.string()` to protected mutation args.
