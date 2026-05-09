@@ -203,6 +203,15 @@ function aggregateRangeGap(periods: Array<{ current: WeekData }>): {
     reason: string;
   }>;
   zeroCostComponents: Array<{ name: string; code: string }>;
+  // Triple-review I1 — Phase 75 D-15 P&L double-count warning. Single-period CSV
+  // emits this; multi-period must also emit so accountants get the same warning
+  // regardless of which export view they use. Deduped by expenseId across periods.
+  missingReversals: Array<{
+    expenseId: string;
+    description: string;
+    expenseDate: number;
+    journalEntryId: string;
+  }>;
 } {
   const unmappedMap = new Map<
     string,
@@ -213,6 +222,15 @@ function aggregateRangeGap(periods: Array<{ current: WeekData }>): {
     { source: string; displayName: string; reason: string }
   >();
   const zeroCostMap = new Map<string, { name: string; code: string }>();
+  const missingReversalsMap = new Map<
+    string,
+    {
+      expenseId: string;
+      description: string;
+      expenseDate: number;
+      journalEntryId: string;
+    }
+  >();
   let totalProducts = 0;
   let totalMappedProducts = 0;
 
@@ -239,6 +257,15 @@ function aggregateRangeGap(periods: Array<{ current: WeekData }>): {
     for (const z of p.current.gapAnalysis.zeroCostComponents) {
       zeroCostMap.set(z.code, z);
     }
+    for (const r of p.current.gapAnalysis.missingReversals) {
+      // Dedup by expenseId — same expense appearing in multiple periods is one issue.
+      missingReversalsMap.set(r.expenseId, {
+        expenseId: r.expenseId,
+        description: r.description,
+        expenseDate: r.expenseDate,
+        journalEntryId: r.journalEntryId,
+      });
+    }
   }
 
   return {
@@ -247,6 +274,7 @@ function aggregateRangeGap(periods: Array<{ current: WeekData }>): {
     unmappedProducts: [...unmappedMap.values()],
     missingChannels: [...missingChannelsMap.values()],
     zeroCostComponents: [...zeroCostMap.values()],
+    missingReversals: [...missingReversalsMap.values()],
   };
 }
 

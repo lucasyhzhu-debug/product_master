@@ -369,6 +369,7 @@ describe("generateMultiPeriodPLCSV - first period no delta (D-05)", () => {
         unmappedProducts: [],
         missingChannels: [],
         zeroCostComponents: [],
+        missingReversals: [],
       },
     };
     const csv = generateMultiPeriodPLCSV(data);
@@ -398,6 +399,7 @@ describe("generateMultiPeriodPLCSV - first period no delta (D-05)", () => {
         unmappedProducts: [],
         missingChannels: [],
         zeroCostComponents: [],
+        missingReversals: [],
       },
     };
     const csv = generateMultiPeriodPLCSV(data);
@@ -431,6 +433,7 @@ describe("generateMultiPeriodPLCSV - first period no delta (D-05)", () => {
         unmappedProducts: [],
         missingChannels: [],
         zeroCostComponents: [],
+        missingReversals: [],
       },
     };
     const csv = generateMultiPeriodPLCSV(data);
@@ -471,6 +474,7 @@ describe("generateMultiPeriodPLCSV - footer once (D-08)", () => {
         ],
         missingChannels: [],
         zeroCostComponents: [],
+        missingReversals: [],
       },
     };
     const csv = generateMultiPeriodPLCSV(data);
@@ -480,6 +484,64 @@ describe("generateMultiPeriodPLCSV - footer once (D-08)", () => {
     const footerIdx = csv.indexOf("Data Quality Notes (range-aggregated)");
     const lastP2 = csv.lastIndexOf("P2,");
     expect(footerIdx).toBeGreaterThan(lastP2);
+  });
+
+  // Triple-review I1 — Phase 75 D-15 P&L double-count warning surfaced in multi-period footer.
+  it("emits missingReversals warning in footer (Phase 75 D-15 / triple-review I1)", () => {
+    const data: MultiPeriodPLData = {
+      periods: [
+        {
+          bucketStart: 0,
+          bucketEnd: 1,
+          label: "P1",
+          current: makeWeekData({ totalGross: 1000 }),
+        },
+      ],
+      rangeGap: {
+        totalProducts: 0,
+        totalMappedProducts: 0,
+        unmappedProducts: [],
+        missingChannels: [],
+        zeroCostComponents: [],
+        missingReversals: [
+          {
+            expenseId: "exp123",
+            description: "Office chair",
+            expenseDate: 1700000000000,
+            journalEntryId: "je456",
+          },
+        ],
+      },
+    };
+    const csv = generateMultiPeriodPLCSV(data);
+    expect(csv).toContain("Missing reversal JEs (P&L may double-count)");
+    expect(csv).toContain("Office chair");
+    expect(csv).toContain("expense exp123");
+  });
+
+  // CQ M2 / staffreview parity — COGS-timing disclaimer in multi-period footer.
+  it("emits COGS-timing disclaimer (parity with single-period CSV)", () => {
+    const data: MultiPeriodPLData = {
+      periods: [
+        {
+          bucketStart: 0,
+          bucketEnd: 1,
+          label: "P1",
+          current: makeWeekData({ totalGross: 1000 }),
+        },
+      ],
+      rangeGap: {
+        totalProducts: 0,
+        totalMappedProducts: 0,
+        unmappedProducts: [],
+        missingChannels: [],
+        zeroCostComponents: [],
+        missingReversals: [],
+      },
+    };
+    const csv = generateMultiPeriodPLCSV(data);
+    expect(csv).toContain("COGS timing");
+    expect(csv).toContain("order-time snapshot");
   });
 });
 

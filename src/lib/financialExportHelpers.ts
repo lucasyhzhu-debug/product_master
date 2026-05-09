@@ -287,6 +287,16 @@ export type MultiPeriodPLData = {
       reason: string;
     }>;
     zeroCostComponents: Array<{ name: string; code: string }>;
+    // Triple-review I1 — Phase 75 D-15 P&L double-count warning. Same shape
+    // single-period CSV emits; multi-period now also emits. expenseId and
+    // journalEntryId arrive as branded Convex Ids over the wire — typed as
+    // strings here since this view only stringifies them for CSV output.
+    missingReversals: Array<{
+      expenseId: string;
+      description: string;
+      expenseDate: number;
+      journalEntryId: string;
+    }>;
   };
 };
 
@@ -359,6 +369,19 @@ export function generateMultiPeriodPLCSV(data: MultiPeriodPLData): string {
       .join("; ");
     out.push([`# Zero-cost components: ${summary}`]);
   }
+  // Triple-review I1 — Phase 75 D-15 P&L double-count warning, range-aggregated.
+  if (data.rangeGap.missingReversals.length > 0) {
+    const summary = data.rangeGap.missingReversals
+      .map((r) => `${r.description} (expense ${r.expenseId})`)
+      .join("; ");
+    out.push([
+      `# Missing reversal JEs (P&L may double-count): ${summary}`,
+    ]);
+  }
+  // CQ M2 / staffreview parity — single-period CSV ends with a COGS-timing disclaimer; mirror it.
+  out.push([
+    "# COGS timing: Internal order COGS uses order-time snapshot; external channel COGS uses current BOM costs.",
+  ]);
 
   // D-14 + Pitfall 5: every row through escapeCell
   return out.map((row) => row.map(escapeCell).join(",")).join("\n");
