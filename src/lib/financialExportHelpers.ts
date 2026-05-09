@@ -243,13 +243,18 @@ export function generateRawTransactionsCSV(rows: RawTransactionRow[]): string {
       utcToWibDateStr(r.entryDate),
       String(r.journalEntryId),
       r.entryNumber,
-      r.sourceType, // D-01 + Pitfall 3 — verbatim, no mapping
+      r.sourceType, // col 3: je_type (Pitfall 3 — verbatim, no mapping)
       r.accountCode,
       r.accountName,
       String(r.debitAmount), // D-15 — integer rupiah
       String(r.creditAmount),
       r.description ?? "",
-      r.sourceType, // D-01 source_doc_type column = sourceType
+      // col 9: source_doc_type — emits sourceType verbatim. Triple-review I8:
+      // the schema has no separate sourceDocType field; D-01 keeps two columns
+      // intentionally so the accountant has both "JE type" (col 3) and a stable
+      // "doc type for cross-ref" (col 9). They coincide today; if a later phase
+      // splits the concepts in the schema, only this one cell needs to change.
+      r.sourceType,
       r.sourceId ?? "",
       r.createdByName ?? "<unknown>", // Edge case 10 — deleted user
     ]);

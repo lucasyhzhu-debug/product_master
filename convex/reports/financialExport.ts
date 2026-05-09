@@ -306,6 +306,20 @@ export const getMultiPeriodPLExport = query({
       current: WeekData;
     }> = [];
 
+    // Triple-review I6 — sequential per-bucket fetchAndAggregate is intentional but
+    // expensive. Each call issues ~15 parallel DB queries; for N buckets that's N×15
+    // serial query batches. The preflight `isTooManyBuckets` warning (>26 weekly)
+    // soft-warns the user before they Generate. Keeping serial for clarity over
+    // Promise.all-ing all buckets — Convex per-query isolation makes parallelism
+    // a marginal latency win at the cost of larger memory/error-blast-radius per
+    // page-call. Revisit if a future phase ships a single-shot multi-bucket helper.
+    //
+    // Triple-review I6 — `previousStart === previousEnd === s` is a defensive no-op
+    // pattern: includePrevious=false short-circuits ALL 5 previous-period I/O blocks
+    // in fetchAndAggregate (see incomeStatement.ts:608-781). The `s,s` arguments
+    // never reach a query. If a future incomeStatement.ts change adds a 6th
+    // previous-period read WITHOUT an includePrevious gate, this loop silently
+    // regresses to N×2 I/O — guard with a regression test if that risk materializes.
     for (const [s, e] of buckets) {
       // D-05 + Pitfall 2: includePrevious=false — in-range delta computed in plan 03 helper
       const result = await fetchAndAggregate(

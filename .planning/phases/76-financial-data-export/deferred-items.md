@@ -31,3 +31,40 @@ injects a fixed clock fixture (e.g., `vi.setSystemTime`).
 
 **Reference:** `convex/staffAttendance/__tests__/correctAttendance.test.ts:75-93`
 (test 1) and `:349` (test 2).
+
+---
+
+## Orphan-line silent skip in `getRawTransactionsExport` (Phase 77 candidate)
+
+**Discovered during:** Triple-review I7 (2026-05-09).
+
+**Symptom:** `getRawTransactionsExport` enriches each `journalEntryLines` row by
+fetching its parent `journalEntries`. Lines whose parent JE has been deleted
+are silently `continue`'d — they appear in the preflight `journalLineCount`
+but not in the CSV output. Accountant sees a row-count discrepancy with no
+explanation.
+
+```typescript
+// convex/reports/financialExport.ts ~ line 111-113
+if (!je) continue; // orphaned line — silent skip (data integrity belongs in Phase 77)
+```
+
+**Why deferred:**
+- Frollie's accounting model treats JE lines as immutable; orphans should
+  not exist in production. They indicate either a database integrity bug or
+  a manual cleanup that bypassed cascading deletes.
+- Surfacing them in the CSV (e.g. with `entryNumber="<orphan>"`) requires a
+  schema decision the export shouldn't be making in isolation.
+- Phase 77 (Data Health Dashboard) is the right home for both detection
+  (admin-visible orphan count) and remediation tooling.
+
+**Mitigation in Phase 76:** None for now. The preflight overcounts by the
+orphan count — for a clean prod database this is 0.
+
+**Phase 77 backlog notes:**
+- Add an admin query that returns orphan JE-line IDs.
+- Decide whether to include orphans in the raw export with sentinel markers
+  (`<orphan>`) or deduct them from the preflight count for parity.
+- Add a `productionRevenueExternal` integrity check to detect the same class.
+
+**Reference:** `convex/reports/financialExport.ts:111-113`.
