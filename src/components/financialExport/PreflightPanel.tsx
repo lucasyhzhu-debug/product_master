@@ -10,6 +10,7 @@ interface PreflightPanelProps {
         revenueRowCount: number;
         periodCount: number;
         isLargeRange: boolean;
+        isTooManyBuckets: boolean;
       }
     | undefined;
   hasValidRange: boolean;
@@ -63,6 +64,17 @@ export function PreflightPanel({ isLoading, data, hasValidRange }: PreflightPane
                 <AlertDescription>
                   This range covers more than 10,000 lines. Export may take a moment to
                   download.
+                </AlertDescription>
+              </Alert>
+            )}
+            {data.isTooManyBuckets && (
+              <Alert role="status" className="mt-3">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Many periods</AlertTitle>
+                <AlertDescription>
+                  This range produces {data.periodCount} P&amp;L periods. Generating may
+                  take longer than usual; consider a coarser granularity (monthly or
+                  custom) for ranges of this size.
                 </AlertDescription>
               </Alert>
             )}

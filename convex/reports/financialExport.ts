@@ -344,6 +344,10 @@ export const getExportPreflight = query({
       revenueRowCount: revenueRows.length,
       periodCount: buckets.length,
       isLargeRange: jeLines.length > 10_000, // D-16 soft warning threshold
+      // Triple-review I4 — sequential bucket loop in getMultiPeriodPLExport issues
+      // ~15 serial Convex queries per bucket. 26+ buckets risks the per-query CPU /
+      // 16,384-doc-read budget. Surface as a soft warning before Generate.
+      isTooManyBuckets: buckets.length > 26,
     };
   },
 });

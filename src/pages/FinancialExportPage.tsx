@@ -95,18 +95,20 @@ export function FinancialExportPage() {
   // REAL debounce for preflight (Improvement 4). 300ms is the staffreview-confirmed
   // minimum — see useDebouncedValue.ts header for why a setTimeout-based hook is
   // used here (deferring rendering alone is not equivalent to a true debounce).
+  // granularity is a discrete radio click — no need to debounce (triple-review I2).
   const debouncedStart = useDebouncedValue(periodStart, 300);
   const debouncedEnd = useDebouncedValue(periodEnd, 300);
-  const debouncedGran = useDebouncedValue(granularity, 300);
 
-  // Live preflight — useQuery for reactive auto-refresh; "skip" when invalid range or no token.
+  // Live preflight — useQuery for reactive auto-refresh; "skip" when invalid range,
+  // no token, OR no export type selected (triple-review I2 — preflight is meaningless
+  // when neither checkbox is on).
   const preflight = useQuery(
     api.reports.financialExport.getExportPreflight,
-    user?.token && hasValidRange
+    user?.token && hasValidRange && hasAnyType
       ? {
           periodStart: debouncedStart,
           periodEnd: debouncedEnd,
-          granularity: debouncedGran,
+          granularity,
           token: user.token,
         }
       : "skip",
@@ -277,7 +279,7 @@ export function FinancialExportPage() {
                   : p === "last-month"
                     ? "Last month"
                     : p === "last-quarter"
-                      ? "Last quarter"
+                      ? "Last 3 months"
                       : p === "ytd"
                         ? "Year to date"
                         : "Custom"}
@@ -359,9 +361,9 @@ export function FinancialExportPage() {
         {/* Section 4 — Preflight summary */}
         <PreflightPanel
           isLoading={
-            hasValidRange && preflight === undefined && user?.token !== undefined
+            hasValidRange && hasAnyType && preflight === undefined && user?.token !== undefined
           }
-          data={preflight ?? undefined}
+          data={preflight}
           hasValidRange={hasValidRange}
         />
 

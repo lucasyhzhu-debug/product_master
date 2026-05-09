@@ -504,6 +504,44 @@ describe("getExportPreflight - large range warning (D-16, R4)", () => {
     );
     expect(preflight.isLargeRange).toBe(false);
   });
+
+  // Triple-review I4 — bucket-count guard for sequential P&L loop budget.
+  it("isTooManyBuckets === true when weekly buckets > 26", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t, "admin");
+    const token = await seedSession(t, userId);
+
+    // 7 months weekly ≈ 30 buckets > 26 threshold
+    const sevenMonthsLater = PERIOD_END + 6 * 30 * 24 * 60 * 60 * 1000;
+    const preflight = await t.query(
+      api.reports.financialExport.getExportPreflight,
+      {
+        periodStart: PERIOD_START,
+        periodEnd: sevenMonthsLater,
+        granularity: "weekly",
+        token,
+      },
+    );
+    expect(preflight.isTooManyBuckets).toBe(true);
+    expect(preflight.periodCount).toBeGreaterThan(26);
+  });
+
+  it("isTooManyBuckets === false for short ranges", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t, "admin");
+    const token = await seedSession(t, userId);
+
+    const preflight = await t.query(
+      api.reports.financialExport.getExportPreflight,
+      {
+        periodStart: PERIOD_START,
+        periodEnd: PERIOD_END,
+        granularity: "weekly",
+        token,
+      },
+    );
+    expect(preflight.isTooManyBuckets).toBe(false);
+  });
 });
 
 describe("getMultiPeriodPLExport - COGS override regression (D-07)", () => {
