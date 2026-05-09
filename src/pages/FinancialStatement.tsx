@@ -257,23 +257,32 @@ export function FinancialStatement() {
         title="Income Statement"
         description={pageDescription}
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (!data) return;
-              try {
-                const csv = generateIncomeStatementCSV(data, periodLabel);
-                downloadCSV(csv, csvFilename);
-              } catch {
-                toast.error("Failed to export CSV");
-              }
-            }}
-            disabled={isLoading || !data}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!data) return;
+                try {
+                  const csv = generateIncomeStatementCSV(data, periodLabel);
+                  downloadCSV(csv, csvFilename);
+                } catch {
+                  toast.error("Failed to export CSV");
+                }
+              }}
+              disabled={isLoading || !data}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            {/* Phase 76 D-09 — Range export entry button (next to existing Export CSV) */}
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/financials/export">
+                <Download className="h-4 w-4 mr-2" />
+                Export range…
+              </Link>
+            </Button>
+          </div>
         }
       />
 

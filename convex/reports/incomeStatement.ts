@@ -52,7 +52,7 @@ interface ChannelData {
   products: ProductDetail[];
 }
 
-interface GapAnalysis {
+export interface GapAnalysis {
   unmappedProducts: Array<{ name: string; count: number; revenue: number }>;
   zeroCostComponents: Array<{ name: string; code: string }>;
   missingChannels: Array<{
@@ -71,7 +71,7 @@ interface GapAnalysis {
   }>;
 }
 
-interface WeekData {
+export interface WeekData {
   channels: ChannelData[];
   totalGross: number;
   totalDiscounts: number;
@@ -572,12 +572,13 @@ function aggregateWeek(
 
 import type { QueryCtx } from "../_generated/server";
 
-async function fetchAndAggregate(
+export async function fetchAndAggregate(
   ctx: QueryCtx,
   currentStart: number,
   currentEnd: number,
   previousStart: number,
-  previousEnd: number
+  previousEnd: number,
+  includePrevious: boolean = true
 ) {
   // Phase 1: Parallel fetch of all base data (revenue, consignments, BOM, accounts, journal lines)
   const [
@@ -604,15 +605,17 @@ async function fetchAndAggregate(
           .lt("periodStart", currentEnd)
       )
       .collect(),
-    // externalRevenue for previous period
-    ctx.db
-      .query("externalRevenue")
-      .withIndex("by_period", (q) =>
-        q
-          .gte("periodStart", previousStart)
-          .lt("periodStart", previousEnd)
-      )
-      .collect(),
+    // externalRevenue for previous period — gated on includePrevious to skip wasted I/O
+    includePrevious
+      ? ctx.db
+          .query("externalRevenue")
+          .withIndex("by_period", (q) =>
+            q
+              .gte("periodStart", previousStart)
+              .lt("periodStart", previousEnd)
+          )
+          .collect()
+      : Promise.resolve([] as Doc<"externalRevenue">[]),
     // consignmentSettlements for current period
     ctx.db
       .query("consignmentSettlements")
@@ -622,15 +625,17 @@ async function fetchAndAggregate(
           .lt("periodStart", currentEnd)
       )
       .collect(),
-    // consignmentSettlements for previous period
-    ctx.db
-      .query("consignmentSettlements")
-      .withIndex("by_period", (q) =>
-        q
-          .gte("periodStart", previousStart)
-          .lt("periodStart", previousEnd)
-      )
-      .collect(),
+    // consignmentSettlements for previous period — gated on includePrevious
+    includePrevious
+      ? ctx.db
+          .query("consignmentSettlements")
+          .withIndex("by_period", (q) =>
+            q
+              .gte("periodStart", previousStart)
+              .lt("periodStart", previousEnd)
+          )
+          .collect()
+      : Promise.resolve([] as Doc<"consignmentSettlements">[]),
     // BOM preload (follows getLifetimeTotalsInternal pattern)
     ctx.db.query("menuProductComponents").collect(),
     ctx.db.query("componentTypes").collect(),
@@ -643,9 +648,12 @@ async function fetchAndAggregate(
     ctx.db.query("journalEntryLines")
       .withIndex("by_entryDate", (q) => q.gte("entryDate", currentStart).lt("entryDate", currentEnd))
       .collect(),
-    ctx.db.query("journalEntryLines")
-      .withIndex("by_entryDate", (q) => q.gte("entryDate", previousStart).lt("entryDate", previousEnd))
-      .collect(),
+    includePrevious
+      ? ctx.db
+          .query("journalEntryLines")
+          .withIndex("by_entryDate", (q) => q.gte("entryDate", previousStart).lt("entryDate", previousEnd))
+          .collect()
+      : Promise.resolve([] as Doc<"journalEntryLines">[]),
     // Phase 75 FIN-01: All fixedAssets (scan acceptable at current scale per RESEARCH §1)
     ctx.db.query("fixedAssets").collect(),
     // Phase 75 D-15: Expenses converted to assets (scan — tiny subset)
@@ -715,10 +723,14 @@ async function fetchAndAggregate(
     );
   }
 
-  // Phase 3: Fetch internal order data for discount correction (both periods)
+  // Phase 3: Fetch internal order data for discount correction.
+  // Previous-period map is gated on includePrevious to skip wasted I/O when caller
+  // (e.g., plan 02 multi-period exporter) doesn't need previous-period data.
   const [currentOrderDataMap, previousOrderDataMap] = await Promise.all([
     fetchInternalOrderDataMap(ctx, currentRevenue),
-    fetchInternalOrderDataMap(ctx, previousRevenue),
+    includePrevious
+      ? fetchInternalOrderDataMap(ctx, previousRevenue)
+      : Promise.resolve(new Map() as Awaited<ReturnType<typeof fetchInternalOrderDataMap>>),
   ]);
 
   // Phase 75 D-15: Fetch journal entries for converted expenses (parallel, small subset)
@@ -762,10 +774,10 @@ async function fetchAndAggregate(
     currentStart,
     currentEnd
   );
-  const previousMissingReversals = buildMissingReversals(
-    previousStart,
-    previousEnd
-  );
+  // Skip previous-period missing-reversal scan when caller opted out of prev I/O.
+  const previousMissingReversals = includePrevious
+    ? buildMissingReversals(previousStart, previousEnd)
+    : ([] as GapAnalysis["missingReversals"]);
 
   // Build COGS map
   // Filter inactive componentTypes to exclude discontinued items from cost calculations.
