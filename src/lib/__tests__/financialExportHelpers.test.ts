@@ -244,6 +244,31 @@ describe("formatWeekLabel / formatMonthLabel", () => {
     const partialEnd = wibMidnightToUtc(2026, 3, 15);
     expect(formatMonthLabel(monthStart, partialEnd)).toBe("2026-04 (partial)");
   });
+
+  // Triple-review C1 — ISO week-year (NOT calendar year) at year boundary.
+  // Dec 29 2025 (Mon) belongs to ISO 2026-W01. Calendar year would say "2025-W01" — wrong.
+  it("formatWeekLabel uses ISO week-year at year boundary (Dec 29 2025 -> 2026-W01)", () => {
+    const monDec29_2025 = wibMidnightToUtc(2025, 11, 29);
+    const monJan5_2026 = wibMidnightToUtc(2026, 0, 5);
+    const label = formatWeekLabel(monDec29_2025, monJan5_2026);
+    expect(label).toBe("2026-W01");
+    expect(label).not.toMatch(/^2025-/);
+  });
+
+  it("formatWeekLabel: Dec 28 2026 (Mon) belongs to 2026-W53", () => {
+    // 2026 has 53 ISO weeks; Dec 28 2026 (Mon) is the start of 2026-W53.
+    const monDec28_2026 = wibMidnightToUtc(2026, 11, 28);
+    const monJan4_2027 = wibMidnightToUtc(2027, 0, 4);
+    const label = formatWeekLabel(monDec28_2026, monJan4_2027);
+    expect(label).toBe("2026-W53");
+  });
+
+  // CQ M5 — monthly year-boundary regression guard.
+  it("formatMonthLabel handles year-boundary December correctly", () => {
+    const decStart = wibMidnightToUtc(2026, 11, 1);
+    const janStart = wibMidnightToUtc(2027, 0, 1);
+    expect(formatMonthLabel(decStart, janStart)).toBe("2026-12");
+  });
 });
 
 // ─── generateRawTransactionsCSV — escapeCell (D-14) + integer rupiah (D-15) ───

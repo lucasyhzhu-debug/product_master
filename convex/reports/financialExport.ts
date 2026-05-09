@@ -27,6 +27,7 @@ import { buildPeriodBuckets, type Granularity } from "../lib/periodBuckets";
 import {
   WIB_OFFSET_MS,
   getIsoWeekNumber,
+  getIsoWeekYear,
   utcToWibMonthStr,
 } from "../lib/periodRange";
 
@@ -152,10 +153,12 @@ export const getRawTransactionsExport = query({
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function formatWeekLabel(s: number, e: number): string {
-  const wibYear = new Date(s + WIB_OFFSET_MS).getUTCFullYear();
+  // Use ISO week-year (NOT calendar year) — Dec 29 2025 Mon belongs to ISO 2026-W01,
+  // not "2025-W01". Triple-review C1.
+  const isoYear = getIsoWeekYear(s);
   const week = getIsoWeekNumber(s); // returns "W15"
   const isFullWeek = e - s === WEEK_MS;
-  return isFullWeek ? `${wibYear}-${week}` : `${wibYear}-${week} (partial)`;
+  return isFullWeek ? `${isoYear}-${week}` : `${isoYear}-${week} (partial)`;
 }
 
 export function formatMonthLabel(s: number, e: number): string {

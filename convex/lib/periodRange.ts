@@ -240,6 +240,19 @@ export function getIsoWeekNumber(utcMs: number): string {
   return `W${weekNo.toString().padStart(2, "0")}`;
 }
 
+/**
+ * Get ISO 8601 week-year (the year that owns the ISO week containing this date).
+ * Differs from calendar year at year boundaries: Dec 29 2025 (Mon) belongs to ISO 2026-W01.
+ * Pair with getIsoWeekNumber() to produce labels like "2026-W01" — never "2025-W01" for that date.
+ */
+export function getIsoWeekYear(utcMs: number): number {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const d = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  return d.getUTCFullYear();
+}
+
 /** Get YYYY-MM from WIB-adjusted date */
 export function utcToWibMonthStr(utcMs: number): string {
   const wib = new Date(utcMs + WIB_OFFSET_MS);
