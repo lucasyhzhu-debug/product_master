@@ -18,8 +18,8 @@ Requirements for milestone v2.0 Financial Management & Data Quality. Each maps t
 
 - [ ] **FIN-01**: Income Statement extends from Net Income through Depreciation/Amortization, CapEx, to Free Cash Flow
 - [ ] **FIN-02**: Per-channel breakdown continues through the full P&L flow (Revenue -> FCF)
-- [ ] **FIN-03**: User can export raw financial transactions (revenue + journal entries) as CSV for a date range
-- [ ] **FIN-04**: User can export P&L summary as CSV for weekly/monthly/custom range
+- [x] **FIN-03**: User can export raw financial transactions (revenue + journal entries) as CSV for a date range
+- [x] **FIN-04**: User can export P&L summary as CSV for weekly/monthly/custom range
 
 ### Expense Management
 
@@ -89,8 +89,8 @@ Deferred to future milestone. Tracked but not in current roadmap.
 | DA-04 | Phase 70 | Complete |
 | FIN-01 | Phase 75 | Pending |
 | FIN-02 | Phase 75 | Pending |
-| FIN-03 | Phase 76 | Pending |
-| FIN-04 | Phase 76 | Pending |
+| FIN-03 | Phase 76 | Complete |
+| FIN-04 | Phase 76 | Complete |
 | EXP-01 | Phase 71 | Pending |
 | EXP-02 | Phase 71 | Pending |
 | EXP-03 | Phase 71 | Pending |
@@ -116,4 +116,4 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 ---
 *Requirements defined: 2026-04-08*
-*Last updated: 2026-04-08 -- Traceability updated with phase mappings*
+*Last updated: 2026-05-09 -- Phase 76 complete; FIN-03 + FIN-04 marked Complete*
