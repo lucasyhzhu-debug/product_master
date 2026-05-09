@@ -143,6 +143,7 @@ import type * as lib_indonesianDate from "../lib/indonesianDate.js";
 import type * as lib_journalEngine from "../lib/journalEngine.js";
 import type * as lib_journalHelpers from "../lib/journalHelpers.js";
 import type * as lib_jwt from "../lib/jwt.js";
+import type * as lib_periodBuckets from "../lib/periodBuckets.js";
 import type * as lib_periodRange from "../lib/periodRange.js";
 import type * as lib_queryHelpers from "../lib/queryHelpers.js";
 import type * as lib_stockDelta from "../lib/stockDelta.js";
@@ -398,6 +399,7 @@ declare const fullApi: ApiFromModules<{
   "lib/journalEngine": typeof lib_journalEngine;
   "lib/journalHelpers": typeof lib_journalHelpers;
   "lib/jwt": typeof lib_jwt;
+  "lib/periodBuckets": typeof lib_periodBuckets;
   "lib/periodRange": typeof lib_periodRange;
   "lib/queryHelpers": typeof lib_queryHelpers;
   "lib/stockDelta": typeof lib_stockDelta;
