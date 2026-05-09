@@ -545,9 +545,3 @@ describe("generateMultiPeriodPLCSV - footer once (D-08)", () => {
   });
 });
 
-// Sanity meta — kept from Wave 0 stub
-describe("Phase 76 helpers — meta", () => {
-  it("file is registered with vitest (sanity check)", () => {
-    expect(true).toBe(true);
-  });
-});
