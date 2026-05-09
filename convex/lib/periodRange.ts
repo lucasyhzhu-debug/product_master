@@ -215,7 +215,7 @@ export function calculateWeekRange(weekStartMs: number): {
 // --- WIB Date Formatting Helpers ---
 // Used by time-series, revenue-by-outlet, restock, and sell-through queries.
 
-const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
+export const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
 
 /** Get WIB date string (YYYY-MM-DD) from UTC epoch ms */
 export function utcToWibDateStr(utcMs: number): string {
