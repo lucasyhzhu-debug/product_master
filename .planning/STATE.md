@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
-status: awaiting-uat
-stopped_at: Phase 76 — 5/5 plans merged on feature/76-financial-data-export. Autonomous portions complete; manual UAT (5.2b) + triple-review (5.3) + docs sweep (5.4) + merge (5.5) pending human action per G3.
-last_updated: "2026-05-09T10:35:00.000Z"
+status: ready-to-merge
+stopped_at: Phase 76 — 5/5 plans merged on feature/76-financial-data-export. Triple-review complete (1 Critical + 8 Important all addressed). Playwright 6/6 green. Docs swept. Manual UAT skipped per user direction. Ready to push + PR + merge to main.
+last_updated: "2026-05-09T11:50:00.000Z"
 last_activity: 2026-05-09
 progress:
   total_phases: 21
@@ -20,13 +20,13 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-08)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 76 — financial-data-export (awaiting human UAT + triple-review + merge)
+**Current focus:** Phase 76 — financial-data-export (ready to merge to main)
 
 ## Current Position
 
 Phase: 76
-Plan: All 5 plans merged on feature/76-financial-data-export
-Status: Awaiting human UAT + triple-review + docs sweep + merge
+Plan: All 5 plans merged + triple-review fixes + docs sweep on feature/76-financial-data-export
+Status: Ready to push + PR + merge to main
 Last activity: 2026-05-09
 
 Progress: [████████▌░] 84%
