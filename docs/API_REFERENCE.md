@@ -2126,6 +2126,163 @@ const stmt = useQuery(api.reports.incomeStatement.getWeeklyIncomeStatement, {
 
 ---
 
+### Reports: Financial Export (Phase 76)
+
+**Module:** `convex/reports/financialExport.ts`
+**Auth:** `requireRole(ctx, token, ["manager", "admin"])` — every query, on the first line of the handler. Kitchen and order_staff roles are rejected with `Not authorized`.
+**Frontend route:** `/financials/export` — also gated via `<ProtectedRoute allowedRoles={["manager", "admin"]}>` for the UX layer.
+
+Three real-time Convex queries powering the multi-period financial CSV export page. All three accept the same time-range shape: `[periodStart, periodEnd)` half-open epoch ms intervals (D-03). No N+1 — all `ctx.db.get` calls are wrapped in `Promise.all` over Set-deduped IDs.
+
+#### `reports.financialExport.getRawTransactionsExport`
+
+Flat GL line export — one row per `journalEntryLines` entry in the date range, denormalized with parent JE + account + user fields. Reversal/`_void` JEs are included verbatim (D-04). The frontend pipes the result through `generateRawTransactionsCSV` from `src/lib/financialExportHelpers.ts`.
+
+**Type:** Query (real-time, reactive)
+
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `periodStart` | `number` | Epoch ms — inclusive start of the date range (WIB-aware) |
+| `periodEnd` | `number` | Epoch ms — exclusive end (next-day midnight WIB for inclusive labels) |
+| `token` | `string` | Session token — required (manager+admin gate) |
+
+**Returns:** `RawTransactionRow[]` — empty array if no journal lines fall in the range.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `entryDate` | `number` | Epoch ms — `journalEntryLines.entryDate` |
+| `journalEntryId` | `Id<"journalEntries">` | Parent JE ID (serializes as opaque string over the wire) |
+| `entryNumber` | `string` | Sequential JE number (e.g., `JE-0508-001`) |
+| `sourceType` | `string` | Verbatim `journalEntries.sourceType` literal — `_void` / `_reversal` suffix naturally identifies reversal rows (D-04) |
+| `accountCode` | `string` | PSAK chart-of-accounts code (e.g., `4000`) |
+| `accountName` | `string` | Account display name from `accounts.name` |
+| `debitAmount` | `number` | INTEGER rupiah (D-15) — frontend renders `String(amount)` (no decimals, no separators) |
+| `creditAmount` | `number` | INTEGER rupiah |
+| `description` | `string` | Verbatim `journalEntries.description ?? ""` |
+| `sourceId` | `string \| undefined` | Optional source document ID (e.g., expense ID) — undefined for manual JEs |
+| `createdByName` | `string \| null` | Display name of the user who created the JE; `null` when the user has been deleted (Edge case 10) |
+| `_creationTime` | `number` | Convex `_creationTime` — used for sort stability |
+
+**Sort order (D-02):** `entryDate ASC, entryNumber.localeCompare ASC, _creationTime ASC, debit-before-credit tiebreaker`.
+
+**Index used:** `journalEntryLines.by_entryDate` — single range scan with both bounds inside `.withIndex(...)` (per CLAUDE.md `Pitfall #10`-style index discipline).
+
+**Example usage:**
+```typescript
+const rows = await convex.query(api.reports.financialExport.getRawTransactionsExport, {
+  periodStart: 1747008000000, // Mon 2026-05-12 00:00 WIB in UTC ms
+  periodEnd:   1747612800000, // Mon 2026-05-19 00:00 WIB in UTC ms (exclusive)
+  token,
+});
+```
+
+#### `reports.financialExport.getMultiPeriodPLExport`
+
+Loops `fetchAndAggregate` (Phase 75 P&L engine) over weekly / monthly / custom buckets within the range; returns one period record per bucket plus a range-aggregated gap analysis. `includePrevious=false` is passed per bucket — the frontend computes in-range deltas from `periods[i-1].current` (D-05) so we never re-fetch previous-period data per bucket.
+
+**Type:** Query (real-time, reactive)
+
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `periodStart` | `number` | Epoch ms — inclusive start |
+| `periodEnd` | `number` | Epoch ms — exclusive end |
+| `granularity` | `"weekly" \| "monthly" \| "custom"` | Bucket size: weekly snaps to Monday 00:00 WIB; monthly snaps to WIB calendar 1st; custom returns exactly one bucket spanning the input range. Partial leading/trailing buckets are clamped and labelled with `(partial)` suffix. |
+| `token` | `string` | Session token — required |
+
+**Returns:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `periods` | `Array<PeriodBucket>` | One entry per bucket; ordered by `bucketStart` ASC |
+| `rangeGap` | `RangeGap` | Range-aggregated data quality issues (deduped union across periods) |
+
+**`PeriodBucket` shape:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bucketStart` | `number` | Epoch ms — bucket inclusive start |
+| `bucketEnd` | `number` | Epoch ms — bucket exclusive end |
+| `label` | `string` | Display label: `2026-W15` (weekly), `2026-04` (monthly), `2026-04-01 to 2026-04-19` (custom) — appends ` (partial)` suffix when bucket is clamped |
+| `current` | `WeekData` | Full Phase 75 P&L for this bucket (same shape as `getWeeklyIncomeStatement` returns; see Reports: Income Statement above) |
+
+**`RangeGap` shape (D-08 — union across all periods, deduped):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalProducts` | `number` | Sum of `gapAnalysis.totalProducts` across periods |
+| `totalMappedProducts` | `number` | Sum of mapped products across periods |
+| `unmappedProducts` | `Array<{ name, count, revenue }>` | Union by `name` (counts + revenues summed for shared names) |
+| `missingChannels` | `Array<{ source, displayName, reason }>` | Union by `source` (last-seen entry wins for displayName/reason) |
+| `zeroCostComponents` | `Array<{ name, code }>` | Union by `code` |
+| `missingReversals` | `Array<{ expenseId, description, expenseDate, journalEntryId }>` | Union by `expenseId` — flags Phase 71 converted-expense reversal gaps that risk silent P&L double-counts. Single-period CSV emits this; multi-period also emits so accountants get the same warning regardless of export view (Triple-review I1). |
+
+**Performance note:** The bucket loop is sequential (each call issues ~15 parallel DB queries; for N buckets that's N serial query batches). The preflight `isTooManyBuckets` flag warns at >26 weekly buckets to keep the user under the per-query CPU / 16,384-doc-read budget. Revisit if a future phase ships a single-shot multi-bucket helper.
+
+**Example usage:**
+```typescript
+const data = await convex.query(api.reports.financialExport.getMultiPeriodPLExport, {
+  periodStart: 1735689600000, // Mon 2026-01-01 00:00 WIB
+  periodEnd:   1751299200000, // Mon 2026-07-01 00:00 WIB
+  granularity: "monthly",
+  token,
+});
+// data.periods → 6 entries (Jan, Feb, Mar, Apr, May, Jun) each with a full WeekData P&L
+// data.rangeGap.unmappedProducts → deduped union across all 6 months
+```
+
+#### `reports.financialExport.getExportPreflight`
+
+Cheap parallel index-bound counts for the UI preflight panel. Three counts + two soft-warning flags, returned in a single round-trip. Used by `FinancialExportPage` with a 300ms debounce on the inputs to avoid re-querying per keystroke.
+
+**Type:** Query (real-time, reactive)
+
+**Args:**
+
+| Arg | Type | Description |
+|-----|------|-------------|
+| `periodStart` | `number` | Epoch ms — inclusive start |
+| `periodEnd` | `number` | Epoch ms — exclusive end |
+| `granularity` | `"weekly" \| "monthly" \| "custom"` | Used only for `periodCount` (delegates to `buildPeriodBuckets`) |
+| `token` | `string` | Session token — required |
+
+**Returns:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `journalLineCount` | `number` | Count from `journalEntryLines.by_entryDate` range scan |
+| `revenueRowCount` | `number` | Count from `externalRevenue.by_period` range scan (gte/lt against `periodStart`) |
+| `periodCount` | `number` | `buildPeriodBuckets(...)` length — reflects partial leading/trailing buckets |
+| `isLargeRange` | `boolean` | `journalLineCount > 10_000` — D-16 soft warning (no hard cap) |
+| `isTooManyBuckets` | `boolean` | `periodCount > 26` — soft warning before the user clicks Generate; sequential bucket loop in `getMultiPeriodPLExport` risks per-query budget exhaustion at high bucket counts (Triple-review I4) |
+
+**Indexes used:** `journalEntryLines.by_entryDate`, `externalRevenue.by_period`. Both bounds inside `.withIndex(...)` per Convex index discipline.
+
+**Example usage:**
+```typescript
+const preflight = useQuery(api.reports.financialExport.getExportPreflight, {
+  periodStart: debouncedStart, // 300ms-debounced via useDebouncedValue
+  periodEnd:   debouncedEnd,
+  granularity, // discrete radio click — no debounce needed
+  token: user?.token,
+});
+// preflight.isLargeRange → render amber Alert
+// preflight.isTooManyBuckets → render amber Alert
+```
+
+#### Shared helper: `convex/lib/periodBuckets.ts`
+
+`buildPeriodBuckets(periodStart, periodEnd, granularity)` returns `Array<[number, number]>` half-open `[bucketStart, bucketEnd)` intervals. Pure function (no Convex context) — imported by both backend `convex/reports/financialExport.ts` and frontend `src/lib/financialExportHelpers.ts` so the bucket math is the single source of truth across tiers and cannot drift.
+
+- `"weekly"` — snaps to Monday 00:00 WIB via `(dayOfWeek + 6) % 7` math; clamps partial leading/trailing buckets.
+- `"monthly"` — walks WIB calendar months via `wibMidnightToUtc(y, m, 1)`; clamps edge buckets.
+- `"custom"` — returns `[[periodStart, periodEnd]]` (single bucket spanning input range).
+
+---
+
 ### Expense Analytics (Phase 50)
 
 #### `expenses.analyticsQueries.getOpExAnalytics`

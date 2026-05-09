@@ -215,7 +215,7 @@ export function calculateWeekRange(weekStartMs: number): {
 // --- WIB Date Formatting Helpers ---
 // Used by time-series, revenue-by-outlet, restock, and sell-through queries.
 
-const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
+export const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
 
 /** Get WIB date string (YYYY-MM-DD) from UTC epoch ms */
 export function utcToWibDateStr(utcMs: number): string {
@@ -238,6 +238,19 @@ export function getIsoWeekNumber(utcMs: number): string {
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return `W${weekNo.toString().padStart(2, "0")}`;
+}
+
+/**
+ * Get ISO 8601 week-year (the year that owns the ISO week containing this date).
+ * Differs from calendar year at year boundaries: Dec 29 2025 (Mon) belongs to ISO 2026-W01.
+ * Pair with getIsoWeekNumber() to produce labels like "2026-W01" — never "2025-W01" for that date.
+ */
+export function getIsoWeekYear(utcMs: number): number {
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const d = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  return d.getUTCFullYear();
 }
 
 /** Get YYYY-MM from WIB-adjusted date */
