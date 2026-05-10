@@ -15,7 +15,7 @@ import { describe, it, expect } from "vitest";
 import schema from "../../schema";
 import { api } from "../../_generated/api";
 import { seedUser, insertAttendance } from "./helpers";
-import { toWibDateString } from "../flagEngine";
+import { getWibDateStr } from "../../lib/periodRange";
 
 describe("correctAttendance", () => {
   it("requires manager/admin role (rejects kitchen/order_staff)", async () => {
@@ -24,7 +24,7 @@ describe("correctAttendance", () => {
       name: "Chef",
       role: "kitchen",
     });
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceId = await insertAttendance(t, {
       userId,
       date: today,
@@ -46,7 +46,7 @@ describe("correctAttendance", () => {
     const t = convexTest(schema);
     const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceId = await insertAttendance(t, {
       userId,
       date: today,
@@ -72,7 +72,7 @@ describe("correctAttendance", () => {
     });
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const originalIn = Date.now() - 3 * 60 * 60 * 1000;
     const originalOut = Date.now() - 60 * 60 * 1000;
     const attendanceId = await insertAttendance(t, {
@@ -110,7 +110,7 @@ describe("correctAttendance", () => {
     const t = convexTest(schema);
     const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const clockIn = Date.now() - 60 * 60 * 1000;
     const attendanceId = await insertAttendance(t, {
       userId,
@@ -174,7 +174,7 @@ describe("correctAttendance", () => {
     const { userId: userA } = await seedUser(t, { name: "A", role: "kitchen" });
     const { userId: userB } = await seedUser(t, { name: "B", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceId = await insertAttendance(t, {
       userId: userA,
       date: today,
@@ -204,7 +204,7 @@ describe("correctAttendance", () => {
     });
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceId = await insertAttendance(t, {
       userId,
       date: today,
@@ -280,7 +280,7 @@ describe("correctAttendance", () => {
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
     const { userId: userB } = await seedUser(t, { name: "B", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceId = await insertAttendance(t, {
       userId,
       date: today,
@@ -337,7 +337,7 @@ describe("correctAttendance", () => {
     const { userId: userA } = await seedUser(t, { name: "A", role: "kitchen" });
     const { userId: userB } = await seedUser(t, { name: "B", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const originalIn = Date.now() - 4 * 60 * 60 * 1000;
     const attendanceId = await insertAttendance(t, {
       userId: userA,

@@ -13,6 +13,7 @@
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { OPEN_SHIFT_THRESHOLD_MS, WIB_OFFSET_MS } from "./constants";
+import { getWibDateStr } from "../lib/periodRange";
 
 export type FlagReason =
   | "missing_clockout"
@@ -88,7 +89,7 @@ export function detectFlags(
     if (now - record.clockIn > OPEN_SHIFT_THRESHOLD_MS) {
       flags.push("over_16h");
     }
-    const todayWib = toWibDateString(now);
+    const todayWib = getWibDateStr(now);
     if (record.date < todayWib) {
       flags.push("missing_clockout");
     }

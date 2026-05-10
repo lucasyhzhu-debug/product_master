@@ -10,7 +10,7 @@ import { describe, it, expect } from "vitest";
 import schema from "../../schema";
 import { api } from "../../_generated/api";
 import { seedUser, insertAttendance } from "./helpers";
-import { toWibDateString } from "../flagEngine";
+import { getWibDateStr } from "../../lib/periodRange";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -18,7 +18,7 @@ describe("clockOut", () => {
   it("sets clockOut and durationMs = clockOut - clockIn on the open row", async () => {
     const t = convexTest(schema);
     const { token, userId } = await seedUser(t, { name: "Chef A", role: "kitchen" });
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const clockInMs = Date.now() - 2 * 60 * 60 * 1000; // 2h ago
     const attendanceId = await insertAttendance(t, {
       userId,
@@ -45,7 +45,7 @@ describe("clockOut", () => {
     const { token: tokenA } = await seedUser(t, { name: "Chef A", role: "kitchen" });
     const { userId: userIdB } = await seedUser(t, { name: "Chef B", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceIdB = await insertAttendance(t, {
       userId: userIdB,
       date: today,
@@ -65,7 +65,7 @@ describe("clockOut", () => {
     const { userId: kitchenId } = await seedUser(t, { name: "Kitchen", role: "kitchen" });
     const { token: managerToken } = await seedUser(t, { name: "Mgr", role: "manager" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceId = await insertAttendance(t, {
       userId: kitchenId,
       date: today,
@@ -86,7 +86,7 @@ describe("clockOut", () => {
     const { token, userId } = await seedUser(t, { name: "Chef A", role: "kitchen" });
 
     const yesterdayMs = Date.now() - DAY_MS;
-    const yesterday = toWibDateString(yesterdayMs);
+    const yesterday = getWibDateStr(yesterdayMs);
     const attendanceId = await insertAttendance(t, {
       userId,
       date: yesterday,
@@ -102,7 +102,7 @@ describe("clockOut", () => {
     const t = convexTest(schema);
     const { token, userId } = await seedUser(t, { name: "Chef A", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const clockInMs = Date.now() - 2 * 60 * 60 * 1000;
     const clockOutMs = Date.now() - 60_000;
     const attendanceId = await insertAttendance(t, {
@@ -122,7 +122,7 @@ describe("clockOut", () => {
     const t = convexTest(schema);
     const { token, userId } = await seedUser(t, { name: "Chef A", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     const attendanceId = await insertAttendance(t, {
       userId,
       date: today,

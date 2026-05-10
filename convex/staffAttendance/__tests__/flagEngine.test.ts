@@ -3,7 +3,6 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import {
   detectFlags,
   detectOverlaps,
-  toWibDateString,
 } from "../flagEngine";
 import { OPEN_SHIFT_THRESHOLD_MS } from "../constants";
 
@@ -34,34 +33,11 @@ function mkSession(
 const HOUR = 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
-// toWibDateString
+// Phase 81 / Plan 02 (2026-05-10): the toWibDateString describe-block that
+// previously lived here was deleted. The function is gone (replaced by
+// canonical getWibDateStr at convex/lib/periodRange.ts) and all its tests
+// were migrated to convex/lib/__tests__/periodRange.test.ts.
 // ---------------------------------------------------------------------------
-
-describe("toWibDateString", () => {
-  it("returns YYYY-MM-DD in WIB (UTC+7)", () => {
-    // 2026-04-16T10:00:00Z UTC → 17:00 WIB → "2026-04-16"
-    expect(toWibDateString(Date.UTC(2026, 3, 16, 10, 0, 0))).toBe("2026-04-16");
-  });
-
-  it("rolls over to next WIB day at UTC 17:00 (WIB midnight)", () => {
-    // 2026-04-16T17:00:00Z UTC = 2026-04-17T00:00:00 WIB.
-    expect(toWibDateString(Date.UTC(2026, 3, 16, 17, 0, 0))).toBe("2026-04-17");
-  });
-
-  it("keeps same WIB date for UTC 16:59:59Z", () => {
-    // Last UTC second that still resolves to 2026-04-16 WIB.
-    expect(toWibDateString(Date.UTC(2026, 3, 16, 16, 59, 59))).toBe("2026-04-16");
-  });
-
-  it("throws on NaN input (WR-02 regression)", () => {
-    expect(() => toWibDateString(NaN)).toThrow(/non-finite/);
-  });
-
-  it("throws on Infinity input (WR-02 regression)", () => {
-    expect(() => toWibDateString(Number.POSITIVE_INFINITY)).toThrow(/non-finite/);
-    expect(() => toWibDateString(Number.NEGATIVE_INFINITY)).toThrow(/non-finite/);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // detectOverlaps

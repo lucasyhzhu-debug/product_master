@@ -2,7 +2,7 @@
  * Phase 74 Plan 04 — real clockIn mutation tests.
  *
  * Covers the D-04 blocker, same-day guard, token-derived userId (T-74-01),
- * soft-delete handling, and WIB-date computation via toWibDateString (I-6).
+ * soft-delete handling, and WIB-date computation via getWibDateStr (I-6).
  */
 
 import { convexTest } from "convex-test";
@@ -10,7 +10,7 @@ import { describe, it, expect } from "vitest";
 import schema from "../../schema";
 import { api } from "../../_generated/api";
 import { seedUser, insertAttendance } from "./helpers";
-import { toWibDateString } from "../flagEngine";
+import { getWibDateStr } from "../../lib/periodRange";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -30,7 +30,7 @@ describe("clockIn", () => {
     expect(row?.userId).toBe(userId);
     expect(row?.clockOut).toBeUndefined();
     expect(row?.durationMs).toBeUndefined();
-    expect(row?.date).toBe(toWibDateString(Date.now()));
+    expect(row?.date).toBe(getWibDateStr(Date.now()));
   });
 
   it("derives userId from requireRole session (never from args)", async () => {
@@ -54,11 +54,11 @@ describe("clockIn", () => {
     const t = convexTest(schema);
     const { token, userId } = await seedUser(t, { name: "Chef C", role: "kitchen" });
 
-    // I-6: use toWibDateString(Date.now() - 24 * 60 * 60 * 1000) for WIB
-    // yesterday so the test matches the code path which uses toWibDateString
+    // I-6: use getWibDateStr(Date.now() - 24 * 60 * 60 * 1000) for WIB
+    // yesterday so the test matches the code path which uses getWibDateStr
     // to compute today's WIB date. UTC-derived dates drift across the 17:00
     // UTC / 00:00 WIB boundary.
-    const yesterday = toWibDateString(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterday = getWibDateStr(Date.now() - 24 * 60 * 60 * 1000);
     await insertAttendance(t, {
       userId,
       date: yesterday,
@@ -75,7 +75,7 @@ describe("clockIn", () => {
     const { token, userId } = await seedUser(t, { name: "Chef D", role: "kitchen" });
 
     // I-6: WIB today.
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     await insertAttendance(t, {
       userId,
       date: today,
@@ -93,7 +93,7 @@ describe("clockIn", () => {
 
     // Seed a soft-deleted open shift from yesterday — should be ignored by D-04.
     const yesterdayMs = Date.now() - DAY_MS;
-    const yesterday = toWibDateString(yesterdayMs);
+    const yesterday = getWibDateStr(yesterdayMs);
     await insertAttendance(t, {
       userId,
       date: yesterday,
