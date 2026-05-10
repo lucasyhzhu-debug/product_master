@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculatePeriodRange } from "../periodRange";
+import { calculatePeriodRange, getWibDateStr, utcToWibDateStr } from "../periodRange";
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -140,6 +140,52 @@ describe("calculatePeriodRange", () => {
         expect(range.currentStart).not.toBe(range.previousStart);
         expect(range.currentEnd).not.toBe(range.previousEnd);
       });
+    }
+  });
+});
+
+// ─── Phase 81 / Plan 02: Canonical getWibDateStr ───────────────────────────
+
+describe("getWibDateStr (Phase 81 canonical YYYY-MM-DD WIB helper)", () => {
+  it("converts UTC epoch ms to YYYY-MM-DD WIB date string", () => {
+    // 2026-03-12 00:00 UTC + WIB offset (7h) = 2026-03-12 07:00 WIB → "2026-03-12"
+    const utcMs = Date.UTC(2026, 2, 12, 0, 0, 0);
+    expect(getWibDateStr(utcMs)).toBe("2026-03-12");
+  });
+
+  it("crosses date boundary at WIB midnight (UTC 17:00 → next WIB day)", () => {
+    // 2026-03-11 17:00 UTC = 2026-03-12 00:00 WIB → "2026-03-12"
+    const utcMs = Date.UTC(2026, 2, 11, 17, 0, 0);
+    expect(getWibDateStr(utcMs)).toBe("2026-03-12");
+  });
+
+  it("keeps same WIB date for UTC 16:59:59Z (last second before WIB midnight)", () => {
+    // 2026-04-16T16:59:59Z UTC = 2026-04-16T23:59:59 WIB → "2026-04-16"
+    expect(getWibDateStr(Date.UTC(2026, 3, 16, 16, 59, 59))).toBe("2026-04-16");
+  });
+
+  it("throws on NaN input (WR-02 regression — NaN-guard promoted from toWibDateString)", () => {
+    expect(() => getWibDateStr(NaN)).toThrow(/non-finite/);
+  });
+
+  it("throws on +Infinity input", () => {
+    expect(() => getWibDateStr(Number.POSITIVE_INFINITY)).toThrow(/non-finite/);
+  });
+
+  it("throws on -Infinity input", () => {
+    expect(() => getWibDateStr(Number.NEGATIVE_INFINITY)).toThrow(/non-finite/);
+  });
+
+  it("matches deprecated utcToWibDateStr output for finite values (D-11 1:1 parity)", () => {
+    const samples = [
+      0,
+      Date.UTC(2025, 0, 1),
+      Date.UTC(2026, 2, 12, 0, 0, 0),
+      Date.UTC(2026, 3, 16, 17, 0, 0),
+      Date.UTC(2026, 11, 31, 23, 59, 59),
+    ];
+    for (const t of samples) {
+      expect(getWibDateStr(t)).toBe(utcToWibDateStr(t));
     }
   });
 });
