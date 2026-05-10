@@ -56,6 +56,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   getProductionUnitsPerProduct,
+  isProductionUnit,
   unitsForOrderItem,
 } from "./productionUnitHelpers";
 import { itemGrossRevenue, itemNetRevenue, itemDiscount } from "./revenueHelpers";
@@ -454,8 +455,9 @@ async function loadFilteredData(
  */
 export async function precomputeBomMaps(ctx: QueryCtx): Promise<Precomputed> {
   const allComponentTypes = await ctx.db.query("componentTypes").collect();
+  // Phase 81 / D-01: dropped unit === "pcs" — gram-denominated production variants now auto-count.
   const productionTypes = allComponentTypes
-    .filter((ct) => ct.category === "production" && ct.unit === "pcs")
+    .filter(isProductionUnit)
     .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
 
   const productionTierOneIds = new Set<string>();

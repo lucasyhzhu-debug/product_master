@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { calculateMenuProductCOGS } from "../lib/costCalculator";
+import { isProductionUnit } from "../reports/productionUnitHelpers";
 
 
 /**
@@ -47,9 +48,18 @@ export async function calculateUnitCostFromComponentTypes(
   // Calculate COGS breakdown
   const cogsBreakdown = calculateMenuProductCOGS(enrichedComponents);
 
-  // Calculate total grams (only from production components)
+  // Calculate total grams (only from production components).
+  // Phase 81 / D-01 + PATTERNS.md finding #3 — SEMANTIC PRESERVATION:
+  // The canonical isProductionUnit predicate intentionally drops the
+  // `gramsPerUnit !== undefined` clause (per D-01: gram-presence is not part
+  // of "is this a production unit?"). But THIS callsite reads c.gramsPerUnit
+  // inside a reduce — a missing gramsPerUnit on a production component would
+  // silently turn the sum into NaN. We compose a secondary .filter to keep
+  // the reduce NaN-free. Future production components without gramsPerUnit
+  // are still recognized as production, just excluded from totalGrams.
   const totalGrams = enrichedComponents
-    .filter((c) => c.category === "production" && c.gramsPerUnit !== undefined)
+    .filter(isProductionUnit)
+    .filter((c) => c.gramsPerUnit !== undefined)
     .reduce((sum, c) => sum + (c.gramsPerUnit ?? 0) * c.quantity, 0);
 
   return {

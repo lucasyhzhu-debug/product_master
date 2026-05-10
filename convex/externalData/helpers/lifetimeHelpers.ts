@@ -3,6 +3,7 @@
  * Pure functions that compute total balls and revenue from pre-fetched data.
  */
 import type { Doc } from "../../_generated/dataModel";
+import { isProductionUnit } from "../../reports/productionUnitHelpers";
 
 /**
  * Fallback average revenue per ball in IDR, used only when zero BOM-linked
@@ -21,9 +22,10 @@ export function buildBallCountMap(
   bomComponents: Doc<"menuProductComponents">[],
   componentTypes: Doc<"componentTypes">[]
 ): Map<string, number> {
+  // Phase 81 / D-01: canonical predicate (already-canonical rule shape — mechanical swap).
   const productionComponentIds = new Set(
     componentTypes
-      .filter((ct) => ct.category === "production")
+      .filter(isProductionUnit)
       .map((ct) => ct._id as string)
   );
 

@@ -26,6 +26,7 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { detectFlags, detectOverlaps, type FlagReason } from "./flagEngine";
 import { type ComponentUnit, resolveUnit } from "../lib/componentUnit";
+import { isProductionUnit } from "../reports/productionUnitHelpers";
 
 interface AggregateArgs {
   startDate: string;
@@ -181,9 +182,10 @@ export async function aggregateStaffPerformance(
   // Determine which componentType codes are "production" (category=production).
   // Used to emit per-day ballsProduced + to project BOM-resolved production
   // balls into componentTotals[] with unit=pcs.
+  // Phase 81 / D-01: canonical predicate (already-canonical rule shape — mechanical swap).
   const productionCodesByCategory = new Set(
     allComponentTypes
-      .filter((c) => c.category === "production")
+      .filter(isProductionUnit)
       .map((c) => c.code),
   );
 
