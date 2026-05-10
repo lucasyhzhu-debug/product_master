@@ -283,7 +283,7 @@ export function formatAssetNumber(
 /**
  * Get YYMM date string from UTC timestamp using WIB timezone.
  *
- * IMPORTANT: Uses YYMM format (year-first), different from counter.ts getWibDateStr
+ * IMPORTANT: Uses YYMM format (year-first), different from counter.ts getWibMonthDayStr
  * which returns MMDD format. YYMM is intentional for asset numbering: assets are
  * identified across years, so year comes first (e.g., "2603" for March 2026).
  *
