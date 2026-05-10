@@ -649,6 +649,68 @@ Plans:
 - Context: `.planning/phases/80.3-analytics-internal-mirror-dedup/80.3-CONTEXT.md`
 - Ghost commit: `59069988` (claims R5 applied; touches only plan docs)
 
+### Phase 81: Domain Vocabulary Deepening (INSERTED 2026-05-10, tech-debt deepening)
+
+**Goal**: Collapse three duplicated/inconsistent domain rule clusters into single sources of truth, per the 2026-05-08 graph-primed architecture review. Each cluster is a deepening opportunity that the project's `CONTEXT.md` and `CLAUDE.md` already name as canonical but does not yet enforce mechanically.
+
+**Why inserted**: The 2026-05-08 graph-primed architecture review surfaced 5 deepening candidates from `graphify-out/GRAPH_REPORT.md`; 3 are strong (C1 Platform resolver, C3 WIB date helper, C4 BOM production predicate). The drift across files is invisible until it causes a bug — exactly the failure mode of Phase 80.2's retroactive-mapping cascade divergence (`lessons_phase_80_2_triple_review.md`). This phase preempts the next instance of that bug class by making the canonical rules mechanically observable rather than reviewer-vigilance-enforced.
+
+**Depends on**: Phase 80.3 ✓ (no `loadExternalStream` conflict). Compatible with Phase 76 ✓ (merged 2026-05-09 — sequencing-vs-76 question moot per CONTEXT.md "Reality shifts"). Phase 77 deferred to v2.1 — when re-scheduled, inherits this phase's `resolvePlatform` + `isProductionUnit` exports.
+
+**Load-bearing references** (read before planning/executing):
+- Architecture review: `docs/reviews/architecture-review-2026-05-08-graph-primed-deepening-candidates.md` — full investigation, scoring, 5 open questions resolved in CONTEXT.md
+- Phase README: `.planning/phases/81-domain-vocabulary-deepening/README.md`
+- Phase CONTEXT.md: `.planning/phases/81-domain-vocabulary-deepening/81-CONTEXT.md` (D-01..D-14 locked decisions)
+- Domain glossary: `CONTEXT.md` (repo root) — § "Channel taxonomy" lines 79-104; flagged ambiguities lines 134-141 (closed by this phase)
+- ADR: `docs/adr/0001-bigseller-is-a-source-not-a-platform.md` — currently undelivered; C1 enforces forward-compatibly per D-03
+
+**Scope (4 plans expected per D-08 ordering — C4 → C3 → C1 → Docs)**:
+1. **C4** — `isProductionUnit(componentType)` predicate consolidation. Single export from `convex/reports/productionUnitHelpers.ts`. Replaces 5 hand-rolled filters (`unitEconomics.ts:458`, `lifetimeHelpers.ts:26`, `staffAttendance/aggregation.ts:186`, `menuProducts/mutations.ts:52`).
+2. **C3** — WIB date-string helper consolidation. Promote `toWibDateString`'s NaN-guard semantics into the canonical helper at `convex/lib/periodRange.ts`. Delete `getWibDateString` (gofoodDepot/helpers.ts), `toWibDateString` (staffAttendance/flagEngine.ts), `getWibDateStr` from `counter.ts` (re-export from periodRange or move outright), `utcToWibDateStr` (collapsed). Migrate test imports.
+3. **C1** — `Platform` literal union + `resolvePlatform(row)` + `platformDisplay(p)` exported from `convex/reports/platform.ts`. Migrates ~15 callsites off `sourceToPlatform` (`convex/lib/externalSource.ts`), `toDisplayChannel` and `sourceToDisplayChannel` (`convex/reports/channelTaxonomy.ts`). Deletes the 3 legacy mappers. Includes user-visible display-string rename per D-02.
+4. **Docs** — `CONTEXT.md` (root) + `CLAUDE.md` updates: close flagged ambiguities 134/138/139/141, tighten Cost→COGS chain to name `isProductionUnit`, fix `CONTEXT.md` line 223 to point to `periodRange.ts` (not `counter.ts`), cross-reference `isProductionUnit` from `CLAUDE.md` Pitfall #11.
+
+**Out of scope (deferred per CONTEXT.md)**:
+- Period-comparison orchestrator extraction (Candidate 2). Speculative; revisit after a third clone.
+- `useProtectedMutation` adoption sweep (Candidate 5). High-effort low-payoff; post-v2.0.
+- Adding `externalRevenue.underlyingSource` schema field (required by ADR-0001 to fully resolve BigSeller). C1 ships forward-compatible; schema field is a follow-on phase.
+- Removal of transitional `"BigSeller"` Platform literal — paired with the schema field above.
+
+**Success Criteria (what must be TRUE)**:
+1. **One Platform resolver.** `sourceToPlatform`, `toDisplayChannel`, `sourceToDisplayChannel` no longer exist. `resolvePlatform` is the only function returning a Platform value. `Platform` is a typed literal union; callers cannot pass arbitrary strings.
+2. **ADR-0001 mechanically enforced.** `resolvePlatform({source:"bigseller", underlyingSource:"shopee"})` returns `"Shopee"`. With `underlyingSource` absent, falls back via `linkedMenuProductId` lookup, else returns transitional `"BigSeller"` literal with Confidence downgrade to `"inferred"`. No silent collapse to `"Other"`.
+3. **One BOM production predicate.** `isProductionUnit(ct)` is the only filter used to identify production components in queries that count balls. The 5 hand-rolled filters are deleted. Canonical rule per D-01: `category === "production"` alone (no `unit === "pcs"`, no `gramsPerUnit !== undefined` requirement).
+4. **One WIB date helper.** Backend imports the canonical `getWibDateStr` from `convex/lib/periodRange.ts` per D-06. NaN-guard exercised in test. The 3 duplicate helpers (`getWibDateString`, `toWibDateString`, `utcToWibDateStr`) and their duplicate test imports are deleted.
+5. **Display-string rename ships per D-02.** `"Tokopedia"` → `"TikTok"`, `"K3 Mart"` → `"K3Mart"` everywhere. CHANGELOG entry under "Changed". No PM gating (treated as bug fix per documented `sourceToPlatform("tiktok") = "Tokopedia"` mismatch).
+6. **No `"Other"` Platform literal.** Union is exactly `Direct | GoFood | GrabFood | Shopee | TikTok | K3Mart | Consignment | BigSeller` (BigSeller transitional). Every Source resolves cleanly.
+7. **Table-driven regression tests** per D-11 for `resolvePlatform` (every `(source, underlyingSource?, linkedMenuProductId?, orderChannel?)` tuple), `isProductionUnit` (every shape of `componentTypes` row), and NaN-guard invariant + 1:1 parity tests for `getWibDateStr`.
+8. **ESLint `no-restricted-imports` guards** per D-12 ban re-imports of all 6 deleted exports with `message` directives pointing to the canonical replacement. Same plan as each consolidation.
+9. **No backwards-compat shims** per D-10. Deleted exports are deleted outright in the same plan that adds the canonical replacement.
+10. **Triple-review on the C1 plan only** per D-09 (type cascade is the highest-risk piece). C4 + C3 + Docs follow standard `code-review` gate.
+11. **CONTEXT.md and CLAUDE.md updated** per D-13. Flagged ambiguities 134, 138, 139, 141 closed. Pitfall #11 cross-references the new `isProductionUnit` predicate. CONTEXT.md line 223 fixed to point to `periodRange.ts`.
+12. `npm run type-check` + `npm run lint` + `npm run build` + full Vitest suite + Playwright E2E green. Numerics identical pre/post (display-string differences allowed, no numeric drift).
+
+**Plans**: 4 plans expected per D-08 ordering (C4 → C3 → C1 → Docs).
+
+Plans:
+- [ ] 81-01-PLAN.md — C4 `isProductionUnit` predicate (smallest; ship first as warm-up)
+- [ ] 81-02-PLAN.md — C3 WIB date-string consolidation
+- [ ] 81-03-PLAN.md — C1 Platform resolver + caller migration (largest; triple-review gate per D-09)
+- [ ] 81-04-PLAN.md — Docs (CONTEXT.md + CLAUDE.md edits + CHANGELOG)
+
+**UI hint**: minimal (mechanical display-string rename in 6 src/ files per D-02; no new components or layouts)
+
+**Branch**: `feature/81-domain-vocabulary-deepening` (single feature branch; merge per plan if tests stay green)
+
+**Requirement IDs**: None — tech-debt phase, not in REQUIREMENTS.md. Phase 81 does NOT close v2.0 by itself per D-14.
+
+**Source artifacts**:
+- Architecture review: `docs/reviews/architecture-review-2026-05-08-graph-primed-deepening-candidates.md`
+- Originating loose end: `lessons_phase_73_triple_review.md` (WIB helper consolidation never fully shipped)
+- Motivating bug class: `lessons_phase_80_2_triple_review.md` (retroactive mapping cascades silent divergence)
+- Phase context: `.planning/phases/81-domain-vocabulary-deepening/81-CONTEXT.md`
+- Discussion log: `.planning/phases/81-domain-vocabulary-deepening/81-DISCUSSION-LOG.md`
+
 ## Progress
 
 **Execution Order:**
@@ -675,6 +737,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | 80.1. Analytics Dashboard Perf & Chart Primitives Consolidation | v2.0 | 3/3 | Complete    | 2026-04-18 |
 | 80.2. Unlinked Products Fix — K3Mart + Direct | v2.0 | 4/4 | Complete   | 2026-04-18 |
 | 80.3. Analytics Internal-Mirror Dedup — R5 Skip | v2.0 | 1/1 | Complete — merged via PR #149 | 2026-04-19 |
+| 81. Domain Vocabulary Deepening (INSERTED 2026-05-10) | v2.0 | 0/4 | Not started | - |
 
 | Milestone | Phases | Plans | Status | Shipped |
 |-----------|--------|-------|--------|---------|
@@ -688,7 +751,7 @@ Note: Phase 74.5 (Unified Channel Integration Architecture) was promoted from Ph
 | v1.7 Expense & Accounting | 41-54 | 32 | Complete | 2026-03-16 |
 | v1.8 Support & Quality of Life | 55-63 | 23 | Complete | 2026-03-27 |
 | v1.9 Bugs & Quality of Life | 64-69 | 14 | Complete | 2026-03-28 |
-| v2.0 Financial Management & Data Quality | 70-80.3 (+ 74.5 promoted 2026-04-19 from Phase 1000) | TBD | In progress | - |
+| v2.0 Financial Management & Data Quality | 70-80.3 (+ 74.5 promoted 2026-04-19 from Phase 1000, + 81 inserted 2026-05-10) | TBD | In progress | - |
 
 **Total: 69 phases, 246 plans shipped across 10 milestones**
 
