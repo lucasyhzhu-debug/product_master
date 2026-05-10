@@ -6,7 +6,8 @@ import { calculatePeriodRange, isWeekend } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
-import { isExternalSource, sourceToPlatform } from "../lib/externalSource";
+import { isExternalSource, type ExternalSource } from "../lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../reports/platform";
 import { aggregatePeriodRevenue } from "./helpers/dashboardHelpers";
 import { bucketKey, formatBucketLabel } from "./helpers/timeSeriesHelpers";
 import type { Granularity } from "./helpers/timeSeriesHelpers";
@@ -1499,7 +1500,7 @@ export const getRevenueTimeSeries = query({
     // Build series only for sources with non-zero totals (hide empty channels)
     const series = discoveredSources
       .map((p) => ({
-        platform: sourceToPlatform(p),
+        platform: platformDisplay(resolvePlatform({ source: p }).platform),
         platformKey: p,
         data: sortedKeys.map((key) => Math.round((buckets.get(key)?.[p] ?? 0) * 100) / 100),
       }))
@@ -1591,7 +1592,9 @@ export const getRevenueByOutletInternal = internalQuery({
       );
       result.push({
         platform,
-        platformName: sourceToPlatform(platform),
+        platformName: platformDisplay(
+          resolvePlatform({ source: platform as ExternalSource }).platform,
+        ),
         outlets,
         totals,
       });
