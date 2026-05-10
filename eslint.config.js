@@ -27,20 +27,50 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
-  // Phase 81: no-restricted-imports rule scaffold (D-12).
-  // Plans 02 (C3 WIB date helpers) and 03 (C1 Platform resolver) extend the
-  // `paths` and `patterns` arrays below as they delete legacy exports.
-  // With both arrays empty, the rule is inert today — that is by design;
-  // this is a foundation for the upcoming consolidations.
+  // Phase 81: no-restricted-imports rule (D-12).
+  // Scaffold landed in Plan 81-01 (empty arrays). Plan 81-02 (C3) extended
+  // it with the WIB date-helper bans below. Plan 81-03 (C1) will add the
+  // Platform-resolver bans (sourceToPlatform, toDisplayChannel, etc.).
   {
     files: ['**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': ['error', {
         paths: [
-          // Plan 02 / 03 will add entries here as they delete legacy exports.
+          // Phase 81 / Plan 02: WIB date helper consolidation (D-12)
+          {
+            name: 'convex/staffAttendance/flagEngine',
+            importNames: ['toWibDateString'],
+            message: 'toWibDateString was consolidated in Phase 81. Use getWibDateStr from convex/lib/periodRange instead.',
+          },
+          {
+            name: 'convex/gofoodDepot/helpers',
+            importNames: ['getWibDateString', 'getWibDateStringDaysAgo'],
+            message: 'These helpers were deleted in Phase 81. Use getWibDateStr from convex/lib/periodRange instead (for daysAgo: pass the pre-subtracted ms).',
+          },
+          {
+            name: 'convex/lib/counter',
+            importNames: ['getWibDateStr'],
+            message: 'counter.ts no longer exports getWibDateStr (renamed to getWibMonthDayStr — returns MMDD, not YYYY-MM-DD). Use getWibDateStr from convex/lib/periodRange for YYYY-MM-DD.',
+          },
         ],
         patterns: [
-          // Plan 02 / 03 will add entries here.
+          // Path-variant matchers: callers in src/ vs convex/ use different
+          // relative paths; the glob covers both.
+          {
+            group: ['**/staffAttendance/flagEngine'],
+            importNames: ['toWibDateString'],
+            message: 'See Phase 81: use getWibDateStr from convex/lib/periodRange.',
+          },
+          {
+            group: ['**/gofoodDepot/helpers'],
+            importNames: ['getWibDateString', 'getWibDateStringDaysAgo'],
+            message: 'See Phase 81: use getWibDateStr from convex/lib/periodRange.',
+          },
+          {
+            group: ['**/lib/counter'],
+            importNames: ['getWibDateStr'],
+            message: 'See Phase 81: counter.ts now exports getWibMonthDayStr (MMDD). For YYYY-MM-DD use getWibDateStr from convex/lib/periodRange.',
+          },
         ],
       }],
     },
