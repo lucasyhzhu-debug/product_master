@@ -24,7 +24,10 @@ export function isProductionUnit(
 /**
  * Build a map of menuProductId -> total production pieces per unit of that product.
  *
- * Dynamic iteration over ALL componentTypes where category="production" AND unit="pcs".
+ * Dynamic iteration over ALL componentTypes via the canonical isProductionUnit
+ * predicate (category === "production" per D-01). Gram-denominated production
+ * variants now auto-count — no `unit === "pcs"` requirement.
+ *
  * NEVER hardcode BIG_BALL / MID_BALL here — future production types (Hazelnut, new
  * stuffed variants) must be counted automatically. This is the single source of
  * truth for the "units sold = BOM production pieces" rule used across analytics.
@@ -34,8 +37,9 @@ export async function getProductionUnitsPerProduct(
 ): Promise<Map<Id<"menuProducts">, number>> {
   const allComponentTypes = await ctx.db.query("componentTypes").collect();
   const productionTierOneIds = new Set<string>();
+  // Phase 81 / D-01: dropped unit === "pcs" — gram-denominated production variants now auto-count.
   for (const ct of allComponentTypes) {
-    if (ct.category === "production" && ct.unit === "pcs") {
+    if (isProductionUnit(ct)) {
       productionTierOneIds.add(ct._id as string);
     }
   }
@@ -62,8 +66,9 @@ export async function getProductionUnitsByTypePerProduct(
   typeCodeToName: Map<string, string>;
 }> {
   const allComponentTypes = await ctx.db.query("componentTypes").collect();
+  // Phase 81 / D-01: dropped unit === "pcs" — gram-denominated production variants now auto-count.
   const productionTypes = allComponentTypes
-    .filter((ct) => ct.category === "production" && ct.unit === "pcs")
+    .filter(isProductionUnit)
     .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
 
   const idToCode = new Map<string, string>();
