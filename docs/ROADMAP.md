@@ -158,6 +158,12 @@
 - [x] Soft warnings: `isLargeRange` (>10k journal lines) and `isTooManyBuckets` (>26 buckets) — no hard caps
 - [x] Three role-gate enforcement layers: `<ProtectedRoute>` (UX), `requireRole()` per query (security boundary), Playwright E2E redirect tests for kitchen + order_staff
 
+#### v2.0 Closeout (2026-05-10)
+
+**Phase 77 (Data Health Dashboard) deferred to v2.1.** Originally scoped into v2.0 alongside the financial reporting and export work, Phase 77 never received a phase directory or spec — it remained a placeholder while the milestone's scope shifted toward channel routing (74.5.1/74.5.2), cascade fixes (80.x), and financial export polish (75/76). Phase 76's deferred-items file punts orphan-JE detection to Phase 77, which is the most concrete signal of what 77 should cover when it lands.
+
+**v2.0 will close with:** 70, 70.1, 71, 72, 73, 74, 74.5.1, 74.5.2, 75, 76, 78, 79, 80, 80.1, 80.2, 80.3 shipped — 16 phases. Phase 81 (Domain Vocabulary Deepening) is a planning artifact, not yet executed; routing decision (close v2.0 first vs. include 81 in v2.0) handled separately.
+
 ---
 
 ## Not Yet Implemented
@@ -222,6 +228,10 @@
 - [ ] Consignment manual entry + CSV upload (Phase 2)
 - [ ] Scheduled cron sync (Phase 2)
 - [ ] 90-day snapshot retention cleanup (Phase 2)
+
+### v2.1 Candidates (planning queue, not yet committed)
+- [ ] **Phase 77 — Data Health Dashboard** (deferred from v2.0). Surfaces orphan JEs (Phase 76 backlog), unmapped products, zero-cost components, missing reversals, and confidence-coverage stats in a single admin view. Concrete starting point: orphan-JE detection from Phase 76's deferred-items file. Estimated 3-5 plans.
+- [ ] **Phase 81 — Domain Vocabulary Deepening** (queued, planning artifact exists). Collapses three duplicated rule clusters into typed-union primitives: Platform resolver (`sourceToPlatform` / `toDisplayChannel` / `sourceToDisplayChannel`), `isProductionUnit` BOM predicate (`category === "production"`), and WIB date helpers. Architecture review at `docs/reviews/architecture-review-2026-05-08-graph-primed-deepening-candidates.md`.
 
 ---
 
