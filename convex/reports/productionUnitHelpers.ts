@@ -2,6 +2,26 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 
 /**
+ * Canonical predicate for "is this componentType a production unit?"
+ *
+ * Phase 81 / D-01: The rule is `category === "production"` ALONE.
+ * Drops the historical `unit === "pcs"` clause (future-proofs gram-denominated
+ * bulk variants) and the `gramsPerUnit !== undefined` clause (BOM unification
+ * trajectory per CLAUDE.md rule 10). All callers should use this predicate
+ * instead of hand-rolling the filter inline.
+ *
+ * If you reach this from a numeric-aggregation callsite that depends on
+ * `gramsPerUnit` being defined (e.g., a `(gramsPerUnit ?? 0) * qty` reduce),
+ * compose with a secondary filter — see convex/menuProducts/mutations.ts for
+ * the canonical example.
+ */
+export function isProductionUnit(
+  ct: Pick<Doc<"componentTypes">, "category">,
+): boolean {
+  return ct.category === "production";
+}
+
+/**
  * Build a map of menuProductId -> total production pieces per unit of that product.
  *
  * Dynamic iteration over ALL componentTypes where category="production" AND unit="pcs".
