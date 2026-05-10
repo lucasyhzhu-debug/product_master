@@ -217,7 +217,32 @@ export function calculateWeekRange(weekStartMs: number): {
 
 export const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
 
-/** Get WIB date string (YYYY-MM-DD) from UTC epoch ms */
+/**
+ * Canonical WIB date helper. Returns YYYY-MM-DD for a UTC epoch ms.
+ *
+ * Phase 81 / D-06, D-07: Single source of truth for WIB date-string
+ * conversion. NaN-guard semantics promoted from the (deleted in this same
+ * plan) staffAttendance/flagEngine.ts#toWibDateString — fails loud on
+ * non-finite input rather than letting "Invalid Date" strings leak into
+ * downstream reports/aggregations.
+ *
+ * Replaces (deleted in Plan 81-02 — no shims per D-10):
+ *   - getWibDateString (gofoodDepot/helpers.ts)
+ *   - getWibDateStringDaysAgo (gofoodDepot/helpers.ts)
+ *   - toWibDateString (staffAttendance/flagEngine.ts)
+ *   - utcToWibDateStr (this file — collapsed into the canonical)
+ */
+export function getWibDateStr(utcMs: number): string {
+  if (!Number.isFinite(utcMs)) {
+    throw new Error(`getWibDateStr: non-finite input ${utcMs}`);
+  }
+  return new Date(utcMs + WIB_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * @deprecated Phase 81: scheduled for deletion in Plan 81-02 Task 2.5 after
+ * all backend callers migrate. Use {@link getWibDateStr} instead.
+ */
 export function utcToWibDateStr(utcMs: number): string {
   return new Date(utcMs + WIB_OFFSET_MS).toISOString().split("T")[0];
 }
