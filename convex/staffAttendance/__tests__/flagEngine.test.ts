@@ -33,10 +33,10 @@ function mkSession(
 const HOUR = 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
-// Phase 81 / Plan 02 (2026-05-10): the toWibDateString describe-block that
-// previously lived here was deleted. The function is gone (replaced by
-// canonical getWibDateStr at convex/lib/periodRange.ts) and all its tests
-// were migrated to convex/lib/__tests__/periodRange.test.ts.
+// Phase 81 / Plan 02 (2026-05-10): the describe-block for the now-deleted
+// local WIB date-string helper was removed. The function is gone (replaced
+// by canonical getWibDateStr at convex/lib/periodRange.ts) and all its
+// tests were migrated to convex/lib/__tests__/periodRange.test.ts.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------

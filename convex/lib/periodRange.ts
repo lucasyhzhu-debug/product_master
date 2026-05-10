@@ -221,30 +221,24 @@ export const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
  * Canonical WIB date helper. Returns YYYY-MM-DD for a UTC epoch ms.
  *
  * Phase 81 / D-06, D-07: Single source of truth for WIB date-string
- * conversion. NaN-guard semantics promoted from the (deleted in this same
- * plan) staffAttendance/flagEngine.ts#toWibDateString — fails loud on
- * non-finite input rather than letting "Invalid Date" strings leak into
- * downstream reports/aggregations.
+ * conversion. NaN-guard semantics promoted from a previously-duplicated
+ * per-feature helper (deleted in Plan 81-02) — fails loud on non-finite
+ * input rather than letting "Invalid Date" strings leak into downstream
+ * reports/aggregations.
  *
- * Replaces (deleted in Plan 81-02 — no shims per D-10):
- *   - getWibDateString (gofoodDepot/helpers.ts)
- *   - getWibDateStringDaysAgo (gofoodDepot/helpers.ts)
- *   - toWibDateString (staffAttendance/flagEngine.ts)
- *   - utcToWibDateStr (this file — collapsed into the canonical)
+ * Replaces 4 helpers deleted outright in Plan 81-02 (no shims per D-10):
+ * the prior gofoodDepot/helpers.ts YYYY-MM-DD + daysAgo variants, the
+ * staffAttendance/flagEngine.ts NaN-guarded variant, and an earlier export
+ * from this file collapsed into this canonical version.
+ *
+ * Frontend src/lib/dateUtils.ts has its own parallel impl; that seam is
+ * intentional and out of scope for Phase 81 (D-13).
  */
 export function getWibDateStr(utcMs: number): string {
   if (!Number.isFinite(utcMs)) {
     throw new Error(`getWibDateStr: non-finite input ${utcMs}`);
   }
   return new Date(utcMs + WIB_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-/**
- * @deprecated Phase 81: scheduled for deletion in Plan 81-02 Task 2.5 after
- * all backend callers migrate. Use {@link getWibDateStr} instead.
- */
-export function utcToWibDateStr(utcMs: number): string {
-  return new Date(utcMs + WIB_OFFSET_MS).toISOString().split("T")[0];
 }
 
 /** Check if a WIB-adjusted timestamp falls on a weekend (Sat=6, Sun=0) */

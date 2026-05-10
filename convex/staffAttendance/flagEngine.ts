@@ -12,29 +12,18 @@
  */
 
 import type { Doc, Id } from "../_generated/dataModel";
-import { OPEN_SHIFT_THRESHOLD_MS, WIB_OFFSET_MS } from "./constants";
+import { OPEN_SHIFT_THRESHOLD_MS } from "./constants";
 import { getWibDateStr } from "../lib/periodRange";
+
+// Phase 81 / Plan 02 (D-10): a local WIB date-string helper that previously
+// lived here was deleted. Its NaN-guard semantics were promoted into the
+// canonical getWibDateStr at convex/lib/periodRange.ts. Use that import.
 
 export type FlagReason =
   | "missing_clockout"
   | "over_16h"
   | "overlapping"
   | "before_hire";
-
-/**
- * Convert a UTC epoch-ms timestamp to the WIB (UTC+7) calendar date string
- * (YYYY-MM-DD). Used to compute the `date` field when a staff member clocks in.
- *
- * WR-02: Guard against NaN / Infinity inputs up-front so the stack trace
- * points at the bad-input source rather than bubbling a cryptic `RangeError:
- * Invalid time value` from `toISOString()` deep in the flag pipeline.
- */
-export function toWibDateString(utcMs: number): string {
-  if (!Number.isFinite(utcMs)) {
-    throw new Error(`toWibDateString: non-finite input ${utcMs}`);
-  }
-  return new Date(utcMs + WIB_OFFSET_MS).toISOString().slice(0, 10);
-}
 
 /**
  * Detect true time-range overlaps across the given sessions.

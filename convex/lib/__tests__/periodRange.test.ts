@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculatePeriodRange, getWibDateStr, utcToWibDateStr } from "../periodRange";
+import { calculatePeriodRange, getWibDateStr } from "../periodRange";
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -164,7 +164,7 @@ describe("getWibDateStr (Phase 81 canonical YYYY-MM-DD WIB helper)", () => {
     expect(getWibDateStr(Date.UTC(2026, 3, 16, 16, 59, 59))).toBe("2026-04-16");
   });
 
-  it("throws on NaN input (WR-02 regression — NaN-guard promoted from toWibDateString)", () => {
+  it("throws on NaN input (WR-02 regression — NaN-guard promoted from the old per-feature helpers)", () => {
     expect(() => getWibDateStr(NaN)).toThrow(/non-finite/);
   });
 
@@ -176,7 +176,13 @@ describe("getWibDateStr (Phase 81 canonical YYYY-MM-DD WIB helper)", () => {
     expect(() => getWibDateStr(Number.NEGATIVE_INFINITY)).toThrow(/non-finite/);
   });
 
-  it("matches deprecated utcToWibDateStr output for finite values (D-11 1:1 parity)", () => {
+  it("matches the WIB-offset-then-ISO-slice formula for finite values (D-11 1:1 parity)", () => {
+    // Mechanical formula equivalent to the 4 deleted per-feature helpers.
+    // If getWibDateStr ever diverges from this formula, that is a deliberate
+    // behavior change and this test will catch it.
+    const WIB_OFFSET_MS_LOCAL = 7 * 60 * 60 * 1000;
+    const formula = (ms: number) =>
+      new Date(ms + WIB_OFFSET_MS_LOCAL).toISOString().slice(0, 10);
     const samples = [
       0,
       Date.UTC(2025, 0, 1),
@@ -185,7 +191,7 @@ describe("getWibDateStr (Phase 81 canonical YYYY-MM-DD WIB helper)", () => {
       Date.UTC(2026, 11, 31, 23, 59, 59),
     ];
     for (const t of samples) {
-      expect(getWibDateStr(t)).toBe(utcToWibDateStr(t));
+      expect(getWibDateStr(t)).toBe(formula(t));
     }
   });
 });
