@@ -2,7 +2,7 @@
  * Time series bucketing and label formatting helpers.
  * Pure functions for grouping revenue records by time granularity.
  */
-import { utcToWibDateStr, utcToWibHourStr, getIsoWeekNumber, utcToWibMonthStr } from "../../lib/periodRange";
+import { getWibDateStr, utcToWibHourStr, getIsoWeekNumber, utcToWibMonthStr } from "../../lib/periodRange";
 
 export type Granularity = "hourly" | "daily" | "weekly" | "monthly";
 
@@ -10,7 +10,7 @@ export type Granularity = "hourly" | "daily" | "weekly" | "monthly";
 export function bucketKey(utcMs: number, granularity: Granularity): string {
   switch (granularity) {
     case "hourly": return utcToWibHourStr(utcMs);
-    case "daily": return utcToWibDateStr(utcMs);
+    case "daily": return getWibDateStr(utcMs);
     case "weekly": return getIsoWeekNumber(utcMs);
     case "monthly": return utcToWibMonthStr(utcMs);
   }

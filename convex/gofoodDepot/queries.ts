@@ -7,12 +7,8 @@
 
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import {
-  computeRestockSuggestion,
-  getWibDateString,
-  getWibDateStringDaysAgo,
-  getWibDayOfWeek,
-} from "./helpers";
+import { computeRestockSuggestion, getWibDayOfWeek } from "./helpers";
+import { getWibDateStr } from "../lib/periodRange";
 
 /**
  * Get depot stock records.
@@ -444,12 +440,12 @@ export const getRestockSuggestions = query({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const todayWib = getWibDateString(now);
+    const todayWib = getWibDateStr(now);
     const dayOfWeek = getWibDayOfWeek(now);
 
     // We need sales for the last 4 days (3 for average + find prev Thursday)
     // Look back up to 14 days to ensure we find a Thursday
-    const lookbackStart = getWibDateStringDaysAgo(14, now);
+    const lookbackStart = getWibDateStr(now - 14 * 24 * 60 * 60 * 1000);
 
     // Build timestamp range for the lookback window (WIB midnight boundaries)
     const lookbackStartMs = new Date(lookbackStart + "T00:00:00+07:00").getTime();
@@ -472,7 +468,7 @@ export const getRestockSuggestions = query({
 
     for (const rev of revenues) {
       // Convert periodStart to WIB date
-      const revDate = getWibDateString(rev.periodStart);
+      const revDate = getWibDateStr(rev.periodStart);
 
       // Skip today's data (we're suggesting for tomorrow)
       if (revDate >= todayWib) continue;

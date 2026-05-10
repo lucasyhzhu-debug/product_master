@@ -46,15 +46,6 @@ export function computeRestockSuggestion(
 }
 
 /**
- * Get WIB date string (YYYY-MM-DD) for a given timestamp.
- * WIB = UTC+7.
- */
-export function getWibDateString(timestampMs?: number): string {
-  const ts = timestampMs ?? Date.now();
-  return new Date(ts + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-/**
  * Get WIB day of week (0=Sun, 1=Mon, ..., 6=Sat).
  */
 export function getWibDayOfWeek(timestampMs?: number): number {
@@ -62,10 +53,7 @@ export function getWibDayOfWeek(timestampMs?: number): number {
   return new Date(ts + 7 * 60 * 60 * 1000).getUTCDay();
 }
 
-/**
- * Get WIB date string N days ago.
- */
-export function getWibDateStringDaysAgo(daysAgo: number, fromMs?: number): string {
-  const ts = (fromMs ?? Date.now()) - daysAgo * 24 * 60 * 60 * 1000;
-  return getWibDateString(ts);
-}
+// Phase 81 / Plan 02 (D-10): the previous WIB date helpers (YYYY-MM-DD and
+// "N days ago" variants) were deleted outright. Use getWibDateStr from
+// convex/lib/periodRange instead. For "N days ago" semantics, pass the
+// pre-subtracted ms: getWibDateStr(now - n * 24 * 60 * 60 * 1000)

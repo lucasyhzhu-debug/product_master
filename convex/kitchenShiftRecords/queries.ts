@@ -15,6 +15,7 @@ import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 import { requireRole } from "../lib/auth";
 import { aggregateStaffPerformance } from "../staffAttendance/aggregation";
+import { getWibDateStr } from "../lib/periodRange";
 
 /**
  * Enrich shift record produced/waste entries with product names.
@@ -263,20 +264,13 @@ export const getShiftHistory = query({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
 
-    // Compute default date range: last 7 days in WIB (UTC+7)
-    const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
-    const nowWib = new Date(Date.now() + WIB_OFFSET_MS);
-
-    function toWibDateString(date: Date): string {
-      return date.toISOString().slice(0, 10);
-    }
-
-    const effectiveEndDate =
-      args.endDate ?? toWibDateString(nowWib);
-
-    const sevenDaysAgoWib = new Date(nowWib.getTime() - 6 * 24 * 60 * 60 * 1000);
+    // Compute default date range: last 7 days in WIB (UTC+7).
+    // Phase 81 / Plan 02: replaced a local Date-based shadow helper with
+    // the canonical getWibDateStr from convex/lib/periodRange.
+    const now = Date.now();
+    const effectiveEndDate = args.endDate ?? getWibDateStr(now);
     const effectiveStartDate =
-      args.startDate ?? toWibDateString(sevenDaysAgoWib);
+      args.startDate ?? getWibDateStr(now - 6 * 24 * 60 * 60 * 1000);
 
     // Query with date range
     const records = await ctx.db
