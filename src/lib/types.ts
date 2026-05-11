@@ -422,7 +422,8 @@ export type OrderStatus = 'Draft' | 'AwaitingPayment' | 'PaymentReceived' | 'Bei
 // PRD-7: Cancellation categories for enhanced cancellation flow
 export type CancellationCategory = 'customer_request' | 'out_of_stock' | 'payment_issue' | 'duplicate' | 'other';
 export type PaymentStatus = 'Unpaid' | 'Partial' | 'Paid';
-export type SalesChannel = 'IG' | 'WA' | 'Shopee' | 'Tokopedia' | 'Offline' | 'Other';
+// SalesChannel union deleted Phase 81 plan 03 (triple-review I2): dead code with stale 'Tokopedia' literal.
+// Use Platform from convex/reports/platform.ts for canonical channel vocabulary.
 
 export interface OrderItemCreate {
   product_name: string;
