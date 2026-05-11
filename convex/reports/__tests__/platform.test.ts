@@ -52,9 +52,14 @@ describe("resolvePlatform — D-03 BigSeller fallback chain (ADR-0001 forward-co
 
   it("bigseller + underlyingSource=bigseller → transitional fallback (recursive guard, triple-review Minor-2)", () => {
     // Edge case: the underlyingSource branch's `!== "bigseller"` runtime
-    // guard prevents recursive resolution. Asserts the fallback fires.
+    // guard prevents recursive resolution. The cast bypasses Minor-1's
+    // type narrowing (`Exclude<ExternalSource, "bigseller">`) to deliberately
+    // exercise the defensive runtime branch.
     expect(
-      resolvePlatform({ source: "bigseller", underlyingSource: "bigseller" }),
+      resolvePlatform({
+        source: "bigseller",
+        underlyingSource: "bigseller" as Exclude<ExternalSource, "bigseller">,
+      }),
     ).toEqual({
       platform: "BigSeller",
       confidence: "inferred",

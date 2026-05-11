@@ -29,7 +29,7 @@ export default defineConfig([
   },
   // Phase 81: no-restricted-imports rule (D-12).
   // Scaffold landed in Plan 81-01 (empty arrays). Plan 81-02 (C3) extended
-  // it with the WIB date-helper bans below. Plan 81-03 (C1) will add the
+  // it with the WIB date-helper bans below. Plan 81-03 (C1) added the
   // Platform-resolver bans (sourceToPlatform, toDisplayChannel, etc.).
   {
     files: ['**/*.{ts,tsx}'],

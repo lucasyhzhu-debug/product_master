@@ -9,8 +9,10 @@ import type { Confidence } from "../lib/confidence";
  * the externalRevenue.underlyingSource schema field lands and the fallback
  * branch in resolvePlatform is removed.
  *
- * Order: Direct first (CONTEXT.md convention), alphabetical within
- * marketplace cluster, transitional "BigSeller" last.
+ * Order: Direct first (CONTEXT.md convention), then food-delivery
+ * (GoFood, GrabFood), then e-commerce marketplaces (Shopee, TikTok), then
+ * physical-retail aggregates (K3Mart, Consignment), transitional
+ * "BigSeller" last.
  */
 export const PLATFORMS = [
   "Direct",
@@ -123,8 +125,14 @@ const ORDER_CHANNEL_TO_PLATFORM: Record<OrderChannel, Platform> = {
 /** Row argument to resolvePlatform (composable across all C1 callsites). */
 export type ResolvePlatformRow = {
   source: ExternalSource;
-  /** D-03 forward-compat (schema field doesn't exist yet — returns null today). */
-  underlyingSource?: ExternalSource;
+  /**
+   * D-03 forward-compat (schema field doesn't exist yet — returns null today).
+   * Triple-review Minor-1: typed against `Exclude<ExternalSource, "bigseller">`
+   * so callers cannot pass "bigseller" as the underlyingSource (which would
+   * recurse into the BigSeller branch). Runtime guard at line ~140 still
+   * enforces the same invariant defensively.
+   */
+  underlyingSource?: Exclude<ExternalSource, "bigseller">;
   /** PATTERNS.md finding #6: unitEconomics.ts orderChannel-based callsites. */
   orderChannel?: string;
 };
@@ -176,9 +184,14 @@ export function resolvePlatform(
   // 2. BigSeller branch
   if (row.source === "bigseller") {
     // 2a. underlyingSource (D-03 forward-compat)
-    if (row.underlyingSource && row.underlyingSource !== "bigseller") {
-      const platform =
-        SOURCE_TO_PLATFORM[row.underlyingSource as Exclude<ExternalSource, "bigseller">];
+    // Defensive runtime check: even though `underlyingSource` is typed
+    // `Exclude<ExternalSource, "bigseller">` (Minor-1), callers using
+    // `as Exclude<...>` casts can still bypass it at runtime.
+    if (
+      row.underlyingSource &&
+      (row.underlyingSource as ExternalSource) !== "bigseller"
+    ) {
+      const platform = SOURCE_TO_PLATFORM[row.underlyingSource];
       return { platform, confidence: "inferred" };
     }
     // 2b. transitional fallback (linkedMenuProductId lookup deferred — see staffreview I1)
