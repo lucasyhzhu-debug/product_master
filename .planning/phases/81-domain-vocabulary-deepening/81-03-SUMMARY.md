@@ -298,5 +298,76 @@ None — no external service configuration required.
 - `npm run build` — PASSED (4210 modules, 26s)
 
 ---
+
+## Triple-Review Fixes Applied
+
+Source: `docs/reviews/triple-review-81-03-platform-resolver-2026-05-11.md` (2026-05-11)
+
+After plan completion (HEAD `95eac532`), the senior-engineer triple-review surfaced 2 Critical + 4 Important + 5 Minor issues. All Critical + Important + Minor fixes landed before merge. Post-fix gate: type-check + lint (524 baseline preserved) + test (1839 passed, 3 skipped — +14 from new coverage) + build (24.06s) all green.
+
+### Critical Fixes (2 — must-fix before merge)
+
+| ID | Fix | Commit |
+|----|-----|--------|
+| **C1** | `ORDER_CHANNEL_TO_PLATFORM` was `Record<string, Platform>` and let 5+ schema-real `orders.channel` literals (`whatsapp`, `instagram`, `k3mart_gf`, `legato_tamtem`, `legato_goldfinch`, `bazaar`, `other`) fall through `?? "Direct"` — silently inflating Direct revenue for native consignment + K3Mart-GF orders. Added `OrderChannel` union mirroring schema literals, type-narrowed the map so future schema additions break TS at compile time, added 11-row `it.each` table covering every schema literal. | `e7b52573` |
+| **C2** | `convex/_generated/api.d.ts` was stale — still imported deleted `convex/reports/channelTaxonomy.ts` (lines 236, 492 pre-fix) and missing `convex/reports/platform.ts`. Type-check passed only because `convex/tsconfig.json` excludes `_generated/`. **Third recurrence of Phase 76 lesson 5** ("hand-edited generated files silently rot"). Regenerated via `npx convex codegen`. | `2ce164eb` |
+| **C4** | D-02 `K3 Mart` → `K3Mart` rename was incomplete — 7 user-visible surfaces remained on the spaced spelling: `convex/externalData/queries.ts:971` (sync health alert), `convex/integrations/registry.ts:43` (admin UI integration registry), `src/components/restock/{ChannelDetailPanel,ChannelCard}.tsx`, `src/pages/RestockPlanner.tsx:247,250`, `src/components/salesAnalytics/SettingsTab.tsx:478`, `tests/e2e/sales-analytics-settings.spec.ts:53,266`. Caused visual inconsistency: K3Mart on charts, "K3 Mart" on restock+settings page. Fixed all live surfaces; intentionally retained the historical-bug comment in `externalSource.ts:32` and the "rejects K3 Mart" sentinel in platform.test.ts. | `9740d855` |
+
+(C3 grouped with C1 commit — runtime defensive fallback for unknown source. Returns BigSeller transitional + inferred confidence instead of `undefined`.)
+
+### Important Fixes (4)
+
+| ID | Fix | Commit |
+|----|-----|--------|
+| **I1** | orderChannel-unknown fallback returned `confidence: "exact"` — conflated "known to be Direct" with "couldn't resolve, defaulted to Direct". Now returns `confidence: "inferred"` so Phase 77's Data Health Dashboard can grep the inferred branch to find drift between schema literals and the resolver keyspace. | `e7b52573` |
+| **I2** | Dead `SalesChannel` union in `src/lib/types.ts:425` carried stale `'Tokopedia'` literal (no consumers per grep). Deleted the type, replaced with comment pointer to `Platform` from `convex/reports/platform.ts`. | `78db3d90` |
+| **I3** | Per-orders.channel→Platform mapping integration coverage. Largely redundant given C1's table-driven test in `platform.test.ts` covers all 11 schema literals. Added inline comment in `tests/convex/unitEconomics.test.ts:OrderSeedOpts` documenting that integration coverage for the consignment/k3mart_gf channels would duplicate C1's mechanical mapping with heavier setup. Integration `OrderSeedOpts` channel union deliberately kept narrow. | `eaece822` |
+| **I6** | `buildChartColorMap(sourceToPlatform: ...)` parameter was named after the deleted function — confusing to grep. Renamed to `displayFn`. No callers outside the file. | `eaece822` |
+
+### Minor Fixes (5 — bundled, behavior-neutral)
+
+| ID | Fix | Commit |
+|----|-----|--------|
+| **Minor-1** | Tightened `ResolvePlatformRow.underlyingSource` type from `ExternalSource` to `Exclude<ExternalSource, "bigseller">`. Removed in-implementation cast. Defensive runtime guard kept for callers using `as Exclude<...>` casts. | `006ba88c` |
+| **Minor-2** | Edge-case test for `bigseller + underlyingSource=bigseller` recursive guard. Bundled with C1 commit; cast updated in Minor-1 commit to satisfy the new narrowing while still exercising the runtime defensive branch. | `e7b52573` + `006ba88c` |
+| **Minor-3** | ESLint comment skew — dropped "will" from "Plan 81-03 (C1) **will** add the Platform-resolver bans" since they already landed. | `006ba88c` |
+| **Minor-4** | JSDoc ordering claim mismatch — replaced "alphabetical within marketplace cluster" with the actual order ("Direct, food-delivery, marketplaces, retail aggregates, BigSeller last"). | `006ba88c` |
+| **Minor-5** | Type `ORDER_CHANNEL_TO_PLATFORM` against `OrderChannel` schema-mirror union. Merged into C1 fix (single source). | `e7b52573` |
+
+### Deferred / Skipped
+
+Logged to `.planning/deferred-items.md` under "Phase 81 Plan 03 triple-review nitpicks":
+- **I4** (`source: "internal"` placeholder pattern) — defer to next platform.ts API touch
+- **I5** (CHANGELOG entry for D-02 + D-05 breaking changes) — Plan 81-04 explicitly owns CHANGELOG
+- **R1** (`TODO(ADR-0001)` comment block above test 10 skip) — micro-polish, defer
+- **R3** (promote local `displayPlatform` sugar into `platform.ts`) — defer to follow-up polish pass
+- **R3 Phase-77 await cascade** — speculative, tied to ADR-0001 schema field landing event
+- **Important 2** (same as I4) — tracked alongside I4
+- **Important 3** (URL param + CSV breaking changes CHANGELOG) — Plan 81-04 owns; URL-param normalizer optional + deferred
+
+### Post-Fix Gate Results
+
+| Gate | Result | Delta vs pre-fix |
+|------|--------|------------------|
+| `npm run type-check` | PASSED | unchanged |
+| `npm run lint` | 524 baseline preserved | unchanged (no new errors) |
+| `npm run test` | 1839 passed, 3 skipped | **+14 tests** (11 schema-literal coverage + 1 unknown-orderChannel + 1 unknown-source + 1 recursive-guard edge case) |
+| `npm run build` | PASSED (24.06s) | unchanged |
+
+### Fix Commit Range
+
+`95eac532 → 006ba88c` (6 commits)
+
+```
+e7b52573 fix(81-03): cover all orders.channel literals (C1+C3+I1+Minor-2)
+2ce164eb fix(81-03): regenerate convex api.d.ts (C2)
+9740d855 fix(81-03): complete D-02 K3 Mart→K3Mart rename (C4)
+78db3d90 chore(81-03): remove dead SalesChannel union (I2)
+eaece822 refactor(81-03): rename buildChartColorMap param + I3 test comment (I6+I3)
+006ba88c chore(81-03): triple-review minor fixes (Minor-1+3+4)
+```
+
+---
 *Phase: 81-domain-vocabulary-deepening*
 *Completed: 2026-05-11*
+*Triple-review fixes applied: 2026-05-11*
