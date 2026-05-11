@@ -164,13 +164,29 @@ Full per-route permission table: `docs/FILE_MAP.md` (Full Role → Route Permiss
 8. **No dynamic imports in Convex** — static only. Dynamic `import()` works locally but fails silently in production (204 No Content).
 9. **React hooks order** — all hooks before any conditional returns. No hooks after early returns.
 10. **Auth token in mutations** — protected mutations require `token: v.string()`. Strip before db operations.
-11. **NEVER use `productionType`/`productionUnits`** — deprecated on `menuProducts` and `orderItems` (e.g., `productionType="original"` maps to BIG_BALL/80g — misleading). Always derive balls from BOM: `menuProductComponents` + `componentTypes` (filter `category="production"`, read `code` for `BIG_BALL`/`MID_BALL`).
+11. **NEVER use `productionType`/`productionUnits`** — deprecated on `menuProducts` and `orderItems` (e.g., `productionType="original"` maps to BIG_BALL/80g — misleading). Always derive balls from BOM: `menuProductComponents` + `componentTypes` (filter `category="production"`, read `code` for `BIG_BALL`/`MID_BALL`). **Phase 81 / D-01:** For "is this a production component?" checks in queries, use the canonical predicate `isProductionUnit(ct)` from `convex/reports/productionUnitHelpers.ts` — rule is `category === "production"` alone (no `unit === "pcs"`, no `gramsPerUnit !== undefined` requirement). 5 hand-rolled filters were consolidated in Phase 81; see also Pitfall #18 for the ESLint guard preventing reintroduction of the deleted alternatives.
 12. **Branch from main before starting a new phase** — ALWAYS `git switch main && git pull` first. Never branch from another phase's feature branch. If the previous phase isn't merged, merge it or wait. Branching from another feature branch creates messy history.
 13. **Count balls, not product units** — "units sold" and production volume MUST resolve BOM to count actual Big + Mid balls. A hamper with 3 balls = 3. Use `menuProductComponents` + `componentTypes` (category=`production`). Lifetime hero card uses dynamic `avgRevenuePerBall` (weighted from BOM-linked revenue items); falls back to 35K IDR/ball when no BOM-linked items exist.
 14. **Keep phase directory names short (max 50 chars)** — Windows 260-char path limit + git worktree prefix causes truncation. Use `{number}-{concise-slug}` (e.g., `59-direct-debit-expense-flow`), not the full phase title.
 15. **Install `xlsx` from SheetJS CDN, not npm** — npm registry `xlsx@0.18.5` is frozen + known-vulnerable (CVE-2023-30533 prototype pollution, CVE-2024-22363 ReDoS). Install: `npm install --save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`. Do NOT run `npm audit fix` on xlsx — it tries to downgrade. After regenerating `package-lock.json`, verify `npm ls xlsx` resolves to `0.20.3`.
 16. **Vendor bundle cap — bump or split when adding heavy deps** — `vite-plugin-bundlesize` enforces hard limits in `vite.config.ts`. `npm run build` locally on Windows can succeed while Vercel fails. After Phase 72 added `xlsx@0.20.3` (~50 kB) the vendor chunk went 480 → 542.9 kB and broke prod for ~21h. When adding any heavy npm dep that lands in `vendor-*.js`: either bump the cap in `vite.config.ts` (quick) or extract to its own chunk via `manualChunks` (preferred for rarely-used heavy code). Sequence: PR adding the dep → bump cap in same PR → merge. Current caps: `index-*.js` 500kB, `vendor-react-*.js` 500kB, `vendor-*.js` 600kB.
 17. **Hooks in `.claude/settings.json` — only commit entries whose targets exist** — broken hook entries fire errors every session (missing `.sh`/`.js` files → "No such file or directory"; uninstalled CLIs like `caliber` → spawn ENOENT). Empty matcher `""` amplifies this on every PostToolUse. Deleting the file alone doesn't help — the *config entry* must be removed from `.claude/settings.json`. Working hook set as of 2026-04-15: `gsd-check-update.js`, `gsd-hooks-health.js` (SessionStart), `gsd-context-monitor.js` (PostToolUse, matcher `Bash|Edit|Write|MultiEdit|Agent|Task`). Never re-add: `bash .claude/hooks/gsd-*.sh` (deleted), `caliber ...` (not installed), `gsd-{prompt,read,workflow}-guard.js` (don't exist). Before committing a new hook, run its target script once with dummy stdin to confirm exit 0.
+18. **Don't import the deleted Phase 81 resolvers — ESLint will block them** — Phase 81 deleted 6 helpers + 3 resolvers + 1 type + 1 const in favor of canonical exports. The `no-restricted-imports` rule in `eslint.config.js` blocks reintroduction with directives pointing to the canonical replacement. Banned imports (cumulative across plans 81-02 and 81-03):
+
+    **Platform resolution (use `convex/reports/platform.ts`):**
+    - `sourceToPlatform` from `convex/lib/externalSource` → use `platformDisplay(resolvePlatform(row).platform)`
+    - `toDisplayChannel`, `sourceToDisplayChannel`, `DisplayChannel`, `DISPLAY_CHANNELS` from `convex/reports/channelTaxonomy` (file deleted entirely) → use `Platform` / `resolvePlatform` / `platformDisplay`
+
+    **WIB date helpers (use `convex/lib/periodRange.ts`):**
+    - `toWibDateString` from `convex/staffAttendance/flagEngine` → use `getWibDateStr`
+    - `getWibDateString`, `getWibDateStringDaysAgo` from `convex/gofoodDepot/helpers` → use `getWibDateStr`
+    - `getWibDateStr` from `convex/lib/counter` (renamed to `getWibMonthDayStr` for MMDD format) → for YYYY-MM-DD use `getWibDateStr` from `convex/lib/periodRange`
+    - `utcToWibDateStr` (collapsed into `getWibDateStr`) → use `getWibDateStr` from `convex/lib/periodRange`
+
+    **Production predicate (use `convex/reports/productionUnitHelpers.ts`):**
+    - Inline `category === "production" && unit === "pcs"` filters (anti-pattern; see Pitfall #11) → use `isProductionUnit(ct)`
+
+    If lint fails with one of these messages, follow the directive — do NOT add an `// eslint-disable-next-line` override. The frontend `src/lib/dateUtils.ts` parallel `utcToWibDateStr` impl is intentionally NOT banned (D-13 — frontend seam is decoupled).
 
 ---
 
