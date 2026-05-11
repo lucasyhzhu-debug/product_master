@@ -2497,6 +2497,82 @@ Pure function. Computes current + previous week boundaries.
 
 ---
 
+### Phase 81 Canonical Exports
+
+Single sources of truth for three domain rule clusters consolidated in Phase 81 (2026-05-11). Importers blocked by ESLint `no-restricted-imports` from re-importing the deleted alternatives. See `docs/CHANGELOG.md` Phase 81 entry for the full deletion list and breaking-change notes.
+
+#### `convex/reports/platform.ts`
+
+```typescript
+export const PLATFORMS = [
+  "Direct",       // internal source
+  "GoFood",       // gobiz source
+  "GrabFood",     // grabfood source (D-05: distinct from GoFood)
+  "Shopee",       // shopee source
+  "TikTok",       // tiktok source (D-02: NOT "Tokopedia")
+  "K3Mart",       // k3mart source (D-02: no space)
+  "Consignment",  // consignment source
+  "BigSeller",    // transitional — fades on ADR-0001 schema field landing
+] as const;
+export type Platform = (typeof PLATFORMS)[number];
+
+export type OrderChannel =
+  | "whatsapp" | "instagram" | "other"
+  | "gofood" | "grabfood" | "shopee" | "tiktok"
+  | "k3mart_gf" | "legato_tamtem" | "legato_goldfinch" | "bazaar"
+  | "tokopedia"; // deprecated synonym for tiktok
+
+export function isPlatform(s: string): s is Platform;
+export function platformDisplay(p: Platform): string;
+export function resolvePlatform(row: {
+  source: ExternalSource;
+  underlyingSource?: Exclude<ExternalSource, "bigseller">;  // D-03 forward-compat
+  orderChannel?: OrderChannel | string;                     // overload per PATTERNS.md finding #6
+}): { platform: Platform; confidence: Confidence };
+```
+
+**Resolution priority:**
+1. `orderChannel` (if set) → `ORDER_CHANNEL_TO_PLATFORM` map; unknown channels return `confidence: "inferred"` so Phase 77 Data Health Dashboard can detect drift; `tokopedia` → `TikTok` (deprecated synonym).
+2. `source === "bigseller"` → `underlyingSource` if present and not "bigseller" → corresponding Platform + confidence='inferred' (ADR-0001 forward-compat); else fallback to `BigSeller` transitional + `inferred`.
+3. `source` via `SOURCE_TO_PLATFORM` map → Platform + `confidence='exact'`. Unknown source returns `BigSeller` transitional + `inferred` (defensive runtime fallback per triple-review C3).
+
+The `{platform, confidence}` return shape lets callers compose with `worstConfidence` (analog: `convex/reports/incomeStatement.ts:333-335`) without double-downgrading rows already at 'inferred'.
+
+#### `convex/reports/productionUnitHelpers.ts`
+
+```typescript
+export function isProductionUnit(ct: Pick<Doc<"componentTypes">, "category">): boolean;
+// Rule: category === "production" alone (Phase 81 / D-01).
+// Drops historical `unit === "pcs"` and `gramsPerUnit !== undefined` clauses to
+// future-proof gram-denominated production variants. Numeric-aggregation callsites
+// that need a gramsPerUnit guard compose: .filter(isProductionUnit).filter(c => c.gramsPerUnit !== undefined)
+```
+
+Structural `Pick<Doc, "category">` signature accepts trivial test stubs (`{category: "production"}`) and the partial-shape spreads in `menuProducts/mutations.ts`.
+
+#### `convex/lib/periodRange.ts`
+
+```typescript
+export function getWibDateStr(utcMs: number): string;
+// Returns YYYY-MM-DD WIB date string (e.g., "2026-05-11").
+// Throws on non-finite input (Number.isFinite NaN-guard, lifted from the deleted
+// staffAttendance/flagEngine#toWibDateString — fail-loud, no silent "Invalid Date" leakage).
+```
+
+Canonical home for all YYYY-MM-DD WIB date-string formatting (Phase 81 / D-06). Replaces 4 deleted per-feature duplicates: `getWibDateString` + `getWibDateStringDaysAgo` (gofoodDepot/helpers), `toWibDateString` (staffAttendance/flagEngine), `utcToWibDateStr` (collapsed into this function).
+
+#### `convex/lib/counter.ts`
+
+```typescript
+export function getWibMonthDayStr(utcMs: number): string;
+// Returns MMDD (e.g., "0511"). Used by EXP-MMDD-NNN / JE-MMDD-NNN / RMB-MMDD-NNN counter sequencing.
+// Renamed from getWibDateStr in Phase 81 to free the canonical YYYY-MM-DD name (see periodRange.ts).
+```
+
+**Deletions:** Phase 81 deleted 6 legacy WIB date helpers + 3 platform mappers + 1 type + 1 const. Cross-reference `docs/CHANGELOG.md` Phase 81 entry for the full deletion list and ESLint ban directives.
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |
