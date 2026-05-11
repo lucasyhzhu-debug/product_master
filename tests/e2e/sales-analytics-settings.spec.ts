@@ -50,7 +50,7 @@ test.describe("Sales Analytics Settings — Platform Management", () => {
     console.log(`Platform Connections section visible: ${platformVisible}`);
 
     // Check all 3 platforms are present
-    const platforms = ["K3 Mart", "GoBiz", "Internal Orders"];
+    const platforms = ["K3Mart", "GoBiz", "Internal Orders"];
     for (const platform of platforms) {
       const card = page.locator(`text=${platform}`).first();
       const visible = await card.isVisible().catch(() => false);
@@ -263,9 +263,9 @@ test.describe("Sales Analytics Settings — Platform Management", () => {
         console.log(`Active toggle switches: ${switchCount}`);
 
         // Check for platform badges in outlet table
-        const outletK3 = page.locator('table td >> text="K3 Mart"');
+        const outletK3 = page.locator('table td >> text="K3Mart"');
         const outletInternal = page.locator('table td >> text="Internal"');
-        console.log(`K3 Mart outlets: ${await outletK3.count()}`);
+        console.log(`K3Mart outlets: ${await outletK3.count()}`);
         console.log(`Internal outlets: ${await outletInternal.count()}`);
 
         // USABILITY: Internal orders don't have outlets — should this section mention that?

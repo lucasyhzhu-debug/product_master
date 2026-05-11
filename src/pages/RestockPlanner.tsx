@@ -244,10 +244,10 @@ export function RestockPlanner() {
         Tomorrow is a <span className="font-medium text-foreground">{tomorrowType === "weekend" ? "weekend" : "weekday"}</span> — restock targets below reflect {tomorrowType} quantities.
       </div>
 
-      {/* K3 Mart Channel */}
+      {/* K3Mart Channel */}
       {k3martChannels.length > 0 && (
         <ChannelSection
-          title="K3 Mart"
+          title="K3Mart"
           icon={<Store className="h-4 w-4" />}
           color="purple"
         >

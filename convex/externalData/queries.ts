@@ -968,7 +968,7 @@ export const getSyncHealthAlert = query({
     const now = Date.now();
     const alerts: Array<{ platform: string; platformName: string; staleSinceMs: number; lastError?: string }> = [];
 
-    for (const [source, name] of [["k3mart", "K3 Mart"], ["gobiz", "GoFood"]] as const) {
+    for (const [source, name] of [["k3mart", "K3Mart"], ["gobiz", "GoFood"]] as const) {
       const lastSuccess = await ctx.db.query("externalSyncLogs")
         .withIndex("by_source", q => q.eq("source", source))
         .filter(q => q.eq(q.field("status"), "success"))

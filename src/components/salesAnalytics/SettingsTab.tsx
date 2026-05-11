@@ -475,7 +475,7 @@ export function SettingsTab() {
                         }
                       >
                         {outlet.source === "k3mart"
-                          ? "K3 Mart"
+                          ? "K3Mart"
                           : outlet.source === "internal"
                           ? "Internal"
                           : "GoBiz"}
