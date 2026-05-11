@@ -821,7 +821,7 @@ describe("unitEconomics WR-06 legacy completedAt fallback", () => {
 // ============================================================================
 
 describe("unitEconomics.externalRevenue integration", () => {
-  test("GoFood externalRevenue row with items is counted in kpi + channelEconomics", async () => {
+  test("GrabFood externalRevenue row with items is counted in kpi + channelEconomics", async () => {
     const t = convexTest(schema, modules);
     const { bigBallId } = await seedBaseFixtures(t);
     const mp = await seedMenuProduct(t, "Original", bigBallId);
@@ -849,7 +849,7 @@ describe("unitEconomics.externalRevenue integration", () => {
       ctx.db.insert("externalRevenueItems", {
         revenueId: revId,
         source: "grabfood" as const,
-        productName: "Original GoFood",
+        productName: "Original GrabFood",
         unitPrice: 50000,
         quantity: 2,
         totalPrice: 100000,
@@ -868,11 +868,14 @@ describe("unitEconomics.externalRevenue integration", () => {
     expect(snap.kpi.current.netRevenue).toBeGreaterThanOrEqual(100000);
     expect(snap.kpi.current.units).toBe(2); // BOM: 1 BIG_BALL per product × 2 units
 
-    const gofood = snap.channelEconomics.find((r) => r.channel === "GoFood");
-    expect(gofood).toBeDefined();
-    expect(gofood!.gross).toBe(100000);
-    expect(gofood!.units).toBe(2);
-    expect(gofood!.orderCount).toBe(1);
+    // Phase 81 D-05: source="grabfood" resolves to Platform="GrabFood" (NOT
+    // "GoFood"). The legacy sourceToDisplayChannel collapsed both gobiz and
+    // grabfood → "GoFood" — that ambiguity 138 was closed by D-05.
+    const grabfood = snap.channelEconomics.find((r) => r.channel === "GrabFood");
+    expect(grabfood).toBeDefined();
+    expect(grabfood!.gross).toBe(100000);
+    expect(grabfood!.units).toBe(2);
+    expect(grabfood!.orderCount).toBe(1);
   });
 
   test("transactionCount > 1 inflates orderCount correctly (no double-count)", async () => {
