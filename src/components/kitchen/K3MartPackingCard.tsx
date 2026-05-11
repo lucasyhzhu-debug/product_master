@@ -53,7 +53,7 @@ export function K3MartPackingCard({ date, items }: K3MartPackingCardProps) {
       >
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-base font-bold text-foreground">
-            K3 Mart Consignment
+            K3Mart Consignment
           </span>
           <span
             className="rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"

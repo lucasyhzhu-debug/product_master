@@ -420,7 +420,7 @@ export function ProductionLogPanel({
                         <TooltipTrigger asChild>
                           <span className="cursor-help">K3M</span>
                         </TooltipTrigger>
-                        <TooltipContent side="top"><p>K3 Mart consignment targets (editable)</p></TooltipContent>
+                        <TooltipContent side="top"><p>K3Mart consignment targets (editable)</p></TooltipContent>
                       </Tooltip>
                     </th>
                     <th className="text-center px-1 py-1.5 font-semibold text-[var(--color-gofood)] w-12">
@@ -437,7 +437,7 @@ export function ProductionLogPanel({
                           <TooltipTrigger asChild>
                             <span className="cursor-help">Stk</span>
                           </TooltipTrigger>
-                          <TooltipContent side="top"><p>K3 Mart outlet stock (read-only)</p></TooltipContent>
+                          <TooltipContent side="top"><p>K3Mart outlet stock (read-only)</p></TooltipContent>
                         </Tooltip>
                       </th>
                     )}

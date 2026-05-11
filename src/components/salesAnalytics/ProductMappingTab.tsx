@@ -94,7 +94,7 @@ export function ProductMappingTab() {
             GoFood{gobizUnmapped > 0 ? ` (${gobizUnmapped} unmapped)` : ""}
           </TabsTrigger>
           <TabsTrigger value="k3mart">
-            K3 Mart{k3martUnmapped > 0 ? ` (${k3martUnmapped} unmapped)` : ""}
+            K3Mart{k3martUnmapped > 0 ? ` (${k3martUnmapped} unmapped)` : ""}
           </TabsTrigger>
           <TabsTrigger value="shopee">
             Shopee{shopeeUnmapped > 0 ? ` (${shopeeUnmapped} unmapped)` : ""}
@@ -130,7 +130,7 @@ export function ProductMappingTab() {
         <TabsContent value="k3mart" className="mt-4">
           {k3martMappings.length === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
-              No K3 Mart product mappings yet. Sync K3 Mart data to discover products.
+              No K3Mart product mappings yet. Sync K3Mart data to discover products.
             </p>
           ) : (
             <div className="space-y-2">

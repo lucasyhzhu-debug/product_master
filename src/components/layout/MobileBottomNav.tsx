@@ -72,7 +72,7 @@ const moreItems: TabItem[] = [
   { path: '/accounts', icon: Landmark, label: 'Accounts', permission: 'canManageReimbursements' },
   { path: '/import', icon: FileUp, label: 'Hist. Import', permission: 'canManageReimbursements' },
   { path: '/assets', icon: Building2, label: 'Assets', permission: 'canAccessAssets' },
-  { path: '/k3mart-cockpit', icon: Store, label: 'K3 Mart', permission: 'canAccessSalesAnalytics' },
+  { path: '/k3mart-cockpit', icon: Store, label: 'K3Mart', permission: 'canAccessSalesAnalytics' },
   { path: '/components/production', icon: Circle, label: 'Production', permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },
   { path: '/menu-products', icon: Tag, label: 'Products', permission: 'canAccessMenuProducts' },
