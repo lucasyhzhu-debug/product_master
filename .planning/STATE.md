@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
 status: Ready to push + PR + merge to main
-stopped_at: Phase 81 context gathered
-last_updated: "2026-05-10T06:01:11.324Z"
-last_activity: 2026-05-09
+stopped_at: Phase 81 implementation + triple-review + docs sweep complete
+last_updated: "2026-05-11T00:00:00.000Z"
+last_activity: 2026-05-11
 progress:
-  total_phases: 21
-  completed_phases: 16
-  total_plans: 75
-  completed_plans: 75
+  total_phases: 22
+  completed_phases: 17
+  total_plans: 79
+  completed_plans: 79
   percent: 100
 ---
 
@@ -20,14 +20,14 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-08)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 76 — financial-data-export (ready to merge to main)
+**Current focus:** Phase 81 — domain-vocabulary-deepening (ready to push + PR + merge to main)
 
 ## Current Position
 
-Phase: 76
-Plan: All 5 plans merged + triple-review fixes + docs sweep on feature/76-financial-data-export
+Phase: 81
+Plan: All 4 plans + 7 triple-review fix commits + docs sweep on feature/81-domain-vocabulary-deepening (38 commits ahead of origin/main)
 Status: Ready to push + PR + merge to main
-Last activity: 2026-05-09
+Last activity: 2026-05-11
 
 Progress: [████████▌░] 84%
 
