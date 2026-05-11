@@ -54,18 +54,68 @@ const SOURCE_TO_PLATFORM: Record<Exclude<ExternalSource, "bigseller">, Platform>
 };
 
 /**
+ * Mirror of `convex/schema.ts` orders.channel union literals.
+ *
+ * KEEP IN SYNC: when a new literal is added to the schema's `orders.channel`
+ * `v.union(...)`, add it here AND extend `ORDER_CHANNEL_TO_PLATFORM` below.
+ * Typing the map against this union forces TypeScript to fail when a literal
+ * is added to the schema but not to the resolver — the previous fall-through
+ * (`?? "Direct"`) silently inflated Direct revenue.
+ *
+ * Source: `convex/schema.ts` orders table, channel field (~lines 261-273).
+ *
+ * "tokopedia" is a legacy `orders.channel` literal kept in the schema for
+ * historical data; resolves as a synonym for "tiktok" → "TikTok" since the
+ * 2023 Tokopedia/TikTok-Shop merger (CONTEXT.md ambiguity 137).
+ */
+export type OrderChannel =
+  | "whatsapp"
+  | "instagram"
+  | "shopee"
+  | "tiktok"
+  | "tokopedia"
+  | "grabfood"
+  | "k3mart_gf"
+  | "legato_tamtem"
+  | "legato_goldfinch"
+  | "bazaar"
+  | "other"
+  // Not in schema's orders.channel union, but used by some legacy paths
+  // to overload the resolver onto a Source-style key. Keep these here as
+  // synonyms for the corresponding source mappings so callers passing
+  // ExternalSource-shaped strings via orderChannel still resolve.
+  | "internal"
+  | "gobiz"
+  | "k3mart"
+  | "consignment";
+
+/**
  * orders.channel literal → Platform (D-05 + CONTEXT.md ambiguity 137).
  *
- * "tokopedia" is a deprecated orders.channel literal; treated as a synonym
- * for "tiktok" → "TikTok" since the 2023 Tokopedia/TikTok-Shop merger.
+ * Triple-review C1 fix: previously a permissive `Record<string, Platform>`
+ * that allowed unknown channel literals to fall through `?? "Direct"`. This
+ * silently routed `whatsapp`, `instagram`, `k3mart_gf`, `legato_tamtem`,
+ * `legato_goldfinch`, `bazaar`, `other` (5+ schema-real literals) to the
+ * Direct platform — inflating Direct revenue. Type is now constrained
+ * against the OrderChannel union so future schema additions break TS.
  */
-const ORDER_CHANNEL_TO_PLATFORM: Record<string, Platform> = {
-  internal: "Direct",
-  gobiz: "GoFood",
-  grabfood: "GrabFood",
+const ORDER_CHANNEL_TO_PLATFORM: Record<OrderChannel, Platform> = {
+  // Schema literals (orders.channel union)
+  whatsapp: "Direct",
+  instagram: "Direct",
   shopee: "Shopee",
   tiktok: "TikTok",
   tokopedia: "TikTok", // deprecated, kept for legacy data
+  grabfood: "GrabFood",
+  k3mart_gf: "K3Mart",
+  legato_tamtem: "Consignment",
+  legato_goldfinch: "Consignment",
+  bazaar: "Consignment",
+  other: "Direct",
+  // Legacy/Source-style synonyms used by some unitEconomics callsites that
+  // pass ExternalSource-shaped strings via the orderChannel field.
+  internal: "Direct",
+  gobiz: "GoFood",
   k3mart: "K3Mart",
   consignment: "Consignment",
 };
@@ -108,7 +158,18 @@ export function resolvePlatform(
 ): { platform: Platform; confidence: Confidence } {
   // 1. orderChannel overload
   if (row.orderChannel) {
-    const platform = ORDER_CHANNEL_TO_PLATFORM[row.orderChannel] ?? "Direct";
+    const platform = ORDER_CHANNEL_TO_PLATFORM[row.orderChannel as OrderChannel];
+    if (platform === undefined) {
+      // Triple-review I1: unknown orderChannel → defensive default but
+      // confidence downgrade so Phase 77's data-health surface can grep
+      // `confidence === "inferred"` to find drift between schema literals
+      // and the resolver keyspace. After C1 fix the map is type-narrowed
+      // against the schema union, so this path should be unreachable for
+      // known literals — but if a new schema literal lands without a
+      // resolver update, the fallback fires `"inferred"` instead of
+      // silently inflating Direct revenue with `"exact"`.
+      return { platform: "Direct", confidence: "inferred" };
+    }
     return { platform, confidence: "exact" };
   }
 
@@ -125,6 +186,15 @@ export function resolvePlatform(
   }
 
   // 3. Standard source map
-  const platform = SOURCE_TO_PLATFORM[row.source];
+  const platform = SOURCE_TO_PLATFORM[row.source as Exclude<ExternalSource, "bigseller">];
+  if (!platform) {
+    // Triple-review C3: defensive fallback. TS narrows row.source to
+    // ExternalSource at compile time, but callers using `as ExternalSource`
+    // casts (6 sites in this phase) can pass unknown values at runtime.
+    // Fall back to BigSeller transitional with inferred confidence —
+    // matches deleted sourceToPlatform behavior. Phase 77 can grep this
+    // path via `platform === "BigSeller" && confidence === "inferred"`.
+    return { platform: "BigSeller", confidence: "inferred" };
+  }
   return { platform, confidence: "exact" };
 }
