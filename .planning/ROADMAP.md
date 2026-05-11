@@ -13,6 +13,7 @@
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
 - [x] **v2.0 Financial Management & Data Quality** - Phases 70-81 (shipped 2026-05-11)
+- [ ] **v2.0 → v2.1 Interregnum** - Phase 82 (tech-debt sweep, in progress)
 
 ## Phases
 
@@ -243,6 +244,33 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 | v2.0 Financial Management & Data Quality | 70-81 (incl. 70.1, 74.5.1, 74.5.2, 74.5.2.1, 80.1, 80.2, 80.3 inserted) | 79 | Complete | 2026-05-11 |
 
 **Total: 86 phases, 325 plans shipped across 11 milestones**
+
+---
+
+## v2.0 → v2.1 Interregnum
+
+### Phase 82: Tech-Debt Sweep & Simplification (IN PROGRESS — created 2026-05-11)
+
+**Goal:** Produce a prioritized tech-debt fix list combining (a) the 8 inefficiencies + 8 patterns from `.planning/RETROSPECTIVE.md` v2.0 section and (b) fresh `/simplify` findings against top-5 god nodes from a refreshed `graphify-out/GRAPH_REPORT.md`. Ship the no-brainer wins inline (Effort ≤2hr / Payoff ≥High / Risk=Low). Hand off larger items as proposed v2.1 phases.
+
+**Why this phase exists:** v2.0 closed with documented inefficiencies that compound across phases (REQUIREMENTS.md drift, STATE.md staleness, CONTEXT-vs-PATTERNS scope drift, dual-ROADMAP duplication, no WIP limits, etc.). Combining the retrospective seeds with a fresh `/simplify` pass prevents v2.1 from starting on the same drift v2.0 ended with.
+
+**Explicit exclusion:** Architecture review's deferred Candidates 2 + 5 (period-comparison orchestrator, `useProtectedMutation` sweep) are NOT inputs this round. Re-evaluate next tech-debt sweep.
+
+**Wave structure:**
+- Wave 0: Refresh graphify, identify top-5 god nodes (15 min)
+- Wave 1: `/simplify` against 5 god-node files; catalog only (45 min)
+- Wave 2: Synthesize + score combined findings → `82-TECH-DEBT-PRIORITIZED.md` (60 min)
+- Wave 3: Ship items meeting Effort ≤2hr + Payoff ≥High + Risk=Low (4-8 hr)
+- Wave 4: Handoff doc + v2.1 phase candidates
+
+**Branch:** `feature/82-tech-debt-sweep`
+**Triple-review:** opt-in only (false by default; flip if any plan touches >5 callsites or a typed literal union)
+**Sequencing:** Phase 82 → `/gsd-new-milestone` for v2.1 (passes prioritized doc as input)
+
+**Source artifacts:**
+- `.planning/phases/82-tech-debt-sweep/README.md` — full scope
+- `.planning/phases/82-tech-debt-sweep/82-CONTEXT.md` — D-01 through D-10 locked decisions
 
 ---
 
