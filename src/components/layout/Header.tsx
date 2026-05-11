@@ -123,7 +123,7 @@ const opsItems: NavItem[] = [
   { path: '/my-performance', label: 'My Performance', icon: UserCheck, permission: 'canAccessKitchen', rolesAllowed: ['kitchen', 'order_staff'] },
   { path: '/inventory', label: 'Inventory', icon: Warehouse, permission: 'canAccessInventory', preload: _prefetchInventory },
   { path: '/restock-planner', label: 'Planner', icon: CalendarRange, permission: 'canAccessDashboard', preload: _prefetchRestock },
-  { path: '/k3mart-cockpit', label: 'K3 Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
+  { path: '/k3mart-cockpit', label: 'K3Mart', icon: Store, permission: 'canAccessSalesAnalytics' },
   { path: '/gofood-depot', label: 'GoFood Depot', icon: Truck, permission: 'canAccessDashboard', preload: _prefetchGoFood },
   { path: '/grabfood', label: 'GrabFood', icon: UtensilsCrossed, permission: 'canAccessSalesAnalytics' },
 ];

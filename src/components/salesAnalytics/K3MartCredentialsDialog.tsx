@@ -82,9 +82,9 @@ export function K3MartCredentialsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>K3 Mart Credentials</DialogTitle>
+          <DialogTitle>K3Mart Credentials</DialogTitle>
           <DialogDescription>
-            Enter your K3 Mart login credentials for automatic token refresh
+            Enter your K3Mart login credentials for automatic token refresh
             every 12 hours.
           </DialogDescription>
         </DialogHeader>

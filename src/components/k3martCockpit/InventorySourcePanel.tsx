@@ -196,7 +196,7 @@ export const InventorySourcePanel = memo(function InventorySourcePanel({
                   style={{ color: 'var(--color-k3mart)' }}
                 >
                   <Store className="h-3.5 w-3.5" />
-                  K3 Mart Outlets ({sources.k3mart.products.length} products)
+                  K3Mart Outlets ({sources.k3mart.products.length} products)
                 </h4>
                 {sources.k3mart.products.length > 0 ? (
                   <div className="space-y-1">

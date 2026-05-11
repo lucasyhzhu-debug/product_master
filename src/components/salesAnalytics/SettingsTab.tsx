@@ -125,9 +125,9 @@ export function SettingsTab() {
         toast.error(`Discovery failed: ${result.errors?.join(", ") || "Unknown error"}`);
       }
     } catch (error) {
-      console.error("K3 Mart discovery failed:", error);
+      console.error("K3Mart discovery failed:", error);
       toast.error(
-        error instanceof Error ? error.message : "K3 Mart discovery failed"
+        error instanceof Error ? error.message : "K3Mart discovery failed"
       );
     } finally {
       setDiscoveringK3Mart(false);
@@ -148,9 +148,9 @@ export function SettingsTab() {
         toast.error(`Sales sync failed: ${result.error || "Unknown error"}`);
       }
     } catch (error) {
-      console.error("K3 Mart sales sync failed:", error);
+      console.error("K3Mart sales sync failed:", error);
       toast.error(
-        error instanceof Error ? error.message : "K3 Mart sales sync failed"
+        error instanceof Error ? error.message : "K3Mart sales sync failed"
       );
     } finally {
       setSyncingK3MartSales(false);

@@ -74,7 +74,7 @@ function formatDateShort(date: string): string {
 // ==========================================
 
 export function K3MartCockpit() {
-  useDocumentTitle('K3 Mart Cockpit');
+  useDocumentTitle('K3Mart Cockpit');
 
   // Auth context
   const { user } = useAuth();
@@ -423,7 +423,7 @@ export function K3MartCockpit() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="K3 Mart Cockpit" description={`Today: ${formatDateShort(today)}`} />
+        <PageHeader title="K3Mart Cockpit" description={`Today: ${formatDateShort(today)}`} />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -434,7 +434,7 @@ export function K3MartCockpit() {
     <div className="space-y-6">
       {/* Page Header */}
       <PageHeader
-        title="K3 Mart Cockpit"
+        title="K3Mart Cockpit"
         description={`Today: ${formatDateShort(today)}`}
         action={
           <div className="flex items-center gap-2">
