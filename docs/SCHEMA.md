@@ -14,6 +14,18 @@
 
 ---
 
+## Phase 81 (2026-05-11) — Vocabulary Consolidation (no schema changes)
+
+Phase 81 was a code-organization phase. **No schema fields were added, removed, or renamed.** Recorded here for reference because Phase 81 deleted 3 source-to-display mappers + 4 WIB date-string helpers + 5 hand-rolled production-component filters that operated on schema fields. Future readers grepping "Phase 81" in this file will land here.
+
+- **`externalRevenue.underlyingSource`** field — DEFERRED to a follow-on phase per D-03 (ADR-0001 cutover). Phase 81's `resolvePlatform` (in `convex/reports/platform.ts`) ships forward-compatible: when the schema field lands, BigSeller rows tighten from "BigSeller" transitional to a real Platform automatically without caller changes. Until then, `bigseller` source resolves to `Platform = "BigSeller"` + `Confidence = "inferred"`.
+- **`componentTypes.category`** — already in schema; no field change. Phase 81 / D-01 promotes `category === "production"` alone as the canonical predicate (`isProductionUnit` from `convex/reports/productionUnitHelpers.ts`); the historical `unit === "pcs"` clause is dropped to future-proof gram-denominated production variants. The one numeric-aggregation callsite that needs the secondary `gramsPerUnit` guard composes `.filter(isProductionUnit).filter(c => c.gramsPerUnit !== undefined)`.
+- **`orders.channel` literal union** — already in schema; no field change. Phase 81 added a TypeScript-side `OrderChannel` schema-mirror union in `convex/reports/platform.ts` so future literal additions break the resolver at compile time (closes triple-review C1 — `whatsapp`, `instagram`, `k3mart_gf`, `legato_tamtem`, `legato_goldfinch`, `bazaar`, `other` are all explicitly mapped to a Platform; no silent `?? "Direct"` fallthrough).
+
+See `docs/CHANGELOG.md` for the full Phase 81 entry (4 plans, ~32 files modified) and `docs/API_REFERENCE.md` for the canonical export signatures.
+
+---
+
 ## System Architecture Overview
 
 **Convex Architecture:**

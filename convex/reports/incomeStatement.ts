@@ -15,7 +15,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { buildProductCOGSMap } from "../lib/costCalculator";
 import { calculateWeekRange } from "../lib/periodRange";
 import { type Confidence, worstConfidence } from "../lib/confidence";
-import { sourceToPlatform } from "../lib/externalSource";
+import type { ExternalSource } from "../lib/externalSource";
+import { resolvePlatform, platformDisplay } from "./platform";
 import { fetchInternalOrderDataMap } from "../externalData/queries";
 import { aggregateJournalLines } from "../lib/journalHelpers";
 import {
@@ -336,7 +337,9 @@ function aggregateWeek(
 
     channels.push({
       source,
-      displayName: sourceToPlatform(source),
+      displayName: platformDisplay(
+        resolvePlatform({ source: source as ExternalSource }).platform,
+      ),
       gross: channelGross,
       netRevenue: channelNet,
       discount: channelDiscount,
@@ -386,7 +389,7 @@ function aggregateWeek(
 
     channels.push({
       source: "consignment",
-      displayName: sourceToPlatform("consignment"),
+      displayName: "Consignment",
       gross: consignGross,
       netRevenue: consignNet,
       discount: 0,
@@ -428,7 +431,9 @@ function aggregateWeek(
     if (!activeSources.has(known.source)) {
       missingChannels.push({
         source: known.source,
-        displayName: sourceToPlatform(known.source),
+        displayName: platformDisplay(
+          resolvePlatform({ source: known.source as ExternalSource }).platform,
+        ),
         reason: known.reason,
       });
     }

@@ -29,9 +29,9 @@ import {
 import { Loader2 } from "lucide-react";
 import {
   EXTERNAL_SOURCES,
-  sourceToPlatform,
   type ExternalSource,
 } from "../../../convex/lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../../../convex/reports/platform";
 import { mapChannelToSource } from "../../../convex/bankStatements/channelMapping";
 import { useInlineCreateRevenue } from "@/hooks/convex/useBankReconciliation";
 import {
@@ -131,7 +131,7 @@ export function InlineRevenueDialog({ open, onOpenChange, line }: Props) {
               <SelectContent>
                 {EXTERNAL_SOURCES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {sourceToPlatform(s)}{" "}
+                    {platformDisplay(resolvePlatform({ source: s }).platform)}{" "}
                     <span className="text-xs text-muted-foreground ml-1">({s})</span>
                   </SelectItem>
                 ))}

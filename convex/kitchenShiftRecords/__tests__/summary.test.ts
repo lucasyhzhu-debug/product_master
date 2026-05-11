@@ -16,7 +16,7 @@ import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { seedUser, insertAttendance } from "../../staffAttendance/__tests__/helpers";
 import { OPEN_SHIFT_THRESHOLD_MS } from "../../staffAttendance/constants";
-import { toWibDateString } from "../../staffAttendance/flagEngine";
+import { getWibDateStr } from "../../lib/periodRange";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -127,7 +127,7 @@ describe("getStaffPerformanceSummary attendance extension", () => {
     const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     // Closed session 1: 1h
     await insertAttendance(t, {
       userId,
@@ -166,8 +166,8 @@ describe("getStaffPerformanceSummary attendance extension", () => {
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
 
     const base = Date.now();
-    const d1 = toWibDateString(base - 2 * DAY_MS);
-    const d2 = toWibDateString(base - 1 * DAY_MS);
+    const d1 = getWibDateStr(base - 2 * DAY_MS);
+    const d2 = getWibDateStr(base - 1 * DAY_MS);
     // Two sessions on d1, one on d2 → distinct count = 2.
     await insertAttendance(t, {
       userId,
@@ -191,8 +191,8 @@ describe("getStaffPerformanceSummary attendance extension", () => {
       durationMs: HOUR_MS,
     });
 
-    const start = toWibDateString(base - 3 * DAY_MS);
-    const end = toWibDateString(base);
+    const start = getWibDateStr(base - 3 * DAY_MS);
+    const end = getWibDateStr(base);
     const result = await t.query(
       api.kitchenShiftRecords.queries.getStaffPerformanceSummary,
       { token: mgrToken, startDate: start, endDate: end },
@@ -210,7 +210,7 @@ describe("getStaffPerformanceSummary attendance extension", () => {
       midBallQty: 2,
     }); // 3 balls per product
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     await insertShiftRecord(t, {
       date: today,
       chefUserId: userId,
@@ -239,15 +239,15 @@ describe("getStaffPerformanceSummary attendance extension", () => {
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
 
     // Open shift from 2 days ago → missing_clockout + over_16h flags.
-    const priorDate = toWibDateString(Date.now() - 2 * DAY_MS);
+    const priorDate = getWibDateStr(Date.now() - 2 * DAY_MS);
     await insertAttendance(t, {
       userId,
       date: priorDate,
       clockIn: Date.now() - 2 * DAY_MS,
     });
 
-    const start = toWibDateString(Date.now() - 5 * DAY_MS);
-    const end = toWibDateString(Date.now());
+    const start = getWibDateStr(Date.now() - 5 * DAY_MS);
+    const end = getWibDateStr(Date.now());
     const result = await t.query(
       api.kitchenShiftRecords.queries.getStaffPerformanceSummary,
       { token: mgrToken, startDate: start, endDate: end },
@@ -262,7 +262,7 @@ describe("getStaffPerformanceSummary attendance extension", () => {
     const { token: mgrToken } = await seedUser(t, { name: "Mgr", role: "manager" });
     const { userId } = await seedUser(t, { name: "Prep Only", role: "kitchen" });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     await insertAttendance(t, {
       userId,
       date: today,
@@ -304,7 +304,7 @@ describe("getStaffPerformanceSummary attendance extension", () => {
       });
     });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     await insertShiftRecord(t, {
       date: today,
       chefUserId: userId,
@@ -354,10 +354,10 @@ describe("getStaffPerformanceSummary attendance extension", () => {
     });
 
     const now = Date.now();
-    const today = toWibDateString(now);
-    const yesterday = toWibDateString(now - DAY_MS);
-    const twoDaysAgo = toWibDateString(now - 2 * DAY_MS);
-    const beforeHire = toWibDateString(hireDate - 2 * DAY_MS);
+    const today = getWibDateStr(now);
+    const yesterday = getWibDateStr(now - DAY_MS);
+    const twoDaysAgo = getWibDateStr(now - 2 * DAY_MS);
+    const beforeHire = getWibDateStr(hireDate - 2 * DAY_MS);
 
     // (a) before_hire: clockIn < hireDate (clock-in BEFORE hireDate)
     await insertAttendance(t, {
@@ -400,7 +400,7 @@ describe("getStaffPerformanceSummary attendance extension", () => {
       durationMs: 2 * HOUR_MS,
     });
 
-    const start = toWibDateString(hireDate - 5 * DAY_MS);
+    const start = getWibDateStr(hireDate - 5 * DAY_MS);
     const end = today;
     const result = await t.query(
       api.kitchenShiftRecords.queries.getStaffPerformanceSummary,
@@ -451,7 +451,7 @@ describe("getStaffPerformanceSummary attendance extension", () => {
       });
     });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     await insertShiftRecord(t, {
       date: today,
       chefUserId: userId,
@@ -515,7 +515,7 @@ describe("getStaffPerformanceSummary attendance extension", () => {
       });
     });
 
-    const today = toWibDateString(Date.now());
+    const today = getWibDateStr(Date.now());
     await insertShiftRecord(t, {
       date: today,
       chefUserId: userId,
@@ -548,9 +548,9 @@ describe("getStaffPerformanceSummary attendance extension", () => {
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
 
     const base = Date.now();
-    const d1 = toWibDateString(base - 3 * DAY_MS);
-    const d2 = toWibDateString(base - 2 * DAY_MS);
-    const d3 = toWibDateString(base - 1 * DAY_MS);
+    const d1 = getWibDateStr(base - 3 * DAY_MS);
+    const d2 = getWibDateStr(base - 2 * DAY_MS);
+    const d3 = getWibDateStr(base - 1 * DAY_MS);
     for (const [d, offset] of [
       [d1, -3 * DAY_MS],
       [d2, -2 * DAY_MS],
@@ -568,8 +568,8 @@ describe("getStaffPerformanceSummary attendance extension", () => {
       api.kitchenShiftRecords.queries.getStaffPerformanceSummary,
       {
         token: mgrToken,
-        startDate: toWibDateString(base - 5 * DAY_MS),
-        endDate: toWibDateString(base),
+        startDate: getWibDateStr(base - 5 * DAY_MS),
+        endDate: getWibDateStr(base),
       },
     );
     const staff = result.staff.find((s) => s.chefUserId === String(userId));

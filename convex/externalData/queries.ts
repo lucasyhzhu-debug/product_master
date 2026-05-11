@@ -6,7 +6,8 @@ import { calculatePeriodRange, isWeekend } from "../lib/periodRange";
 import type { PeriodPreset } from "../lib/periodRange";
 import type { Doc } from "../_generated/dataModel";
 import { externalSource } from "../schema";
-import { isExternalSource, sourceToPlatform } from "../lib/externalSource";
+import { isExternalSource, type ExternalSource } from "../lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../reports/platform";
 import { aggregatePeriodRevenue } from "./helpers/dashboardHelpers";
 import { bucketKey, formatBucketLabel } from "./helpers/timeSeriesHelpers";
 import type { Granularity } from "./helpers/timeSeriesHelpers";
@@ -967,7 +968,7 @@ export const getSyncHealthAlert = query({
     const now = Date.now();
     const alerts: Array<{ platform: string; platformName: string; staleSinceMs: number; lastError?: string }> = [];
 
-    for (const [source, name] of [["k3mart", "K3 Mart"], ["gobiz", "GoFood"]] as const) {
+    for (const [source, name] of [["k3mart", "K3Mart"], ["gobiz", "GoFood"]] as const) {
       const lastSuccess = await ctx.db.query("externalSyncLogs")
         .withIndex("by_source", q => q.eq("source", source))
         .filter(q => q.eq(q.field("status"), "success"))
@@ -1499,7 +1500,7 @@ export const getRevenueTimeSeries = query({
     // Build series only for sources with non-zero totals (hide empty channels)
     const series = discoveredSources
       .map((p) => ({
-        platform: sourceToPlatform(p),
+        platform: platformDisplay(resolvePlatform({ source: p }).platform),
         platformKey: p,
         data: sortedKeys.map((key) => Math.round((buckets.get(key)?.[p] ?? 0) * 100) / 100),
       }))
@@ -1591,7 +1592,9 @@ export const getRevenueByOutletInternal = internalQuery({
       );
       result.push({
         platform,
-        platformName: sourceToPlatform(platform),
+        platformName: platformDisplay(
+          resolvePlatform({ source: platform as ExternalSource }).platform,
+        ),
         outlets,
         totals,
       });

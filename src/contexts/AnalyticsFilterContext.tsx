@@ -1,19 +1,17 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Id } from "../../convex/_generated/dataModel";
-// Single source of truth for display-channel taxonomy. Keep backend/frontend
-// aligned by re-exporting from the Convex module (WR-04).
-import {
-  DISPLAY_CHANNELS,
-  type DisplayChannel,
-} from "../../convex/reports/channelTaxonomy";
+// Phase 81 / D-05 + L1: clean rename — Platform supersedes DisplayChannel.
+// Single source of truth for channel taxonomy. Re-exported so the analytics
+// frontend doesn't reach into convex/* directly.
+import { PLATFORMS, type Platform } from "../../convex/reports/platform";
 
-export { DISPLAY_CHANNELS, type DisplayChannel };
+export { PLATFORMS, type Platform };
 
 export interface AnalyticsFilters {
   fromTs: number;
   toTs: number;
-  channels: DisplayChannel[];
+  channels: Platform[];
   menuProductIds: Id<"menuProducts">[];
 }
 
@@ -32,7 +30,7 @@ export function AnalyticsFilterProvider({ children }: { children: ReactNode }) {
     const toTs = Number(params.get("to")) || now;
     const channels = (params.get("channels") ?? "")
       .split(",")
-      .filter(Boolean) as DisplayChannel[];
+      .filter(Boolean) as Platform[];
     const menuProductIds = (params.get("products") ?? "")
       .split(",")
       .filter(Boolean) as Id<"menuProducts">[];
@@ -52,7 +50,7 @@ export function AnalyticsFilterProvider({ children }: { children: ReactNode }) {
         const prevToTs = Number(p.get("to")) || now;
         const prevChannels = (p.get("channels") ?? "")
           .split(",")
-          .filter(Boolean) as DisplayChannel[];
+          .filter(Boolean) as Platform[];
         const prevMenuProductIds = (p.get("products") ?? "")
           .split(",")
           .filter(Boolean) as Id<"menuProducts">[];

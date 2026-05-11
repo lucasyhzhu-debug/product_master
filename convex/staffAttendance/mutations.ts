@@ -16,7 +16,7 @@ import { mutation } from "../_generated/server";
 import { ConvexError, v } from "convex/values";
 import { requireRole } from "../lib/auth";
 import { validateRequiredReason } from "../lib/validation";
-import { toWibDateString } from "./flagEngine";
+import { getWibDateStr } from "../lib/periodRange";
 
 function assertClockOutAfterIn(clockIn: number, clockOut: number | undefined): void {
   if (clockOut !== undefined && clockOut <= clockIn) {
@@ -44,7 +44,7 @@ export const clockIn = mutation({
     ]);
     const targetUserId = user._id;
     const now = Date.now();
-    const todayWib = toWibDateString(now);
+    const todayWib = getWibDateStr(now);
 
     // D-04 blocker + same-day double-click prevention.
     const openShift = await ctx.db
@@ -100,7 +100,7 @@ export const clockOut = mutation({
       throw new ConvexError("Shift already closed");
     }
     const now = Date.now();
-    const todayWib = toWibDateString(now);
+    const todayWib = getWibDateStr(now);
     // D-04 server enforcement: staff cannot self-close a prior-day shift;
     // forces the manager correction flow which writes an audit trail entry.
     if (record.date < todayWib && !isManager) {
@@ -159,7 +159,7 @@ export const correctAttendance = mutation({
       // Ensure the client-computed `date` field matches the WIB date
       // derived from `clockIn`. Prevents drift when a manager picks a clock-in
       // time that crosses WIB midnight relative to the date input.
-      const derivedDate = toWibDateString(args.clockIn);
+      const derivedDate = getWibDateStr(args.clockIn);
       if (derivedDate !== args.date) {
         throw new ConvexError(
           `Date field (${args.date}) does not match clock-in WIB date (${derivedDate})`,
@@ -250,7 +250,7 @@ export const correctAttendance = mutation({
     // correction from producing a row whose date field is inconsistent with
     // its clockIn timestamp.
     if (args.clockIn !== undefined) {
-      const derivedDate = toWibDateString(newClockIn);
+      const derivedDate = getWibDateStr(newClockIn);
       if (derivedDate !== existing.date) {
         throw new ConvexError(
           `Existing date (${existing.date}) does not match new clock-in WIB date (${derivedDate}). Use add_missed + delete to move a shift across dates.`,

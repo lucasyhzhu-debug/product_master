@@ -158,11 +158,32 @@
 - [x] Soft warnings: `isLargeRange` (>10k journal lines) and `isTooManyBuckets` (>26 buckets) — no hard caps
 - [x] Three role-gate enforcement layers: `<ProtectedRoute>` (UX), `requireRole()` per query (security boundary), Playwright E2E redirect tests for kitchen + order_staff
 
-#### v2.0 Closeout (2026-05-10)
+#### Phase 81: Domain Vocabulary Deepening (Completed 2026-05-11)
 
-**Phase 77 (Data Health Dashboard) deferred to v2.1.** Originally scoped into v2.0 alongside the financial reporting and export work, Phase 77 never received a phase directory or spec — it remained a placeholder while the milestone's scope shifted toward channel routing (74.5.1/74.5.2), cascade fixes (80.x), and financial export polish (75/76). Phase 76's deferred-items file punts orphan-JE detection to Phase 77, which is the most concrete signal of what 77 should cover when it lands.
+**Type:** Tech-debt / architecture deepening — collapses 3 duplicated/inconsistent domain rule clusters into single sources of truth per the 2026-05-08 graph-primed architecture review.
 
-**v2.0 will close with:** 70, 70.1, 71, 72, 73, 74, 74.5.1, 74.5.2, 75, 76, 78, 79, 80, 80.1, 80.2, 80.3 shipped — 16 phases. Phase 81 (Domain Vocabulary Deepening) is a planning artifact, not yet executed; routing decision (close v2.0 first vs. include 81 in v2.0) handled separately.
+**Plans:** 4/4 complete + 7 triple-review fix commits — Status: **Complete**
+
+- [x] 81-01 (C4): `isProductionUnit(ct)` canonical predicate at `convex/reports/productionUnitHelpers.ts` — replaces 5 hand-rolled production-component filters across 4 files (D-01 drops `unit === "pcs"` and `gramsPerUnit !== undefined` clauses); ESLint `no-restricted-imports` scaffold introduced
+- [x] 81-02 (C3): `getWibDateStr(ms)` canonical at `convex/lib/periodRange.ts` (with NaN-guard invariant); 4 doomed WIB helpers DELETED outright per D-10 (no shims); counter.ts's `getWibDateStr` MMDD-format renamed to `getWibMonthDayStr`; ~30 caller import sites migrated; ESLint guard extended with 5 banned exports
+- [x] 81-03 (C1): `convex/reports/platform.ts` exports `Platform` literal union (8 literals, no 'Other' per D-04) + `resolvePlatform({source, underlyingSource?, orderChannel?}) → {platform, confidence}` + `platformDisplay()` + `isPlatform()` runtime guard; 21 callsites migrated (12 backend + 9 frontend); 3 legacy mappers DELETED (`sourceToPlatform`, `toDisplayChannel` + `DisplayChannel` + `DISPLAY_CHANNELS`, `sourceToDisplayChannel`); D-02 user-visible rename shipped (Tokopedia→TikTok red→violet, K3 Mart→K3Mart); ESLint guard extended with 5 banned exports (10 cumulative); triple-review GATED per D-09
+- [x] 81-03 triple-review fixes (7 commits): orderChannel literal coverage gap (silent regression — flagged by 2 reviewers), stale `_generated/api.d.ts` (3-reviewer consensus, Phase-76 lesson recurring), `resolvePlatform` undefined-source fallback, K3 Mart→K3Mart sweep across 7 user-visible surfaces, confidence downgrade on fallback, dead `SalesChannel` union deletion, `buildChartColorMap` parameter rename, +14 tests
+- [x] 81-04: docs sweep — CONTEXT.md ambiguities 134/138/139/141 closed; `isProductionUnit` cross-referenced in CLAUDE.md Pitfall #11; new Pitfall #18 with all 10 ESLint-banned imports; CHANGELOG includes Breaking changes section (D-02 rename impacts saved URLs + Phase 76 CSVs); SCHEMA + API_REFERENCE updated; review artifacts committed
+
+**Delivered:**
+- [x] 1 typed Platform literal union + `resolvePlatform()` resolver (forward-compatible with ADR-0001 `underlyingSource` schema field; deferred linkedMenuProductId branch documented per staffreview I1)
+- [x] 1 BOM `isProductionUnit(ct)` predicate (mechanically observable per CLAUDE.md rules 10 + 13)
+- [x] 1 canonical WIB `getWibDateStr(ms)` helper with NaN-guard invariant
+- [x] ESLint `no-restricted-imports` rule with 10 banned legacy exports — prevents reintroduction
+- [x] User-visible rename: Tokopedia → TikTok (analytics color shift red→violet), K3 Mart → K3Mart everywhere
+- [x] Native consignment-channel + K3Mart-GF orders no longer mis-bucketed as Direct (Critical regression caught by triple-review)
+- [x] CONTEXT.md flagged ambiguities 134, 138, 139, 141 closed
+
+#### v2.0 Closeout (2026-05-11)
+
+**Phase 77 (Data Health Dashboard) deferred to v2.1.** Originally scoped into v2.0 alongside the financial reporting and export work, Phase 77 never received a phase directory or spec — it remained a placeholder while the milestone's scope shifted toward channel routing (74.5.1/74.5.2), cascade fixes (80.x), and financial export polish (75/76). Phase 76's deferred-items file punts orphan-JE detection to Phase 77, which is the most concrete signal of what 77 should cover when it lands. Phase 81 closed several preconditions Phase 77 depends on: typed `Platform` literal union, confidence-tagged resolver, mechanically-observable production-component predicate.
+
+**v2.0 closes with:** 70, 70.1, 71, 72, 73, 74, 74.5.1, 74.5.2, 75, 76, 78, 79, 80, 80.1, 80.2, 80.3, 81 shipped — 17 phases.
 
 ---
 
@@ -230,8 +251,8 @@
 - [ ] 90-day snapshot retention cleanup (Phase 2)
 
 ### v2.1 Candidates (planning queue, not yet committed)
-- [ ] **Phase 77 — Data Health Dashboard** (deferred from v2.0). Surfaces orphan JEs (Phase 76 backlog), unmapped products, zero-cost components, missing reversals, and confidence-coverage stats in a single admin view. Concrete starting point: orphan-JE detection from Phase 76's deferred-items file. Estimated 3-5 plans.
-- [ ] **Phase 81 — Domain Vocabulary Deepening** (queued, planning artifact exists). Collapses three duplicated rule clusters into typed-union primitives: Platform resolver (`sourceToPlatform` / `toDisplayChannel` / `sourceToDisplayChannel`), `isProductionUnit` BOM predicate (`category === "production"`), and WIB date helpers. Architecture review at `docs/reviews/architecture-review-2026-05-08-graph-primed-deepening-candidates.md`.
+- [ ] **Phase 77 — Data Health Dashboard** (deferred from v2.0). Surfaces orphan JEs (Phase 76 backlog), unmapped products, zero-cost components, missing reversals, and confidence-coverage stats in a single admin view. Concrete starting point: orphan-JE detection from Phase 76's deferred-items file. Phase 81's confidence-tagged `resolvePlatform()` is the per-row primitive Phase 77's "platform consistency" check should consume. Estimated 3-5 plans.
+- [ ] **`externalRevenue.underlyingSource` schema field** (ADR-0001 follow-on). `resolvePlatform()` ships forward-compatible per Phase 81 D-03 with a graceful "missing → BigSeller transitional + inferred confidence" fallback. Adding the schema field unlocks Test 10 (currently `it.skip` per staffreview I1), enables full BigSeller→underlying-platform resolution, and lets the deferred `linkedMenuProductId.source` lookup branch land. Small phase (1-2 plans).
 
 ---
 

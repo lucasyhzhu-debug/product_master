@@ -101,7 +101,7 @@ _Code_: `orders.channel` literal union in `convex/schema.ts:261`. **Pending migr
 The semantic rollup — where the final conversion took place. Replaces the prior "Display channel" concept; absorbs the prior sparse "Platform" labeling. The canonical bucket every transaction belongs to, regardless of Source.
 _Values_: `Direct`, `GoFood`, `GrabFood`, `Shopee`, `TikTok`, `K3Mart`, `Consignment`.
 _Avoid_: "display channel" (deprecated), "Tokopedia" (folded into TikTok), "BigSeller" (a Source, not a Platform), "Other" (every transaction must fit a real Platform bucket).
-_Code_: target replacement for `DisplayChannel` in `convex/reports/channelTaxonomy.ts`. Today's `sourceToPlatform`/`sourceToDisplayChannel`/`toDisplayChannel` collapse into one canonical resolver per the resolution rules below.
+_Code_: canonical resolver `resolvePlatform({source, underlyingSource?, orderChannel?}) → {platform, confidence}` exported from `convex/reports/platform.ts` (Phase 81 / D-04). Display strings produced by `platformDisplay(p: Platform)`. Replaces the deleted `sourceToPlatform`/`sourceToDisplayChannel`/`toDisplayChannel` mappers (`convex/reports/channelTaxonomy.ts` deleted entirely).
 
 ## Relationships
 
@@ -110,6 +110,7 @@ _Code_: target replacement for `DisplayChannel` in `convex/reports/channelTaxono
 - A finished **Component** has a **Component unit cost** (derived from its recipe's line costs, or set directly)
 - A **Product** is a BOM of components → sum of **Component unit cost** × quantity = **Product COGS**
 - A **Period COGS** is the sum of **Product COGS** × item quantity across orders in the period
+- **Production-component identification**: production components are filtered via the canonical predicate `isProductionUnit(componentType)` exported from `convex/reports/productionUnitHelpers.ts`. Rule: `category === "production"` alone (Phase 81 / D-01 — drops the historical `unit === "pcs"` and `gramsPerUnit !== undefined` clauses to future-proof gram-denominated production variants). Numeric-aggregation callsites that need a `gramsPerUnit` guard compose a secondary `.filter(c => c.gramsPerUnit !== undefined)` after the canonical predicate.
 
 ### Channel taxonomy
 - A transaction has exactly one **Source** (which pipeline pulled it) and exactly one **Platform** (where the conversion happened).
@@ -131,14 +132,14 @@ _Code_: target replacement for `DisplayChannel` in `convex/reports/channelTaxono
 
 - **"unit cost"** is ambiguous: in code it appears as both `costPerUnit` (Ingredient unit cost, per g) and `unitCostIdr` (Component unit cost, per piece). Always qualify with "Ingredient" or "Component". Field rename is a future concern.
 - **"COGS" vs "cost"** — COGS is reserved for sellable things (Product, Period). Inputs (ingredients, components) use "cost".
-- **"channel"** alone is overloaded across Source, Order channel, and Platform. Always qualify. The current `aggregatePeriodRevenue` return type has a field called `channels[]` whose entries are actually `{ source, displayName: Platform }` — misnamed; rename pending.
+- ~~**"channel"** alone is overloaded across Source, Order channel, and Platform. Always qualify. The current `aggregatePeriodRevenue` return type has a field called `channels[]` whose entries are actually `{ source, displayName: Platform }` — misnamed; rename pending.~~ **Resolved Phase 81 (D-04 + D-05):** Platform vs Source vs Order channel are now mechanically distinct via `resolvePlatform()` in `convex/reports/platform.ts`. The 8-literal `Platform` union is exhaustive (no "Other" — D-04); resolution rules are codified in the resolver per D-05. The `aggregatePeriodRevenue` field-rename is tracked separately (out of scope; field still named `channels[]`).
 - **"Display channel"** is deprecated as a domain concept. The 8-bucket `DisplayChannel` enum and `toDisplayChannel`/`sourceToDisplayChannel` functions in `convex/reports/channelTaxonomy.ts` will be replaced by a single Platform resolver. The `Other` bucket is dropped — every Source must resolve cleanly.
-- **`tiktok` Source labeled as "Tokopedia"** in `sourceToPlatform` (per the 2023 merger note) is reversed — TikTok is the canonical Platform name; Tokopedia is the legacy alias.
+- ~~**`tiktok` Source labeled as "Tokopedia"** in `sourceToPlatform` (per the 2023 merger note) is reversed — TikTok is the canonical Platform name; Tokopedia is the legacy alias.~~ **Resolved Phase 81 (D-02):** `sourceToPlatform` deleted. `tiktok` source now resolves to `Platform = "TikTok"` via `resolvePlatform()`. Display palette (`src/lib/platformColors.ts`) no longer carries a Tokopedia entry — TikTok renders violet `#8b5cf6` (was red `#ef4444` under the legacy mapper). `K3 Mart` → `K3Mart` (no space) also rolled in same plan.
 - **`tokopedia` Order channel literal** is deprecated. All historic Tokopedia orders are TikTok. Pending migration of `orders.channel = "tokopedia"` rows to `"tiktok"`.
 - **`gofood` Order channel literal is missing** from `orders.channel` union. We sync GoFood data via `gobiz` Source but have no granular Order channel literal for GoFood touchpoints. Pending addition.
-- **`gobiz` and `grabfood` both feed food-delivery data, but represent different Platforms** (GoFood vs GrabFood — different companies, Gojek vs Grab). Current `sourceToDisplayChannel` collapses both to `GoFood`; that collapse is wrong. Each Source must resolve to its own Platform.
+- ~~**`gobiz` and `grabfood` both feed food-delivery data, but represent different Platforms** (GoFood vs GrabFood — different companies, Gojek vs Grab). Current `sourceToDisplayChannel` collapses both to `GoFood`; that collapse is wrong. Each Source must resolve to its own Platform.~~ **Resolved Phase 81 (D-05):** `sourceToDisplayChannel` deleted along with `convex/reports/channelTaxonomy.ts`. `resolvePlatform({source: "gobiz"}).platform === "GoFood"` and `resolvePlatform({source: "grabfood"}).platform === "GrabFood"` — distinct Platforms. One stale integration test (`tests/convex/unitEconomics.test.ts:824`) was renamed `GoFood → GrabFood` to match. Note user-visible behavior change: analytics filter `?channels=GoFood` no longer includes `grabfood` rows.
 - **`grabfood` Source has no live data today** — API access pending. The Source slot is reserved.
-- **`bigseller` records lack the Underlying source field today.** Until that's added, BigSeller-fetched rows can't be attributed to a Platform reliably (and `getChannelRevenueConfidence("bigseller")` defaults to "inferred").
+- ~~**`bigseller` records lack the Underlying source field today.** Until that's added, BigSeller-fetched rows can't be attributed to a Platform reliably (and `getChannelRevenueConfidence("bigseller")` defaults to "inferred").~~ **Resolved Phase 81 (D-03):** Forward-compatible resolver shipped. `resolvePlatform({source: "bigseller"})` returns `{platform: "BigSeller", confidence: "inferred"}` today (transitional Platform literal). When `externalRevenue.underlyingSource` schema field lands (deferred phase), the resolver tightens automatically: `bigseller + underlyingSource=tiktok → TikTok + inferred`, etc., without caller changes. The `BigSeller` literal will be removed from the Platform union once the schema field + backfill ship.
 
 ---
 
@@ -220,7 +221,7 @@ _Code_: `counters` table; `getNextNumber` in `convex/lib/counter.ts`.
 **WIB business date**:
 The Asia/Jakarta-local date used to compute the `MMDD` segment. UTC+7, no DST. Computed via `getWibComponents` → `getWibDateStr`, NOT `new Date(now).toISOString().slice(...)` (which would use UTC and roll over the day 7 hours late for Indonesian users).
 _Avoid_: "today" alone in code comments — qualify as "WIB today" when it matters.
-_Code_: `getWibDateStr` in `convex/lib/counter.ts`; UTC offset lives in `convex/lib/periodRange.ts`.
+_Code_: `getWibDateStr` in `convex/lib/periodRange.ts` (canonical helper for YYYY-MM-DD WIB dates with NaN-guard; Phase 81 / D-06 — relocated from `counter.ts` where the MMDD-format helper now lives as `getWibMonthDayStr`); UTC offset (`WIB_OFFSET_MS`) also lives in `convex/lib/periodRange.ts`.
 
 ### Double-entry integrity
 

@@ -20,8 +20,8 @@ import {
 } from "@/components/ui/tooltip";
 import { SourceBadge } from "./SourceBadge";
 import { formatShortWIB } from "@/lib/dateUtils";
-import { sourceToPlatform } from "../../../convex/lib/externalSource";
 import type { ExternalSource } from "../../../convex/lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../../../convex/reports/platform";
 import { Info } from "lucide-react";
 
 export type FlagState =
@@ -60,7 +60,7 @@ export function ChannelFlagRow({
 }: ChannelFlagRowProps) {
   const disabled = "disabled" in state;
   const isOn = !disabled && state.enabled;
-  const displayChannel = sourceToPlatform(source);
+  const displayChannel = platformDisplay(resolvePlatform({ source }).platform);
 
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border/60 py-3 last:border-b-0">

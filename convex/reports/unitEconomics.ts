@@ -30,8 +30,8 @@
  *       level COGS for K3Mart), not a double-count. Parent-level revenue is
  *       unchanged; only `channelProducts[]` drill-down gains K3Mart entries.
  *
- *   channelTaxonomy.ts:
- *     - Pure source→display mapping. Source-agnostic. SAFE.
+ *   platform.ts (Phase 81 — replaced channelTaxonomy.ts):
+ *     - Pure source→Platform mapping. Source-agnostic. SAFE.
  *
  *   dailySales.ts:
  *     - Reads only native `orders`/`orderItems`. Does NOT touch
@@ -56,14 +56,11 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   getProductionUnitsPerProduct,
+  isProductionUnit,
   unitsForOrderItem,
 } from "./productionUnitHelpers";
 import { itemGrossRevenue, itemNetRevenue, itemDiscount } from "./revenueHelpers";
-import {
-  toDisplayChannel,
-  sourceToDisplayChannel,
-  type DisplayChannel,
-} from "./channelTaxonomy";
+import { resolvePlatform, type Platform } from "./platform";
 import { getWibComponents } from "../lib/periodRange";
 
 // ============================================================================
@@ -72,8 +69,9 @@ import { getWibComponents } from "../lib/periodRange";
 // Phase 80 UAT-01 (MAJOR): the unit economics dashboard must cover BOTH
 // the `orders` table (manual/direct/WhatsApp orders) AND the
 // `externalRevenue` + `externalRevenueItems` tables (GoFood, Shopee,
-// Tokopedia, K3Mart, TikTok, consignment, etc). Without the external
-// stream the dashboard misses ~95% of revenue (e.g. GoFood alone is ~75%).
+// TikTok, K3Mart, consignment, etc — Tokopedia retired Phase 81 → TikTok).
+// Without the external stream the dashboard misses ~95% of revenue
+// (e.g. GoFood alone is ~75%).
 //
 // Phase 80.1 Plan 01: The 11 per-widget queries are refactored into
 // 3 grouped snapshot queries (kpiAndChannelSnapshot, timeSeriesSnapshot,
@@ -112,7 +110,7 @@ type FilterArgs = {
 export type NormalizedOrder = {
   _id: string;
   source: "orders" | "external";
-  channel: DisplayChannel;
+  channel: Platform;
   completedAt: number; // always set (fallback already applied)
   orderDate: number; // mirrors completedAt for external rows
   // Weight for order-equivalent counts (AOV / unitsPerTxn / orderCount).
@@ -218,7 +216,7 @@ async function loadExternalStream(
     if (r.transactionType && r.transactionType !== "sales") continue;
     const ts = r.transactionDate ?? r.periodStart;
     if (ts < args.fromTs || ts >= args.toTs) continue;
-    const ch = sourceToDisplayChannel(r.source);
+    const ch = resolvePlatform({ source: r.source }).platform;
     if (channelSet && !channelSet.has(ch)) continue;
     revenueRows.push(r);
   }
@@ -240,7 +238,7 @@ async function loadExternalStream(
     const r = revenueRows[i];
     const childItems = itemsPerRevenue[i];
     const ts = r.transactionDate ?? r.periodStart;
-    const ch = sourceToDisplayChannel(r.source);
+    const ch = resolvePlatform({ source: r.source }).platform;
     const revId = r._id as string;
 
     const syntheticKey = revId;
@@ -374,7 +372,14 @@ async function loadFilteredData(
   // Primary: include every order whose completedAt falls in the window.
   for (const o of byCompleted) {
     if (o.status === "Draft" || o.status === "Cancelled") continue;
-    if (channelSet && !channelSet.has(toDisplayChannel(o.channel))) continue;
+    if (
+      channelSet &&
+      !channelSet.has(
+        resolvePlatform({ source: "internal", orderChannel: o.channel })
+          .platform,
+      )
+    )
+      continue;
     nativeOrders.push(o);
     seen.add(o._id as string);
   }
@@ -383,7 +388,14 @@ async function loadFilteredData(
     if (seen.has(o._id as string)) continue;
     if (o.completedAt !== undefined) continue; // only orders MISSING completedAt
     if (o.status === "Draft" || o.status === "Cancelled") continue;
-    if (channelSet && !channelSet.has(toDisplayChannel(o.channel))) continue;
+    if (
+      channelSet &&
+      !channelSet.has(
+        resolvePlatform({ source: "internal", orderChannel: o.channel })
+          .platform,
+      )
+    )
+      continue;
     nativeOrders.push(o);
   }
 
@@ -427,7 +439,8 @@ async function loadFilteredData(
   const normalizedNative: NormalizedOrder[] = nativeOrders.map((o) => ({
     _id: o._id as string,
     source: "orders",
-    channel: toDisplayChannel(o.channel),
+    channel: resolvePlatform({ source: "internal", orderChannel: o.channel })
+      .platform,
     completedAt: o.completedAt ?? o.orderDate,
     orderDate: o.orderDate,
     orderWeight: 1,
@@ -454,8 +467,9 @@ async function loadFilteredData(
  */
 export async function precomputeBomMaps(ctx: QueryCtx): Promise<Precomputed> {
   const allComponentTypes = await ctx.db.query("componentTypes").collect();
+  // Phase 81 / D-01: dropped unit === "pcs" — gram-denominated production variants now auto-count.
   const productionTypes = allComponentTypes
-    .filter((ct) => ct.category === "production" && ct.unit === "pcs")
+    .filter(isProductionUnit)
     .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
 
   const productionTierOneIds = new Set<string>();
@@ -625,7 +639,7 @@ export function reduceKpi(
 export function reduceChannelEconomics(current: WindowData, pre: Precomputed) {
   const orderById = buildOrderById(current.orders);
   const byChannel = new Map<
-    DisplayChannel,
+    Platform,
     {
       gross: number;
       discount: number;
@@ -635,7 +649,7 @@ export function reduceChannelEconomics(current: WindowData, pre: Precomputed) {
     }
   >();
 
-  function bucket(ch: DisplayChannel) {
+  function bucket(ch: Platform) {
     if (!byChannel.has(ch)) {
       byChannel.set(ch, { gross: 0, discount: 0, commission: 0, units: 0, orderCount: 0 });
     }
@@ -700,7 +714,7 @@ export function reduceChannelMomentum(
   const priorOrderById = buildOrderById(prior.orders);
 
   const byChannel = new Map<
-    DisplayChannel,
+    Platform,
     {
       revenue: number[];
       units: number[];
@@ -708,7 +722,7 @@ export function reduceChannelMomentum(
       priorRevenue: number;
     }
   >();
-  function seed(ch: DisplayChannel) {
+  function seed(ch: Platform) {
     if (!byChannel.has(ch)) {
       byChannel.set(ch, {
         revenue: new Array(bucketCount).fill(0),
@@ -1047,8 +1061,8 @@ export function reduceSkuChannelMatrix(
   const orderById = buildOrderById(current.orders);
   const productTotals = new Map<string, number>();
   const productNames = new Map<string, string>();
-  const cell = new Map<string, Map<DisplayChannel, number>>();
-  const channelTotals = new Map<DisplayChannel, number>();
+  const cell = new Map<string, Map<Platform, number>>();
+  const channelTotals = new Map<Platform, number>();
 
   for (const it of current.items) {
     const o = orderById.get(it.orderId);

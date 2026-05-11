@@ -2,9 +2,32 @@ import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 
 /**
+ * Canonical predicate for "is this componentType a production unit?"
+ *
+ * Phase 81 / D-01: The rule is `category === "production"` ALONE.
+ * Drops the historical `unit === "pcs"` clause (future-proofs gram-denominated
+ * bulk variants) and the `gramsPerUnit !== undefined` clause (BOM unification
+ * trajectory per CLAUDE.md rule 10). All callers should use this predicate
+ * instead of hand-rolling the filter inline.
+ *
+ * If you reach this from a numeric-aggregation callsite that depends on
+ * `gramsPerUnit` being defined (e.g., a `(gramsPerUnit ?? 0) * qty` reduce),
+ * compose with a secondary filter — see convex/menuProducts/mutations.ts for
+ * the canonical example.
+ */
+export function isProductionUnit(
+  ct: Pick<Doc<"componentTypes">, "category">,
+): boolean {
+  return ct.category === "production";
+}
+
+/**
  * Build a map of menuProductId -> total production pieces per unit of that product.
  *
- * Dynamic iteration over ALL componentTypes where category="production" AND unit="pcs".
+ * Dynamic iteration over ALL componentTypes via the canonical isProductionUnit
+ * predicate (category === "production" per D-01). Gram-denominated production
+ * variants now auto-count — no `unit === "pcs"` requirement.
+ *
  * NEVER hardcode BIG_BALL / MID_BALL here — future production types (Hazelnut, new
  * stuffed variants) must be counted automatically. This is the single source of
  * truth for the "units sold = BOM production pieces" rule used across analytics.
@@ -14,8 +37,9 @@ export async function getProductionUnitsPerProduct(
 ): Promise<Map<Id<"menuProducts">, number>> {
   const allComponentTypes = await ctx.db.query("componentTypes").collect();
   const productionTierOneIds = new Set<string>();
+  // Phase 81 / D-01: dropped unit === "pcs" — gram-denominated production variants now auto-count.
   for (const ct of allComponentTypes) {
-    if (ct.category === "production" && ct.unit === "pcs") {
+    if (isProductionUnit(ct)) {
       productionTierOneIds.add(ct._id as string);
     }
   }
@@ -42,8 +66,9 @@ export async function getProductionUnitsByTypePerProduct(
   typeCodeToName: Map<string, string>;
 }> {
   const allComponentTypes = await ctx.db.query("componentTypes").collect();
+  // Phase 81 / D-01: dropped unit === "pcs" — gram-denominated production variants now auto-count.
   const productionTypes = allComponentTypes
-    .filter((ct) => ct.category === "production" && ct.unit === "pcs")
+    .filter(isProductionUnit)
     .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
 
   const idToCode = new Map<string, string>();

@@ -3,8 +3,8 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   useAnalyticsFilters,
-  DISPLAY_CHANNELS,
-  type DisplayChannel,
+  PLATFORMS,
+  type Platform,
   type AnalyticsFilters,
 } from "@/contexts/AnalyticsFilterContext";
 import { Button } from "@/components/ui/button";
@@ -68,7 +68,7 @@ export function AnalyticsFilterBar() {
   // I1: populate product multi-select. `activeOnly: true` keeps the menu short.
   const menuProducts = useQuery(api.menuProducts.queries.list, { activeOnly: true });
 
-  const toggleChannel = (ch: DisplayChannel) => {
+  const toggleChannel = (ch: Platform) => {
     const set = new Set(filters.channels);
     if (set.has(ch)) set.delete(ch);
     else set.add(ch);
@@ -183,7 +183,7 @@ export function AnalyticsFilterBar() {
         </PopoverTrigger>
         <PopoverContent className="w-56">
           <div className="space-y-2">
-            {DISPLAY_CHANNELS.map((ch) => (
+            {PLATFORMS.map((ch) => (
               <label key={ch} className="flex items-center gap-2 text-sm">
                 <Checkbox
                   checked={filters.channels.includes(ch)}

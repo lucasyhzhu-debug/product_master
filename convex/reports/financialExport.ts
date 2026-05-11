@@ -34,7 +34,7 @@ import {
 // ─── Raw transactions export (FIN-03 D-01..D-04, D-13, D-14) ───
 
 export type RawTransactionRow = {
-  entryDate: number; // epoch ms — frontend formats with utcToWibDateStr
+  entryDate: number; // epoch ms — frontend formats with getWibDateStr
   journalEntryId: Id<"journalEntries">;
   entryNumber: string;
   sourceType: string; // emit verbatim (Pitfall 3)

@@ -459,8 +459,8 @@ describe("R5 — symmetry across all loadFilteredData consumers (Test 17)", () =
     expect(product).toBeDefined();
     const directCell = product!.channels.find((c) => c.channel === "Direct");
     expect(directCell).toBeDefined();
-    // Pre-R5: native (Direct) + mirror (also Direct via sourceToDisplayChannel)
-    // = 46000 in the Direct column.
+    // Pre-R5: native (Direct) + mirror (also Direct — pre-Phase-81 platform resolver,
+    // see Phase 80.3 R5 history) = 46000 in the Direct column.
     expect(directCell!.revenue).toBe(23000);
   });
 

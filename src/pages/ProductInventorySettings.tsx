@@ -51,8 +51,8 @@ import {
 } from "@/components/channelIntegration/ChannelFlagRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChannelFlags } from "@/hooks/convex/useChannelRouting";
-import { sourceToPlatform } from "../../convex/lib/externalSource";
 import type { ExternalSource } from "../../convex/lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../../convex/reports/platform";
 
 /**
  * Canonical display order per UI-SPEC §ProductInventorySettings.
@@ -100,6 +100,13 @@ const ELIGIBLE_COUNT = SOURCE_ORDER.filter(
   (s) => DISABLED_REASONS[s] === undefined,
 ).length;
 
+/**
+ * Local sugar for the canonical Platform-display chain.
+ * Phase 81 Plan 03: replaces deleted `sourceToPlatform` helper.
+ */
+const displayPlatform = (source: ExternalSource): string =>
+  platformDisplay(resolvePlatform({ source }).platform);
+
 interface PendingFlip {
   source: ExternalSource;
   next: boolean;
@@ -145,7 +152,7 @@ export function ProductInventorySettings() {
         enabled: pendingFlip.next,
       });
       toast.success(
-        `${sourceToPlatform(pendingFlip.source)} deduction turned ${
+        `${displayPlatform(pendingFlip.source)} deduction turned ${
           pendingFlip.next ? "on" : "off"
         }`,
       );
@@ -324,14 +331,14 @@ export function ProductInventorySettings() {
             <AlertDialogTitle>
               {pendingFlip
                 ? pendingFlip.next
-                  ? `Turn on deduction for ${sourceToPlatform(pendingFlip.source)}?`
-                  : `Turn off deduction for ${sourceToPlatform(pendingFlip.source)}?`
+                  ? `Turn on deduction for ${displayPlatform(pendingFlip.source)}?`
+                  : `Turn off deduction for ${displayPlatform(pendingFlip.source)}?`
                 : ""}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingFlip?.next
-                ? `Flipping ${sourceToPlatform(pendingFlip.source)} ON without backfilling history will cause drift on all past ${sourceToPlatform(pendingFlip.source)} sales. Run the backfill in Phase 74.5.2, or type FLIP below to override.`
-                : `New ${pendingFlip ? sourceToPlatform(pendingFlip.source) : ""} sales will stop deducting inventory. Existing transactions remain. Document reason for rollback in the execution log.`}
+                ? `Flipping ${displayPlatform(pendingFlip.source)} ON without backfilling history will cause drift on all past ${displayPlatform(pendingFlip.source)} sales. Run the backfill in Phase 74.5.2, or type FLIP below to override.`
+                : `New ${pendingFlip ? displayPlatform(pendingFlip.source) : ""} sales will stop deducting inventory. Existing transactions remain. Document reason for rollback in the execution log.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -366,8 +373,8 @@ export function ProductInventorySettings() {
               {flipping ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {pendingFlip
                 ? pendingFlip.next
-                  ? `Turn on ${sourceToPlatform(pendingFlip.source)} deduction`
-                  : `Turn off ${sourceToPlatform(pendingFlip.source)} deduction`
+                  ? `Turn on ${displayPlatform(pendingFlip.source)} deduction`
+                  : `Turn off ${displayPlatform(pendingFlip.source)} deduction`
                 : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>

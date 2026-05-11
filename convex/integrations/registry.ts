@@ -40,7 +40,7 @@ export interface PlatformMeta {
 export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
   k3mart: {
     id: "k3mart",
-    name: "K3 Mart",
+    name: "K3Mart",
     description: "Consignment outlet stock & sales tracking",
     envVarName: "K3MART_API_TOKEN",
     dataTypes: ["stock", "revenue"],

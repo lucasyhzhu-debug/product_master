@@ -26,7 +26,7 @@ interface ChannelCardProps {
 }
 
 const channelLabels: Record<string, string> = {
-  k3mart: "K3 Mart",
+  k3mart: "K3Mart",
   gobiz: "GoBiz",
   internal: "Internal",
 };

@@ -3,7 +3,8 @@
  * Pure functions that process pre-fetched revenue records into summary objects.
  */
 import type { Doc } from "../../_generated/dataModel";
-import { sourceToPlatform } from "../../lib/externalSource";
+import type { ExternalSource } from "../../lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../../reports/platform";
 
 /**
  * Aggregate revenue records into a period summary with per-channel breakdown.
@@ -92,7 +93,9 @@ export function aggregatePeriodRevenue(
     if (agg.gross > 0 || agg.txns > 0) {
       channels.push({
         source,
-        displayName: sourceToPlatform(source),
+        displayName: platformDisplay(
+          resolvePlatform({ source: source as ExternalSource }).platform,
+        ),
         gross: agg.gross,
         net: agg.net,
         transactions: agg.txns,
@@ -107,7 +110,7 @@ export function aggregatePeriodRevenue(
   if (internalGross > 0 || internalTxns > 0) {
     channels.push({
       source: "internal",
-      displayName: sourceToPlatform("internal"),
+      displayName: "Direct",
       gross: internalGross,
       net: internalNet,
       transactions: internalTxns,

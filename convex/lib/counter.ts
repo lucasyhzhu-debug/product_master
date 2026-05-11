@@ -34,7 +34,12 @@ export function formatCounterNumber(
 }
 
 /**
- * Extract MMDD date string from a UTC timestamp using WIB timezone.
+ * Returns MMDD WIB date string (e.g., "0312" for March 12) from a UTC timestamp.
+ *
+ * Phase 81 / Plan 02: Renamed (was previously the MMDD-format export from this
+ * file) to free the canonical YYYY-MM-DD name for the helper now exported from
+ * convex/lib/periodRange.ts. The MMDD format is specific to counter sequencing
+ * (EXP-MMDD-NNN, JE-MMDD-NNN, RMB-MMDD-NNN) — not a general-purpose date helper.
  *
  * Thin wrapper around getWibComponents -- does NOT duplicate WIB offset logic.
  * Month is 1-indexed in output (January = "01").
@@ -42,7 +47,7 @@ export function formatCounterNumber(
  * @param utcMs - UTC epoch milliseconds
  * @returns MMDD string (e.g., "0312" for March 12)
  */
-export function getWibDateStr(utcMs: number): string {
+export function getWibMonthDayStr(utcMs: number): string {
   const { month, day } = getWibComponents(utcMs);
   // month is 0-indexed from getWibComponents, so +1 for 1-indexed output
   return `${String(month + 1).padStart(2, "0")}${String(day).padStart(2, "0")}`;
@@ -65,7 +70,7 @@ export async function getNextNumber(
   prefix: string,
   now?: number
 ): Promise<string> {
-  const dateStr = getWibDateStr(now ?? Date.now());
+  const dateStr = getWibMonthDayStr(now ?? Date.now());
 
   // Look up existing counter for this prefix+date combination.
   // Use .unique() instead of .first() -- throws on duplicate rows,
