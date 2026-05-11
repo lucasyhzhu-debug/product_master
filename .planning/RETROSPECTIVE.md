@@ -2,6 +2,64 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v2.0 — Financial Management & Data Quality
+
+**Shipped:** 2026-05-11
+**Phases:** 17 (70-81 incl. 70.1, 74.5.1, 74.5.2, 74.5.2.1, 80.1, 80.2, 80.3 inserted) | **Plans:** 79 | **Timeline:** 32 days (2026-04-10 to 2026-05-11)
+
+### What Was Built
+- **Revenue accuracy** (70/70.1): Direct sales bridged to externalRevenue with historical backfill, COGS override per product, employee profile fields, admin all-expenses query
+- **Full P&L + CSV exports** (75/76): Canonical EBITDA-first layout (Revenue → CM → EBITDA → EBIT → NI → CapEx → FCF), raw transaction CSV, multi-period summary CSV (weekly/monthly/custom), three-layer role gates
+- **Bulk expense + bank reconciliation** (71/72/73): CSV expense upload (auto-approve + submit modes), reclassify-to-expense disposal type, BCA statement parser + auto-match engine, manual split-view UI
+- **Staff attendance** (74): PIN clock in/out, per-staff production tracking, monthly summaries, manager corrections
+- **Channel routing spine + cutover** (74.5.1/74.5.2/74.5.2.1): typed `ChannelSaleEvent`, `ChannelAdapter` interface, K3Mart parent+child shape change, gated cutover via flag map, six historical-backfill admin buttons, K3Mart bundle composite-toggle UI, retired legacy paths
+- **Analytics + unit economics dashboard** (78/79/80/80.1/80.2/80.3): product inventory substitution, Shopee/TikTok per-item revenue + BigSeller cron, `/analytics` page with 13 widgets, perf consolidation 11→3 subscriptions, Unlinked Products fix (737 K3Mart + 219 Direct parents), R5 internal-mirror dedup
+- **Domain vocabulary deepening** (81): typed `Platform` literal union with `resolvePlatform()` (forward-compatible per ADR-0001), `isProductionUnit(ct)` BOM predicate, canonical `getWibDateStr(ms)` WIB helper, ESLint rule banning 10 legacy exports, Tokopedia → TikTok + K3 Mart → K3Mart user-visible renames
+- **Triple-review applied to high-risk plans**: Phase 81-03 platform resolver caught 4 Critical regressions (orderChannel literal coverage gap silently bucketing native consignment as Direct, stale `_generated/api.d.ts` 3rd recurrence, undefined-source fallback, K3 Mart sweep gap) — all fixed pre-merge plus a post-merge K3Mart sweep hotfix (PR #158)
+
+### What Worked
+- **Branch-per-phase + squash merge**: Every phase ran on `feature/{N}-{slug}`, squash-merged after CI green. Clean main history with one commit per shipped phase. Made `git log` readable as a milestone narrative.
+- **Triple-review on type-cascade plans**: Frontmatter-gated triple-review (`triple_review: true`) for the highest-risk plans (74.5.1, 74.5.2, 81-03) caught regressions that all other gates missed. Without this gate, Phase 81 would have shipped a silent native-orders-bucketing-as-Direct regression that all 1825 tests + type-check + Vercel build passed clean.
+- **Post-merge bundle-grep smoke test**: For "user-visible everywhere" renames (Phase 81 D-02 Tokopedia/K3 Mart), running `grep -c "<old>" dist/assets/*.js` after Vercel deploy was the canonical final gate. Caught 11 surviving K3 Mart surfaces that triple-review listed but the fix executor undershot. Same-day hotfix shipped.
+- **Architectural deepening informed by graph report**: Phase 81 was scoped from `graphify-out/GRAPH_REPORT.md` (god nodes + community structure). Three duplicated rule clusters identified mechanically, not by reviewer vigilance. Closed 4 flagged ambiguities in CONTEXT.md.
+- **Pre-staffreview gate before plans land**: `gsd-plan-phase` step 12.5 mandates `Skill(skill="staffreview")` before completion. For Phase 81-03, this caught the deferred `linkedMenuProductId` lookup branch (staffreview I1) and led to a clean Test 10 skip with TODO marker rather than shipping broken behavior.
+- **Pattern of inserting decimal phases for gap closure**: 70.1, 74.5.1, 74.5.2, 74.5.2.1, 80.1, 80.2, 80.3 all inserted mid-milestone to close gaps surfaced by execution. The decimal numbering kept history coherent without resequencing the parent phase.
+- **Splitting umbrella phases**: Phase 74.5 (Unified Channel Integration Architecture) was split into 74.5.1 (additive spine, flag-OFF) + 74.5.2 (cutover + retire) on day 1 of execution per researcher verdict. Allowed shipping the spine independently and de-risked the cutover.
+
+### What Was Inefficient
+- **REQUIREMENTS.md bookkeeping drift**: 14 of 25 v2.0 requirements remained `[ ]` even though the corresponding phases shipped. Caught at milestone close (20/25 actually complete; 5 deferred). Fix forward: tie checkbox flip to phase-merge step in `gsd-execute-phase` document_and_merge_gate.
+- **STATE.md status field staleness**: After every merge, STATE.md status remained "Ready to push + PR + merge to main" until the next session updated it. Should auto-update during the merge ceremony.
+- **`docs/ROADMAP.md` (the project doc) and `.planning/ROADMAP.md` (the GSD planning doc) are duplicates with separate update cycles**: Phase 81-04 docs sweep updated `docs/ROADMAP.md`; v2.0 close updated `.planning/ROADMAP.md`. Two sources of truth = drift risk.
+- **D-02 scope mis-calibration**: PATTERNS.md narrowed CONTEXT.md's "everywhere user-visible" to "C1 caller migration table" for Phase 81's K3 Mart rename. Plan inherited the narrower scope, leaving 11 surfaces unfixed. Required hotfix PR #158. Lesson recorded in `lessons_phase_81_triple_review.md` Lesson 3.
+- **Phase 77 Data Health Dashboard never received a phase directory** despite being in the original v2.0 scope. The placeholder bumped through the milestone but never got planned. Eventually deferred to v2.1 at closeout. Should have been deferred earlier or replaced with a concrete spike.
+- **No phase-level WIP limits** meant 17 phases compressed into 32 days with overlapping work streams (74.5.1 + 80.x running in parallel; 81 inserted late). Impressive throughput but not sustainable; v2.1 should consider WIP=2 max.
+
+### Patterns Established
+- **`triple_review: true` plan frontmatter** as the binding gate for type-cascade and high-risk plans, mandating `Skill(skill="triple-review")` between execution and merge regardless of config defaults
+- **Bundle-grep as final gate** for "user-visible everywhere" renames: `grep -c "<old>" dist/assets/*.js` after Vercel deploy proves the rename actually shipped
+- **Pre-staffreview before plan completion** (`gsd-plan-phase` step 12.5): catches deferred-branch design issues before the executor commits to them
+- **Dual-source-of-truth ESLint guard for renamed exports**: `no-restricted-imports` rule with deletion-list prevents "shim eternal" anti-pattern; combined with the actual deletion this enforces "no shims per D-10"
+- **Confidence-tagged resolvers**: Functions returning `{value, confidence}` instead of just `value` so downstream data-health dashboards (Phase 77 future) can grep for `confidence === "inferred"` to surface low-trust data without re-doing the inference
+- **Channel-source pattern**: ChannelAdapter interface + ChannelSaleEvent canonical type + per-channel routing table replaces per-source bespoke logic (5 adapters refactored to one interface in 74.5.1)
+
+### Key Lessons
+1. **Type-cascade refactors need EXHAUSTIVE schema-literal coverage tests, not just import-grep** — the C1 orderChannel literal coverage gap was invisible to type-check + 1825 tests because the `?? "Direct"` fallback both caused and camouflaged the bug. (See `lessons_phase_81_triple_review.md` Lesson 1.)
+2. **Delete-a-file plans must include explicit `npx convex codegen` task** — `convex/_generated/api.d.ts` is generated but checked in; tsconfig excludes `_generated/`, so stale imports there silently rot. THIRD recurrence in v2.0 (Phase 76, Phase 81). (See Lesson 2.)
+3. **CONTEXT.md absolute-scope language must not be narrowed by PATTERNS.md** — D-02 said "everywhere user-visible"; PATTERNS.md scoped to C1 caller table; result: 11 user-visible K3 Mart surfaces missed, hotfix PR #158 required. (See Lesson 3.)
+4. **`confidence: "exact"` must be EARNED, not defaulted on `??` fallbacks** — wrongly-routed orders carrying false "exact" confidence into income statements would have made Phase 77's data-health dashboard miss exactly the rows it most needs to surface. (See Lesson 4.)
+5. **Pre-staffreview Refinements need explicit adoption/drop log** — Phase 81-03 silently dropped pre-staffreview R2 (make `source` optional) and shipped `source: "internal"` placeholder anti-pattern 3× in unitEconomics.ts. (See Lesson 5.)
+6. **Retroactive mapping cascades need per-source branches** — Phase 80.2 K3Mart fix; when adding a new source to a platform-aware cascade, audit EVERY `if (args.source === X)` branch. (See `lessons_phase_80_2_triple_review.md`.)
+7. **Soft-delete needs guards on every write branch** — Phase 74 lesson: not just delete branches but EVERY mutation that reads-then-writes. (See `lessons_phase_74_triple_review.md`.)
+8. **Splitting umbrella phases on day 1 is cheaper than mid-execution** — Phase 74.5 → 74.5.1/74.5.2 split per researcher verdict avoided a halfway-cutover trap.
+
+### Cost Observations
+- **Model mix:** Predominantly Opus 4.6/4.7 for orchestration + planning; Sonnet for executor agents in some plans; Haiku for noise tasks (commits, doc summaries)
+- **Sessions:** ~25-30 sessions across the 32-day milestone (rough estimate from STATE.md last_updated trail)
+- **Notable:** Phase 81's triple-review wave was particularly cost-effective — three reviewer agents in parallel + a single fix-executor agent caught what would have been a Critical production regression. The post-merge bundle-grep smoke-test was nearly free (one bash command) and caught a hotfix-worthy gap.
+- **Worktree isolation** (per Phase 81-01 setup): worth the marginal cost for parallel-safe execution; without it, Plan 81-01 + 81-02 + 81-03 would have serialized.
+
+---
+
 ## Milestone: v1.7 — Expense & Accounting
 
 **Shipped:** 2026-03-16

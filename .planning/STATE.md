@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Financial Management & Data Quality
-status: Ready to push + PR + merge to main
-stopped_at: Phase 81 implementation + triple-review + docs sweep complete
-last_updated: "2026-05-11T00:00:00.000Z"
+status: SHIPPED — v2.0 milestone closed, ready for v2.1
+stopped_at: v2.0 milestone close complete
+last_updated: "2026-05-11T08:00:00.000Z"
 last_activity: 2026-05-11
 progress:
-  total_phases: 22
+  total_phases: 17
   completed_phases: 17
   total_plans: 79
   completed_plans: 79
@@ -18,15 +18,15 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-08)
+See: .planning/PROJECT.md (updated 2026-05-11)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** Phase 81 — domain-vocabulary-deepening (ready to push + PR + merge to main)
+**Current focus:** v2.0 closed — planning queue for v2.1 (Phase 77 Data Health Dashboard, ADR-0001 schema field, Phase 74.5.3 packaging BOM auto-deduction)
 
 ## Current Position
 
-Phase: 81
-Plan: All 4 plans + 7 triple-review fix commits + docs sweep on feature/81-domain-vocabulary-deepening (38 commits ahead of origin/main)
-Status: Ready to push + PR + merge to main
+Milestone: v2.0 SHIPPED 2026-05-11 (tag `v2.0`, last commit `ddb4da74`)
+Status: Milestone archived — all artifacts moved to `.planning/milestones/v2.0-*`
+Next: `/gsd-new-milestone` to define v2.1 goals + requirements
 Last activity: 2026-05-11
 
 Progress: [████████▌░] 84%

@@ -2,31 +2,33 @@
 
 ## What This Is
 
-A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, unified multi-channel dispatch planning, finished goods inventory with order drawdown, GoFood depot management, kitchen production targets, production ingredient tracking with auto-calculated COGS, and unified multi-channel sales analytics across 8 sources (GoFood, GrabFood, Shopee, Tokopedia, K3Mart, Direct, Consignment outlets). Integrates with GoBiz, GrabFood Partner API, and BigSeller for real-time platform data.
+A real-time recipe and product concept management system for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis. Features Kanban order management, unified multi-channel dispatch planning, finished goods inventory with order drawdown, GoFood depot management, kitchen production targets, production ingredient tracking with auto-calculated COGS, full P&L through Free Cash Flow with multi-period CSV export, BCA bank statement reconciliation, kitchen staff attendance with production tracking, unit economics analytics dashboard, and unified multi-channel sales analytics across 7 platforms (Direct, GoFood, GrabFood, Shopee, TikTok, K3Mart, Consignment) — resolved through a typed `Platform` literal union with confidence-tagged `resolvePlatform()`. Integrates with GoBiz, GrabFood Partner API, and BigSeller for real-time platform data.
 
 ## Core Value
 
 Production reliability — the system is the single source of truth for recipes, orders, kitchen production, and inventory. Every feature must work correctly under real kitchen conditions with real-time updates.
 
-## Current Milestone: v2.0 Financial Management & Data Quality
+## Current State
 
-**Goal:** Build trustworthy financial reporting with full P&L, bank reconciliation, attendance tracking, and data integrity checks.
+**Last shipped:** v2.0 Financial Management & Data Quality (2026-05-11)
+**Total shipped:** 11 milestones, 86 phases, 325 plans
+**Codebase:** ~82K lines TypeScript tracked
+**Production environment:** Convex prod `decisive-wombat-7` + Vercel auto-deploy from `main`
 
-**Target features:**
-- Full P&L Income Statement: per-channel Revenue → Commissions → COGS → Gross Margin → OpEx → G&A → Operating Income → Depreciation → Net Income → FCF
-- Revenue Recognition Fix: debug and fix missing direct sales in sales analytics (e.g., Bali order 0330-002 not in revenue bridge)
-- Financial Data Export: export button with raw transactions or P&L summary, weekly/monthly/custom range, CSV format
-- COGS Override: flat per-product COGS field overriding BOM calculation when set
-- Data Health Page: automated checks for revenue completeness, COGS coverage, journal balance, bank reconciliation status, expense receipts
-- Bank Statement Reconciliation: CSV upload (BCA/Mandiri), auto-match by amount/date/description against journals, revenue, expenses, reimbursements, payroll
-- Staff Attendance: clock-in/out on kitchen app, per-staff production tracking (balls by type, grams), monthly production summary
-- Employee Profile: bank account, hire date, base rate fields on user records
+## Next Milestone: v2.1 (TBD — planning queue)
+
+**Carried-forward candidates:**
+- **Phase 77 — Data Health Dashboard** (deferred from v2.0). Surfaces orphan JEs, unmapped products, zero-cost components, missing reversals, and confidence-coverage stats in a single admin view. Phase 81's confidence-tagged `resolvePlatform()` is the per-row primitive Phase 77 will consume. Estimated 3-5 plans. Closes DH-01..DH-05 requirements.
+- **`externalRevenue.underlyingSource` schema field** (ADR-0001 follow-on). `resolvePlatform()` ships forward-compatible per Phase 81 D-03 with a graceful "missing → BigSeller transitional + inferred confidence" fallback. Adding the schema field unlocks Test 10 (currently `it.skip` per staffreview I1), enables full BigSeller→underlying-platform resolution. Small phase (1-2 plans).
+- **Phase 74.5.3 — Packaging BOM Auto-Deduction** (PLANNED, absorbs 74.5.2 deferred item #2). Extends `processChannelSaleInternal` to BOM-resolve packaging components (sticker, small-box) and emit paired `packagingInventoryTransactions` per sale. Eliminates the daily manual sticker adjustment from the 74.5.2 runbook.
+
+Run `/gsd-new-milestone` to define v2.1 goals + requirements.
 
 ## Context
 
-Shipped v1.6 Tech Debt & Resilience (2026-03-09). 7 milestones complete (v1.0–v1.6), 40 phases, 177 plans.
+Shipped v2.0 Financial Management & Data Quality (2026-05-11). 11 milestones complete (v1.0–v2.0), 86 phases, 325 plans.
 
-**Latest milestone:** v1.6 — Schema audit with index cleanup (42 findings, 20 indexes removed, 5 added), backend helper extraction (-31.3% LOC across 5 files), frontend file splits (-74% LOC across 4 components), E2E Playwright tests for 3 critical paths, and Tamtem depot auto-seed resilience fix.
+**Latest milestone:** v2.0 — Trustworthy financial reporting layer (full P&L through Free Cash Flow + raw + multi-period CSV export), bulk expense ingestion + dual-mode approval, BCA bank statement reconciliation with split-view UI, kitchen staff attendance + production tracking, unified channel routing spine + cutover (5 adapters refactored), unit economics analytics dashboard, post-shipping cleanup of inventory drift + analytics double-counting, and a domain vocabulary deepening (Phase 81) that mechanically enforces ADR-0001 + 3 long-standing rules via typed primitives + ESLint guard banning 10 legacy exports. User-visible Tokopedia → TikTok and K3 Mart → K3Mart renames.
 
 ## Requirements
 

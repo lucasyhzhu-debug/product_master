@@ -1,4 +1,29 @@
 # Milestones
+## v2.0 Financial Management & Data Quality (Shipped: 2026-05-11)
+
+**Phases completed:** 17 phases, 79 plans (incl. 70.1, 74.5.1, 74.5.2, 74.5.2.1, 80.1, 80.2, 80.3 inserted)
+
+**Timeline:** 32 days (2026-04-10 to 2026-05-11)
+**Codebase:** ~82K lines TypeScript tracked
+**Requirements:** 20/25 satisfied | **Deferred to v2.1:** 5 (DH-01..DH-05 via Phase 77)
+
+**Key accomplishments:**
+
+1. **Revenue accuracy foundation** (Phase 70/70.1) — Direct sales orders flow through the externalRevenue bridge with historical backfill, manager-set flat-COGS override per menu product bypassing BOM, employee profile fields (hire date, base rate, bank account holder name), admin all-expenses visibility query.
+2. **Financial reporting + multi-format export** (Phase 75/76) — Canonical EBITDA-first P&L layout (Revenue → Net Revenue → COGS → Contribution Margin → OpEx excl. D/A → EBITDA → D/A → EBIT → Net Income → CapEx → Free Cash Flow); per-channel rows through Contribution Margin; raw-transaction CSV export (12-column GL line schema); multi-period P&L summary CSV (weekly/monthly/custom); soft warnings for large ranges + bucket counts; manager+admin role gates with three enforcement layers.
+3. **Bulk expense upload + bank reconciliation** (Phase 71/72/73) — CSV expense upload with auto-approve and submit-for-approval modes; "Reclassify to Expense" disposal type; BCA XLSX/CSV bank statement parser (Mandiri deferred); auto-match engine using amount + date + description heuristic; manual match/unmatch via split-view UI; reconciliation status tracking per statement.
+4. **Staff attendance** (Phase 74) — One-tap PIN-authenticated kitchen clock in/out; per-staff production tracking via shift records (balls by type + grams); monthly attendance summaries; manager-corrected missed clock-outs with audit trail.
+5. **Unified channel routing spine + cutover** (Phase 74.5.1/74.5.2/74.5.2.1) — `channelRouting` table with admin UI, `ChannelSaleEvent` canonical type, `ChannelAdapter` interface for all 5 adapters, K3Mart parent→parent+child shape change, gated cutover via `channelDeductionEnabled` flag map, six historical-backfill admin buttons with `inventoryDeductedAt` idempotency, K3Mart bundle composite-toggle UI, retired `processGofoodSales` + order-fulfillment direct-GoJek deduct paths.
+6. **Analytics + unit economics dashboard** (Phase 78/79/80/80.1/80.2/80.3) — Product inventory substitution (triple products fulfill from single product stock when direct insufficient); Shopee/TikTok per-item revenue capture into `externalRevenueItems` with BigSeller daily sync cron; new `/analytics` page with 13 widgets across 6 lenses; perf consolidation cutting subscriptions 11→3; K3Mart + Direct unlinked-products fix (eliminated `(Unlinked)` bucket affecting 737 K3Mart parents and 219 Direct parents); R5 internal-mirror dedup fixing double-counting of every Direct/WhatsApp/Instagram order.
+7. **Domain vocabulary deepening** (Phase 81) — Three duplicated rule clusters collapsed: typed `Platform` literal union with `resolvePlatform({source, underlyingSource?, orderChannel?}) → {platform, confidence}` (forward-compatible per ADR-0001); `isProductionUnit(ct)` BOM predicate (mechanically observable per CLAUDE.md rules 10/13); canonical `getWibDateStr(ms)` WIB helper with NaN-guard. Three legacy mappers + four legacy WIB helpers DELETED. ESLint `no-restricted-imports` rule with 10 banned exports prevents reintroduction. User-visible **Tokopedia → TikTok** (red→violet color shift) + **K3 Mart → K3Mart** renames everywhere. Triple-review caught 4 Critical regressions (orderChannel literal coverage gap bucketing native consignment + K3Mart-GF orders as Direct, stale `_generated/api.d.ts`, undefined-source fallback, K3 Mart sweep gap on 7+ user-visible surfaces) — all fixed pre-merge plus a post-merge K3Mart sweep hotfix (PR #158).
+
+**Delivered:** Trustworthy financial reporting layer (full P&L through Free Cash Flow + raw + multi-period CSV export), bulk expense ingestion + dual-mode approval, BCA bank statement reconciliation with split-view UI, kitchen staff attendance + production tracking, unified channel routing spine + cutover (5 adapters refactored), unit economics analytics dashboard, post-shipping cleanup of inventory drift + analytics double-counting, and a domain vocabulary deepening that mechanically enforces ADR-0001 (BigSeller is a Source not a Platform) and three other long-standing rules via typed primitives + ESLint guard.
+
+**Tag:** `v2.0` | **Last commit:** `ddb4da74` (Phase 81 K3Mart sweep hotfix) | **PRs:** #126 (Phase 70) → #158 (hotfix)
+
+---
+
+
 ## v1.9 Bugs & Quality of Life (Shipped: 2026-03-28)
 
 **Phases completed:** 7 phases, 12 plans, 11 tasks
