@@ -16,6 +16,56 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 81 — Domain Vocabulary Deepening -- 2026-05-11
+
+**For the team:** Three duplicated/inconsistent domain rule clusters are now single sources of truth. **One user-visible change you'll notice immediately on production:** Analytics chart legends will swap "Tokopedia" for "TikTok" — the column previously rendered red (`#ef4444`) now renders violet (`#8b5cf6`). Same data, correct label (the `tiktok` source had been mislabelled "Tokopedia" since the 2023 Tokopedia/TikTok-Shop merger). K3 Mart also displays as "K3Mart" (no space) consistently across restock planner, settings, and admin surfaces. GrabFood data — previously rolled up under "GoFood" in some queries — now correctly shows as its own GrabFood column. Behind the scenes, 6 duplicate WIB date helpers + 3 platform mappers + 5 hand-rolled production-component filters were collapsed into 4 canonical exports, and an ESLint guard now prevents reintroduction.
+
+**Breaking changes (user-visible after deploy):**
+- **Saved analytics URLs with `?channels=Tokopedia` will now silently filter to nothing.** Replace with `?channels=TikTok`.
+- **Saved analytics URLs with `?channels=GoFood` no longer include `grabfood` rows.** The legacy `sourceToDisplayChannel` collapsed `gobiz` + `grabfood` → `GoFood`; per D-05 they are now distinct Platforms (`GoFood` vs `GrabFood`). To see both, use `?channels=GoFood,GrabFood`. (Closes CONTEXT.md flagged ambiguity 138.)
+- **Phase 76 period-over-period CSV exports generated under the legacy mapper will show "Tokopedia" rows under "TikTok" header columns when re-imported alongside post-deploy exports.** Column values shift; row order may differ. Re-export and re-merge if comparing across the deploy boundary.
+- **`K3 Mart` (with space) no longer appears anywhere user-visible.** Saved spreadsheets that VLOOKUP on the spaced spelling will need to switch to `K3Mart`.
+
+**Changed:**
+- **Platform display rename (D-02, user-visible).** TikTok-Shop traffic now displays as "TikTok" (was "Tokopedia"). Analytics chart legends visibly change after deploy: TikTok column shifts from RED `#ef4444` to VIOLET `#8b5cf6` — matches the existing tiktok source-key palette. K3Mart now displays without space across all 7 user-visible surfaces (restock planner, settings tab, admin sync health alert, integrations registry, channel detail panel, channel card, e2e test fixtures). (Phase 81 / D-02; closes the documented `sourceToPlatform("tiktok") = "Tokopedia"` mismatch from the 2023 Tokopedia/TikTok-Shop merger.)
+- **Canonical Platform resolver (D-03, D-04, D-05).** New module `convex/reports/platform.ts` exports `Platform` literal union (8 literals — no "Other") + `resolvePlatform({source, underlyingSource?, orderChannel?}) → {platform, confidence}` + `platformDisplay(p)` + `isPlatform(s)`. ADR-0001 forward-compatibly enforced: BigSeller rows resolve via `underlyingSource` (when schema field lands) → `linkedMenuProductId` lookup (deferred per staffreview I1) → "BigSeller" transitional + Confidence='inferred'. Replaces 3 legacy mappers (`sourceToPlatform`, `toDisplayChannel`, `sourceToDisplayChannel`) consolidated across 21 callsites (12 backend + 9 frontend). `OrderChannel` schema-mirror union added so future `orders.channel` literal additions break TypeScript at compile time.
+- **Canonical BOM production predicate (D-01).** New export `isProductionUnit(ct)` from `convex/reports/productionUnitHelpers.ts`. Rule: `category === "production"` alone (drops historical `unit === "pcs"` and `gramsPerUnit !== undefined` requirements). Future-proofs gram-denominated production variants. Replaces 5 hand-rolled filters across 4 files (`unitEconomics.ts`, `lifetimeHelpers.ts`, `staffAttendance/aggregation.ts`, `menuProducts/mutations.ts`). The one numeric-aggregation callsite that needs the secondary `gramsPerUnit` guard composes `.filter(isProductionUnit).filter(c => c.gramsPerUnit !== undefined)` with inline rationale comment.
+- **Canonical WIB date-string helper (D-06, D-07).** `getWibDateStr(ms)` at `convex/lib/periodRange.ts` is the single source of truth for YYYY-MM-DD WIB date strings, with `Number.isFinite` NaN-guard promoted from the deleted `staffAttendance/flagEngine#toWibDateString`. Replaces 4 duplicate helpers across ~30 caller import sites in 11 files (6 production + 5 test). `counter.ts`'s MMDD-format helper was renamed to `getWibMonthDayStr` to free the canonical name (it still mints the `EXP-MMDD-NNN` / `JE-MMDD-NNN` / `RMB-MMDD-NNN` segment).
+
+**Removed:**
+- `sourceToPlatform` from `convex/lib/externalSource.ts` — use `platformDisplay(resolvePlatform(row).platform)` from `convex/reports/platform`.
+- `convex/reports/channelTaxonomy.ts` (entire file: `toDisplayChannel`, `sourceToDisplayChannel`, `DisplayChannel`, `DISPLAY_CHANNELS`) — use exports from `convex/reports/platform.ts`.
+- `convex/externalData/__tests__/sourceToPlatform.test.ts` — cases migrated to `convex/reports/__tests__/platform.test.ts` (37 tests, 1 skipped pending ADR-0001 schema field).
+- `toWibDateString` from `convex/staffAttendance/flagEngine.ts` — use `getWibDateStr` from `convex/lib/periodRange`.
+- `getWibDateString`, `getWibDateStringDaysAgo` from `convex/gofoodDepot/helpers.ts` — use `getWibDateStr`.
+- `utcToWibDateStr` from `convex/lib/periodRange.ts` — collapsed into `getWibDateStr`.
+- Dead `SalesChannel` union in `src/lib/types.ts:425` (carried stale `'Tokopedia'` literal; no consumers per grep).
+
+**Added:**
+- `eslint.config.js` `no-restricted-imports` rule with **10 banned exports** across 3 modules — each ban includes a `message` directive pointing to the canonical replacement. Cumulative entries: Plan 81-02 added 4 WIB-helper bans + 1 collision-rename ban (counter.ts's old `getWibDateStr`); Plan 81-03 added 5 platform-mapper bans (sourceToPlatform + 4 channelTaxonomy exports). `paths` block covers npm-style imports; `patterns` block covers all relative-path glob variants from both `src/` and `convex/` callers. Verified to fire by stub-then-revert. Prevents the next "named-but-not-shipped" consolidation (closes the Phase 73 lesson loop).
+- Table-driven tests for `resolvePlatform` (37 tests covering every source × underlyingSource × orderChannel tuple including all 11 schema `orders.channel` literals + recursive-guard edge case + unknown-source defensive fallback), `isProductionUnit` (13 cases — production/packaging × pcs/g × gramsPerUnit defined/undefined matrix), and `getWibDateStr` (7 tests — boundary, midnight crossing, last-second-before-midnight, NaN throw, ±Infinity throws, inline-formula parity).
+- `OrderChannel` schema-mirror union in `convex/reports/platform.ts` so future `orders.channel` literal additions break TypeScript at compile time (closes triple-review C1 — orderChannel literals fully covered).
+
+**Fixed:**
+- Triple-review C1: native consignment-channel orders (`whatsapp`, `instagram`, `k3mart_gf`, `legato_tamtem`, `legato_goldfinch`, `bazaar`, `other`) and K3Mart-GF orders no longer mis-bucket as Direct via `?? "Direct"` fallthrough. `ORDER_CHANNEL_TO_PLATFORM` now type-narrowed against `OrderChannel`; unknown-orderChannel branch returns `confidence: "inferred"` (was incorrectly `"exact"`) so Phase 77's Data Health Dashboard can grep the inferred branch to find drift.
+- Triple-review C2: regenerated `convex/_generated/api.d.ts` (had been stale — referenced deleted `channelTaxonomy.ts` module). **Third recurrence of Phase 76 lesson 5** ("hand-edited generated files silently rot").
+- Triple-review C3: defensive runtime fallback for unknown `source` returns `BigSeller` transitional + `inferred` confidence instead of `undefined`.
+- Stale doc comments in `convex/reports/unitEconomics.ts` (lines 33, 72) referencing `channelTaxonomy.ts` and `Tokopedia` — updated to point at `platform.ts` with retirement note.
+
+**Schema:** No schema changes. `externalRevenue.underlyingSource` field DEFERRED to a follow-on phase per D-03 (Phase 81's `resolvePlatform` ships forward-compatible).
+
+**Tests:** +14 tests vs pre-Plan-03 baseline (1825 → 1839 passed, 3 skipped including 1 skipped pending ADR-0001 schema field). Build PASSED (4210 modules, 24-26s). Lint baseline preserved at 524 pre-existing problems (0 new).
+
+**Files (32 modified across 4 plans):**
+- Plan 81-01: `convex/reports/productionUnitHelpers.ts`, `convex/reports/__tests__/productionUnitHelpers.test.ts`, `convex/reports/unitEconomics.ts`, `convex/externalData/helpers/lifetimeHelpers.ts`, `convex/staffAttendance/aggregation.ts`, `convex/menuProducts/mutations.ts`, `eslint.config.js`
+- Plan 81-02: `convex/lib/counter.ts`, `convex/lib/__tests__/counter.test.ts`, `convex/lib/periodRange.ts`, `convex/lib/__tests__/periodRange.test.ts`, `convex/staffAttendance/{flagEngine,mutations}.ts`, `convex/staffAttendance/__tests__/{flagEngine,clockIn,clockOut,correctAttendance}.test.ts`, `convex/gofoodDepot/{queries,helpers}.ts`, `convex/kitchenShiftRecords/{queries,__tests__/summary}.ts`, `convex/externalData/helpers/timeSeriesHelpers.ts`, `convex/reports/financialExport.ts`, `convex/fixedAssets/helpers.ts`, `eslint.config.js`
+- Plan 81-03: `convex/reports/platform.ts` (new), `convex/reports/__tests__/platform.test.ts` (new), `convex/lib/externalSource.ts`, `convex/reports/{unitEconomics,incomeStatement}.ts`, `convex/externalData/{queries.ts, helpers/dashboardHelpers.ts}`, `src/lib/{platformColors,types}.ts`, `src/components/bankReconciliation/InlineRevenueDialog.tsx`, `src/components/channelIntegration/{ChannelFlagRow,ResolutionPreviewPanel,SourceBadge}.tsx`, `src/components/restock/{ChannelDetailPanel,ChannelCard}.tsx`, `src/components/salesAnalytics/SettingsTab.tsx`, `src/pages/{ChannelRoutingManager,ProductInventorySettings,RestockPlanner}.tsx`, `src/contexts/AnalyticsFilterContext.tsx`, `src/components/analytics/AnalyticsFilterBar.tsx`, `convex/integrations/registry.ts`, `convex/_generated/api.d.ts`, `eslint.config.js`, plus 2 deleted (`convex/reports/channelTaxonomy.ts`, `convex/externalData/__tests__/sourceToPlatform.test.ts`)
+- Plan 81-04: `CONTEXT.md`, `CLAUDE.md`, `docs/CHANGELOG.md`, `docs/SCHEMA.md`, `docs/API_REFERENCE.md`
+
+**Triple-review (2026-05-11, Plan 81-03 only per D-09):** 2 Critical + 4 Important + 5 Minor findings, all resolved before merge. Report: `docs/reviews/triple-review-81-03-platform-resolver-2026-05-11.md`. Architecture review that birthed the phase: `docs/reviews/architecture-review-2026-05-08-graph-primed-deepening-candidates.md`.
+
+---
+
 ### Fix — BigSeller pageList readiness-race retry -- 2026-05-08
 
 **For the team:** BigSeller sync now actually pulls the latest dates. Previously, BigSeller's upstream pull would finish (e.g., 89 orders ingested into their system) but our follow-up read fired 1 second later when their per-platform index wasn't ready yet, returning "Failed, please try again later" — and the admin card showed "No orders found." This change retries the read up to 3 times (10s / 30s / 60s), gated to BigSeller's documented warm-up message, so the orders flow through.
