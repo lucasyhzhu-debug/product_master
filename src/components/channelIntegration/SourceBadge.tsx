@@ -11,13 +11,13 @@
 import { cn } from "@/lib/utils";
 import { getPlatformPalette } from "@/lib/platformColors";
 import type { ExternalSource } from "../../../convex/lib/externalSource";
-import { sourceToPlatform } from "../../../convex/lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../../../convex/reports/platform";
 
 interface SourceBadgeProps {
   source: ExternalSource;
   /** `sm` = 12px, `md` = 14px. Default md. */
   size?: "sm" | "md";
-  /** Override the display label. Defaults to `sourceToPlatform(source)`. */
+  /** Override the display label. Defaults to `platformDisplay(resolvePlatform({ source }).platform)`. */
   label?: string;
   className?: string;
 }
@@ -29,7 +29,7 @@ export function SourceBadge({
   className,
 }: SourceBadgeProps) {
   const palette = getPlatformPalette(source);
-  const displayLabel = label ?? sourceToPlatform(source);
+  const displayLabel = label ?? platformDisplay(resolvePlatform({ source }).platform);
 
   return (
     <span

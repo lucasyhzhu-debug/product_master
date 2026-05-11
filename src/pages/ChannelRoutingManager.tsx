@@ -76,9 +76,9 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import {
   EXTERNAL_SOURCES,
-  sourceToPlatform,
   type ExternalSource,
 } from "../../convex/lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../../convex/reports/platform";
 
 const ANY_SENTINEL = "__any__";
 
@@ -389,7 +389,7 @@ export function ChannelRoutingManager() {
                               variant="ghost"
                               size="sm"
                               onClick={() => openEdit(r)}
-                              aria-label={`Edit routing rule for ${sourceToPlatform(r.source)}`}
+                              aria-label={`Edit routing rule for ${platformDisplay(resolvePlatform({ source: r.source }).platform)}`}
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
@@ -398,7 +398,7 @@ export function ChannelRoutingManager() {
                               size="sm"
                               onClick={() => setPendingDelete(r)}
                               disabled={deleting === r._id}
-                              aria-label={`Delete routing rule for ${sourceToPlatform(r.source)}`}
+                              aria-label={`Delete routing rule for ${platformDisplay(resolvePlatform({ source: r.source }).platform)}`}
                             >
                               {deleting === r._id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -464,7 +464,7 @@ export function ChannelRoutingManager() {
                 <SelectContent>
                   {EXTERNAL_SOURCES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {sourceToPlatform(s)}
+                      {platformDisplay(resolvePlatform({ source: s }).platform)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -630,12 +630,12 @@ export function ChannelRoutingManager() {
             <AlertDialogTitle>
               Delete routing rule
               {pendingDelete
-                ? ` for ${sourceToPlatform(pendingDelete.source)}?`
+                ? ` for ${platformDisplay(resolvePlatform({ source: pendingDelete.source }).platform)}?`
                 : "?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               Removing this rule means future{" "}
-              {pendingDelete ? sourceToPlatform(pendingDelete.source) : ""}{" "}
+              {pendingDelete ? platformDisplay(resolvePlatform({ source: pendingDelete.source }).platform) : ""}{" "}
               sales
               {pendingDelete?.outletName
                 ? ` / outlet ${pendingDelete.outletName}`

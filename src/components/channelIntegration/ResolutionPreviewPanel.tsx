@@ -19,9 +19,9 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   EXTERNAL_SOURCES,
-  sourceToPlatform,
   type ExternalSource,
 } from "../../../convex/lib/externalSource";
+import { resolvePlatform, platformDisplay } from "../../../convex/reports/platform";
 import {
   Card,
   CardContent,
@@ -128,7 +128,7 @@ export function ResolutionPreviewPanel({
               <SelectContent>
                 {EXTERNAL_SOURCES.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {sourceToPlatform(s)}
+                    {platformDisplay(resolvePlatform({ source: s }).platform)}
                   </SelectItem>
                 ))}
               </SelectContent>
