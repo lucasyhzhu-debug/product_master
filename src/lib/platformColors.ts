@@ -57,11 +57,14 @@ export function getPlatformPalette(source: string): PlatformPalette {
  *
  * Phase 81: callers pass `(s) => platformDisplay(resolvePlatform({ source: s as ExternalSource }).platform)`
  * (the parameter is function-typed, NOT an import — kept generic for caller composition).
+ *
+ * Triple-review I6: parameter renamed from `sourceToPlatform` to `displayFn` so
+ * it no longer collides visually with the deleted `sourceToPlatform` function name.
  */
-export function buildChartColorMap(sourceToPlatform: (source: string) => string): Record<string, string> {
+export function buildChartColorMap(displayFn: (source: string) => string): Record<string, string> {
   const map: Record<string, string> = {};
   for (const [source, palette] of Object.entries(PALETTE)) {
-    map[sourceToPlatform(source)] = palette.hex;
+    map[displayFn(source)] = palette.hex;
   }
   return map;
 }

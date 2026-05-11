@@ -108,6 +108,13 @@ async function seedCustomer(t: TestContext): Promise<Id<"customers">> {
 
 type OrderSeedOpts = {
   status?: "Complete" | "Draft" | "Cancelled" | "PaymentReceived";
+  // Per-orders.channel→Platform mapping for ALL schema literals is unit-tested
+  // in `convex/reports/__tests__/platform.test.ts` ("orderChannel covers every
+  // orders.channel schema literal" describe block, triple-review C1). Adding
+  // integration coverage for k3mart_gf / legato_tamtem / legato_goldfinch /
+  // bazaar / whatsapp / instagram / other here would duplicate that mechanical
+  // mapping with heavier setup. Keep this union narrow to the channels
+  // actually exercised by integration scenarios.
   channel?:
     | "whatsapp"
     | "shopee"
