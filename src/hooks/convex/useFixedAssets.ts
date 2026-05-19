@@ -25,11 +25,15 @@ export function useFixedAsset(assetId: Id<"fixedAssets"> | undefined) {
   );
 }
 
-/** Preview depreciation batch (admin only). Pass "skip" to disable — required for non-admins and when the consuming dialog is closed. */
-export function useDepreciationPreview(mode: "run" | "skip" = "run") {
+/**
+ * Preview depreciation batch (manager + admin). Pass "skip" to avoid subscribing
+ * when the consuming dialog is closed — getDepreciationPreview scans all active
+ * depreciable assets, so lazy-loading is a meaningful perf win on page mount.
+ */
+export function useDepreciationPreview(mode: "run" | "skip" = "skip") {
   return useSessionQuery(
     api.fixedAssets.queries.getDepreciationPreview,
-    mode === "skip" ? "skip" : {}
+    mode === "run" ? {} : "skip"
   );
 }
 

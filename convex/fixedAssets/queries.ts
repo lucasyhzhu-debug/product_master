@@ -153,7 +153,7 @@ export const getById = protectedQuery({
 // ---------------------------------------------------------------------------
 
 export const getDepreciationPreview = protectedQuery({
-  roles: ["admin"],
+  roles: ["manager", "admin"],
   args: {},
   handler: async (ctx) => {
     const currentMonth = getCurrentYYYYMM();
@@ -281,7 +281,7 @@ export const getOrphanEquipmentPurchases = protectedQuery({
  * expense-to-capex conversion. Returns minimal info for backfill banner.
  */
 export const getAssetsWithoutAcquisitionJE = protectedQuery({
-  roles: ["admin"],
+  roles: ["manager", "admin"],
   args: {},
   handler: async (ctx) => {
     const allAssets = await ctx.db.query("fixedAssets").collect();

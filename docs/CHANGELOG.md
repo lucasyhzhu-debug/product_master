@@ -16,6 +16,23 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Bug Fix: Asset Register crashed for managers — 2026-05-19
+
+**For the team:** Managers (e.g. Nilson) can now fully manage fixed assets — register, depreciate, void, and dispose. Previously, opening the Asset Register as a manager showed a generic "Server Error" page because depreciation and disposal were locked to admins only. The page now matches what the role allows.
+
+#### Fixed
+- Six `fixedAssets` functions widened from `roles: ["admin"]` to `roles: ["manager", "admin"]` so managers can run depreciation, dispose assets, void months, backfill acquisition JEs, preview depreciation, and see the orphan-asset banner — matching the existing `canAccessAssets` route permission (manager + admin). Root cause: a permission split between the route and backend that crashed the page for managers via an unhandled `ConvexError("Unauthorized: role 'manager' not in [admin]")` from `DepreciationPreviewDialog`'s eager query subscription.
+- `useDepreciationPreview` now defaults to `mode = "skip"` and only subscribes when the dialog is open (`open ? "run" : "skip"`). Hidden perf win: admins no longer fetch depreciation preview on every Asset Register page mount — only when they click "Catch Up to Now".
+- `AssetRegister.tsx` removed unused `isAdmin` derivation and `useAuth` import; all asset-management UI is now visible to everyone who can reach the page.
+
+#### Docs
+- New CLAUDE.md Common Pitfall #19: backend `roles` must align with the route's `requiredPermission`. Preferred fix is widening the backend; UI-gating is a fallback for intentional role splits. Includes audit checklist for new `protectedQuery`/`protectedMutation` additions to existing pages.
+
+#### Files
+- `convex/fixedAssets/queries.ts`, `convex/fixedAssets/mutations.ts`
+- `src/pages/AssetRegister.tsx`, `src/hooks/convex/useFixedAssets.ts`, `src/components/assets/DepreciationPreviewDialog.tsx`
+- `CLAUDE.md`
+
 ### Phase 81 — Domain Vocabulary Deepening -- 2026-05-11
 
 **For the team:** Three duplicated/inconsistent domain rule clusters are now single sources of truth. **One user-visible change you'll notice immediately on production:** Analytics chart legends will swap "Tokopedia" for "TikTok" — the column previously rendered red (`#ef4444`) now renders violet (`#8b5cf6`). Same data, correct label (the `tiktok` source had been mislabelled "Tokopedia" since the 2023 Tokopedia/TikTok-Shop merger). K3 Mart also displays as "K3Mart" (no space) consistently across restock planner, settings, and admin surfaces. GrabFood data — previously rolled up under "GoFood" in some queries — now correctly shows as its own GrabFood column. Behind the scenes, 6 duplicate WIB date helpers + 3 platform mappers + 5 hand-rolled production-component filters were collapsed into 4 canonical exports, and an ESLint guard now prevents reintroduction.

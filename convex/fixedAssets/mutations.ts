@@ -4,7 +4,7 @@
  * CRUD, depreciation batch, disposal, void, and file upload.
  * All JE creation goes through createJournalEntryWithLines (JE-06).
  *
- * Auth: manager/admin for CRUD, admin-only for depreciation/disposal/void.
+ * Auth: manager + admin for all asset operations (CRUD, depreciation, disposal, void).
  */
 
 import { v, ConvexError } from "convex/values";
@@ -283,7 +283,7 @@ export const generateUploadUrl = protectedMutation({
 // ---------------------------------------------------------------------------
 
 export const runDepreciation = protectedMutation({
-  roles: ["admin"],
+  roles: ["manager", "admin"],
   args: {},
   handler: async (ctx) => {
     const currentYYYYMM = getCurrentYYYYMM();
@@ -417,7 +417,7 @@ export const runDepreciation = protectedMutation({
 // ---------------------------------------------------------------------------
 
 export const disposeAsset = protectedMutation({
-  roles: ["admin"],
+  roles: ["manager", "admin"],
   args: {
     assetId: v.id("fixedAssets"),
     disposalType: v.union(
@@ -671,7 +671,7 @@ export const disposeAsset = protectedMutation({
 // ---------------------------------------------------------------------------
 
 export const voidDepreciationMonth = protectedMutation({
-  roles: ["admin"],
+  roles: ["manager", "admin"],
   args: {
     month: v.string(), // "YYYY-MM"
   },
@@ -785,7 +785,7 @@ export const voidDepreciationMonth = protectedMutation({
 // ---------------------------------------------------------------------------
 
 export const backfillAcquisitionJEs = protectedMutation({
-  roles: ["admin"],
+  roles: ["manager", "admin"],
   args: {},
   handler: async (ctx) => {
     const allAssets = await ctx.db.query("fixedAssets").collect();

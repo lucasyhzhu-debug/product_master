@@ -23,7 +23,6 @@ import {
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
 import { formatDateId } from "@/lib/dateUtils";
-import { useAuth } from "@/contexts/AuthContext";
 import {
   useFixedAssets,
   useOrphanEquipmentPurchases,
@@ -67,8 +66,6 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
 // ---------------------------------------------------------------------------
 
 export function AssetRegister() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const fromBankLineId = searchParams.get("fromBankLine") as
@@ -93,7 +90,7 @@ export function AssetRegister() {
     () => localStorage.getItem("assetRegister.acquisitionJeBannerDismissed") === "true"
   );
   const orphanAssets = useAssetsWithoutAcquisitionJE(
-    !isAdmin || jeBannerDismissed ? "skip" : "run"
+    jeBannerDismissed ? "skip" : "run"
   );
   const { mutate: backfillJEs } = useBackfillAcquisitionJEs();
   const [backfilling, setBackfilling] = useState(false);
@@ -187,25 +184,21 @@ export function AssetRegister() {
         description="Fixed asset tracking and depreciation"
         action={
           <div className="flex items-center gap-2">
-            {isAdmin && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setVoidOpen(true)}
-                >
-                  <RotateCcw className="h-4 w-4 mr-1" />
-                  Void Month
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setPreviewOpen(true)}
-                >
-                  <PlayCircle className="h-4 w-4 mr-1" />
-                  Catch Up to Now
-                </Button>
-              </>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVoidOpen(true)}
+            >
+              <RotateCcw className="h-4 w-4 mr-1" />
+              Void Month
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <PlayCircle className="h-4 w-4 mr-1" />
+              Catch Up to Now
+            </Button>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4 mr-1" />
               Add Asset
@@ -258,7 +251,7 @@ export function AssetRegister() {
       )}
 
       {/* Orphan assets without acquisition JE — backfill banner */}
-      {isAdmin && orphanAssets && orphanAssets.length > 0 && !jeBannerDismissed && (
+      {orphanAssets && orphanAssets.length > 0 && !jeBannerDismissed && (
         <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
@@ -608,18 +601,14 @@ export function AssetRegister() {
           }
         }}
       />
-      {isAdmin && (
-        <>
-          <DepreciationPreviewDialog
-            open={previewOpen}
-            onClose={() => setPreviewOpen(false)}
-          />
-          <VoidDepreciationDialog
-            open={voidOpen}
-            onClose={() => setVoidOpen(false)}
-          />
-        </>
-      )}
+      <DepreciationPreviewDialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+      />
+      <VoidDepreciationDialog
+        open={voidOpen}
+        onClose={() => setVoidOpen(false)}
+      />
       <AssetDetailPanel
         assetId={selectedAssetId}
         open={!!selectedAssetId}

@@ -69,19 +69,31 @@ started: Unknown — bug is pre-existing since Phase 60 (asset-register-deprecia
 
 ## Resolution
 
-root_cause: DepreciationPreviewDialog subscribes to the admin-only `getDepreciationPreview` query unconditionally on mount, and AssetRegister renders the dialog unconditionally for all roles. When a manager mounts the page, the protectedQuery wrapper correctly rejects the call with ConvexError, but the unhandled throw crashes the page via the React error boundary.
+root_cause: Permission mismatch between the route and the backend. `/asset-register` is reachable under `canAccessAssets` (manager + admin), but `getDepreciationPreview` and 5 sibling mutations were `roles: ["admin"]`. DepreciationPreviewDialog subscribed to the admin-only query unconditionally on mount, so every manager visit threw ConvexError that the React error boundary rendered as a generic ChunkLoadError.
 
-fix: Three-part fix:
-  1. `src/hooks/convex/useFixedAssets.ts` — give `useDepreciationPreview` a `mode: "run" | "skip"` param that mirrors `useOrphanEquipmentPurchases` and `useAssetsWithoutAcquisitionJE`
-  2. `src/components/assets/DepreciationPreviewDialog.tsx` — pass `open ? "run" : "skip"` so the query only subscribes when the dialog is actually open
-  3. `src/pages/AssetRegister.tsx` — gate the `<DepreciationPreviewDialog>` render on `isAdmin` (defense in depth, mirrors the button visibility gate)
+fix (pivoted from "gate the UI" to "widen the role" per product decision — managers SHOULD manage assets):
+  Backend (align roles with the route's permission):
+  1. `convex/fixedAssets/queries.ts` — widen `getDepreciationPreview` + `getAssetsWithoutAcquisitionJE` to `["manager", "admin"]`
+  2. `convex/fixedAssets/mutations.ts` — widen `runDepreciation` + `disposeAsset` + `voidDepreciationMonth` + `backfillAcquisitionJEs` to `["manager", "admin"]`; updated header comment
+
+  Frontend (remove now-unnecessary admin-only UI gates):
+  3. `src/pages/AssetRegister.tsx` — dropped `isAdmin` gates on the orphan-JE banner, the Void Month / Catch Up to Now buttons, and the dialog renders; removed unused `useAuth` import + `isAdmin` derivation
+  4. `src/hooks/convex/useFixedAssets.ts` — kept `useDepreciationPreview(mode: "run" | "skip" = "skip")` as a lazy-subscription pattern (defensive default; consumer passes `open ? "run" : "skip"` so the heavy query doesn't fire on every page mount, regardless of role)
+  5. `src/components/assets/DepreciationPreviewDialog.tsx` — kept `open ? "run" : "skip"` for lazy loading
+
+  Documentation:
+  6. `CLAUDE.md` — added Pitfall #19: backend `roles` must align with the route's `requiredPermission`. Preferred fix is widen-the-backend; only gate the UI when the role split is intentional (e.g. payroll for owner only).
 
 verification:
-  - npm run type-check
-  - npm run build
-  - Manual: log in as manager → /asset-register loads with no error → button + dialog absent
+  - npm run type-check ✓
+  - npm run build ✓
+  - Manual: log in as manager → /asset-register loads → all buttons visible → "Catch Up to Now" opens dialog → preview fetches successfully
 
 files_changed:
+  - convex/fixedAssets/queries.ts
+  - convex/fixedAssets/mutations.ts
   - src/hooks/convex/useFixedAssets.ts
   - src/components/assets/DepreciationPreviewDialog.tsx
   - src/pages/AssetRegister.tsx
+  - CLAUDE.md
+  - docs/CHANGELOG.md
