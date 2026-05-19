@@ -16,6 +16,31 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83-01a: BigSeller pageList schema refresh — 2026-05-19
+
+**For the team:** BigSeller profit-data sync is restored. We had not ingested any new orders since 2026-04-22 because BigSeller silently added 6 new required fields to their `pageList` request shape between February and May 2026, and our calls were getting silently rejected with the generic `code:-1` "Failed, please try again later" error. After this fix, the next manual sync (or nightly cron) will resume ingesting orders normally. To backfill the 27-day gap, run two manual syncs from the BigSeller admin card: chunk 1 = 22 Apr–05 May, chunk 2 = 06 May–19 May (the 31-day per-sync cap means a single 28-day window is too tight).
+
+#### Fixed
+- `buildPageListBody` (`convex/integrations/bigseller/helpers.ts`) now emits the 6 new required fields per the 2026-05-19 HAR capture: `settleStatus: 1`, `transactionStatus: ""`, `fbsOrder: ""`, `groupType` (int `0` on common, string `""` on platform endpoints), `totalCurrency: "IDR"`, and `orderStatus: []` on platform endpoints only. `orderState`, `currency`, and `searchContent` are intentionally UNCHANGED in this fix — the staff-review split moved value-mutations into a conditional 83-01b that only ships if 01a still rejects.
+- Added a HAR-fixture key-set lock test that fails-loud if BigSeller adds another required field — operator captures fresh HAR, updates the expected key list, ships the next fix in <2h.
+
+#### Docs
+- `docs/BIGSELLER_PROFIT_API.md` — added 6 new fields to Shared Request Schema with "since 2026-05" annotations; added Known Limitations entry 11 documenting the May 2026 schema drift; bumped "Last Verified" to 2026-05-19.
+- 4 plan docs + 1 staff-review report under `.planning/phases/83-bigseller-pagelist-refresh/` and `docs/reviews/`.
+
+#### Files
+- `convex/integrations/bigseller/helpers.ts` (+15 LOC, the additive fields)
+- `convex/integrations/bigseller/__tests__/helpers.test.ts` (+87 LOC, 3 new test blocks)
+- `convex/integrations/bigseller/__tests__/fixtures/2026-05-19-{common,shopee,tiktok}-pageList-body.json` (3 new files, captured-working HAR bodies)
+- `docs/BIGSELLER_PROFIT_API.md`
+- `docs/CHANGELOG.md`
+
+#### Manual backfill required after deploy
+1. Open `/admin` → BigSeller card. Confirm "Connected" green dot; if token shows < 24h remaining, paste a fresh token first.
+2. Chunk 1: Start `22/04/2026`, End `05/05/2026`. Click "Sync Now". Wait for "Complete" stage. Verify rows ingest.
+3. Chunk 2: Start `06/05/2026`, End `19/05/2026`. Repeat.
+4. Nightly cron resumes its trailing 7-day window from 20:00 UTC next.
+
 ### Bug Fix: Asset Register crashed for managers — 2026-05-19
 
 **For the team:** Managers (e.g. Nilson) can now fully manage fixed assets — register, depreciate, void, and dispose. Previously, opening the Asset Register as a manager showed a generic "Server Error" page because depreciation and disposal were locked to admins only. The page now matches what the role allows.

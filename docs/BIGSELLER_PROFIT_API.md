@@ -1,9 +1,14 @@
 # BigSeller API — Complete Integration Reference
 
-> **Source:** Reverse-engineered from browser HAR captures (Feb 2026)
+> **Source:** Reverse-engineered from browser HAR captures (Feb 2026, refreshed May 2026)
 > **Base URL:** `https://www.bigseller.com`
 > **Auth:** JWT session cookie (`muc_token`)
-> **Last Verified:** 2026-02-25
+> **Last Verified:** 2026-05-19 (Phase 83-01a)
+>
+> **Schema drift history:** Between 2026-02 and 2026-05, BigSeller silently added 6 new required
+> fields to the pageList request body (`settleStatus`, `transactionStatus`, `fbsOrder`, `groupType`,
+> `orderStatus`, `totalCurrency`). Omitting any causes `code:-1` with no field-name indication.
+> See "Shared Request Schema (Profit)" and "Known Limitations" entry 11 for details.
 
 ---
 
@@ -1308,6 +1313,12 @@ Full field reference:
 | `dimension` | string | Yes | `""` | Grouping dimension |
 | `evalationOrder` | string | Yes | `""` | Review/rating filter |
 | `categoryList` | string | Yes | `""` | Category filter |
+| `settleStatus` | int | **Yes** (since 2026-05) | `1` | Settlement filter. `1` = settled orders only. |
+| `transactionStatus` | string | **Yes** (since 2026-05) | `""` | Transaction-status filter. Empty = no constraint. |
+| `fbsOrder` | string | **Yes** (since 2026-05) | `""` | Fulfilled-by-Shopee filter. Empty = exclude FBS. |
+| `groupType` | int OR string | **Yes** (since 2026-05) | `0` (common) / `""` (shopee/tiktok) | Grouping dimension. **Type differs by endpoint** — int on `/pageList.json`, string on `/{shopee\|tiktok}/pageList.json`. |
+| `totalCurrency` | string | **Yes** (since 2026-05) | `"IDR"` | Currency for response totals. ISO code. Carries the role `currency` used to serve before the May 2026 drift. |
+| `orderStatus` | array | **Yes** on platform endpoints (since 2026-05) | `[]` | Per-row order-status filter. Sent ONLY on `/shopee/pageList.json` and `/tiktok/pageList.json` — omitted on the common `/pageList.json`. |
 
 **Filtering examples:**
 
@@ -1383,6 +1394,16 @@ Full field reference:
 
 10. **Account is multi-brand** -- The BigSeller account contains 7+ brands (Frollie,
     Credotti, Legato, etc.). Always filter by `shopIds` to isolate Frollie data.
+
+11. **Schema drift, May 2026 (Phase 83-01a)** -- BigSeller silently added 6 new required
+    fields to the pageList payload between Feb 2026 and May 2026: `settleStatus`,
+    `transactionStatus`, `fbsOrder`, `groupType`, `orderStatus` (platform endpoints only),
+    `totalCurrency`. Omitting any returns `code:-1` with the generic "Failed, please try
+    again later" message and no field-name indication. The `currency` field, formerly
+    `"IDR"`, must now be `""` on platform endpoints — the role moved to `totalCurrency`.
+    `groupType` is **type-differential**: int `0` on `/pageList.json`, string `""` on
+    platform endpoints. Note that schema drifts can recur — re-capture HAR and diff the
+    body whenever sync starts returning unexplained `code:-1` after a known-working window.
 
 ---
 

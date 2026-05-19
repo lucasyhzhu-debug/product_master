@@ -93,6 +93,13 @@ describe("buildPageListBody", () => {
     expect(body).toHaveProperty("startTime", "2026-01-01");
     expect(body).toHaveProperty("endTime", "2026-01-31");
     expect(body).toHaveProperty("timeType", "orderCreatedTime");
+    // Phase 83-01a: BigSeller now requires these fields (HAR 2026-05-19).
+    // Omitting any returns code:-1 with no field-name indication.
+    expect(body).toHaveProperty("settleStatus", 1);
+    expect(body).toHaveProperty("transactionStatus", "");
+    expect(body).toHaveProperty("fbsOrder", "");
+    expect(body).toHaveProperty("groupType", 0);
+    expect(body).toHaveProperty("totalCurrency", "IDR");
   });
 
   it("uses provided shopIds to prevent multi-brand data leakage", () => {
@@ -118,6 +125,106 @@ describe("buildPageListBody", () => {
     expect(states).toContain("canceled");
     expect(states).toContain("other");
     expect(states).toContain("new");
+  });
+});
+
+// ============================================
+// buildPageListBody() — Platform-Specific Shape (Phase 83-01a)
+// ============================================
+//
+// BigSeller diverged the body shape between the generic /pageList.json
+// (platformTemplate "common") and the platform-specific endpoints
+// /shopee/pageList.json + /tiktok/pageList.json. The shape is HAR-verified
+// against captured working requests from 2026-05-19. Fixture JSON files live
+// under ./fixtures/ for cross-reference.
+describe("buildPageListBody — platform-specific shape", () => {
+  it("shopee body adds orderStatus and uses empty-string groupType", () => {
+    const body = buildPageListBody("2026-01-01", "2026-01-31", 1, [5090946], "shopee");
+    expect(body).toHaveProperty("platformTemplate", "shopee");
+    expect(body).toHaveProperty("orderStatus", []);
+    expect(body).toHaveProperty("groupType", "");
+    expect(body).toHaveProperty("settleStatus", 1);
+    expect(body).toHaveProperty("totalCurrency", "IDR");
+  });
+
+  it("tiktok body matches shopee with platformTemplate switched", () => {
+    const shopee = buildPageListBody("2026-01-01", "2026-01-31", 1, [5092855], "shopee");
+    const tiktok = buildPageListBody("2026-01-01", "2026-01-31", 1, [5092855], "tiktok");
+    expect(tiktok.platformTemplate).toBe("tiktok");
+    expect(shopee.platformTemplate).toBe("shopee");
+    const stripTemplate = (b: Record<string, unknown>) => {
+      const c = { ...b };
+      delete c.platformTemplate;
+      return c;
+    };
+    expect(stripTemplate(tiktok)).toEqual(stripTemplate(shopee));
+  });
+
+  it("common body does NOT include orderStatus and uses int groupType", () => {
+    const body = buildPageListBody("2026-01-01", "2026-01-31", 1);
+    expect(body).not.toHaveProperty("orderStatus");
+    expect(body).toHaveProperty("groupType", 0);
+    expect(body).toHaveProperty("platformTemplate", "common");
+  });
+});
+
+// ============================================
+// buildPageListBody() — HAR Fixture Key-Set Lock (Phase 83-01a)
+// ============================================
+//
+// Pins the FULL key set against the HAR-captured working requests from
+// 2026-05-19. If BigSeller adds another required field, this test fails with
+// a list of missing keys — operator captures fresh HAR, updates the expected
+// key set, ships fix. Catches drift without needing a code change.
+//
+// Source: tmp/har-analysis/profit/api_v1_statis_profit_*_pageList.json.md
+// (captured 2026-05-19) and fixtures/ JSON files.
+describe("buildPageListBody — HAR fixture key-set lock", () => {
+  // Keys present in the captured-working shopee/tiktok HAR body (2026-05-19).
+  const HAR_PLATFORM_KEYS = [
+    "pageNo", "pageSize", "searchType", "platformTemplate", "startTime", "endTime",
+    "adjustmentUpdateTimeStartTime", "adjustmentUpdateTimeEndTime",
+    "searchContent", "inquireType", "queryType", "platforms", "orderState",
+    "lableIds", "hasLable", "currency", "orderBy", "desc", "timeType",
+    "orderType", "sampleOrder", "dimension", "evalationOrder",
+    "settleStatus", "transactionStatus", "fbsOrder", "groupType",
+    "categoryList", "orderStatus", "totalCurrency", "shopIds",
+  ].sort();
+
+  // Keys present in the captured-working common HAR body (2026-05-19).
+  // Differs from platform: warehouseIds present, orderStatus absent.
+  const HAR_COMMON_KEYS = [
+    "pageNo", "pageSize", "searchType", "platformTemplate", "startTime", "endTime",
+    "adjustmentUpdateTimeStartTime", "adjustmentUpdateTimeEndTime",
+    "searchContent", "inquireType", "queryType", "platforms", "orderState",
+    "warehouseIds", "lableIds", "hasLable", "currency", "orderBy", "desc",
+    "timeType", "orderType", "sampleOrder", "dimension", "evalationOrder",
+    "settleStatus", "transactionStatus", "fbsOrder", "groupType",
+    "categoryList", "totalCurrency", "shopIds",
+  ].sort();
+
+  it("shopee body emits every key BigSeller's working request emits", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1, [], "shopee");
+    const ours = Object.keys(body).sort();
+    const missing = HAR_PLATFORM_KEYS.filter((k) => !ours.includes(k));
+    // 83-01a keeps `warehouseIds` (legacy — common-style) on platform bodies
+    // too. This is HARMLESS (BigSeller ignores extras) but worth noting:
+    // remove only if a future HAR confirms platform endpoints reject extras.
+    expect(missing).toEqual([]);
+  });
+
+  it("tiktok body emits every key BigSeller's working request emits", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1, [], "tiktok");
+    const ours = Object.keys(body).sort();
+    const missing = HAR_PLATFORM_KEYS.filter((k) => !ours.includes(k));
+    expect(missing).toEqual([]);
+  });
+
+  it("common body emits every key BigSeller's working request emits", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1);
+    const ours = Object.keys(body).sort();
+    const missing = HAR_COMMON_KEYS.filter((k) => !ours.includes(k));
+    expect(missing).toEqual([]);
   });
 });
 

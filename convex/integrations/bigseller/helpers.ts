@@ -37,6 +37,11 @@ export function buildBigSellerHeaders(mucToken: string): Record<string, string> 
  * ALL fields are required -- omitting any causes silent code:-1 failures.
  * See docs/BIGSELLER_PROFIT_API.md "Shared Request Schema (Profit)".
  *
+ * Phase 83-01a (2026-05-19): added 6 newly-required fields (settleStatus,
+ * transactionStatus, fbsOrder, groupType, orderStatus, totalCurrency) that
+ * BigSeller silently introduced between Feb 2026 and May 2026. Field set is
+ * pinned by an HAR-fixture test under `__tests__/fixtures/`.
+ *
  * @param platformTemplate - "common" returns 0 for Shopee/TikTok fees.
  *   Use "shopee" or "tiktok" for platform-specific fee breakdown.
  */
@@ -47,6 +52,10 @@ export function buildPageListBody(
   shopIds: number[] = BIGSELLER_FROLLIE_SHOP_IDS,
   platformTemplate: "common" | "shopee" | "tiktok" = "common",
 ): Record<string, unknown> {
+  // Platform endpoints use string "" for groupType + include orderStatus.
+  // Common endpoint uses int 0 and omits orderStatus. HAR-verified 2026-05-19.
+  const isPlatformSpecific = platformTemplate === "shopee" || platformTemplate === "tiktok";
+
   return {
     pageNo,
     pageSize: BIGSELLER_PAGE_SIZE,
@@ -74,6 +83,15 @@ export function buildPageListBody(
     dimension: "",
     evalationOrder: "",
     categoryList: "",
+
+    // Required since 2026-05-19. Omitting any causes BigSeller to return
+    // code:-1 "Failed, please try again later" with no field-name indication.
+    settleStatus: 1,
+    transactionStatus: "",
+    fbsOrder: "",
+    groupType: isPlatformSpecific ? "" : 0,
+    totalCurrency: "IDR",
+    ...(isPlatformSpecific ? { orderStatus: [] } : {}),
   };
 }
 
