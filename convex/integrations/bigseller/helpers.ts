@@ -221,6 +221,14 @@ export interface BigSellerOrderRow {
   extraCostsFee?: number;
   // Case-variant field from platform-specific endpoints (lowercase 'f')
   otherfee?: number;
+  // TODO (deferred from staffreview I2): May 2026 HAR exposed 4 additional
+  // optional response fields not modeled here. Add typed entries when a
+  // downstream consumer needs them (e.g., COGS feature once Frollie configures
+  // per-SKU costs in BigSeller):
+  //   costOfGoodsSold?: number;                       // shopee/pageList.json
+  //   escrowTax?: number;                             // shopee/pageList.json
+  //   shopeeShippingRebate?: number;                  // shopee/pageList.json
+  //   deliverySellerProtectionFeePremiumAmount?: number; // shopee/pageList.json
 }
 
 /**

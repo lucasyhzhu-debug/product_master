@@ -86,6 +86,7 @@ describe("buildPageListBody", () => {
     expect(body).toHaveProperty("queryType", "sku");
     expect(body).toHaveProperty("orderState");
     expect(Array.isArray(body.orderState)).toBe(true);
+    // 83-01a keeps all 5 orderState values; 83-01b may trim. Re-pin if 01b lands.
     expect((body.orderState as string[]).length).toBe(5);
     expect(body).toHaveProperty("shopIds", [5090946, 5092855]);
     expect(body).toHaveProperty("pageNo", 1);
@@ -172,59 +173,72 @@ describe("buildPageListBody — platform-specific shape", () => {
 // buildPageListBody() — HAR Fixture Key-Set Lock (Phase 83-01a)
 // ============================================
 //
-// Pins the FULL key set against the HAR-captured working requests from
-// 2026-05-19. If BigSeller adds another required field, this test fails with
-// a list of missing keys — operator captures fresh HAR, updates the expected
-// key set, ships fix. Catches drift without needing a code change.
+// Locks our request-body shape against the HAR-captured working requests from
+// 2026-05-19. The fixture JSON files are the single source of truth for what
+// BigSeller accepted on that date.
 //
-// Source: tmp/har-analysis/profit/api_v1_statis_profit_*_pageList.json.md
-// (captured 2026-05-19) and fixtures/ JSON files.
-describe("buildPageListBody — HAR fixture key-set lock", () => {
-  // Keys present in the captured-working shopee/tiktok HAR body (2026-05-19).
-  const HAR_PLATFORM_KEYS = [
-    "pageNo", "pageSize", "searchType", "platformTemplate", "startTime", "endTime",
-    "adjustmentUpdateTimeStartTime", "adjustmentUpdateTimeEndTime",
-    "searchContent", "inquireType", "queryType", "platforms", "orderState",
-    "lableIds", "hasLable", "currency", "orderBy", "desc", "timeType",
-    "orderType", "sampleOrder", "dimension", "evalationOrder",
-    "settleStatus", "transactionStatus", "fbsOrder", "groupType",
-    "categoryList", "orderStatus", "totalCurrency", "shopIds",
-  ].sort();
+// What this catches:
+// 1. MISSING keys: if BigSeller adds another required field (the recurring
+//    drift pattern), our body becomes a subset of the fixture and this test
+//    fails with the missing list — operator captures fresh HAR, replaces the
+//    fixture JSON, ships fix. No new test code required.
+// 2. EXTRA keys: if our body grows past the captured HAR (e.g., we forgot to
+//    remove a legacy field), the reverse assertion fails. Today there's one
+//    intentional extra (`warehouseIds` on platform bodies) tracked via the
+//    per-platform KNOWN_EXTRA_KEYS allowlist below; BigSeller currently
+//    accepts this but the allowlist makes the deviation explicit.
+//
+// NOTE — value divergences from the HAR are INTENTIONAL in 83-01a (additive
+// contract). They are NOT asserted by this key-only lock test. The deferred
+// value mutations all live in 83-01b and only ship if 01a still rejects:
+//   currency      fixture="" vs code="IDR"  (common AND platform; deferred to 01b)
+//   searchContent fixture="" vs code=null   (platform-only; deferred to 01b)
+//   orderState    fixture=3-item vs code=5-item  (deferred to 01b)
+//
+// If 83-01a manual backfill succeeds, archive 01b's subtractive sub-waves and
+// the fixtures become permanent documentation of "what BigSeller accepted on
+// 2026-05-19" rather than a future-fix target.
+import commonFixture from "./fixtures/2026-05-19-common-pageList-body.json";
+import shopeeFixture from "./fixtures/2026-05-19-shopee-pageList-body.json";
+import tiktokFixture from "./fixtures/2026-05-19-tiktok-pageList-body.json";
 
-  // Keys present in the captured-working common HAR body (2026-05-19).
-  // Differs from platform: warehouseIds present, orderStatus absent.
-  const HAR_COMMON_KEYS = [
-    "pageNo", "pageSize", "searchType", "platformTemplate", "startTime", "endTime",
-    "adjustmentUpdateTimeStartTime", "adjustmentUpdateTimeEndTime",
-    "searchContent", "inquireType", "queryType", "platforms", "orderState",
-    "warehouseIds", "lableIds", "hasLable", "currency", "orderBy", "desc",
-    "timeType", "orderType", "sampleOrder", "dimension", "evalationOrder",
-    "settleStatus", "transactionStatus", "fbsOrder", "groupType",
-    "categoryList", "totalCurrency", "shopIds",
-  ].sort();
+describe("buildPageListBody — HAR fixture key-set lock", () => {
+  // 83-01a tolerates these extras on platform endpoints (BigSeller currently
+  // accepts them). Remove a key only if a future HAR confirms BigSeller now
+  // rejects it.
+  const PLATFORM_KNOWN_EXTRAS = ["warehouseIds"];
+
+  const assertKeyShape = (
+    builtBody: Record<string, unknown>,
+    fixture: Record<string, unknown>,
+    knownExtras: string[] = [],
+  ) => {
+    const ours = new Set(Object.keys(builtBody));
+    const theirs = new Set(Object.keys(fixture));
+    const missing = [...theirs].filter((k) => !ours.has(k));
+    const extra = [...ours].filter((k) => !theirs.has(k) && !knownExtras.includes(k));
+    return { missing, extra };
+  };
 
   it("shopee body emits every key BigSeller's working request emits", () => {
     const body = buildPageListBody("2026-04-19", "2026-05-19", 1, [], "shopee");
-    const ours = Object.keys(body).sort();
-    const missing = HAR_PLATFORM_KEYS.filter((k) => !ours.includes(k));
-    // 83-01a keeps `warehouseIds` (legacy — common-style) on platform bodies
-    // too. This is HARMLESS (BigSeller ignores extras) but worth noting:
-    // remove only if a future HAR confirms platform endpoints reject extras.
+    const { missing, extra } = assertKeyShape(body, shopeeFixture, PLATFORM_KNOWN_EXTRAS);
     expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
   });
 
   it("tiktok body emits every key BigSeller's working request emits", () => {
     const body = buildPageListBody("2026-04-19", "2026-05-19", 1, [], "tiktok");
-    const ours = Object.keys(body).sort();
-    const missing = HAR_PLATFORM_KEYS.filter((k) => !ours.includes(k));
+    const { missing, extra } = assertKeyShape(body, tiktokFixture, PLATFORM_KNOWN_EXTRAS);
     expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
   });
 
   it("common body emits every key BigSeller's working request emits", () => {
     const body = buildPageListBody("2026-04-19", "2026-05-19", 1);
-    const ours = Object.keys(body).sort();
-    const missing = HAR_COMMON_KEYS.filter((k) => !ours.includes(k));
+    const { missing, extra } = assertKeyShape(body, commonFixture);
     expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
   });
 });
 
