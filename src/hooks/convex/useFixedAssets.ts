@@ -25,9 +25,16 @@ export function useFixedAsset(assetId: Id<"fixedAssets"> | undefined) {
   );
 }
 
-/** Preview depreciation batch (admin only) */
-export function useDepreciationPreview() {
-  return useSessionQuery(api.fixedAssets.queries.getDepreciationPreview, {});
+/**
+ * Preview depreciation batch (manager + admin). Pass "skip" to avoid subscribing
+ * when the consuming dialog is closed — getDepreciationPreview scans all active
+ * depreciable assets, so lazy-loading is a meaningful perf win on page mount.
+ */
+export function useDepreciationPreview(mode: "run" | "skip" = "skip") {
+  return useSessionQuery(
+    api.fixedAssets.queries.getDepreciationPreview,
+    mode === "run" ? {} : "skip"
+  );
 }
 
 /** Lightweight depreciation reminder for Income Statement */
