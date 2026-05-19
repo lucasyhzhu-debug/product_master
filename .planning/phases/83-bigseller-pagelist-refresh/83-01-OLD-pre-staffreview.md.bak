@@ -1,0 +1,202 @@
+# Phase 83.01 — pageList Schema Fix
+
+> **Status:** Ready to execute
+> **Urgency:** P1. Production BigSeller data has been stale since 2026-04-22 (27 days).
+> **Estimated effort:** 30 LOC, 1 file change in code + tests, ~45 min including verify.
+
+## Git Workflow
+
+**Branch:** `fix/bigseller-pagelist-schema-refresh-83-01`
+**Base:** `main` (after pulling current main — confirm last 81 phase merge `e040b953` is present)
+**Checkpoints:**
+1. After code change: `npm run type-check` + `npm run lint`
+2. After tests: `npm run test -- bigseller`
+3. After manual sync (dev env): observe `bigsellerOrders` row count increases for May 8 – May 19 range
+4. Build: `npm run build`
+5. Triple-review gate per CLAUDE.md (this is a vendor-API contract change — exactly the kind triple-review catches)
+
+## Implementation Waves
+
+### Wave 1: Backend [SEQUENTIAL, single file]
+
+| Agent | Task | Files |
+|---|---|---|
+| convex-backend | Update `buildPageListBody()` to match HAR-verified schema | `convex/integrations/bigseller/helpers.ts` |
+| tdd-test-architect | Update helper unit tests to assert presence of every required field | `convex/integrations/bigseller/__tests__/helpers.test.ts` |
+
+**Exact change to `buildPageListBody()`:**
+
+```ts
+export function buildPageListBody(
+  startDate: string,
+  endDate: string,
+  pageNo: number,
+  shopIds: number[] = BIGSELLER_FROLLIE_SHOP_IDS,
+  platformTemplate: "common" | "shopee" | "tiktok" = "common",
+): Record<string, unknown> {
+  // Platform-specific endpoints use empty-string for groupType + currency;
+  // the generic /pageList.json common endpoint uses int 0 / "" respectively.
+  // Verified against HAR captured 2026-05-19 from www.bigseller.com.
+  const isPlatformSpecific = platformTemplate === "shopee" || platformTemplate === "tiktok";
+
+  return {
+    pageNo,
+    pageSize: BIGSELLER_PAGE_SIZE,
+    searchType: "order",
+    platformTemplate,
+    startTime: startDate,
+    endTime: endDate,
+    timeType: "orderCreatedTime",
+    // NEW (2026-05-19): currency is now sourced from totalCurrency; this field
+    // is empty for both common + platform endpoints in the working HAR.
+    currency: "",
+    // CHANGED (2026-05-19): BigSeller dropped "canceled" + "new" from accepted
+    // orderState values. Sending them produces code:-1 with no other indication.
+    orderState: ["completed", "shipped", "other"],
+    queryType: "sku",
+    orderType: "orderNo",
+    orderBy: "",
+    desc: false,
+    inquireType: 0,
+    platforms: [],
+    shopIds,
+    warehouseIds: [],
+    // Platform-specific endpoints want "" (empty string); common still accepts null.
+    // Use "" everywhere to match working HAR most exactly.
+    searchContent: isPlatformSpecific ? "" : null,
+    adjustmentUpdateTimeStartTime: null,
+    adjustmentUpdateTimeEndTime: null,
+    lableIds: null,
+    hasLable: "",
+    sampleOrder: null,
+    dimension: "",
+    evalationOrder: "",
+    categoryList: "",
+
+    // ── NEW REQUIRED FIELDS (2026-05-19) ─────────────────────────────────
+    // Omitting any of these produces code:-1 "Failed, please try again later".
+    // Source: HAR pageList request body, 2026-05-19.
+
+    /** Settlement filter. `1` = settled orders only. Verified working value. */
+    settleStatus: 1,
+    /** Transaction status filter. Empty = all. */
+    transactionStatus: "",
+    /** Fulfilled-by-Shopee filter. Empty = exclude FBS. */
+    fbsOrder: "",
+    /** Group dimension. int 0 on common; empty string on shopee/tiktok. */
+    groupType: isPlatformSpecific ? "" : 0,
+    /** Currency for response totals. ISO code, e.g. "IDR". */
+    totalCurrency: "IDR",
+    /** Per-row order-status filter. Empty = all. Only sent on platform endpoints. */
+    ...(isPlatformSpecific ? { orderStatus: [] } : {}),
+  };
+}
+```
+
+**Test updates (`helpers.test.ts`):**
+
+Add a new test block that pins every required field for each `platformTemplate`:
+
+```ts
+describe("buildPageListBody — 2026-05-19 schema", () => {
+  const REQUIRED_FIELDS_COMMON = [
+    "pageNo", "pageSize", "searchType", "platformTemplate", "startTime", "endTime",
+    "timeType", "currency", "orderState", "queryType", "orderType", "orderBy", "desc",
+    "inquireType", "platforms", "shopIds", "warehouseIds", "searchContent",
+    "adjustmentUpdateTimeStartTime", "adjustmentUpdateTimeEndTime", "lableIds", "hasLable",
+    "sampleOrder", "dimension", "evalationOrder", "categoryList",
+    "settleStatus", "transactionStatus", "fbsOrder", "groupType", "totalCurrency",
+  ];
+
+  it("common body contains every required field, none of the banned orderState values", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1);
+    for (const field of REQUIRED_FIELDS_COMMON) expect(body).toHaveProperty(field);
+    expect(body.orderState).toEqual(["completed", "shipped", "other"]);
+    expect(body.totalCurrency).toBe("IDR");
+    expect(body.groupType).toBe(0);
+  });
+
+  it("shopee body adds orderStatus and uses empty-string groupType", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1, [5090946], "shopee");
+    for (const field of REQUIRED_FIELDS_COMMON) expect(body).toHaveProperty(field);
+    expect(body).toHaveProperty("orderStatus");
+    expect(body.orderStatus).toEqual([]);
+    expect(body.groupType).toBe("");
+    expect(body.searchContent).toBe("");
+  });
+
+  it("tiktok body has identical shape to shopee with platformTemplate switched", () => {
+    const shopee = buildPageListBody("2026-04-19", "2026-05-19", 1, [5092855], "shopee");
+    const tiktok = buildPageListBody("2026-04-19", "2026-05-19", 1, [5092855], "tiktok");
+    delete (shopee as any).platformTemplate;
+    delete (tiktok as any).platformTemplate;
+    expect(tiktok).toEqual(shopee);
+  });
+
+  it("orderState never contains canceled or new", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1);
+    expect(body.orderState).not.toContain("canceled");
+    expect(body.orderState).not.toContain("new");
+  });
+});
+```
+
+### Wave 2: Documentation [PARALLEL with Wave 1]
+
+| Agent | Task | Files |
+|---|---|---|
+| convex-backend | Update Shared Request Schema table (add 6 fields, update orderState defaults) | `docs/BIGSELLER_PROFIT_API.md` |
+| convex-backend | Add "2026-05-19 schema drift" entry to `Known Limitations` section | `docs/BIGSELLER_PROFIT_API.md` |
+
+### Wave 3: Verification [SEQUENTIAL after Wave 1+2]
+
+| Agent | Task |
+|---|---|
+| Bash | `npm run type-check` |
+| Bash | `npm run lint` |
+| Bash | `npm run test -- bigseller` (helpers + sync + cron tests) |
+| Bash | `npm run build` |
+| user (manual) | Paste fresh MUC token in /admin BigSeller card, click "Sync Now" with date range 2026-04-22 → 2026-05-19, confirm `bigsellerOrders` row count grows and `bigsellerSyncState.stage = complete` with `totalOrders > 0` |
+| code-auditor | Audit changed lines for type safety, no `any` regressions, no `// removed` comments |
+| Skill: triple-review | Triple-review gate per CLAUDE.md (vendor-API change — high blast-radius risk) |
+
+## Failure modes to watch during manual verify
+
+1. **Still returns `code: -1`** with our fix. → BigSeller may have added ANOTHER field
+   we didn't capture in the HAR. Action: re-export HAR, diff body. Sub-2-hour fix.
+2. **Auth failure (`code: 401006`)** — token expired. → User pastes fresh token via the
+   existing `BigSellerTokenDialog`. Unrelated to this fix.
+3. **`totalOrders` increases but UI table still shows 22 Apr as latest.** → Frontend
+   query caching issue. Action: force reload `bigsellerOrders` query subscription.
+4. **Shopee succeeds, TikTok still rejects** (or vice-versa). → Per-platform field
+   variance we didn't capture. Tightened tests should catch this earlier.
+
+## Documentation Updates
+
+- [ ] `docs/CHANGELOG.md` — new entry "Phase 83.01: Fix BigSeller pageList schema drift (2026-05-19)"
+- [ ] `docs/BIGSELLER_PROFIT_API.md` — Shared Request Schema table + Known Limitations
+- [ ] Memory note → update lessons.md with the field-list snapshot + date so we know when the schema was last verified
+- [ ] Update `docs/ROADMAP.md` only if Phase 82.x has BigSeller items that this preempts
+
+## Success Criteria
+
+- [ ] `npm run type-check` passes
+- [ ] `npm run lint` passes
+- [ ] `npm run build` succeeds
+- [ ] All BigSeller unit tests pass (helpers, sync, cron)
+- [ ] All BigSeller integration tests pass (`bigsellerOrders/__tests__/integration.test.ts`)
+- [ ] Manual sync against prod BigSeller API for 2026-04-22 → 2026-05-19 returns `totalOrders > 0` and ingests rows into `bigsellerOrders`
+- [ ] `bigsellerOrders` "Synced Orders" table in admin UI shows rows newer than 2026-04-22 within 1 minute of sync completion
+- [ ] `externalRevenue` rows are created and linked back into `bigsellerOrders.linkedRevenueId`
+- [ ] `externalRevenueItems` child rows materialize for orders with `skuVoList` (Phase 79 bridge still works)
+- [ ] No new TypeScript errors anywhere in repo
+- [ ] Sales Analytics page renders BigSeller orders for the May 2026 window
+
+## Out of scope (deferred to 83.02)
+
+- Parallelizing platform fetch (Shopee + TikTok in parallel)
+- Parallelizing pages 2..N within a platform (after page 1 reveals totalPage)
+- Adaptive polling (15s → 30s → 60s backoff instead of fixed 60s × 8)
+- N+1 query elimination in revenue linking (`getRevenueById` per row → `getRevenueByIds` batch)
+- Capturing the refreshed `muctoken` from response headers to auto-extend the 20-day TTL
+- Raising `pageSize` from 50 → 100 to halve page-count
