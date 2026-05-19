@@ -25,9 +25,12 @@ export function useFixedAsset(assetId: Id<"fixedAssets"> | undefined) {
   );
 }
 
-/** Preview depreciation batch (admin only) */
-export function useDepreciationPreview() {
-  return useSessionQuery(api.fixedAssets.queries.getDepreciationPreview, {});
+/** Preview depreciation batch (admin only). Pass "skip" to disable — required for non-admins and when the consuming dialog is closed. */
+export function useDepreciationPreview(mode: "run" | "skip" = "run") {
+  return useSessionQuery(
+    api.fixedAssets.queries.getDepreciationPreview,
+    mode === "skip" ? "skip" : {}
+  );
 }
 
 /** Lightweight depreciation reminder for Income Statement */

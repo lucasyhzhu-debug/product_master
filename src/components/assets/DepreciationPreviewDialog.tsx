@@ -25,7 +25,7 @@ interface DepreciationPreviewDialogProps {
 }
 
 export function DepreciationPreviewDialog({ open, onClose }: DepreciationPreviewDialogProps) {
-  const preview = useDepreciationPreview();
+  const preview = useDepreciationPreview(open ? "run" : "skip");
   const { mutate: runDepreciation } = useRunDepreciation();
   const [running, setRunning] = useState(false);
 

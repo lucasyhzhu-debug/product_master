@@ -608,14 +608,18 @@ export function AssetRegister() {
           }
         }}
       />
-      <DepreciationPreviewDialog
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-      />
-      <VoidDepreciationDialog
-        open={voidOpen}
-        onClose={() => setVoidOpen(false)}
-      />
+      {isAdmin && (
+        <>
+          <DepreciationPreviewDialog
+            open={previewOpen}
+            onClose={() => setPreviewOpen(false)}
+          />
+          <VoidDepreciationDialog
+            open={voidOpen}
+            onClose={() => setVoidOpen(false)}
+          />
+        </>
+      )}
       <AssetDetailPanel
         assetId={selectedAssetId}
         open={!!selectedAssetId}
