@@ -86,6 +86,7 @@ describe("buildPageListBody", () => {
     expect(body).toHaveProperty("queryType", "sku");
     expect(body).toHaveProperty("orderState");
     expect(Array.isArray(body.orderState)).toBe(true);
+    // 83-01a keeps all 5 orderState values; 83-01b may trim. Re-pin if 01b lands.
     expect((body.orderState as string[]).length).toBe(5);
     expect(body).toHaveProperty("shopIds", [5090946, 5092855]);
     expect(body).toHaveProperty("pageNo", 1);
@@ -93,6 +94,13 @@ describe("buildPageListBody", () => {
     expect(body).toHaveProperty("startTime", "2026-01-01");
     expect(body).toHaveProperty("endTime", "2026-01-31");
     expect(body).toHaveProperty("timeType", "orderCreatedTime");
+    // Phase 83-01a: BigSeller now requires these fields (HAR 2026-05-19).
+    // Omitting any returns code:-1 with no field-name indication.
+    expect(body).toHaveProperty("settleStatus", 1);
+    expect(body).toHaveProperty("transactionStatus", "");
+    expect(body).toHaveProperty("fbsOrder", "");
+    expect(body).toHaveProperty("groupType", 0);
+    expect(body).toHaveProperty("totalCurrency", "IDR");
   });
 
   it("uses provided shopIds to prevent multi-brand data leakage", () => {
@@ -118,6 +126,119 @@ describe("buildPageListBody", () => {
     expect(states).toContain("canceled");
     expect(states).toContain("other");
     expect(states).toContain("new");
+  });
+});
+
+// ============================================
+// buildPageListBody() — Platform-Specific Shape (Phase 83-01a)
+// ============================================
+//
+// BigSeller diverged the body shape between the generic /pageList.json
+// (platformTemplate "common") and the platform-specific endpoints
+// /shopee/pageList.json + /tiktok/pageList.json. The shape is HAR-verified
+// against captured working requests from 2026-05-19. Fixture JSON files live
+// under ./fixtures/ for cross-reference.
+describe("buildPageListBody — platform-specific shape", () => {
+  it("shopee body adds orderStatus and uses empty-string groupType", () => {
+    const body = buildPageListBody("2026-01-01", "2026-01-31", 1, [5090946], "shopee");
+    expect(body).toHaveProperty("platformTemplate", "shopee");
+    expect(body).toHaveProperty("orderStatus", []);
+    expect(body).toHaveProperty("groupType", "");
+    expect(body).toHaveProperty("settleStatus", 1);
+    expect(body).toHaveProperty("totalCurrency", "IDR");
+  });
+
+  it("tiktok body matches shopee with platformTemplate switched", () => {
+    const shopee = buildPageListBody("2026-01-01", "2026-01-31", 1, [5092855], "shopee");
+    const tiktok = buildPageListBody("2026-01-01", "2026-01-31", 1, [5092855], "tiktok");
+    expect(tiktok.platformTemplate).toBe("tiktok");
+    expect(shopee.platformTemplate).toBe("shopee");
+    const stripTemplate = (b: Record<string, unknown>) => {
+      const c = { ...b };
+      delete c.platformTemplate;
+      return c;
+    };
+    expect(stripTemplate(tiktok)).toEqual(stripTemplate(shopee));
+  });
+
+  it("common body does NOT include orderStatus and uses int groupType", () => {
+    const body = buildPageListBody("2026-01-01", "2026-01-31", 1);
+    expect(body).not.toHaveProperty("orderStatus");
+    expect(body).toHaveProperty("groupType", 0);
+    expect(body).toHaveProperty("platformTemplate", "common");
+  });
+});
+
+// ============================================
+// buildPageListBody() — HAR Fixture Key-Set Lock (Phase 83-01a)
+// ============================================
+//
+// Locks our request-body shape against the HAR-captured working requests from
+// 2026-05-19. The fixture JSON files are the single source of truth for what
+// BigSeller accepted on that date.
+//
+// What this catches:
+// 1. MISSING keys: if BigSeller adds another required field (the recurring
+//    drift pattern), our body becomes a subset of the fixture and this test
+//    fails with the missing list — operator captures fresh HAR, replaces the
+//    fixture JSON, ships fix. No new test code required.
+// 2. EXTRA keys: if our body grows past the captured HAR (e.g., we forgot to
+//    remove a legacy field), the reverse assertion fails. Today there's one
+//    intentional extra (`warehouseIds` on platform bodies) tracked via the
+//    per-platform KNOWN_EXTRA_KEYS allowlist below; BigSeller currently
+//    accepts this but the allowlist makes the deviation explicit.
+//
+// NOTE — value divergences from the HAR are INTENTIONAL in 83-01a (additive
+// contract). They are NOT asserted by this key-only lock test. The deferred
+// value mutations all live in 83-01b and only ship if 01a still rejects:
+//   currency      fixture="" vs code="IDR"  (common AND platform; deferred to 01b)
+//   searchContent fixture="" vs code=null   (platform-only; deferred to 01b)
+//   orderState    fixture=3-item vs code=5-item  (deferred to 01b)
+//
+// If 83-01a manual backfill succeeds, archive 01b's subtractive sub-waves and
+// the fixtures become permanent documentation of "what BigSeller accepted on
+// 2026-05-19" rather than a future-fix target.
+import commonFixture from "./fixtures/2026-05-19-common-pageList-body.json";
+import shopeeFixture from "./fixtures/2026-05-19-shopee-pageList-body.json";
+import tiktokFixture from "./fixtures/2026-05-19-tiktok-pageList-body.json";
+
+describe("buildPageListBody — HAR fixture key-set lock", () => {
+  // 83-01a tolerates these extras on platform endpoints (BigSeller currently
+  // accepts them). Remove a key only if a future HAR confirms BigSeller now
+  // rejects it.
+  const PLATFORM_KNOWN_EXTRAS = ["warehouseIds"];
+
+  const assertKeyShape = (
+    builtBody: Record<string, unknown>,
+    fixture: Record<string, unknown>,
+    knownExtras: string[] = [],
+  ) => {
+    const ours = new Set(Object.keys(builtBody));
+    const theirs = new Set(Object.keys(fixture));
+    const missing = [...theirs].filter((k) => !ours.has(k));
+    const extra = [...ours].filter((k) => !theirs.has(k) && !knownExtras.includes(k));
+    return { missing, extra };
+  };
+
+  it("shopee body emits every key BigSeller's working request emits", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1, [], "shopee");
+    const { missing, extra } = assertKeyShape(body, shopeeFixture, PLATFORM_KNOWN_EXTRAS);
+    expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
+  });
+
+  it("tiktok body emits every key BigSeller's working request emits", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1, [], "tiktok");
+    const { missing, extra } = assertKeyShape(body, tiktokFixture, PLATFORM_KNOWN_EXTRAS);
+    expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
+  });
+
+  it("common body emits every key BigSeller's working request emits", () => {
+    const body = buildPageListBody("2026-04-19", "2026-05-19", 1);
+    const { missing, extra } = assertKeyShape(body, commonFixture);
+    expect(missing).toEqual([]);
+    expect(extra).toEqual([]);
   });
 });
 
