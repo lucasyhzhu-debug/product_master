@@ -3,7 +3,7 @@ phase: 83-bigseller-pagelist-refresh
 plan: 07
 type: execute
 wave: 4
-depends_on: ["83-06-pagesize-bump"]
+depends_on: ["83-06-pagesize-bump", "83-03-token-auto-refresh"]
 files_modified:
   - convex/integrations/bigseller/sync.ts
   - convex/integrations/bigseller/__tests__/sync.test.ts
@@ -43,6 +43,8 @@ Per SPEC O1 race caveat: skip per-platform `updateSyncStage` writes that would r
 
 Purpose: cut full-month sync from ~6-10 min toward ~1-2 min. Highest-risk optimization; ships with new race-condition tests.
 Output: page fan-out + platform fan-out with a capped-concurrency helper, race tests, CHANGELOG.
+
+**Sequencing (staffreview I1):** this plan refactors the token-capture block that 83-03 introduces (`latestRefreshedToken` / `authErrorObserved` / persist-once-at-end) into the new `fetchPage` flow and must make it concurrency-safe. It therefore `depends_on` 83-03 in addition to the 83-04→05→06 low-risk-first chain — 83-03 MUST land before this PR or the token-capture code it edits will not exist. If for any reason 83-03 has not landed in the executor's tree, STOP and surface the missing dependency rather than re-introducing the capture block here.
 </objective>
 
 <execution_context>
@@ -176,6 +178,7 @@ If `processPlatform` for one platform hits a page-1 fatal rejection, it should r
     - a page-2 failure in parallel mode surfaces in the error log; page-1 fatal still marks the sync failed/error
     - the cross-platform leak guard throws when a revenue row's source != the order's platform
     - token auto-refresh still persists the freshest muctoken under concurrency
+    - (staffreview R2) when ONE platform hits a page-1 fatal under O1, the sync reaches a defined terminal status ("error", with the failing platform named) while the OTHER platform's data still lands — this is a deliberate behavior change from today's all-or-nothing early-return, and must be asserted
   </behavior>
   <action>
 Extend `convex/integrations/bigseller/__tests__/sync.test.ts` with `describe("BigSeller parallel fetch (O1/O2)")`:
@@ -184,6 +187,7 @@ Extend `convex/integrations/bigseller/__tests__/sync.test.ts` with `describe("Bi
 - `it("preserves the cross-platform leak guard under concurrency")` — force a revenue row whose `source` mismatches the order's platform; assert the guard throws (or that the item-emit path rejects it). Reuse/keep the existing leak-guard coverage.
 - `it("still persists the freshest muctoken under concurrent platforms")` — both platforms return a fresher muctoken header; assert `platformCredentials.currentToken` is updated and `lastRefreshStatus === "auto-refreshed-from-response"` (regression guard for 83-03 under O1/O2).
 - `it("honors the page concurrency cap of 4")` — if `mapWithConcurrency` is unit-testable in isolation, assert it never runs more than 4 fn calls in flight (track an in-flight counter); otherwise assert ordering of results by pageNo.
+- (staffreview R2) `it("scopes a one-platform page-1 fatal to that platform under O1")` — mock Shopee page-1 fatal + TikTok success; assert (a) the sync terminal status is "error" with the failing platform identifiable in the sync log / error message, and (b) TikTok's orders still landed in `bigsellerOrders`. This locks the deliberate partial-success behavior change so a future refactor can't silently revert to all-or-nothing or, worse, drop the surviving platform's data.
 
 Use real assertions. CHANGELOG entry: "Phase 83-07: BigSeller sync O1+O2 — parallel platform fetch (Shopee + TikTok concurrent) and parallel pages 2..N within a platform (Promise.all, concurrency cap 4, results ordered by pageNo). Per-platform stage races removed (overall status only). Per-externalTransactionId idempotency + the T-79-02 cross-platform leak guard keep concurrent writes correct (no double-count, no leak). New race-condition tests added. Cuts full-month sync from ~6-10 min toward ~1-2 min." Run the build gate.
   </action>
@@ -192,7 +196,9 @@ Use real assertions. CHANGELOG entry: "Phase 83-07: BigSeller sync O1+O2 — par
   </verify>
   <acceptance_criteria>
     - `grep -ci 'double-count\|concurren' convex/integrations/bigseller/__tests__/sync.test.ts` returns >= 1
-    - `grep -c "it(" convex/integrations/bigseller/__tests__/sync.test.ts` increased by >= 4 over the 83-03 baseline
+    - `grep -c 'BigSeller parallel fetch' convex/integrations/bigseller/__tests__/sync.test.ts` returns 1 (the new describe block exists)
+    - (staffreview R1 — absolute, not a baseline-delta) `grep -c "it(" convex/integrations/bigseller/__tests__/sync.test.ts` returns >= 9 (>= 5 from 83-03/04 + the 5 new O1/O2 cases incl. the partial-failure test)
+    - `grep -ci 'page-1 fatal\|scopes a one-platform' convex/integrations/bigseller/__tests__/sync.test.ts` returns >= 1 (the R2 partial-failure test is present)
     - `grep -ci '83-07' docs/CHANGELOG.md` returns >= 1
     - `npm run test -- bigseller` exits 0
     - `npm run build` exits 0

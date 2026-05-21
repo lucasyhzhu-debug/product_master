@@ -123,8 +123,9 @@ Import `pollDelayMs` from `./config` (alongside the existing `BIGSELLER_POLL_INT
     <automated>npm run test -- bigseller</automated>
   </verify>
   <acceptance_criteria>
-    - `grep -c 'runAfter(\s*pollDelayMs' convex/integrations/bigseller/sync.ts` returns 4 (use a tolerant regex if whitespace varies; the count of `pollDelayMs(` should be >= 4)
-    - `grep -c 'runAfter(\s*BIGSELLER_POLL_INTERVAL_MS' convex/integrations/bigseller/sync.ts` returns 0
+    <!-- staffreview I2: the runAfter calls are MULTI-LINE (delay arg on its own line, e.g. sync.ts:322-324), so a single-line `grep 'runAfter(\s*pollDelayMs'` returns 0 even after a correct edit, and `grep 'runAfter(\s*BIGSELLER_POLL_INTERVAL_MS'` is a FALSE-PASS (already 0 before any change). Use line-count of the call expression instead. -->
+    - `grep -c 'pollDelayMs(' convex/integrations/bigseller/sync.ts` returns >= 5 (1 import + 4 reschedule-site delay args: pollDelayMs(0) at the first poll, pollDelayMs(args.pollAttempt) at the 3 pollSyncTask sites)
+    - the delay argument on the line directly under each of the 4 `ctx.scheduler.runAfter(` poll-reschedule sites (≈L322-324, L375-379, L415-419, L558) is `pollDelayMs(...)`, NOT `BIGSELLER_POLL_INTERVAL_MS` — verify by reading those 4 sites (BIGSELLER_POLL_INTERVAL_MS legitimately remains on its import line and as an unused export, so a bare grep count is not a clean signal)
     - `npm run test -- bigseller` exits 0
   </acceptance_criteria>
   <done>All 4 reschedules use pollDelayMs(currentAttempt); no remaining flat-interval reschedule; bigseller suite green.</done>
