@@ -292,6 +292,15 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 - `.planning/phases/83-bigseller-pagelist-refresh/83-01b-fallback-and-token-refresh-SPEC.md` — token auto-refresh design spec (Wave 4) + archived W1-W3 standby
 - `.planning/phases/83-bigseller-pagelist-refresh/83-02-sync-optimization-SPEC.md` — O1-O4/O6 design spec
 
+**Plans:** 5 plans (one per PR, D-06) — execution order low-risk-first (D-05): 83-04 → 83-05 → 83-06 → 83-07; 83-03 independent.
+
+Plans:
+- [ ] 83-03-token-auto-refresh-PLAN.md — Token auto-refresh (D-03) + freshness banner (D-04) + D-02 CHANGELOG archival note [own PR, wave 1]
+- [ ] 83-04-n1-elimination-PLAN.md — O4 N+1 elimination via getRevenueByIds batch lookup [wave 1]
+- [ ] 83-05-adaptive-polling-PLAN.md — O3 adaptive polling (15s×3/30s×2/60s) [wave 2, after 83-04]
+- [ ] 83-06-pagesize-bump-PLAN.md — O6 pageSize 50→100 [wave 3, after 83-05]
+- [ ] 83-07-parallel-fetch-PLAN.md — O1+O2 parallel platforms + pages (paired) + race tests [wave 4, after 83-06]
+
 ---
 
 ### Phase 84: QRIS Payment Integration — Xendit (SPEC IN PROGRESS — created 2026-05-21)
