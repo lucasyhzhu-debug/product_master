@@ -319,7 +319,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 84-01-PLAN.md — Wave 0 test scaffold + qrcode.react install + vendor cap bump (650 kB)
+- [x] 84-01-PLAN.md — Wave 0 test scaffold + qrcode.react install + vendor cap bump (650 kB) ✅ (dfa44409)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 84-02-PLAN.md — qrisPayments schema + businessSettings.qrisNmid + QrisProvider interface + xendit adapter (R1)

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: → v2.1 Interregnum
 status: executing
-stopped_at: Phase 84 UI-SPEC approved
-last_updated: "2026-05-21T16:01:43.384Z"
-last_activity: 2026-05-21 -- Phase 84 planning complete
+stopped_at: Completed 84-01-PLAN.md (Wave 0 RED scaffold)
+last_updated: "2026-05-21T16:12:32.000Z"
+last_activity: 2026-05-21 -- Phase 84 Plan 01 complete (RED scaffold + qrcode.react)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 10
-  completed_plans: 1
-  percent: 10
+  completed_plans: 2
+  percent: 20
 ---
 
 # Project State
@@ -20,14 +20,16 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-05-11)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v2.0 closed — planning queue for v2.1 (Phase 77 Data Health Dashboard, ADR-0001 schema field, Phase 74.5.3 packaging BOM auto-deduction)
+**Current focus:** Phase 84 — qris-payment-integration
 
 ## Current Position
 
+Phase: 84 (qris-payment-integration) — EXECUTING
+Plan: 2 of 5
 Milestone: v2.0 SHIPPED 2026-05-11 (tag `v2.0`, last commit `ddb4da74`)
-Status: Ready to execute
-Next: `/gsd-new-milestone` to define v2.1 goals + requirements
-Last activity: 2026-05-21 -- Phase 84 planning complete
+Status: Executing Phase 84
+Next: Execute 84-02-PLAN.md (qrisPayments schema + xendit adapter — turns RED Wave 0 tests GREEN)
+Last activity: 2026-05-21 -- Phase 84 Plan 01 complete (Wave 0 RED scaffold)
 
 Progress: [████████▌░] 84%
 
@@ -47,6 +49,7 @@ No new decisions yet for v2.0.
 - [Phase 80.2]: Phase 80.2 Plan 02: Paginated-WRITE backfill mutation + self-heal guard — repairs 219 orphan Direct externalRevenue parents, fixes syncInternalOrders:126 unconditional skip (first paginated-WRITE mutation pattern in convex/)
 - [Phase 80.2]: Plan 03 Wave 3: Replaced plan's skuPareto reference with consolidated skuSnapshot.skuTop (Phase 80.1 refactor); used novel convex-test t.action() pattern for syncInternalOrders guard-swap test (no fallback needed).
 - [Phase 80.2]: Plan 04 partially executed (Task 4.1 + 4.10 auto); Tasks 4.2-4.9 + 4.11-4.12 pending human verification (prod access, admin tokens, UI check, merge authority)
+- [Phase 84]: Plan 01: Wave 0 RED scaffold — installed qrcode.react@4.2.0 (named exports) + bumped vendor-*.js cap 600->650 kB atomically (pitfall #16); 6 RED test files cover R1-R7. Key insight: npm run type-check/build exclude src tests + entire convex/ tree, so RED imports of unbuilt modules need NO @ts-expect-error — RED enforced purely under vitest. _factory.makeAwaitingPaymentOrder seeds default storageLocation + packaging componentType (trackInventory:true) + FIFO inventoryBatches + componentStock + orderItems so reserveStockForOrderInternal decrements real stock (non-vacuous idempotency replay, staffreview C5); readReservedQty probes componentStock.totalReserved before/after.
 - [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
 - [Phase 74.5.2]: Plan 02: Added `by_source_deductedAt` compound index on `externalRevenueItems` + created `convex/productInventory/backfill.ts` with 4 exports (backfillOnePage / backfillChannelDeductions / runChannelBackfill / getChannelBackfillPreflight). Admin-gated, flag-independent (D74.5.2-L13), preserves revenue.transactionDate as createdAt (D-16), set-once idempotency via inventoryDeductedAt patched ONLY on result.deducted===true (D-19), silent-drop guard for null linkedMenuProductId (D74.5.2-L4), 100K row runaway cap via MAX_ITERATIONS=500.
 - [Phase 74.5.2]: Plan 03: 8 regression tests for backfill.ts (idempotency, timestamp preservation, D74.5.2-L4 silent-drop guard, admin gate, D74.5.2-L13 flag-independence, per-source isolation, 200+ item chunking, preflight per-source audit gate). Applied Plan 01 / D74.5.2-L1 precedent: convex-test's module resolver fails for t.mutation(internal.*) / t.query(api.*) against the productInventory subtree; fixed by adding _backfillOnePageForTest / _runChannelBackfillForTest / _getChannelBackfillPreflightForTest test-only direct-handler exports to backfill.ts (mirrors channelAudit.ts _runFullAuditForTest).
@@ -87,6 +90,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-05-21T15:15:50.259Z
-Stopped at: Phase 84 UI-SPEC approved
-Resume file: .planning/phases/84-qris-payment-integration/84-UI-SPEC.md
+Last session: 2026-05-21T16:12:32.000Z
+Stopped at: Completed 84-01-PLAN.md (Wave 0 RED scaffold)
+Resume file: .planning/phases/84-qris-payment-integration/84-02-PLAN.md
