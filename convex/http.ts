@@ -9,6 +9,7 @@ import {
   handleIntegrationStatusWebhook,
   handleMenuPushWebhook,
 } from "./integrations/grabfood/webhooks";
+import { handleXenditQrPayment } from "./integrations/qris/webhooks";
 
 const http = httpRouter();
 
@@ -99,6 +100,18 @@ http.route({
   path: "/api/grabfood/menu/push",
   method: "POST",
   handler: handleMenuPushWebhook,
+});
+
+// ─── Xendit QRIS Payment Webhook ─────────────────────────────────────────────
+// Inbound paid signal for QRIS orders. PUBLIC endpoint — authenticated by a
+// constant-time x-callback-token compare inside the handler (401 on missing/
+// invalid token, no state change). The only way a QRIS order reaches
+// PaymentReceived; drives the idempotent transition via Plan 03's mutation.
+
+http.route({
+  path: "/api/xendit/qr-payment",
+  method: "POST",
+  handler: handleXenditQrPayment,
 });
 
 export default http;

@@ -105,6 +105,7 @@ import type * as integrations_k3mart_config from "../integrations/k3mart/config.
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
 import type * as integrations_k3mart_queries from "../integrations/k3mart/queries.js";
 import type * as integrations_qris_provider from "../integrations/qris/provider.js";
+import type * as integrations_qris_webhooks from "../integrations/qris/webhooks.js";
 import type * as integrations_qris_xendit from "../integrations/qris/xendit.js";
 import type * as integrations_registry from "../integrations/registry.js";
 import type * as integrityChecks_mutations from "../integrityChecks/mutations.js";
@@ -367,6 +368,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
   "integrations/k3mart/queries": typeof integrations_k3mart_queries;
   "integrations/qris/provider": typeof integrations_qris_provider;
+  "integrations/qris/webhooks": typeof integrations_qris_webhooks;
   "integrations/qris/xendit": typeof integrations_qris_xendit;
   "integrations/registry": typeof integrations_registry;
   "integrityChecks/mutations": typeof integrityChecks_mutations;
