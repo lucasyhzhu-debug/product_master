@@ -318,9 +318,16 @@ Plans:
 **Plans:** 5 plans in 4 waves
 
 Plans:
+**Wave 1**
 - [ ] 84-01-PLAN.md — Wave 0 test scaffold + qrcode.react install + vendor cap bump (650 kB)
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 84-02-PLAN.md — qrisPayments schema + businessSettings.qrisNmid + QrisProvider interface + xendit adapter (R1)
+
+**Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 84-03-PLAN.md — qrisPayments module: idempotent transition + supersede mutations + order_staff-safe queries + guarded createQrisInvoice action (R2/R3/R4b/R4c)
+
+**Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 84-04-PLAN.md — Xendit webhook httpAction (token verify → 401, idempotent) + http.ts route (R4/R4a)
 - [ ] 84-05-PLAN.md — useQris hooks + QrisChargeDialog (reactive paid flip) + OrderDetail button & needsReview badge + dev Test-Mode E2E (R5/R6/R7)
 
