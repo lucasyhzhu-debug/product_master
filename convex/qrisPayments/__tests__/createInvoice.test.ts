@@ -17,7 +17,9 @@ import schema from "../../schema";
 import { internal } from "../../_generated/api";
 import { makeAwaitingPaymentOrder } from "./_factory";
 
-const modules = import.meta.glob("../../**/*.ts");
+// Absolute-root glob — see mutations.test.ts: Vite collapses the same-dir paths
+// so convex-test cannot resolve `qrisPayments/*` function refs (RESEARCH Pitfall 5).
+const modules = import.meta.glob("/convex/**/*.ts");
 
 describe("createInvoice guards (R3)", () => {
   it("throws and writes nothing when the order is not AwaitingPayment", async () => {
