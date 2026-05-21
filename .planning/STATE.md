@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: Financial Management & Data Quality
-status: SHIPPED — v2.0 milestone closed, ready for v2.1
-stopped_at: v2.0 milestone close complete
-last_updated: "2026-05-11T08:00:00.000Z"
+milestone_name: → v2.1 Interregnum
+status: planning
+stopped_at: Phase 83 context gathered
+last_updated: "2026-05-21T14:50:14.673Z"
 last_activity: 2026-05-11
 progress:
-  total_phases: 17
-  completed_phases: 17
-  total_plans: 79
-  completed_plans: 79
-  percent: 100
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 84
 ---
 
 # Project State
@@ -87,6 +87,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-05-10T06:01:11.311Z
-Stopped at: Phase 81 context gathered
-Resume file: .planning/phases/81-domain-vocabulary-deepening/81-CONTEXT.md
+Last session: 2026-05-21T14:50:14.667Z
+Stopped at: Phase 83 context gathered
+Resume file: .planning/phases/83-bigseller-pagelist-refresh/83-CONTEXT.md
