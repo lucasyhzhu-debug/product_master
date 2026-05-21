@@ -52,18 +52,20 @@ Exceptions:
 
 ## Typography
 
-Inter only. Two weights in active use this phase: regular (400) and semibold (600). `font-medium` (500) is permitted for the existing dialog-label convention (`text-sm font-medium`) since it is the established label weight in `ConfirmationDialog.tsx`.
+Inter only. **Exactly 4 sizes** (28 / 20 / 16 / 14px) and **exactly 2 weights** — regular (400) and medium (500). The 500-weight label tier matches the established sibling convention: `ConfirmationDialog.tsx` uses `text-sm font-medium` for every label (lines 100, 133, 155). Hierarchy below the heading is created by **size + `text-muted-foreground`**, not by additional weights or a 5th size.
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Display (amount) | 28px (`text-3xl` ≈ 30px acceptable) | 600 (semibold) | 1.2 — the IDR amount under/above the QR is the focal number |
-| Heading (DialogTitle) | 20px (`text-lg`) | 600 (semibold) | 1.2 |
-| Body / description | 16px (`text-base`) mobile, 14px (`text-sm`) desktop | 400 (regular) | 1.5 |
-| Label / meta (NMID, countdown, merchant name) | 14px (`text-sm`) / 12px (`text-xs` for sub-labels) | 400 regular; 500 for inline labels | 1.5 |
+| Display (amount) | 28px (`text-3xl`) | 500 (medium) | 1.2 — the IDR amount is the focal number; size carries the emphasis, not weight |
+| Heading (DialogTitle) | 20px (`text-lg`) | 500 (medium) | 1.2 |
+| Body / description | 16px (`text-base`) | 400 (regular) | 1.5 |
+| Label / meta (NMID, countdown, merchant name) | 14px (`text-sm`) | 400 regular; 500 for inline labels (matches `ConfirmationDialog.tsx`) | 1.5 |
 
 Notes:
-- **Countdown timer** renders at `text-sm`/`text-base`, regular weight, in `--color-status-warning` when ≤ 5 min remaining, otherwise `text-muted-foreground`.
-- **Amount** is the largest type in the dialog — formatted as IDR (`Rp 1.500` style, dot thousands separator, no decimals) per existing app currency convention.
+- **4-size scale only.** Sub-labels that might otherwise be `text-xs` (12px) — the NMID line, merchant name, countdown caption — collapse into the **14px (`text-sm`) label tier** and use `text-muted-foreground` to recede visually. This matches `ConfirmationDialog.tsx`, which distinguishes sub-text by color/`text-muted-foreground`, not by a 12px level. No `text-xs` in this phase.
+- **2-weight budget.** The shared `DialogTitle` primitive (`src/components/ui/dialog.tsx:88`) ships its own `font-semibold` (600); that is inherited from the primitive and is NOT a third weight introduced by this contract. This phase's own copy uses only 400 and 500.
+- **Countdown timer** renders at `text-sm` (14px), regular weight, in `--color-status-warning` when ≤ 5 min remaining, otherwise `text-muted-foreground`.
+- **Amount** is the largest type in the dialog (28px) — formatted as IDR (`Rp 1.500` style, dot thousands separator, no decimals) per existing app currency convention. Emphasis comes from size, not weight.
 
 ---
 
@@ -104,7 +106,7 @@ All copy in English (app default; matches existing order-detail UI).
 | Dialog title — expired state | **"QR Code Expired"** |
 | Amount label | **"Amount due"** above the IDR figure |
 | Countdown label | **"Expires in {mm:ss}"** (switches to warning color at ≤ 5:00) |
-| NMID/merchant block (when `qrisNmid` set) | merchant name on line 1, **"NMID: {qrisNmid}"** on line 2, both `text-xs text-muted-foreground`, centered under QR (BI display convention) |
+| NMID/merchant block (when `qrisNmid` set) | merchant name on line 1, **"NMID: {qrisNmid}"** on line 2, both `text-sm text-muted-foreground`, centered under QR (BI display convention) |
 | Active-state helper body | **"Ask the customer to scan this code with any QRIS-enabled app. This screen updates automatically when payment is received."** |
 | Paid state body | **"Rp {amount} received via {source}. The order has moved to Payment Received."** (`{source}` = paying wallet, e.g. DANA; omit the "via {source}" clause if `source` is absent) |
 | Paid state — `needsReview` note | **"This payment needs review — {reviewReason}. The payment was still recorded."** rendered in a warning panel inside the paid state |
