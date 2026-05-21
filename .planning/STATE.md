@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: → v2.1 Interregnum
 status: executing
-stopped_at: Completed 84-02-PLAN.md (qrisPayments schema + xendit adapter, R1 GREEN)
-last_updated: "2026-05-21T16:19:11.000Z"
-last_activity: 2026-05-21 -- Phase 84 Plan 02 complete (schema + xendit adapter, R1 GREEN)
+stopped_at: Completed 84-03-PLAN.md (qrisPayments mutations/queries/action, R2/R3/R4b/R4c GREEN)
+last_updated: "2026-05-21T16:32:38.000Z"
+last_activity: 2026-05-21 -- Phase 84 Plan 03 complete (mutations + queries + create-invoice action, R2/R3/R4b/R4c GREEN 12/12)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 10
-  completed_plans: 3
-  percent: 30
+  completed_plans: 4
+  percent: 40
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-05-11)
 ## Current Position
 
 Phase: 84 (qris-payment-integration) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Milestone: v2.0 SHIPPED 2026-05-11 (tag `v2.0`, last commit `ddb4da74`)
 Status: Executing Phase 84
-Next: Execute 84-03-PLAN.md (qrisPayments mutations + createInvoice action — turns mutations/createInvoice/webhookTransition RED tests GREEN)
-Last activity: 2026-05-21 -- Phase 84 Plan 02 complete (schema + xendit adapter, R1 GREEN)
+Next: Execute 84-04-PLAN.md (webhook httpAction + verifyCallbackToken — calls recordPaidAndTransition, turns verifyToken RED test GREEN)
+Last activity: 2026-05-21 -- Phase 84 Plan 03 complete (mutations + queries + create-invoice action, R2/R3/R4b/R4c GREEN 12/12)
 
 Progress: [████████▌░] 84%
 
@@ -50,6 +50,7 @@ No new decisions yet for v2.0.
 - [Phase 80.2]: Plan 03 Wave 3: Replaced plan's skuPareto reference with consolidated skuSnapshot.skuTop (Phase 80.1 refactor); used novel convex-test t.action() pattern for syncInternalOrders guard-swap test (no fallback needed).
 - [Phase 80.2]: Plan 04 partially executed (Task 4.1 + 4.10 auto); Tasks 4.2-4.9 + 4.11-4.12 pending human verification (prod access, admin tokens, UI check, merge authority)
 - [Phase 84]: Plan 02: qrisPayments table (+ optional rawPayload, staffreview R1) + by_order/by_externalId indexes + businessSettings.qrisNmid (optional); QrisProvider interface (provider.ts, pure TS, no Convex registrations); xenditProvider adapter with NO module-top-level side effects (process.env/fetch read inside createInvoice/getStatus) — uses btoa not Buffer, no 'use node' (default Convex runtime has btoa+fetch). expiresAt = our own 30-min window not Xendit's (staffreview R5). buildCreateQrBody pure fn → R1 GREEN 4/4. npx convex codegen regenerated api.d.ts (RED test resolution errors printed are expected Wave-0 state for Plans 03-05, not codegen failure).
+- [Phase 84]: Plan 03: Transactional core. recordPaidAndTransition records the qrisPayments row paid DURABLY (paidAt/receiptId/source/rawPayload/needsReview) BEFORE the PaymentReceived guard + reserve (SPEC R4, staffreview C3); status-guard idempotency (replay no-op); reserve in try/catch keeps the paid row + sets needsReview "stock reservation failed; payment recorded" + reverts order status + logs reverse on throw; match on globally-unique xenditQrId first, externalId scoped to most-recent pending row never blind .first() (C8); unmatched COMPLETED = safe no-op throws nothing (C4); no moveForward/updatePayment/isKitchenVisible. decideWebhookOutcome reviewReason composed via parts.join('; ') so amount+superseded both survive (C7); recordPaid always true. createQrisInvoice = raw action({orderId,token}) with NO roles:/protectedAction (none exists) — auth via internal getOrderForCreate running requireRole [order_staff,manager,admin]; flag re-check (D-01); guards AwaitingPayment + finalTotal>=1500 before any write; token never forwarded to Xendit. getQrisConfig folds qrisNmid+merchantName into an order_staff-safe path so the dialog never calls businessSettings.get (pitfall #19). insertPending(requireAwaitingPayment) re-validates server-side (R3). R2/R3/R4b/R4c GREEN 12/12 incl non-vacuous reserve-once replay. Rule-3 fix: convex-test glob switched to /convex root because a same-dir relative ../../**/*.ts collapsed qrisPayments paths and broke the resolver (RESEARCH Pitfall 5).
 - [Phase 84]: Plan 01: Wave 0 RED scaffold — installed qrcode.react@4.2.0 (named exports) + bumped vendor-*.js cap 600->650 kB atomically (pitfall #16); 6 RED test files cover R1-R7. Key insight: npm run type-check/build exclude src tests + entire convex/ tree, so RED imports of unbuilt modules need NO @ts-expect-error — RED enforced purely under vitest. _factory.makeAwaitingPaymentOrder seeds default storageLocation + packaging componentType (trackInventory:true) + FIFO inventoryBatches + componentStock + orderItems so reserveStockForOrderInternal decrements real stock (non-vacuous idempotency replay, staffreview C5); readReservedQty probes componentStock.totalReserved before/after.
 - [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
 - [Phase 74.5.2]: Plan 02: Added `by_source_deductedAt` compound index on `externalRevenueItems` + created `convex/productInventory/backfill.ts` with 4 exports (backfillOnePage / backfillChannelDeductions / runChannelBackfill / getChannelBackfillPreflight). Admin-gated, flag-independent (D74.5.2-L13), preserves revenue.transactionDate as createdAt (D-16), set-once idempotency via inventoryDeductedAt patched ONLY on result.deducted===true (D-19), silent-drop guard for null linkedMenuProductId (D74.5.2-L4), 100K row runaway cap via MAX_ITERATIONS=500.

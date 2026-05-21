@@ -325,7 +325,7 @@ Plans:
 - [x] 84-02-PLAN.md — qrisPayments schema + businessSettings.qrisNmid + QrisProvider interface + xendit adapter (R1) ✅ (3f884a77)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 84-03-PLAN.md — qrisPayments module: idempotent transition + supersede mutations + order_staff-safe queries + guarded createQrisInvoice action (R2/R3/R4b/R4c)
+- [x] 84-03-PLAN.md — qrisPayments module: idempotent transition + supersede mutations + order_staff-safe queries + guarded createQrisInvoice action (R2/R3/R4b/R4c) ✅ (1166b8b6)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 84-04-PLAN.md — Xendit webhook httpAction (token verify → 401, idempotent) + http.ts route (R4/R4a)
