@@ -13,7 +13,7 @@
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
 - [x] **v2.0 Financial Management & Data Quality** - Phases 70-81 (shipped 2026-05-11)
-- [ ] **v2.0 → v2.1 Interregnum** - Phase 82 (tech-debt sweep, in progress)
+- [ ] **v2.0 → v2.1 Interregnum** - Phases 82-84 (tech-debt sweep, BigSeller refresh, QRIS payments)
 
 ## Phases
 
@@ -271,6 +271,24 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 **Source artifacts:**
 - `.planning/phases/82-tech-debt-sweep/README.md` — full scope
 - `.planning/phases/82-tech-debt-sweep/82-CONTEXT.md` — D-01 through D-10 locked decisions
+
+---
+
+### Phase 84: QRIS Payment Integration — Xendit (SPEC IN PROGRESS — created 2026-05-21)
+
+**Goal:** Accept in-person QRIS payments for orders via dynamic, exact-amount QR codes, using Xendit as the PJSP/acquirer. Staff generate a QR on the order screen; the customer scans and pays; an Xendit webhook drives the order to `PaymentReceived` automatically.
+
+**Why this phase exists:** Order payment is manual today — `orderNumber` doubles as a bank-transfer reference and staff mark orders paid by hand (`updatePayment`). No payment gateway exists. QRIS at point of sale removes manual reconciliation for in-person customers and captures a payment RRN automatically.
+
+**Validated by spike (2026-05-21):** Full create→pay→confirm loop proven against Xendit Test Mode (`scripts/qris-sandbox-poc.mjs`, `scripts/qris-sandbox-server.mjs`). Paid signal arrives via webhook (QR flips ACTIVE→INACTIVE on pay), carries `receipt_id` (RRN) + `source` (paying wallet).
+
+**Locked decisions (pre-spec):** Xendit QR Codes API behind a `QrisProvider` adapter; in-person POS only (no public pay page, no cron); webhook confirmation via `convex/http.ts` (mirror grabfood/webhooks.ts); DYNAMIC QR with exact `finalTotal`; on paid → existing `AwaitingPayment→PaymentReceived` transition (idempotent).
+
+**Branch:** `feature/84-qris-payment-integration`
+
+**Source artifacts:**
+- `.planning/phases/84-qris-payment-integration/84-OVERVIEW.md` — scope + locked decisions
+- `docs/research/2026-05-21-qris-protocol-and-fields.md` — protocol + Xendit field mapping
 
 ---
 
