@@ -16,10 +16,12 @@ export default defineConfig({
         { name: 'assets/index-*.js', limit: '500 kB', mode: 'uncompressed' },
         // Vendor chunks — stable across deploys, cached by browser
         { name: 'assets/vendor-react-*.js', limit: '500 kB', mode: 'uncompressed' },
-        // Bumped to 600 kB: phase 72 added xlsx (~50 kB) and phase 80 added recharts
-        // + analytics dashboard vendor footprint. If vendor keeps growing, split
-        // xlsx or recharts into their own chunks via manualChunks below.
-        { name: 'assets/vendor-*.js', limit: '600 kB', mode: 'uncompressed' },
+        // Bumped to 650 kB: phase 72 added xlsx (~50 kB), phase 80 added recharts
+        // + analytics dashboard vendor footprint, and phase 84 added qrcode.react
+        // (~tens of kB) for the QRIS payment dialog. If vendor keeps growing, split
+        // xlsx, recharts, or qrcode.react into their own chunks via manualChunks below
+        // (e.g. `if (id.includes('qrcode')) return 'vendor-qr'`).
+        { name: 'assets/vendor-*.js', limit: '650 kB', mode: 'uncompressed' },
         // Page chunks — default 150 kB is fine for all of them
       ],
     }),
