@@ -274,6 +274,26 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 
 ---
 
+### Phase 83: BigSeller pageList Refresh (IN PROGRESS — created 2026-05-19, re-scoped 2026-05-21)
+
+**Goal:** Restore and harden the BigSeller profit-data sync. The urgent correctness fix (83-01a — 6 new required pageList fields) is **already merged (#161) and confirmed in prod** (orders ingesting, `code:-1` gone). Two independent follow-ups remain: (1) **token auto-refresh + freshness banner** — capture the refreshed `muctoken` JWT from BigSeller response headers and persist it so the cron never dies from 20-day token decay; (2) **sync speed-up (83-02)** — cut manual full-month sync from ~6-10 min to ~1-2 min via N+1 elimination, adaptive polling, larger page size, and platform/page parallelization.
+
+**Why this phase exists:** BigSeller silently broke profit-data ingestion (`code:-1`) when its pageList contract added 6 required fields; the additive fix restored it. The remaining toil (manual token repasting every ~20 days, multi-minute sync runtimes) is operational debt worth retiring while the integration is fresh in context.
+
+**Re-scoped 2026-05-21 (post-01a-success):** 83-01b W1-W3 (subtractive `orderState`/`currency`/`searchContent` fallback) **archived** — documented standby only, no code (D-02). Token auto-refresh + banner (was 01b W4 + I3) relabeled into its own deliverable (D-03/D-04). All 5 sync optimizations in scope, low-risk-first (O4→O3→O6→O2→O1), as separate PRs (D-05/D-06).
+
+**Branch:** `gsd/phase-83-bigseller-pagelist-refresh`
+
+**Source artifacts:**
+- `.planning/phases/83-bigseller-pagelist-refresh/83-CONTEXT.md` — D-01 through D-06 locked decisions
+- `.planning/phases/83-bigseller-pagelist-refresh/83-OVERVIEW.md` — root cause, auth model, blast radius
+- `.planning/phases/83-bigseller-pagelist-refresh/83-RESEARCH.md` — HAR diff, decoded JWT, token-refresh mechanism
+- `.planning/phases/83-bigseller-pagelist-refresh/83-01a-SUMMARY.md` — what shipped in the merged fix
+- `.planning/phases/83-bigseller-pagelist-refresh/83-01b-fallback-and-token-refresh-SPEC.md` — token auto-refresh design spec (Wave 4) + archived W1-W3 standby
+- `.planning/phases/83-bigseller-pagelist-refresh/83-02-sync-optimization-SPEC.md` — O1-O4/O6 design spec
+
+---
+
 ### Phase 84: QRIS Payment Integration — Xendit (SPEC IN PROGRESS — created 2026-05-21)
 
 **Goal:** Accept in-person QRIS payments for orders via dynamic, exact-amount QR codes, using Xendit as the PJSP/acquirer. Staff generate a QR on the order screen; the customer scans and pays; an Xendit webhook drives the order to `PaymentReceived` automatically.
