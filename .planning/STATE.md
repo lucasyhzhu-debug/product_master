@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: → v2.1 Interregnum
 status: planning
-stopped_at: Phase 83 context gathered
-last_updated: "2026-05-21T14:50:14.673Z"
+stopped_at: Phase 84 context gathered
+last_updated: "2026-05-21T15:02:04.883Z"
 last_activity: 2026-05-11
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
-  completed_plans: 0
+  completed_plans: 1
   percent: 84
 ---
 
@@ -87,6 +87,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-05-21T14:50:14.667Z
-Stopped at: Phase 83 context gathered
-Resume file: .planning/phases/83-bigseller-pagelist-refresh/83-CONTEXT.md
+Last session: 2026-05-21T15:02:04.877Z
+Stopped at: Phase 84 context gathered
+Resume file: .planning/phases/84-qris-payment-integration/84-CONTEXT.md
