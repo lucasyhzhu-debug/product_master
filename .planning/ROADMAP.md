@@ -303,7 +303,7 @@ Plans:
 
 ---
 
-### Phase 84: QRIS Payment Integration — Xendit (SPEC IN PROGRESS — created 2026-05-21)
+### Phase 84: QRIS Payment Integration — Xendit (PLANNED — 2026-05-21)
 
 **Goal:** Accept in-person QRIS payments for orders via dynamic, exact-amount QR codes, using Xendit as the PJSP/acquirer. Staff generate a QR on the order screen; the customer scans and pays; an Xendit webhook drives the order to `PaymentReceived` automatically.
 
@@ -315,9 +315,23 @@ Plans:
 
 **Branch:** `feature/84-qris-payment-integration`
 
+**Plans:** 5 plans in 4 waves
+
+Plans:
+- [ ] 84-01-PLAN.md — Wave 0 test scaffold + qrcode.react install + vendor cap bump (650 kB)
+- [ ] 84-02-PLAN.md — qrisPayments schema + businessSettings.qrisNmid + QrisProvider interface + xendit adapter (R1)
+- [ ] 84-03-PLAN.md — qrisPayments module: idempotent transition + supersede mutations + order_staff-safe queries + guarded createQrisInvoice action (R2/R3/R4b/R4c)
+- [ ] 84-04-PLAN.md — Xendit webhook httpAction (token verify → 401, idempotent) + http.ts route (R4/R4a)
+- [ ] 84-05-PLAN.md — useQris hooks + QrisChargeDialog (reactive paid flip) + OrderDetail button & needsReview badge + dev Test-Mode E2E (R5/R6/R7)
+
 **Source artifacts:**
+- `.planning/phases/84-qris-payment-integration/84-SPEC.md` — 7 locked requirements + 12 acceptance criteria
+- `.planning/phases/84-qris-payment-integration/84-CONTEXT.md` — implementation decisions (D-01..D-04)
+- `.planning/phases/84-qris-payment-integration/84-RESEARCH.md` — technical research + 3 anchor corrections
+- `.planning/phases/84-qris-payment-integration/84-PATTERNS.md` — analog file map
+- `.planning/phases/84-qris-payment-integration/84-UI-SPEC.md` — UI design contract
 - `.planning/phases/84-qris-payment-integration/84-OVERVIEW.md` — scope + locked decisions
-- `docs/research/2026-05-21-qris-protocol-and-fields.md` — protocol + Xendit field mapping
+- `docs/research/2026-05-21-qris-protocol-and-fields.md` — protocol + Xendit field mapping (§1-2 only; §3-4 InterActive-specific, superseded)
 
 ---
 
