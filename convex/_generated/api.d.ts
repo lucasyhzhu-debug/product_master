@@ -230,6 +230,7 @@ import type * as productionTargets_mutations from "../productionTargets/mutation
 import type * as productionTargets_queries from "../productionTargets/queries.js";
 import type * as productionUnitTypes_mutations from "../productionUnitTypes/mutations.js";
 import type * as productionUnitTypes_queries from "../productionUnitTypes/queries.js";
+import type * as qrisPayments___tests____factory from "../qrisPayments/__tests__/_factory.js";
 import type * as reimbursements_helpers from "../reimbursements/helpers.js";
 import type * as reimbursements_mutations from "../reimbursements/mutations.js";
 import type * as reimbursements_queries from "../reimbursements/queries.js";
@@ -486,6 +487,7 @@ declare const fullApi: ApiFromModules<{
   "productionTargets/queries": typeof productionTargets_queries;
   "productionUnitTypes/mutations": typeof productionUnitTypes_mutations;
   "productionUnitTypes/queries": typeof productionUnitTypes_queries;
+  "qrisPayments/__tests__/_factory": typeof qrisPayments___tests____factory;
   "reimbursements/helpers": typeof reimbursements_helpers;
   "reimbursements/mutations": typeof reimbursements_mutations;
   "reimbursements/queries": typeof reimbursements_queries;

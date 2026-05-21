@@ -636,10 +636,35 @@ export default defineSchema({
     phone: v.optional(v.string()),
     email: v.optional(v.string()),
     npwp: v.optional(v.string()),
+    qrisNmid: v.optional(v.string()),
     defaultBankAccountId: v.optional(v.id("bankAccounts")),
     updatedBy: v.id("users"),
     updatedAt: v.number(),
   }),
+
+  // ============================================
+  // QRIS PAYMENTS (Phase 84 — Xendit QR Codes)
+  // Per-order QR-attempt state; matched by externalId/xenditQrId in webhook
+  // ============================================
+
+  qrisPayments: defineTable({
+    orderId: v.id("orders"),
+    provider: v.string(), // "xendit"
+    externalId: v.string(), // = orderNumber (per-day match key, NOT globally unique)
+    xenditQrId: v.string(), // globally unique — primary match key in the webhook
+    qrString: v.string(),
+    amount: v.number(),
+    status: v.union(v.literal("pending"), v.literal("paid"), v.literal("expired")),
+    receiptId: v.optional(v.string()), // RRN from payment_details.receipt_id
+    source: v.optional(v.string()), // paying wallet (DANA/OVO/...)
+    expiresAt: v.number(), // our own 30-min window, NOT Xendit's expires_at (staffreview R5)
+    paidAt: v.optional(v.number()),
+    needsReview: v.optional(v.boolean()),
+    reviewReason: v.optional(v.string()),
+    rawPayload: v.optional(v.string()), // staffreview R1 — A1/A2 raw webhook body for early debugging
+  })
+    .index("by_order", ["orderId"])
+    .index("by_externalId", ["externalId"]),
 
   // ============================================
   // WHATSAPP TEMPLATE MANAGEMENT
