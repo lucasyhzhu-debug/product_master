@@ -328,7 +328,7 @@ Plans:
 - [x] 84-03-PLAN.md — qrisPayments module: idempotent transition + supersede mutations + order_staff-safe queries + guarded createQrisInvoice action (R2/R3/R4b/R4c) ✅ (1166b8b6)
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 84-04-PLAN.md — Xendit webhook httpAction (token verify → 401, idempotent) + http.ts route (R4/R4a)
+- [x] 84-04-PLAN.md — Xendit webhook httpAction (token verify → 401, idempotent) + http.ts route (R4/R4a) ✅ (185be750)
 - [ ] 84-05-PLAN.md — useQris hooks + QrisChargeDialog (reactive paid flip) + OrderDetail button & needsReview badge + dev Test-Mode E2E (R5/R6/R7)
 
 **Source artifacts:**
