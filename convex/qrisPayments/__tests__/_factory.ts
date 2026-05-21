@@ -19,10 +19,14 @@
  * the moment Plan 03's mutation lands.
  */
 
-import type { convexTest } from "convex-test";
+import type { TestConvex } from "convex-test";
 import type { Id } from "../../_generated/dataModel";
+import type schema from "../../schema";
 
-type TestContext = ReturnType<typeof convexTest>;
+// Schema-aware test context so `ctx.db.query(...).withIndex(...)` resolves the
+// real user-defined indexes (e.g. componentStock's `by_component_location`)
+// rather than collapsing to system-only indexes (tsc -b build gate, Plan 05).
+type TestContext = TestConvex<typeof schema>;
 
 export interface SeededAwaitingPaymentOrder {
   orderId: Id<"orders">;

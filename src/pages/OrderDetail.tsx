@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -19,6 +19,7 @@ import {
   EnhancedCancellationDialog,
 } from '@/components/orders';
 import { StatusActionButtons } from '@/components/orders/StatusActionButtons';
+import { QrisChargeDialog } from '@/components/orders/QrisChargeDialog';
 import { AuditTrail } from '@/components/orders/AuditTrail';
 import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
 import { InvoiceSidebarCard } from '@/components/invoice/InvoiceSidebarCard';
@@ -36,7 +37,9 @@ import { getStatusColor } from '@/lib/orderConstants';
 import type { CancellationCategory } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQrisConfig, useActiveQrisPayment } from '@/hooks/convex/useQris';
 
 // ============================================
 // Status Display Labels
@@ -101,6 +104,12 @@ export function OrderDetail() {
   const forceComplete = useForceComplete();
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
+
+  // QRIS (Phase 84) — read the feature config + active payment row UNCONDITIONALLY
+  // at the top of the component (hooks-order, pitfall #9). `undefined` = loading.
+  const qrisConfig = useQrisConfig();
+  const activeQris = useActiveQrisPayment(orderId);
+  const [showQrisDialog, setShowQrisDialog] = useState(false);
 
   // ============================================
   // Handlers
@@ -237,9 +246,30 @@ export function OrderDetail() {
                     )}
                   </p>
                 </div>
-                <Badge className={`${getStatusColor(order.status)} text-white`}>
-                  {STATUS_LABELS[order.status] ?? order.status}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {/* needsReview indicator (D-02) — INDICATOR ONLY, no list/filter/resolve
+                      flow (deferred to Phase 77). Sits inline next to the payment status. */}
+                  {activeQris?.needsReview && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            tabIndex={0}
+                            className="border-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)]"
+                          >
+                            Needs review
+                          </Badge>
+                        </TooltipTrigger>
+                        {activeQris.reviewReason && (
+                          <TooltipContent>{activeQris.reviewReason}</TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  <Badge className={`${getStatusColor(order.status)} text-white`}>
+                    {STATUS_LABELS[order.status] ?? order.status}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -292,6 +322,21 @@ export function OrderDetail() {
                   orderId={orderId}
                   status={order.status}
                 />
+              )}
+
+              {/* Charge via QRIS (Phase 84) — rendered ONLY when the order is
+                  AwaitingPayment AND the QRIS_ENABLED flag is on. Button is ABSENT
+                  (not disabled) otherwise — same conditional-render pattern as the
+                  WhatsApp card. The create action re-checks the flag + role + state
+                  server-side, so the button is not the only gate (D-01). */}
+              {orderId && order.status === 'AwaitingPayment' && qrisConfig?.enabled === true && (
+                <Button
+                  className="w-full min-h-[44px] sm:min-h-[36px] text-base sm:text-sm"
+                  onClick={() => setShowQrisDialog(true)}
+                >
+                  <QrCode className="h-4 w-4 mr-2" />
+                  Charge via QRIS
+                </Button>
               )}
 
               {/* Admin: Force Complete (data fix) - manager/admin only */}
@@ -536,6 +581,14 @@ export function OrderDetail() {
       </div>
 
       {/* Dialogs */}
+      {orderId && (
+        <QrisChargeDialog
+          open={showQrisDialog}
+          orderId={orderId}
+          onOpenChange={setShowQrisDialog}
+        />
+      )}
+
       <ConfirmDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}

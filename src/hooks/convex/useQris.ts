@@ -30,9 +30,13 @@ export function useQrisConfig() {
 /**
  * The active QRIS payment row for an order (most-recent non-expired row).
  * `undefined` = loading, `null` = no active row, else the qrisPayments row.
+ * Pass `undefined` to skip the subscription (e.g. before the order id resolves).
  */
-export function useActiveQrisPayment(orderId: Id<"orders">) {
-  return useSessionQuery(api.qrisPayments.queries.getActiveQrisPayment, { orderId });
+export function useActiveQrisPayment(orderId: Id<"orders"> | undefined) {
+  return useSessionQuery(
+    api.qrisPayments.queries.getActiveQrisPayment,
+    orderId ? { orderId } : "skip",
+  );
 }
 
 /**
