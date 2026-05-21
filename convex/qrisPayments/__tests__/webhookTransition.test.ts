@@ -25,8 +25,12 @@ import {
   readReservedQty,
 } from "./_factory";
 
-// convex-test module-resolution glob.
-const modules = import.meta.glob("../../**/*.ts");
+// convex-test module-resolution glob. Absolute-root form: a relative
+// "../../**/*.ts" glob from inside convex/qrisPayments/ collapses
+// "../../qrisPayments/mutations.ts" → "../mutations.ts", which convex-test cannot
+// map to the `qrisPayments/mutations` function ref (RESEARCH Pitfall 5). Globbing
+// from /convex keeps keys canonical.
+const modules = import.meta.glob("/convex/**/*.ts");
 
 // ---------------------------------------------------------------------------
 // A) Pure decideWebhookOutcome cases (R4b / R4c) — no runtime needed.

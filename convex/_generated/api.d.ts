@@ -104,6 +104,8 @@ import type * as integrations_k3mart_adapter from "../integrations/k3mart/adapte
 import type * as integrations_k3mart_config from "../integrations/k3mart/config.js";
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
 import type * as integrations_k3mart_queries from "../integrations/k3mart/queries.js";
+import type * as integrations_qris_provider from "../integrations/qris/provider.js";
+import type * as integrations_qris_xendit from "../integrations/qris/xendit.js";
 import type * as integrations_registry from "../integrations/registry.js";
 import type * as integrityChecks_mutations from "../integrityChecks/mutations.js";
 import type * as integrityChecks_queries from "../integrityChecks/queries.js";
@@ -231,6 +233,9 @@ import type * as productionTargets_queries from "../productionTargets/queries.js
 import type * as productionUnitTypes_mutations from "../productionUnitTypes/mutations.js";
 import type * as productionUnitTypes_queries from "../productionUnitTypes/queries.js";
 import type * as qrisPayments___tests____factory from "../qrisPayments/__tests__/_factory.js";
+import type * as qrisPayments_actions from "../qrisPayments/actions.js";
+import type * as qrisPayments_mutations from "../qrisPayments/mutations.js";
+import type * as qrisPayments_queries from "../qrisPayments/queries.js";
 import type * as reimbursements_helpers from "../reimbursements/helpers.js";
 import type * as reimbursements_mutations from "../reimbursements/mutations.js";
 import type * as reimbursements_queries from "../reimbursements/queries.js";
@@ -361,6 +366,8 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/config": typeof integrations_k3mart_config;
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
   "integrations/k3mart/queries": typeof integrations_k3mart_queries;
+  "integrations/qris/provider": typeof integrations_qris_provider;
+  "integrations/qris/xendit": typeof integrations_qris_xendit;
   "integrations/registry": typeof integrations_registry;
   "integrityChecks/mutations": typeof integrityChecks_mutations;
   "integrityChecks/queries": typeof integrityChecks_queries;
@@ -488,6 +495,9 @@ declare const fullApi: ApiFromModules<{
   "productionUnitTypes/mutations": typeof productionUnitTypes_mutations;
   "productionUnitTypes/queries": typeof productionUnitTypes_queries;
   "qrisPayments/__tests__/_factory": typeof qrisPayments___tests____factory;
+  "qrisPayments/actions": typeof qrisPayments_actions;
+  "qrisPayments/mutations": typeof qrisPayments_mutations;
+  "qrisPayments/queries": typeof qrisPayments_queries;
   "reimbursements/helpers": typeof reimbursements_helpers;
   "reimbursements/mutations": typeof reimbursements_mutations;
   "reimbursements/queries": typeof reimbursements_queries;

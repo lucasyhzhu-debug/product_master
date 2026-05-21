@@ -18,7 +18,12 @@ import schema from "../../schema";
 import { internal } from "../../_generated/api";
 import { makeAwaitingPaymentOrder } from "./_factory";
 
-const modules = import.meta.glob("../../**/*.ts");
+// Absolute-root glob: when the test lives INSIDE the module dir it exercises
+// (convex/qrisPayments/), Vite collapses "../../qrisPayments/mutations.ts" to
+// "../mutations.ts", which convex-test's prefix resolver cannot map back to the
+// `qrisPayments/mutations` function-reference path (RESEARCH Pitfall 5). Globbing
+// from the convex root keeps every key canonical (/convex/qrisPayments/mutations.ts).
+const modules = import.meta.glob("/convex/**/*.ts");
 
 describe("qrisPayments mutations (R2)", () => {
   it("insertPending creates exactly one pending row linked to the order", async () => {
