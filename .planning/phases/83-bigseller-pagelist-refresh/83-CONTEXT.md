@@ -49,7 +49,7 @@ subtractive `orderState`/`currency`/`searchContent` fallback (83-01b W1-W3 —
   `response.headers.get("muctoken")` after each successful fetch, accumulate the
   freshest one in outer scope, and persist ONCE at end of a successful sync via
   `platformCredentials.mutations.updateToken` (`lastRefreshStatus:
-  "auto-refreshed-from-response"`). See `83-01b-...-PLAN.md` Wave 4 for the full
+  "auto-refreshed-from-response"`). See `83-01b-...-SPEC.md` Wave 4 for the full
   spec, defensive guards (skip if empty / equals current / auth error observed,
   wrap in try/catch), and tests.
 - **D-04:** **Ship the freshness banner with it** (staffreview I3). On
@@ -97,8 +97,8 @@ subtractive `orderState`/`currency`/`searchContent` fallback (83-01b W1-W3 —
 - `.planning/phases/83-bigseller-pagelist-refresh/83-OVERVIEW.md` — root cause, auth model, architecture, blast radius, deliverable split
 - `.planning/phases/83-bigseller-pagelist-refresh/83-RESEARCH.md` — HAR diff, decoded JWT, working endpoints, response schema, token-refresh mechanism
 - `.planning/phases/83-bigseller-pagelist-refresh/83-01a-SUMMARY.md` — what shipped in the merged fix + the outcome decision tree (now resolved: SUCCESS branch)
-- `.planning/phases/83-bigseller-pagelist-refresh/83-01b-fallback-and-token-refresh-PLAN.md` — **Wave 4** is the token auto-refresh spec (D-03); W1-W3 are archived (D-02)
-- `.planning/phases/83-bigseller-pagelist-refresh/83-02-sync-optimization-PLAN.md` — O1-O4/O6 specs, caveats, suggested execution order (D-05/D-06)
+- `.planning/phases/83-bigseller-pagelist-refresh/83-01b-fallback-and-token-refresh-SPEC.md` — **Wave 4** is the token auto-refresh spec (D-03); W1-W3 are archived (D-02)
+- `.planning/phases/83-bigseller-pagelist-refresh/83-02-sync-optimization-SPEC.md` — O1-O4/O6 specs, caveats, suggested execution order (D-05/D-06)
 - `docs/reviews/staffreview-83-bigseller-pagelist-refresh-2026-05-19.md` — origin of the W4-promotion (I5) and freshness-banner (I3) decisions
 
 ### API + integration docs
