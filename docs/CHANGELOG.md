@@ -16,6 +16,29 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83-07: BigSeller sync O1+O2 — parallel platform + page fetch — 2026-05-22
+
+**For the team:** This is the biggest sync speed-up. Previously the sync pulled Shopee fully, then TikTok, one page at a time within each — strictly sequential. It now fetches both platforms at the same time, and within each platform fans out pages 2..N in parallel (4 at a time). Combined with the earlier optimizations, this cuts a full-month sync from ~6-10 min toward ~1-2 min. The data is identical: each order is still saved exactly once, and a built-in guard prevents one platform's items from ever being attributed to the other.
+
+#### Changed
+- **O1 — parallel platforms (D-05, low-risk-first #5):** the Shopee + TikTok per-platform loop now runs concurrently via `Promise.all` over `processPlatform(platform, shopIds)`. The shared `priceOracle` / `mappingBySku` / `menuProductById` lookups are built ONCE before the fan-out and read-only inside each branch (safe for concurrent use). Per-platform counts, the freshest `muctoken`, and the auth-error flag are RETURNED and aggregated AFTER `Promise.all` resolves (single-threaded) — never mutated from concurrent branches.
+- **O2 — parallel pages 2..N (D-05):** within a platform, page 1 stays sequential (it carries the readiness-race retry + the page-1-fatal handling and reveals `totalPage`). Pages 2..N fan out via a new `mapWithConcurrency(items, 4, fn)` chunked-`Promise.all` helper — concurrency capped at 4, results ordered by `pageNo`.
+- **Per-platform stage races removed (SPEC O1 caveat (a)):** the `updateSyncStage('storing')` write now fires ONCE per platform (after page 1) instead of once per page — no racing writes under the fan-out. Overall status updates (fetching/storing/complete) stay outside the `Promise.all`.
+- **Partial-failure behavior change (staffreview R2):** when ONE platform hits a page-1 fatal under O1, the failure is scoped to that platform — the sibling platform's already-resolved data still lands and the sync is marked `error` naming the failing platform. This replaces the old all-or-nothing early-return that discarded everything.
+
+#### Correctness
+- **No double-count:** `saveRevenue` / `upsertOrders` are keyed by `externalTransactionId` (unique per order), so concurrent platform/page writes are idempotent — re-processing the same row updates in place, never duplicates (T-83-07-01).
+- **Cross-platform leak guard (T-79-02) preserved verbatim:** the per-row guard (`revDoc.source !== platform → throw`) stays inside each `processPlatform`; `source` is stamped from the branch's own `platform`, so concurrency cannot route items to the wrong platform (T-83-07-02).
+- **Token auto-refresh (83-03) concurrency-safe:** `fetchPage` RETURNS the captured `muctoken` header; the freshest token is selected post-resolution and persisted ONCE via the existing `shouldPersistRefreshedToken` guard. An auth error in either platform skips the persist (T-83-07-03).
+- **Bounded request rate:** page concurrency capped at 4, platform fan-out is 2 — total in-flight requests bounded (T-83-07-04).
+
+#### Added
+- `mapWithConcurrency<T,R>(items, limit, fn)` + `fetchPage(...)` exports in `convex/integrations/bigseller/sync.ts`.
+- New race-condition tests in `__tests__/sync.test.ts` (`describe("BigSeller parallel fetch (O1/O2)")` + `mapWithConcurrency` unit tests): no double-count under concurrent platforms, page-2 failure surfaces in the error log, cross-platform leak guard survives, token persists under concurrency, one-platform page-1 fatal scoped to that platform with sibling data intact, and the concurrency cap of 4.
+
+#### Files
+- `convex/integrations/bigseller/sync.ts`, `convex/integrations/bigseller/__tests__/sync.test.ts`, `docs/CHANGELOG.md`.
+
 ### Phase 83-06: BigSeller sync O6 — raise pageList pageSize 50 → 100 — 2026-05-22
 
 **For the team:** BigSeller syncs fetch order data one page at a time. Each page used to hold 50 orders; it now holds 100, which halves the number of round-trips per platform for a full-month sync — fewer requests, faster pulls. No change to what data comes back.
