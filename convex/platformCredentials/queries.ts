@@ -33,6 +33,10 @@ export const getCredentialStatus = query({
         hasRefreshToken: false,
         email: null,
         tokenExpiresAt: null,
+        // I5 (quad-review): include tokenExpiresIn so the return shape matches the
+        // populated branch (which always returns it). Omitting it made the union
+        // shape inconsistent for consumers.
+        tokenExpiresIn: null,
         lastRefreshAt: null,
         lastRefreshStatus: null,
         lastRefreshError: null,

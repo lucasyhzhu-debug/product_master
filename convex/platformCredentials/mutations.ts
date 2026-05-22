@@ -78,7 +78,13 @@ export const updateToken = internalMutation({
 
     await ctx.db.patch(cred._id, {
       currentToken: args.currentToken ?? cred.currentToken,
-      tokenExpiresAt: args.tokenExpiresAt,
+      // I4 (quad-review): preserve the stored expiry when the caller does not
+      // provide one. handleAuthFailure calls updateToken WITHOUT tokenExpiresAt;
+      // unconditionally patching `args.tokenExpiresAt` (undefined) erased the
+      // stored expiry and silently nulled the D-04 freshness banner. The
+      // auto-refresh path passes a fresh tokenExpiresAt, so `??` keeps the new
+      // value there.
+      tokenExpiresAt: args.tokenExpiresAt ?? cred.tokenExpiresAt,
       lastRefreshAt: args.lastRefreshAt,
       lastRefreshStatus: args.lastRefreshStatus,
       lastRefreshError: args.lastRefreshError,
