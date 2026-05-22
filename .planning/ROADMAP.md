@@ -295,7 +295,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 **Plans:** 5 plans (one per PR, D-06) — execution order low-risk-first (D-05): 83-04 → 83-05 → 83-06 → 83-07; 83-03 independent.
 
 Plans:
-- [ ] 83-03-token-auto-refresh-PLAN.md — Token auto-refresh (D-03) + freshness banner (D-04) + D-02 CHANGELOG archival note [own PR, wave 1]
+- [x] 83-03-token-auto-refresh-PLAN.md — Token auto-refresh (D-03) + freshness banner (D-04) + D-02 CHANGELOG archival note [own PR, wave 1] — DONE 2026-05-22 (5 tasks, 6 commits, all gates green)
 - [ ] 83-04-n1-elimination-PLAN.md — O4 N+1 elimination via getRevenueByIds batch lookup [wave 1]
 - [ ] 83-05-adaptive-polling-PLAN.md — O3 adaptive polling (15s×3/30s×2/60s) [wave 2, after 83-04]
 - [ ] 83-06-pagesize-bump-PLAN.md — O6 pageSize 50→100 [wave 3, after 83-05]

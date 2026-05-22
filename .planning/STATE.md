@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: → v2.1 Interregnum
-status: planning
-stopped_at: Phase 83 context gathered
-last_updated: "2026-05-21T14:50:14.673Z"
-last_activity: 2026-05-11
+status: executing
+stopped_at: Completed 83-03-PLAN.md (token auto-refresh)
+last_updated: "2026-05-22T08:33:32.000Z"
+last_activity: 2026-05-22 -- Phase 83 plan 03 (token auto-refresh) executed
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 84
+  total_plans: 5
+  completed_plans: 2
+  percent: 40
 ---
 
 # Project State
@@ -20,16 +20,18 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-05-11)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v2.0 closed — planning queue for v2.1 (Phase 77 Data Health Dashboard, ADR-0001 schema field, Phase 74.5.3 packaging BOM auto-deduction)
+**Current focus:** Phase 83 — bigseller-pagelist-refresh
 
 ## Current Position
 
+Phase: 83 (bigseller-pagelist-refresh) — EXECUTING
+Plan: 2 of 5
 Milestone: v2.0 SHIPPED 2026-05-11 (tag `v2.0`, last commit `ddb4da74`)
-Status: Milestone archived — all artifacts moved to `.planning/milestones/v2.0-*`
-Next: `/gsd-new-milestone` to define v2.1 goals + requirements
-Last activity: 2026-05-11
+Status: Executing Phase 83
+Next: continue with 83-02 sync optimizations (O1-O4/O6)
+Last activity: 2026-05-22 -- Phase 83 plan 03 (token auto-refresh) executed
 
-Progress: [████████▌░] 84%
+Progress: [████░░░░░░] 40% (Phase 83: 2/5 plans)
 
 ## Performance Metrics
 
@@ -50,6 +52,7 @@ No new decisions yet for v2.0.
 - [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
 - [Phase 74.5.2]: Plan 02: Added `by_source_deductedAt` compound index on `externalRevenueItems` + created `convex/productInventory/backfill.ts` with 4 exports (backfillOnePage / backfillChannelDeductions / runChannelBackfill / getChannelBackfillPreflight). Admin-gated, flag-independent (D74.5.2-L13), preserves revenue.transactionDate as createdAt (D-16), set-once idempotency via inventoryDeductedAt patched ONLY on result.deducted===true (D-19), silent-drop guard for null linkedMenuProductId (D74.5.2-L4), 100K row runaway cap via MAX_ITERATIONS=500.
 - [Phase 74.5.2]: Plan 03: 8 regression tests for backfill.ts (idempotency, timestamp preservation, D74.5.2-L4 silent-drop guard, admin gate, D74.5.2-L13 flag-independence, per-source isolation, 200+ item chunking, preflight per-source audit gate). Applied Plan 01 / D74.5.2-L1 precedent: convex-test's module resolver fails for t.mutation(internal.*) / t.query(api.*) against the productInventory subtree; fixed by adding _backfillOnePageForTest / _runChannelBackfillForTest / _getChannelBackfillPreflightForTest test-only direct-handler exports to backfill.ts (mirrors channelAudit.ts _runFullAuditForTest).
+- [Phase 83-03]: BigSeller token auto-refresh (D-03) — capture muctoken response header, accumulate freshest, persist ONCE at end of successful sync via updateToken (lastRefreshStatus="auto-refreshed-from-response"); pure shouldPersistRefreshedToken guard (skip empty/equal/auth-error) for unit-testability. Widened validator + schema union (Flag #1 — CONTEXT "no schema change" was wrong). 2-state freshness banner (D-04) driven by new PlatformHealthStatus.tokenExpiresAt (ms); built decodeMucTokenExp because health daysRemaining is integer-day granularity. D-02 orderState archival note folded into CHANGELOG. 6 commits, 13 files, all gates green.
 - [Phase 74.5.2]: Plan 10: Task 1 (lint polish on AuditIssueTypeBadge + ChannelRoutingManager) was a no-op — both files already lint-clean from 74.5.1 triple-review commit bf036387. Documented as (No-op) entries in CHANGELOG Fixed section. Task 2 shipped comprehensive docs sweep: CHANGELOG + SCHEMA + API_REFERENCE + ROADMAP. Bonus scope: closed deferred-items.md tsc -b entry via appended Resolution section (kept existing _args + explicit result type annotation as structural fix).
 
 ### Open Blockers (carried forward)
@@ -87,6 +90,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-05-21T14:50:14.667Z
-Stopped at: Phase 83 context gathered
-Resume file: .planning/phases/83-bigseller-pagelist-refresh/83-CONTEXT.md
+Last session: 2026-05-22T08:33:32.000Z
+Stopped at: Completed 83-03-PLAN.md (token auto-refresh)
+Resume file: None
