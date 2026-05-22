@@ -35,7 +35,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { StatusActionButtons } from './StatusActionButtons';
 import { QrisChargeDialog } from './QrisChargeDialog';
-import { useQrisConfig } from '@/hooks/convex/useQris';
+import { useQrisConfig, useActiveQrisPayment } from '@/hooks/convex/useQris';
 import { AuditTrail } from './AuditTrail';
 import { StepWhatsAppTemplate } from './StepWhatsAppTemplate';
 import type { WhatsAppTemplateType } from './StepWhatsAppTemplate';
@@ -153,6 +153,8 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   const [showQrisDialog, setShowQrisDialog] = useState(false);
   // Read unconditionally at the top (hooks-order, pitfall #9); button is conditionally rendered.
   const qrisConfig = useQrisConfig();
+  // needsReview indicator must live in BOTH order surfaces (pitfall #20) — mirrors OrderDetail.tsx.
+  const activeQris = useActiveQrisPayment(orderId ?? undefined);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
   const [isCancelLoading, setIsCancelLoading] = useState(false);
@@ -289,6 +291,16 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                 {order.expedited && (
                   <Badge className="bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] border-[var(--color-status-warning)]/30 text-xs">
                     EXPEDITED
+                  </Badge>
+                )}
+                {/* QRIS needsReview indicator (D-02) — mirror of OrderDetail.tsx (pitfall #20).
+                    Indicator only; the reason is surfaced via title (slide-over has no Tooltip). */}
+                {activeQris?.needsReview && (
+                  <Badge
+                    title={activeQris.reviewReason ?? undefined}
+                    className="border-[var(--color-status-warning)] bg-[var(--color-status-warning-bg)] text-[var(--color-status-warning)] text-xs"
+                  >
+                    Needs review
                   </Badge>
                 )}
               </div>

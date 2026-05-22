@@ -17,5 +17,5 @@ export interface QrisProvider {
     orderNumber: string;
     finalTotal: number;
   }): Promise<CreateInvoiceResult>;
-  getStatus(xenditQrId: string): Promise<{ status: string }>;
+  // No status-poll method: payment detection is exclusively webhook-driven.
 }

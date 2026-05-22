@@ -20,11 +20,11 @@
 import { useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { QRCodeSVG } from "qrcode.react";
-import { CheckCircle2, QrCode, AlertTriangle } from "lucide-react";
+import { CheckCircle2, QrCode, AlertTriangle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useActiveQrisPayment, useQrisConfig } from "@/hooks/convex/useQris";
 import { useCreateQrisInvoice } from "@/hooks/convex/useQrisCreate";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -33,11 +33,6 @@ interface QrisChargeDialogProps {
   open: boolean;
   orderId: Id<"orders">;
   onOpenChange: (open: boolean) => void;
-}
-
-/** Format an IDR amount as `Rp 1.500` (dot thousands, no decimals). */
-function formatIdr(amount: number): string {
-  return `Rp ${Math.round(amount).toLocaleString("id-ID")}`;
 }
 
 /** Format ms-remaining as mm:ss. */
@@ -102,7 +97,6 @@ export function QrisChargeDialog({ open, orderId, onOpenChange }: QrisChargeDial
   const msRemaining = hasPending ? row.expiresAt - now : 0;
   const isExpired = hasPending && msRemaining <= 0;
   const isActive = hasPending && !isExpired;
-  const isLoading = creating || row === undefined;
 
   const merchantName = config?.merchantName ?? null;
   const qrisNmid = config?.qrisNmid ?? null;
@@ -160,7 +154,7 @@ export function QrisChargeDialog({ open, orderId, onOpenChange }: QrisChargeDial
             Paid
           </p>
           <p className="text-base text-[var(--color-status-success)]">
-            {formatIdr(row.amount)} received
+            {formatCurrency(row.amount)} received
             {row.source ? ` via ${row.source}` : ""}. The order has moved to Payment Received.
           </p>
         </div>
@@ -226,7 +220,7 @@ export function QrisChargeDialog({ open, orderId, onOpenChange }: QrisChargeDial
 
           <div className="text-center">
             <p className="text-sm font-medium text-muted-foreground">Amount due</p>
-            <p className="text-3xl font-medium leading-tight">{formatIdr(row.amount)}</p>
+            <p className="text-3xl font-medium leading-tight">{formatCurrency(row.amount)}</p>
             <p className="text-sm text-muted-foreground">Order {row.externalId}</p>
           </div>
 
@@ -261,7 +255,6 @@ export function QrisChargeDialog({ open, orderId, onOpenChange }: QrisChargeDial
     );
   } else {
     // loading / generating (creating, subscription resolving, or no row yet)
-    void isLoading;
     body = (
       <>
         <DialogHeader>
@@ -290,6 +283,7 @@ export function QrisChargeDialog({ open, orderId, onOpenChange }: QrisChargeDial
           >
             {body}
             <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100">
+              <X className="h-4 w-4" />
               <span className="sr-only">Close</span>
             </DialogPrimitive.Close>
           </DialogPrimitive.Content>

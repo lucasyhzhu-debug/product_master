@@ -107,14 +107,13 @@ export const insertPending = internalMutation({
 export const expirePrior = internalMutation({
   args: { orderId: v.id("orders") },
   handler: async (ctx, args) => {
-    const rows = await ctx.db
+    const pending = await ctx.db
       .query("qrisPayments")
       .withIndex("by_order", (q) => q.eq("orderId", args.orderId))
+      .filter((q) => q.eq(q.field("status"), "pending"))
       .collect();
-    for (const row of rows) {
-      if (row.status === "pending") {
-        await ctx.db.patch(row._id, { status: "expired" });
-      }
+    for (const row of pending) {
+      await ctx.db.patch(row._id, { status: "expired" });
     }
   },
 });
