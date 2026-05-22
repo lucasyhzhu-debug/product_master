@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: → v2.1 Interregnum
 status: executing
-stopped_at: Completed 83-05-PLAN.md (O3 adaptive polling)
-last_updated: "2026-05-22T15:50:00.000Z"
-last_activity: 2026-05-22 -- Phase 83 plan 05 (O3 adaptive polling) executed
+stopped_at: Completed 83-06-PLAN.md (O6 pageSize bump)
+last_updated: "2026-05-22T16:10:00.000Z"
+last_activity: 2026-05-22 -- Phase 83 plan 06 (O6 pageSize 50->100) executed
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 5
-  completed_plans: 4
-  percent: 80
+  total_plans: 6
+  completed_plans: 5
+  percent: 83
 ---
 
 # Project State
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-05-11)
 ## Current Position
 
 Phase: 83 (bigseller-pagelist-refresh) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 6
 Milestone: v2.0 SHIPPED 2026-05-11 (tag `v2.0`, last commit `ddb4da74`)
 Status: Executing Phase 83
-Next: continue with remaining 83-02 sync optimizations (O6 pageSize, O2/O1 parallelization)
-Last activity: 2026-05-22 -- Phase 83 plan 05 (O3 adaptive polling) executed
+Next: 83-07 parallel-fetch (O1+O2 parallel platforms + pages, paired + race tests) — last sync optimization
+Last activity: 2026-05-22 -- Phase 83 plan 06 (O6 pageSize 50->100) executed
 
-Progress: [████████░░] 80% (Phase 83: 4/5 plans)
+Progress: [████████░░] 83% (Phase 83: 5/6 plans)
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ No new decisions yet for v2.0.
 - [Phase 74.5.2]: Plan 03: 8 regression tests for backfill.ts (idempotency, timestamp preservation, D74.5.2-L4 silent-drop guard, admin gate, D74.5.2-L13 flag-independence, per-source isolation, 200+ item chunking, preflight per-source audit gate). Applied Plan 01 / D74.5.2-L1 precedent: convex-test's module resolver fails for t.mutation(internal.*) / t.query(api.*) against the productInventory subtree; fixed by adding _backfillOnePageForTest / _runChannelBackfillForTest / _getChannelBackfillPreflightForTest test-only direct-handler exports to backfill.ts (mirrors channelAudit.ts _runFullAuditForTest).
 - [Phase 83-03]: BigSeller token auto-refresh (D-03) — capture muctoken response header, accumulate freshest, persist ONCE at end of successful sync via updateToken (lastRefreshStatus="auto-refreshed-from-response"); pure shouldPersistRefreshedToken guard (skip empty/equal/auth-error) for unit-testability. Widened validator + schema union (Flag #1 — CONTEXT "no schema change" was wrong). 2-state freshness banner (D-04) driven by new PlatformHealthStatus.tokenExpiresAt (ms); built decodeMucTokenExp because health daysRemaining is integer-day granularity. D-02 orderState archival note folded into CHANGELOG. 6 commits, 13 files, all gates green.
 - [Phase 83-04]: BigSeller sync O4 N+1 elimination (D-05, low-risk-first #1) — added getRevenueByIds batch internalQuery; fetchOrders prefetches the whole revenue batch ONCE after saveRevenue, both the revenue→order linking loop and the cross-platform leak guard (T-79-02) read from one in-memory map (~400 sequential getRevenueById calls eliminated per full-month sync). Flag #5 CONFIRMED: a raw Map is NOT a Convex-serializable return type (threw "Map ... is not a supported Convex type" over runQuery); switched to plan's Array<[id,doc]> fallback + caller-side new Map(entries). Pure refactor, leak guard preserved verbatim. 3 commits, 4 files, +2 tests (188 bigseller pass), build green.
+- [Phase 83-06]: BigSeller sync O6 pageSize bump (D-05, low-risk-first #3) — raised BIGSELLER_PAGE_SIZE 50→100 in config.ts (halves page count per platform for a full-month sync), with an empirical-revert comment (revert to 50 if BigSeller returns code:-1). helpers.ts:61 buildPageListBody is the only consumer. Per lesson 83-01a the 3 HAR pageList fixtures + the helpers-test value assertion moved in lockstep (bare toHaveProperty("pageSize") strengthened to ("pageSize", 100)) keeping the fixture the single source of truth (T-83-06-02 mitigate). orderState assertions untouched (D-02). CHANGELOG records O6 + a 4-step revert runbook. No deviations. 3 commits, 6 files, 191 bigseller pass, build green.
 - [Phase 83-05]: BigSeller sync O3 adaptive polling (D-05, low-risk-first #2) — added pollDelayMs(pollAttempt) ramp helper in config.ts (15s x3 / 30s x2 / 60s thereafter); swapped all 4 pollSyncTask ctx.scheduler.runAfter reschedule sites in sync.ts from flat BIGSELLER_POLL_INTERVAL_MS to pollDelayMs(currentAttempt) — first poll uses pollDelayMs(0), 3 retry/not-complete branches use pollDelayMs(args.pollAttempt). BIGSELLER_MAX_POLLS unchanged at 8 → worst-case bound preserved (T-83-05-01 mitigated). Removed now-unused BIGSELLER_POLL_INTERVAL_MS import from sync.ts (Rule 3 noUnusedLocals; export kept in config.ts). Flag #3 confirmed: no literal 60s assertion existed — added NEW describe block in cron.test.ts locking the 15/15/15/30/30/60/60/60 ramp + <=60s ceiling + max-8. 3 commits, 4 files, +3 tests (191 bigseller pass), build green.
 - [Phase 74.5.2]: Plan 10: Task 1 (lint polish on AuditIssueTypeBadge + ChannelRoutingManager) was a no-op — both files already lint-clean from 74.5.1 triple-review commit bf036387. Documented as (No-op) entries in CHANGELOG Fixed section. Task 2 shipped comprehensive docs sweep: CHANGELOG + SCHEMA + API_REFERENCE + ROADMAP. Bonus scope: closed deferred-items.md tsc -b entry via appended Resolution section (kept existing _args + explicit result type annotation as structural fix).
 
@@ -92,6 +93,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-05-22T15:50:00.000Z
-Stopped at: Completed 83-05-PLAN.md (O3 adaptive polling)
+Last session: 2026-05-22T16:10:00.000Z
+Stopped at: Completed 83-06-PLAN.md (O6 pageSize bump)
 Resume file: None
