@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, internalQuery } from "../../_generated/server";
+import type { Doc } from "../../_generated/dataModel";
 import { requireRole } from "../../lib/auth";
 import { isExternalSource } from "../../lib/externalSource";
 import { BIGSELLER_MAX_POLLS } from "./config";
@@ -130,6 +131,35 @@ export const getRevenueById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.revenueId);
+  },
+});
+
+/**
+ * Phase 83-04 (O4): Batch form of getRevenueById — fetch many externalRevenue
+ * docs in ONE query instead of N sequential getRevenueById calls. Used by
+ * fetchOrders to prefetch the entire revenue batch after saveRevenue, so both
+ * the revenue→order linking loop and the cross-platform leak guard read from a
+ * single in-memory map (eliminates ~400 sequential single-doc lookups per
+ * full-month sync).
+ *
+ * Returns an Array of [revenueId, doc] entries. Missing/deleted ids are absent
+ * from the result (no null entries). The caller builds a Map via
+ * `new Map(entries)` (the convex/productionCounts/queries.ts:31 pattern).
+ *
+ * Flag #5 (83-PATTERNS) — a raw `Map` is NOT a supported Convex serialization
+ * type; returning one throws "Map ... is not a supported Convex type" over the
+ * runQuery boundary (confirmed by the parity test in sync.test.ts). Hence the
+ * Array<[id, doc]> shape.
+ */
+export const getRevenueByIds = internalQuery({
+  args: { revenueIds: v.array(v.id("externalRevenue")) },
+  handler: async (ctx, args) => {
+    const docs = await Promise.all(args.revenueIds.map((id) => ctx.db.get(id)));
+    const entries: Array<[string, Doc<"externalRevenue">]> = [];
+    docs.forEach((doc, i) => {
+      if (doc) entries.push([args.revenueIds[i], doc]);
+    });
+    return entries;
   },
 });
 

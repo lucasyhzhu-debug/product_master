@@ -274,7 +274,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 
 ---
 
-### Phase 83: BigSeller pageList Refresh (IN PROGRESS — created 2026-05-19, re-scoped 2026-05-21)
+### Phase 83: BigSeller pageList Refresh (COMPLETE — created 2026-05-19, re-scoped 2026-05-21, all 6 plans done 2026-05-22, merged #162)
 
 **Goal:** Restore and harden the BigSeller profit-data sync. The urgent correctness fix (83-01a — 6 new required pageList fields) is **already merged (#161) and confirmed in prod** (orders ingesting, `code:-1` gone). Two independent follow-ups remain: (1) **token auto-refresh + freshness banner** — capture the refreshed `muctoken` JWT from BigSeller response headers and persist it so the cron never dies from 20-day token decay; (2) **sync speed-up (83-02)** — cut manual full-month sync from ~6-10 min to ~1-2 min via N+1 elimination, adaptive polling, larger page size, and platform/page parallelization.
 
@@ -292,18 +292,18 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 - `.planning/phases/83-bigseller-pagelist-refresh/83-01b-fallback-and-token-refresh-SPEC.md` — token auto-refresh design spec (Wave 4) + archived W1-W3 standby
 - `.planning/phases/83-bigseller-pagelist-refresh/83-02-sync-optimization-SPEC.md` — O1-O4/O6 design spec
 
-**Plans:** 5 plans (one per PR, D-06) — execution order low-risk-first (D-05): 83-04 → 83-05 → 83-06 → 83-07; 83-03 independent.
+**Plans:** 6/5 plans complete
 
 Plans:
-- [ ] 83-03-token-auto-refresh-PLAN.md — Token auto-refresh (D-03) + freshness banner (D-04) + D-02 CHANGELOG archival note [own PR, wave 1]
-- [ ] 83-04-n1-elimination-PLAN.md — O4 N+1 elimination via getRevenueByIds batch lookup [wave 1]
-- [ ] 83-05-adaptive-polling-PLAN.md — O3 adaptive polling (15s×3/30s×2/60s) [wave 2, after 83-04]
-- [ ] 83-06-pagesize-bump-PLAN.md — O6 pageSize 50→100 [wave 3, after 83-05]
-- [ ] 83-07-parallel-fetch-PLAN.md — O1+O2 parallel platforms + pages (paired) + race tests [wave 4, after 83-06]
+- [x] 83-03-token-auto-refresh-PLAN.md — Token auto-refresh (D-03) + freshness banner (D-04) + D-02 CHANGELOG archival note [own PR, wave 1] — DONE 2026-05-22 (5 tasks, 6 commits, all gates green)
+- [x] 83-04-n1-elimination-PLAN.md — O4 N+1 elimination via getRevenueByIds batch lookup [wave 1] — DONE 2026-05-22 (3 tasks, 3 commits, Flag #5 confirmed: Map not Convex-serializable → Array<[id,doc]> fallback; +2 tests, 188 bigseller pass, build green)
+- [x] 83-05-adaptive-polling-PLAN.md — O3 adaptive polling (15s×3/30s×2/60s) [wave 2, after 83-04] — DONE 2026-05-22 (3 tasks, 3 commits, pollDelayMs ramp + 4 reschedule swaps; Flag #3 confirmed no literal-60s assertion → new ramp test locks 15/15/15/30/30/60/60/60 + max-8 bound; removed unused BIGSELLER_POLL_INTERVAL_MS import; +3 tests, 191 bigseller pass, build green)
+- [x] 83-06-pagesize-bump-PLAN.md — O6 pageSize 50→100 [wave 3, after 83-05] — DONE 2026-05-22 (3 tasks, 3 commits, BIGSELLER_PAGE_SIZE 50→100 + empirical-revert comment; 3 HAR fixtures + helpers-test value assertion moved in lockstep per lesson 83-01a; CHANGELOG revert runbook; 191 bigseller pass, build green)
+- [x] 83-07-parallel-fetch-PLAN.md — O1+O2 parallel platforms + pages (paired) + race tests [wave 4, after 83-06] — DONE 2026-05-22 (3 tasks, 2 commits; Promise.all over platformShops (O1) + per-platform pages 2..N via new mapWithConcurrency cap-4 helper (O2); fetchPage extracted, page 1 sequential (readiness retry + page-1 fatal); counts/token/auth RETURNED + aggregated post-Promise.all (concurrency-safe); per-page 'storing' write collapsed to once-per-platform; page-1 fatal scoped per-platform (R2: sibling data lands, sync marked error); leak guard T-79-02 preserved verbatim; +7 tests (198 bigseller pass): no-double-count/page-2-failure/leak-guard/token-under-concurrency/one-platform-fatal/cap-4; Tasks 1+2 in one feat commit (D-06 pairs them); build green)
 
 ---
 
-### Phase 84: QRIS Payment Integration — Xendit (PLANNED — 2026-05-21)
+### Phase 84: QRIS Payment Integration — Xendit (COMPLETE — created 2026-05-21, all 5 plans done 2026-05-22, merged #163; ships flag-OFF pending Xendit KYB)
 
 **Goal:** Accept in-person QRIS payments for orders via dynamic, exact-amount QR codes, using Xendit as the PJSP/acquirer. Staff generate a QR on the order screen; the customer scans and pays; an Xendit webhook drives the order to `PaymentReceived` automatically.
 

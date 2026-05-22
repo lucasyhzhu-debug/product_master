@@ -90,7 +90,7 @@ describe("buildPageListBody", () => {
     expect((body.orderState as string[]).length).toBe(5);
     expect(body).toHaveProperty("shopIds", [5090946, 5092855]);
     expect(body).toHaveProperty("pageNo", 1);
-    expect(body).toHaveProperty("pageSize");
+    expect(body).toHaveProperty("pageSize", 100);
     expect(body).toHaveProperty("startTime", "2026-01-01");
     expect(body).toHaveProperty("endTime", "2026-01-31");
     expect(body).toHaveProperty("timeType", "orderCreatedTime");
