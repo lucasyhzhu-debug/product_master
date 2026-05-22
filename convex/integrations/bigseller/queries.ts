@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, internalQuery } from "../../_generated/server";
+import type { Doc } from "../../_generated/dataModel";
 import { requireRole } from "../../lib/auth";
 import { isExternalSource } from "../../lib/externalSource";
 import { BIGSELLER_MAX_POLLS } from "./config";
@@ -130,6 +131,30 @@ export const getRevenueById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.revenueId);
+  },
+});
+
+/**
+ * Phase 83-04 (O4): Batch form of getRevenueById — fetch many externalRevenue
+ * docs in ONE query instead of N sequential getRevenueById calls. Used by
+ * fetchOrders to prefetch the entire revenue batch after saveRevenue, so both
+ * the revenue→order linking loop and the cross-platform leak guard read from a
+ * single in-memory map (eliminates ~400 sequential single-doc lookups per
+ * full-month sync).
+ *
+ * Returns a Map keyed by the revenue id string. Missing/deleted ids are absent
+ * from the result (no null entries). Convex serializes Map over the runQuery
+ * boundary; parity + round-trip are verified in sync.test.ts.
+ */
+export const getRevenueByIds = internalQuery({
+  args: { revenueIds: v.array(v.id("externalRevenue")) },
+  handler: async (ctx, args) => {
+    const docs = await Promise.all(args.revenueIds.map((id) => ctx.db.get(id)));
+    const map = new Map<string, Doc<"externalRevenue">>();
+    docs.forEach((doc, i) => {
+      if (doc) map.set(args.revenueIds[i], doc);
+    });
+    return map;
   },
 });
 
