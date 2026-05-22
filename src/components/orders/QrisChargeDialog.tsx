@@ -227,6 +227,21 @@ export function QrisChargeDialog({ open, orderId, onOpenChange }: QrisChargeDial
           <div className="text-center">
             <p className="text-sm font-medium text-muted-foreground">Amount due</p>
             <p className="text-3xl font-medium leading-tight">{formatIdr(row.amount)}</p>
+            <p className="text-sm text-muted-foreground">Order {row.externalId}</p>
+          </div>
+
+          {/* Live "listening" indicator — makes it obvious the screen is actively
+              waiting for the webhook, not frozen. Flips to the paid panel reactively. */}
+          <div
+            className="flex items-center justify-center gap-2 rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground"
+            role="status"
+            aria-live="polite"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+            </span>
+            Waiting for payment…
           </div>
 
           <p
