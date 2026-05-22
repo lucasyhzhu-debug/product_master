@@ -110,6 +110,36 @@ describe("BigSeller token auto-refresh — persist wiring (updateToken)", () => 
     expect(cred?.tokenExpiresAt).toBe(1780911842 * 1000);
   });
 
+  it("preserves the stored tokenExpiresAt when updateToken is called WITHOUT one (I4 auth-failure path)", async () => {
+    const t = convexTest(schema);
+    // Seed a credential WITH an expiry (mirrors a healthy auto-refreshed token).
+    const exp = decodeJwtPayload(NEW_TOKEN).exp as number;
+    await t.run(async (ctx) => {
+      await ctx.db.insert("platformCredentials", {
+        platformId: BIGSELLER_PLATFORM_ID,
+        currentToken: NEW_TOKEN,
+        tokenExpiresAt: exp * 1000,
+        updatedBy: "test",
+        updatedAt: Date.now(),
+      });
+    });
+
+    // handleAuthFailure calls updateToken WITHOUT tokenExpiresAt. Pre-fix this
+    // erased the stored expiry (nulling the D-04 freshness banner). I4: it must
+    // be preserved.
+    await t.mutation(internal.platformCredentials.mutations.updateToken, {
+      platformId: BIGSELLER_PLATFORM_ID,
+      lastRefreshAt: Date.now(),
+      lastRefreshStatus: "error",
+      lastRefreshError: "Token expired or invalid (BigSeller auth failure)",
+    });
+
+    const cred = await readCredential(t);
+    expect(cred?.tokenExpiresAt).toBe(exp * 1000); // PRESERVED, not nulled
+    expect(cred?.lastRefreshStatus).toBe("error");
+    expect(cred?.currentToken).toBe(NEW_TOKEN); // currentToken also preserved (?? fallback)
+  });
+
   it("leaves the credential token unchanged when the guard rejects (equal/empty/auth-error)", async () => {
     const t = convexTest(schema);
     await seedCredential(t, SEEDED_TOKEN);
@@ -354,6 +384,20 @@ describe("BigSeller parallel fetch (O1/O2)", () => {
     const txnIds = revenue.map((r: any) => r.externalTransactionId);
     expect(new Set(txnIds).size).toBe(txnIds.length); // every txn id unique
     expect(revenue.length).toBe(6);
+
+    // ── C1 (quad-review): the DISPLAY summary must also be deduped. Before the
+    // fix, totalRevenue summed platformIncome over the raw (re-seen) rows and
+    // totalOrders = inserted + updated double-counted a re-seen order. Each
+    // platform yields 3 unique orders × platformIncome 90 = 270; two platforms =
+    // 540 revenue / 6 orders. ──
+    const syncState = await t.run(async (ctx) =>
+      ctx.db.query("bigsellerSyncState").first(),
+    );
+    expect(syncState?.stage).toBe("complete");
+    expect(syncState?.summary?.totalRevenue).toBe(540);
+    expect(syncState?.summary?.totalOrders).toBe(6);
+    expect(syncState?.summary?.newOrders).toBe(6);
+    expect(syncState?.summary?.updatedOrders).toBe(0);
   });
 
   it("surfaces a page-2 failure in parallel mode and still lands page-1 data", async () => {
