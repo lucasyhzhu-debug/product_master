@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
 milestone: v2.0
-milestone_name: Financial Management & Data Quality
-status: SHIPPED — v2.0 milestone closed, ready for v2.1
-stopped_at: v2.0 milestone close complete
-last_updated: "2026-05-11T08:00:00.000Z"
-last_activity: 2026-05-11
+milestone_name: → v2.1 Interregnum
+status: verifying
+stopped_at: Completed 83-07-PLAN.md (O1+O2 parallel fetch) — all 6 Phase 83 plans executed
+last_updated: "2026-05-22T09:40:36.928Z"
+last_activity: 2026-05-22
 progress:
-  total_phases: 17
-  completed_phases: 17
-  total_plans: 79
-  completed_plans: 79
+  total_phases: 6
+  completed_phases: 1
+  total_plans: 5
+  completed_plans: 6
   percent: 100
 ---
 
@@ -20,16 +20,18 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-05-11)
 **Core value:** Production reliability -- single source of truth for recipes, orders, kitchen production, and inventory
-**Current focus:** v2.0 closed — planning queue for v2.1 (Phase 77 Data Health Dashboard, ADR-0001 schema field, Phase 74.5.3 packaging BOM auto-deduction)
+**Current focus:** Phase 83 — bigseller-pagelist-refresh
 
 ## Current Position
 
+Phase: 84
+Plan: Not started
 Milestone: v2.0 SHIPPED 2026-05-11 (tag `v2.0`, last commit `ddb4da74`)
-Status: Milestone archived — all artifacts moved to `.planning/milestones/v2.0-*`
-Next: `/gsd-new-milestone` to define v2.1 goals + requirements
-Last activity: 2026-05-11
+Status: Phase 83 all 6 plans executed — ready for triple-review + verification + merge
+Next: triple-review / verify / merge Phase 83 (all 6 plans done)
+Last activity: 2026-05-22
 
-Progress: [████████▌░] 84%
+Progress: [██████████] 100% (Phase 83: 6/6 plans)
 
 ## Performance Metrics
 
@@ -50,6 +52,11 @@ No new decisions yet for v2.0.
 - [Phase 74.5.2]: Plan 01: channelAudit.test.ts 4 red `t.action(internal.*)` failures fixed via direct-handler invocation (new `_runFullAuditForTest` helper in channelAudit.ts) — matches known-green channelSale.test.ts pattern; BigSeller normalize fixture tightened to `Extract<ExternalSource, ...>` per D74.5.2-L2
 - [Phase 74.5.2]: Plan 02: Added `by_source_deductedAt` compound index on `externalRevenueItems` + created `convex/productInventory/backfill.ts` with 4 exports (backfillOnePage / backfillChannelDeductions / runChannelBackfill / getChannelBackfillPreflight). Admin-gated, flag-independent (D74.5.2-L13), preserves revenue.transactionDate as createdAt (D-16), set-once idempotency via inventoryDeductedAt patched ONLY on result.deducted===true (D-19), silent-drop guard for null linkedMenuProductId (D74.5.2-L4), 100K row runaway cap via MAX_ITERATIONS=500.
 - [Phase 74.5.2]: Plan 03: 8 regression tests for backfill.ts (idempotency, timestamp preservation, D74.5.2-L4 silent-drop guard, admin gate, D74.5.2-L13 flag-independence, per-source isolation, 200+ item chunking, preflight per-source audit gate). Applied Plan 01 / D74.5.2-L1 precedent: convex-test's module resolver fails for t.mutation(internal.*) / t.query(api.*) against the productInventory subtree; fixed by adding _backfillOnePageForTest / _runChannelBackfillForTest / _getChannelBackfillPreflightForTest test-only direct-handler exports to backfill.ts (mirrors channelAudit.ts _runFullAuditForTest).
+- [Phase 83-03]: BigSeller token auto-refresh (D-03) — capture muctoken response header, accumulate freshest, persist ONCE at end of successful sync via updateToken (lastRefreshStatus="auto-refreshed-from-response"); pure shouldPersistRefreshedToken guard (skip empty/equal/auth-error) for unit-testability. Widened validator + schema union (Flag #1 — CONTEXT "no schema change" was wrong). 2-state freshness banner (D-04) driven by new PlatformHealthStatus.tokenExpiresAt (ms); built decodeMucTokenExp because health daysRemaining is integer-day granularity. D-02 orderState archival note folded into CHANGELOG. 6 commits, 13 files, all gates green.
+- [Phase 83-04]: BigSeller sync O4 N+1 elimination (D-05, low-risk-first #1) — added getRevenueByIds batch internalQuery; fetchOrders prefetches the whole revenue batch ONCE after saveRevenue, both the revenue→order linking loop and the cross-platform leak guard (T-79-02) read from one in-memory map (~400 sequential getRevenueById calls eliminated per full-month sync). Flag #5 CONFIRMED: a raw Map is NOT a Convex-serializable return type (threw "Map ... is not a supported Convex type" over runQuery); switched to plan's Array<[id,doc]> fallback + caller-side new Map(entries). Pure refactor, leak guard preserved verbatim. 3 commits, 4 files, +2 tests (188 bigseller pass), build green.
+- [Phase 83-06]: BigSeller sync O6 pageSize bump (D-05, low-risk-first #3) — raised BIGSELLER_PAGE_SIZE 50→100 in config.ts (halves page count per platform for a full-month sync), with an empirical-revert comment (revert to 50 if BigSeller returns code:-1). helpers.ts:61 buildPageListBody is the only consumer. Per lesson 83-01a the 3 HAR pageList fixtures + the helpers-test value assertion moved in lockstep (bare toHaveProperty("pageSize") strengthened to ("pageSize", 100)) keeping the fixture the single source of truth (T-83-06-02 mitigate). orderState assertions untouched (D-02). CHANGELOG records O6 + a 4-step revert runbook. No deviations. 3 commits, 6 files, 191 bigseller pass, build green.
+- [Phase 83-07]: BigSeller sync O1+O2 parallel fetch (D-05, low-risk-first #5, highest-risk, done last) — Promise.all over platformShops (Shopee+TikTok concurrent, O1) + per-platform pages 2..N fanned out via new mapWithConcurrency chunked-Promise.all helper (cap 4, ordered by pageNo, O2). Page 1 stays sequential (readiness retry + page-1-fatal + reveals totalPage). Extracted fetchPage (single fetch+parse, RETURNS muctoken header — no concurrent shared write). Counts/token/auth RETURNED from processPlatform + aggregated post-Promise.all (single-threaded, T-83-07-01/03). Per-page 'storing' write collapsed to once-per-platform (no race). Page-1 fatal scoped per-platform (staffreview R2): sibling data lands, sync marked error naming the failing platform — deliberate change from all-or-nothing early-return. Leak guard T-79-02 preserved verbatim. +7 tests (198 bigseller pass): no-double-count, page-2-failure surfaces, leak-guard survival, token-under-concurrency, one-platform-page-1-fatal-scoped, cap-4. Plan-criterion note: 'Cross-platform leak guard' grep returns 2 not 1 (always did — comment + throw message); guard intact. Tasks 1+2 in one feat commit (interdependent rewrite, D-06 pairs them). 2 commits, 3 files, build green.
+- [Phase 83-05]: BigSeller sync O3 adaptive polling (D-05, low-risk-first #2) — added pollDelayMs(pollAttempt) ramp helper in config.ts (15s x3 / 30s x2 / 60s thereafter); swapped all 4 pollSyncTask ctx.scheduler.runAfter reschedule sites in sync.ts from flat BIGSELLER_POLL_INTERVAL_MS to pollDelayMs(currentAttempt) — first poll uses pollDelayMs(0), 3 retry/not-complete branches use pollDelayMs(args.pollAttempt). BIGSELLER_MAX_POLLS unchanged at 8 → worst-case bound preserved (T-83-05-01 mitigated). Removed now-unused BIGSELLER_POLL_INTERVAL_MS import from sync.ts (Rule 3 noUnusedLocals; export kept in config.ts). Flag #3 confirmed: no literal 60s assertion existed — added NEW describe block in cron.test.ts locking the 15/15/15/30/30/60/60/60 ramp + <=60s ceiling + max-8. 3 commits, 4 files, +3 tests (191 bigseller pass), build green.
 - [Phase 74.5.2]: Plan 10: Task 1 (lint polish on AuditIssueTypeBadge + ChannelRoutingManager) was a no-op — both files already lint-clean from 74.5.1 triple-review commit bf036387. Documented as (No-op) entries in CHANGELOG Fixed section. Task 2 shipped comprehensive docs sweep: CHANGELOG + SCHEMA + API_REFERENCE + ROADMAP. Bonus scope: closed deferred-items.md tsc -b entry via appended Resolution section (kept existing _args + explicit result type annotation as structural fix).
 
 ### Open Blockers (carried forward)
@@ -87,6 +94,6 @@ No new decisions yet for v2.0.
 
 ## Session Continuity
 
-Last session: 2026-05-10T06:01:11.311Z
-Stopped at: Phase 81 context gathered
-Resume file: .planning/phases/81-domain-vocabulary-deepening/81-CONTEXT.md
+Last session: 2026-05-22T16:30:00.000Z
+Stopped at: Completed 83-07-PLAN.md (O1+O2 parallel fetch) — all 6 Phase 83 plans executed
+Resume file: None

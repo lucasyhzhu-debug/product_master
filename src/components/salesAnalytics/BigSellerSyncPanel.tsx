@@ -23,6 +23,8 @@ import {
 
 interface BigSellerSyncPanelProps {
   tokenExpired?: boolean;
+  /** Raw token expiry (ms) for the sub-day freshness banner (Phase 83-03 D-04). */
+  tokenExpiresAt?: number | null;
   onOpenTokenDialog?: () => void;
 }
 
@@ -67,9 +69,21 @@ function getStepIndex(stage: SyncStage): number {
 
 export function BigSellerSyncPanel({
   tokenExpired = false,
+  tokenExpiresAt = null,
   onOpenTokenDialog,
 }: BigSellerSyncPanelProps) {
   const { user } = useAuth();
+
+  // Phase 83-03 D-04: freshness banner. hoursRemaining is the single production
+  // freshness source (staffreview R3) — derived from the precomputed
+  // tokenExpiresAt prop, not from re-decoding a raw token here.
+  const hoursRemaining =
+    tokenExpiresAt != null ? (tokenExpiresAt - Date.now()) / 3600000 : null;
+  const tokenExpiredByClock = hoursRemaining != null && hoursRemaining <= 0;
+  const showExpiryWarning =
+    hoursRemaining != null && hoursRemaining > 0 && hoursRemaining < 24;
+  // Either the server-derived expired flag OR the clock-derived one blocks sync.
+  const syncBlocked = tokenExpired || tokenExpiredByClock;
   const { data: syncState } = useBigSellerSyncState();
   const { data: orderStats } = useBigSellerOrderStats();
   const startSync = useStartBigSellerSync();
@@ -274,7 +288,7 @@ export function BigSellerSyncPanel({
         <Button
           size="sm"
           onClick={handleSync}
-          disabled={isActive || isSyncing || tokenExpired || !user?.token}
+          disabled={isActive || isSyncing || syncBlocked || !user?.token}
           className="h-8 text-xs gap-1.5"
         >
           {isActive || isSyncing ? (
@@ -327,11 +341,52 @@ export function BigSellerSyncPanel({
         </span>
       </div>
 
-      {/* Token expired warning */}
+      {/* Token expired warning (server-derived health flag) */}
       {tokenExpired && (
         <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
           <span>Token expired -- paste new token to continue syncing.</span>
+          {onOpenTokenDialog && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-xs ml-auto"
+              onClick={onOpenTokenDialog}
+            >
+              Paste Token
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Phase 83-03 D-04: red blocking banner when the token has expired by the
+          clock. After auto-refresh lands this rarely fires; when it does the
+          cron has been failing ~19 days (actionable signal). */}
+      {tokenExpiredByClock && !tokenExpired && (
+        <div className="flex items-center gap-2 text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-md px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>Token expired -- paste a fresh token to resume syncing.</span>
+          {onOpenTokenDialog && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-xs ml-auto"
+              onClick={onOpenTokenDialog}
+            >
+              Paste Token
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Phase 83-03 D-04: yellow warning when the token expires in under 24h. */}
+      {showExpiryWarning && (
+        <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            Token expires in {Math.ceil(hoursRemaining as number)}h -- paste
+            fresh token
+          </span>
           {onOpenTokenDialog && (
             <Button
               variant="outline"

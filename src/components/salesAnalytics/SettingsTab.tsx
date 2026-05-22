@@ -260,6 +260,8 @@ export function SettingsTab() {
     (h) => h.platformId === "bigseller"
   );
   const bigsellerTokenExpired = bigsellerHealth?.status === "red" || bigsellerHealth?.status === "disconnected";
+  // Phase 83-03 D-04: raw expiry (ms) for the sub-day freshness banner.
+  const bigsellerTokenExpiresAt = bigsellerHealth?.tokenExpiresAt ?? null;
 
   return (
     <div className="space-y-6">
@@ -324,6 +326,7 @@ export function SettingsTab() {
                     <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
                       <BigSellerSyncPanel
                         tokenExpired={bigsellerTokenExpired}
+                        tokenExpiresAt={bigsellerTokenExpiresAt}
                         onOpenTokenDialog={() => setBigsellerDialogOpen(true)}
                       />
                       <div className="border-t pt-3">

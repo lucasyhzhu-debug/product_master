@@ -3,7 +3,7 @@
 > **Source:** Reverse-engineered from browser HAR captures (Feb 2026, refreshed May 2026)
 > **Base URL:** `https://www.bigseller.com`
 > **Auth:** JWT session cookie (`muc_token`)
-> **Last Verified:** 2026-05-19 (Phase 83-01a)
+> **Last Verified:** 2026-05-22 (Phase 83-03 — token auto-refresh)
 >
 > **Schema drift history:** Between 2026-02 and 2026-05, BigSeller silently added 6 new required
 > fields to the pageList request body (`settleStatus`, `transactionStatus`, `fbsOrder`, `groupType`,
@@ -208,6 +208,25 @@ The `muc_token` JWT (HS256) encodes session metadata:
 updates on each authenticated request, potentially extending the session. The previous
 estimate of ~30 days was based on `exp` relative to `loginTime`; the actual `iat`-based
 lifetime is ~20 days.
+
+### Token auto-refresh (Phase 83-03)
+
+Every successful response from any `bigseller.com` endpoint carries a fresher
+`muctoken` JWT in the response headers, with `iat` set to the current request time
+and `exp = iat + 20 days`. The BigSeller sync action (`fetchOrders`) captures this
+header on every page, accumulates the freshest token across all pages/platforms,
+and persists it ONCE at the end of a successful sync via
+`platformCredentials.mutations.updateToken` (`lastRefreshStatus:
+"auto-refreshed-from-response"`). This slides the 20-day sliding-`exp` TTL forward
+indefinitely, so the nightly cron never dies from token decay and staff stop
+manually repasting tokens.
+
+Defensive guards (the persist is skipped if any apply): empty header, refreshed
+token equals the current token, or any auth error (HTML or JSON `code:401006`)
+observed during the sync. The persist is wrapped in try/catch so a write failure
+never fails the sync. A 2-state freshness banner on the BigSeller admin card
+warns (yellow) when the token expires in under 24h and blocks (red) once expired —
+after auto-refresh lands this should rarely fire.
 
 ### Session Cookies
 

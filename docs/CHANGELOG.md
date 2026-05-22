@@ -16,6 +16,115 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83: BigSeller sync refresh — quad-review hardening — 2026-05-22
+
+**For the team:** Final review pass on the Phase 83 sync work fixed one display bug and hardened several edge cases. The "Synced N orders / Revenue: X" summary no longer over-counts when BigSeller happens to return the same order on two pages (the saved data was always correct — only the on-screen tally was inflated). A failed sync now always lands on a clear error state instead of occasionally getting stuck showing "storing…" (which previously blocked the next scheduled run). Error messages now name which platform's token expired instead of blaming the whole sync.
+
+- **C1 — summary dedup:** rows are de-duplicated by `platformOrderId` (→ `externalTransactionId`) before computing `summary.totalRevenue` / `totalOrders` / item counters; persisted `externalRevenue` upserts were already idempotent and are untouched. Dup-across-pages test now asserts the corrected summary (`totalRevenue`/`totalOrders`).
+- **I1 — terminal-state safety net:** the parallel fan-out + aggregation in `fetchOrders` is wrapped in try/catch that writes a terminal `failed` state and clears `isActive`, so an uncaught throw can no longer pin `bigsellerSyncState` at `"storing"` and block the cron overlap guard.
+- **I2 — unmapped-platform guard:** an unmapped (`"common"`) shop now fails cleanly at the top of `processPlatform` instead of throwing an `ArgumentValidationError` deep in `saveRevenue` via an unsound cast.
+- **I3 — scoped auth failure:** a token-expiry/auth failure names the failing platform(s) and only claims a global token expiry when every platform failed auth; the sibling platform's already-persisted data is preserved.
+- **I4 — preserve token expiry:** `updateToken` uses `args.tokenExpiresAt ?? cred.tokenExpiresAt` so a transient auth-failure update no longer wipes the stored expiry that the new freshness banner reads.
+- **I5 — consistent shape:** `getCredentialStatus` no-credentials branch now returns `tokenExpiresIn: null`.
+- **M2 — dead code:** removed the now-unused `BIGSELLER_POLL_INTERVAL_MS` constant (superseded by `pollDelayMs`).
+- Deferred (documented in `83-QUAD-REVIEW-FIXES.md`): SKU-side N+1 tail (pre-existing, separate optimization), UTC-vs-WIB date math in `startSync` (pre-existing).
+
+### Phase 83-07: BigSeller sync O1+O2 — parallel platform + page fetch — 2026-05-22
+
+**For the team:** This is the biggest sync speed-up. Previously the sync pulled Shopee fully, then TikTok, one page at a time within each — strictly sequential. It now fetches both platforms at the same time, and within each platform fans out pages 2..N in parallel (4 at a time). Combined with the earlier optimizations, this cuts a full-month sync from ~6-10 min toward ~1-2 min. The data is identical: each order is still saved exactly once, and a built-in guard prevents one platform's items from ever being attributed to the other.
+
+#### Changed
+- **O1 — parallel platforms (D-05, low-risk-first #5):** the Shopee + TikTok per-platform loop now runs concurrently via `Promise.all` over `processPlatform(platform, shopIds)`. The shared `priceOracle` / `mappingBySku` / `menuProductById` lookups are built ONCE before the fan-out and read-only inside each branch (safe for concurrent use). Per-platform counts, the freshest `muctoken`, and the auth-error flag are RETURNED and aggregated AFTER `Promise.all` resolves (single-threaded) — never mutated from concurrent branches.
+- **O2 — parallel pages 2..N (D-05):** within a platform, page 1 stays sequential (it carries the readiness-race retry + the page-1-fatal handling and reveals `totalPage`). Pages 2..N fan out via a new `mapWithConcurrency(items, 4, fn)` chunked-`Promise.all` helper — concurrency capped at 4, results ordered by `pageNo`.
+- **Per-platform stage races removed (SPEC O1 caveat (a)):** the `updateSyncStage('storing')` write now fires ONCE per platform (after page 1) instead of once per page — no racing writes under the fan-out. Overall status updates (fetching/storing/complete) stay outside the `Promise.all`.
+- **Partial-failure behavior change (staffreview R2):** when ONE platform hits a page-1 fatal under O1, the failure is scoped to that platform — the sibling platform's already-resolved data still lands and the sync is marked `error` naming the failing platform. This replaces the old all-or-nothing early-return that discarded everything.
+
+#### Correctness
+- **No double-count:** `saveRevenue` / `upsertOrders` are keyed by `externalTransactionId` (unique per order), so concurrent platform/page writes are idempotent — re-processing the same row updates in place, never duplicates (T-83-07-01).
+- **Cross-platform leak guard (T-79-02) preserved verbatim:** the per-row guard (`revDoc.source !== platform → throw`) stays inside each `processPlatform`; `source` is stamped from the branch's own `platform`, so concurrency cannot route items to the wrong platform (T-83-07-02).
+- **Token auto-refresh (83-03) concurrency-safe:** `fetchPage` RETURNS the captured `muctoken` header; the freshest token is selected post-resolution and persisted ONCE via the existing `shouldPersistRefreshedToken` guard. An auth error in either platform skips the persist (T-83-07-03).
+- **Bounded request rate:** page concurrency capped at 4, platform fan-out is 2 — total in-flight requests bounded (T-83-07-04).
+
+#### Added
+- `mapWithConcurrency<T,R>(items, limit, fn)` + `fetchPage(...)` exports in `convex/integrations/bigseller/sync.ts`.
+- New race-condition tests in `__tests__/sync.test.ts` (`describe("BigSeller parallel fetch (O1/O2)")` + `mapWithConcurrency` unit tests): no double-count under concurrent platforms, page-2 failure surfaces in the error log, cross-platform leak guard survives, token persists under concurrency, one-platform page-1 fatal scoped to that platform with sibling data intact, and the concurrency cap of 4.
+
+#### Files
+- `convex/integrations/bigseller/sync.ts`, `convex/integrations/bigseller/__tests__/sync.test.ts`, `docs/CHANGELOG.md`.
+
+### Phase 83-06: BigSeller sync O6 — raise pageList pageSize 50 → 100 — 2026-05-22
+
+**For the team:** BigSeller syncs fetch order data one page at a time. Each page used to hold 50 orders; it now holds 100, which halves the number of round-trips per platform for a full-month sync — fewer requests, faster pulls. No change to what data comes back.
+
+#### Changed
+- **O6 pageSize bump (D-05, low-risk-first #3):** raised `BIGSELLER_PAGE_SIZE` 50 → 100 in `convex/integrations/bigseller/config.ts`, halving the page count per platform. The 3 HAR fixtures (`__tests__/fixtures/2026-05-19-{common,shopee,tiktok}-pageList-body.json`) and the helpers-test value assertion moved to `pageSize: 100` in lockstep so the HAR fixture stays the single source of truth (lesson 83-01a).
+
+#### Revert runbook
+If a manual/cron BigSeller sync returns `code:-1` after this lands (BigSeller rejecting pageSize 100 as over the server max):
+1. Set `BIGSELLER_PAGE_SIZE` back to 50 in `convex/integrations/bigseller/config.ts`.
+2. Set the 3 fixture `pageSize` values back to 50.
+3. Restore the helpers-test `toHaveProperty("pageSize", 50)` assertion.
+4. Pin 50 as the empirical server max in the config comment.
+
+No data loss either way — `code:-1` just means the request was rejected; nothing is partially written.
+
+### Phase 83-05: BigSeller sync O3 — adaptive poll interval — 2026-05-22
+
+**For the team:** Manual BigSeller syncs finish sooner for typical short-window pulls. The sync waits for BigSeller to finish preparing the data by polling, and it used to wait a flat 60 seconds between every check. BigSeller usually has the data ready within 30-90 seconds, so the flat wait wasted minutes. Polling now ramps — 15s for the first three checks, 30s for the next two, 60s after that — cutting roughly 3-5 minutes off a typical short-window sync. The total number of checks is unchanged (max 8), so the longest-possible wait is exactly the same as before.
+
+#### Changed
+- **O3 adaptive polling (D-05, low-risk-first #2):** replaced the flat `BIGSELLER_POLL_INTERVAL_MS` (60s) reschedule delay with `pollDelayMs(pollAttempt)` — 15s ×3 / 30s ×2 / 60s thereafter. All 4 `ctx.scheduler.runAfter` poll-reschedule sites in `convex/integrations/bigseller/sync.ts` (first poll + 3 `pollSyncTask` retry/not-complete branches) now compute the delay from the current attempt. `BIGSELLER_MAX_POLLS` stays 8 so the worst-case wall-clock bound is preserved (cron-overlap guard T-79-08/09/10 unaffected).
+
+#### Added
+- `pollDelayMs(pollAttempt)` ramp helper in `convex/integrations/bigseller/config.ts` (pure, deterministic, attempt-driven).
+- `describe("pollDelayMs adaptive ramp (O3)")` tests in `convex/integrations/bigseller/__tests__/cron.test.ts` — locks the 15/15/15/30/30/60/60/60 schedule, the ≤60s ceiling, and the max-8 bound.
+
+#### Files
+- `convex/integrations/bigseller/config.ts` (new `pollDelayMs`; `BIGSELLER_POLL_INTERVAL_MS` export kept, unused)
+- `convex/integrations/bigseller/sync.ts` (4 reschedule sites swapped to `pollDelayMs`)
+- `convex/integrations/bigseller/__tests__/cron.test.ts` (ramp + bound tests)
+- `docs/CHANGELOG.md`
+
+### Phase 83-04: BigSeller sync O4 — N+1 query elimination — 2026-05-22
+
+**For the team:** Manual full-month BigSeller syncs run faster. The sync used to read each revenue record back from the database one at a time — about 400 separate round-trips for a 200-order month — to relink revenue to orders and run a safety check. It now fetches them all in a single batch, cutting that overhead off the sync runtime. No behavior change: the data and the cross-platform safety guard are identical.
+
+#### Changed
+- **O4 N+1 elimination (D-05, low-risk-first #1):** replaced ~400 sequential `getRevenueById` lookups with one `getRevenueByIds` batch prefetch. After `saveRevenue` returns, `fetchOrders` (`convex/integrations/bigseller/sync.ts`) prefetches the entire revenue batch ONCE; both the revenue→order linking loop and the cross-platform leak guard (T-79-02) now read from one in-memory map. Pure refactor, no behavior change. The leak guard still throws on a `revDoc.source !== platform` mismatch.
+
+#### Added
+- `getRevenueByIds(revenueIds)` internalQuery in `convex/integrations/bigseller/queries.ts` — batch form of `getRevenueById`. Returns `Array<[id, doc]>` (a raw `Map` is not a Convex-serializable return type — Flag #5; the caller builds the Map via `new Map(entries)`). Missing/deleted ids are omitted from the result.
+- Parity + round-trip + missing-id-omission tests in `convex/integrations/bigseller/__tests__/sync.test.ts`.
+
+#### Files
+- `convex/integrations/bigseller/queries.ts` (new `getRevenueByIds`)
+- `convex/integrations/bigseller/sync.ts` (both N+1 loops read from one prefetched batch)
+- `convex/integrations/bigseller/__tests__/sync.test.ts` (parity/round-trip tests)
+- `docs/CHANGELOG.md`
+
+### Phase 83-03: BigSeller token auto-refresh + freshness banner — 2026-05-22
+
+**For the team:** BigSeller stops nagging you to repaste a token every ~20 days. Every successful sync now grabs the fresher login token BigSeller hands back in its response and saves it automatically, sliding the 20-day expiry forward indefinitely. As long as the nightly sync keeps running, the token never decays. If something does go wrong (cron failing for ~19 days), the BigSeller card shows a yellow "token expires in Nh — paste fresh token" warning under 24h, and a red blocking banner once it has actually expired (which also disables the Sync Now button until you paste a new one).
+
+#### Added
+- **Token auto-refresh (D-03):** `fetchOrders` (`convex/integrations/bigseller/sync.ts`) captures the refreshed `muctoken` JWT from the BigSeller response headers on every successful call, accumulates the freshest one, and persists it ONCE at end of a successful sync via `platformCredentials.mutations.updateToken` with `lastRefreshStatus: "auto-refreshed-from-response"`. Defensive guards (pure `shouldPersistRefreshedToken` helper): skip the persist if the header is empty, equals the current token, or any auth error was observed during the sync; the persist is wrapped in try/catch so a write failure never fails the sync. The persisted `tokenExpiresAt` is the decoded `exp * 1000` (~now + 20 days).
+- **Freshness banner (D-04):** `BigSellerSyncPanel` shows a yellow `<24h` warning and a red expired (blocking) banner, driven by a new `tokenExpiresAt` field on `PlatformHealthStatus`. New `src/lib/bigsellerToken.ts` `decodeMucTokenExp()` helper (frontend twin of `convex/lib/jwt.ts`, no signature verification, display-only) — built rather than reusing health `daysRemaining` because that value is integer-day granularity, insufficient for the 24h threshold.
+
+#### Changed
+- `platformCredentials.lastRefreshStatus` union (schema + `updateToken` validator) widened with `"auto-refreshed-from-response"` so the auto-refresh persist does not throw `ArgumentValidationError`.
+
+#### Note — 83-01b orderState fallback ARCHIVED (D-02)
+BigSeller still accepts the legacy 5-value `orderState` (`completed`, `shipped`, `canceled`, `other`, `new`) as of the 83-01a backfill (2026-05). The subtractive 83-01b W1-W3 fallback (drop `canceled`+`new`, switch `currency`/`searchContent` to `""`) is ARCHIVED — documented standby only, NO code shipped. Re-trigger only if BigSeller starts rejecting the legacy values again (would carry a cancellation-data-loss caveat).
+
+#### Files
+- `convex/platformCredentials/mutations.ts`, `convex/schema.ts` (validator + table union widened)
+- `convex/integrations/bigseller/sync.ts` (token capture + persist-once-at-end + `shouldPersistRefreshedToken`)
+- `convex/integrations/bigseller/__tests__/sync.test.ts` (NEW — guard + wiring + exp derivation tests)
+- `convex/platformCredentials/queries.ts` (`tokenExpiresAt` on `PlatformHealthStatus`)
+- `src/lib/bigsellerToken.ts` (NEW) + `src/lib/__tests__/bigsellerToken.test.ts` (NEW)
+- `src/components/salesAnalytics/SettingsTab.tsx`, `BigSellerSyncPanel.tsx` + its test
+- `docs/SCHEMA.md`, `docs/BIGSELLER_PROFIT_API.md`, `docs/CHANGELOG.md`
+
 ### Phase 83-01a: BigSeller pageList schema refresh — 2026-05-19
 
 **For the team:** BigSeller profit-data sync is restored. We had not ingested any new orders since 2026-04-22 because BigSeller silently added 6 new required fields to their `pageList` request shape between February and May 2026, and our calls were getting silently rejected with the generic `code:-1` "Failed, please try again later" error. After this fix, the next manual sync (or nightly cron) will resume ingesting orders normally. To backfill the 27-day gap, run two manual syncs from the BigSeller admin card: chunk 1 = 22 Apr–05 May, chunk 2 = 06 May–19 May (the 31-day per-sync cap means a single 28-day window is too tight).

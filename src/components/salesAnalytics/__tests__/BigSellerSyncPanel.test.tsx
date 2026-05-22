@@ -102,3 +102,38 @@ describe("BigSellerSyncPanel — Phase 79 Plan 07 T2", () => {
     expect(btn).toBeDisabled();
   });
 });
+
+describe("BigSellerSyncPanel — Phase 83-03 D-04 freshness banner", () => {
+  const HOUR = 3600000;
+
+  it("shows a yellow '<N>h' banner when the token expires in under 24h", () => {
+    render(<BigSellerSyncPanel tokenExpiresAt={Date.now() + 5 * HOUR} />);
+    // Math.ceil(5) === 5
+    expect(screen.getByText(/Token expires in 5h/i)).toBeInTheDocument();
+  });
+
+  it("shows a red expired banner when the token has expired by the clock", () => {
+    render(<BigSellerSyncPanel tokenExpiresAt={Date.now() - HOUR} />);
+    expect(
+      screen.getByText(/paste a fresh token to resume syncing/i),
+    ).toBeInTheDocument();
+  });
+
+  it("disables Sync Now when the token has expired by the clock", () => {
+    render(<BigSellerSyncPanel tokenExpiresAt={Date.now() - HOUR} />);
+    expect(screen.getByRole("button", { name: /Sync Now/i })).toBeDisabled();
+  });
+
+  it("shows no freshness banner when the token has plenty of time left", () => {
+    render(<BigSellerSyncPanel tokenExpiresAt={Date.now() + 10 * 24 * HOUR} />);
+    expect(screen.queryByText(/Token expires in/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/paste a fresh token to resume syncing/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows no freshness banner when tokenExpiresAt is null", () => {
+    render(<BigSellerSyncPanel tokenExpiresAt={null} />);
+    expect(screen.queryByText(/Token expires in/i)).not.toBeInTheDocument();
+  });
+});

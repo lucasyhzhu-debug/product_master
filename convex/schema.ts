@@ -1278,7 +1278,13 @@ export default defineSchema({
     tokenExpiresAt: v.optional(v.number()),
     refreshToken: v.optional(v.string()),
     lastRefreshAt: v.optional(v.number()),
-    lastRefreshStatus: v.optional(v.union(v.literal("success"), v.literal("error"))),
+    lastRefreshStatus: v.optional(
+      v.union(
+        v.literal("success"),
+        v.literal("error"),
+        v.literal("auto-refreshed-from-response"),
+      ),
+    ),
     lastRefreshError: v.optional(v.string()),
     hmacSecret: v.optional(v.string()),
     updatedBy: v.string(),

@@ -13,7 +13,7 @@
 - [x] **v1.8 Support & Quality of Life** - Phases 55-63 (shipped 2026-03-27)
 - [x] **v1.9 Bugs & Quality of Life** - Phases 64-69 (shipped 2026-03-28)
 - [x] **v2.0 Financial Management & Data Quality** - Phases 70-81 (shipped 2026-05-11)
-- [ ] **v2.0 → v2.1 Interregnum** - Phase 82 (tech-debt sweep, in progress)
+- [ ] **v2.0 → v2.1 Interregnum** - Phases 82-84 (tech-debt sweep, BigSeller refresh, QRIS payments)
 
 ## Phases
 
@@ -271,6 +271,53 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 **Source artifacts:**
 - `.planning/phases/82-tech-debt-sweep/README.md` — full scope
 - `.planning/phases/82-tech-debt-sweep/82-CONTEXT.md` — D-01 through D-10 locked decisions
+
+---
+
+### Phase 83: BigSeller pageList Refresh (ALL PLANS EXECUTED — created 2026-05-19, re-scoped 2026-05-21, all 6 plans done 2026-05-22; pending triple-review + verify + merge)
+
+**Goal:** Restore and harden the BigSeller profit-data sync. The urgent correctness fix (83-01a — 6 new required pageList fields) is **already merged (#161) and confirmed in prod** (orders ingesting, `code:-1` gone). Two independent follow-ups remain: (1) **token auto-refresh + freshness banner** — capture the refreshed `muctoken` JWT from BigSeller response headers and persist it so the cron never dies from 20-day token decay; (2) **sync speed-up (83-02)** — cut manual full-month sync from ~6-10 min to ~1-2 min via N+1 elimination, adaptive polling, larger page size, and platform/page parallelization.
+
+**Why this phase exists:** BigSeller silently broke profit-data ingestion (`code:-1`) when its pageList contract added 6 required fields; the additive fix restored it. The remaining toil (manual token repasting every ~20 days, multi-minute sync runtimes) is operational debt worth retiring while the integration is fresh in context.
+
+**Re-scoped 2026-05-21 (post-01a-success):** 83-01b W1-W3 (subtractive `orderState`/`currency`/`searchContent` fallback) **archived** — documented standby only, no code (D-02). Token auto-refresh + banner (was 01b W4 + I3) relabeled into its own deliverable (D-03/D-04). All 5 sync optimizations in scope, low-risk-first (O4→O3→O6→O2→O1), as separate PRs (D-05/D-06).
+
+**Branch:** `gsd/phase-83-bigseller-pagelist-refresh`
+
+**Source artifacts:**
+- `.planning/phases/83-bigseller-pagelist-refresh/83-CONTEXT.md` — D-01 through D-06 locked decisions
+- `.planning/phases/83-bigseller-pagelist-refresh/83-OVERVIEW.md` — root cause, auth model, blast radius
+- `.planning/phases/83-bigseller-pagelist-refresh/83-RESEARCH.md` — HAR diff, decoded JWT, token-refresh mechanism
+- `.planning/phases/83-bigseller-pagelist-refresh/83-01a-SUMMARY.md` — what shipped in the merged fix
+- `.planning/phases/83-bigseller-pagelist-refresh/83-01b-fallback-and-token-refresh-SPEC.md` — token auto-refresh design spec (Wave 4) + archived W1-W3 standby
+- `.planning/phases/83-bigseller-pagelist-refresh/83-02-sync-optimization-SPEC.md` — O1-O4/O6 design spec
+
+**Plans:** 6/5 plans complete
+
+Plans:
+- [x] 83-03-token-auto-refresh-PLAN.md — Token auto-refresh (D-03) + freshness banner (D-04) + D-02 CHANGELOG archival note [own PR, wave 1] — DONE 2026-05-22 (5 tasks, 6 commits, all gates green)
+- [x] 83-04-n1-elimination-PLAN.md — O4 N+1 elimination via getRevenueByIds batch lookup [wave 1] — DONE 2026-05-22 (3 tasks, 3 commits, Flag #5 confirmed: Map not Convex-serializable → Array<[id,doc]> fallback; +2 tests, 188 bigseller pass, build green)
+- [x] 83-05-adaptive-polling-PLAN.md — O3 adaptive polling (15s×3/30s×2/60s) [wave 2, after 83-04] — DONE 2026-05-22 (3 tasks, 3 commits, pollDelayMs ramp + 4 reschedule swaps; Flag #3 confirmed no literal-60s assertion → new ramp test locks 15/15/15/30/30/60/60/60 + max-8 bound; removed unused BIGSELLER_POLL_INTERVAL_MS import; +3 tests, 191 bigseller pass, build green)
+- [x] 83-06-pagesize-bump-PLAN.md — O6 pageSize 50→100 [wave 3, after 83-05] — DONE 2026-05-22 (3 tasks, 3 commits, BIGSELLER_PAGE_SIZE 50→100 + empirical-revert comment; 3 HAR fixtures + helpers-test value assertion moved in lockstep per lesson 83-01a; CHANGELOG revert runbook; 191 bigseller pass, build green)
+- [x] 83-07-parallel-fetch-PLAN.md — O1+O2 parallel platforms + pages (paired) + race tests [wave 4, after 83-06] — DONE 2026-05-22 (3 tasks, 2 commits; Promise.all over platformShops (O1) + per-platform pages 2..N via new mapWithConcurrency cap-4 helper (O2); fetchPage extracted, page 1 sequential (readiness retry + page-1 fatal); counts/token/auth RETURNED + aggregated post-Promise.all (concurrency-safe); per-page 'storing' write collapsed to once-per-platform; page-1 fatal scoped per-platform (R2: sibling data lands, sync marked error); leak guard T-79-02 preserved verbatim; +7 tests (198 bigseller pass): no-double-count/page-2-failure/leak-guard/token-under-concurrency/one-platform-fatal/cap-4; Tasks 1+2 in one feat commit (D-06 pairs them); build green)
+
+---
+
+### Phase 84: QRIS Payment Integration — Xendit (SPEC IN PROGRESS — created 2026-05-21)
+
+**Goal:** Accept in-person QRIS payments for orders via dynamic, exact-amount QR codes, using Xendit as the PJSP/acquirer. Staff generate a QR on the order screen; the customer scans and pays; an Xendit webhook drives the order to `PaymentReceived` automatically.
+
+**Why this phase exists:** Order payment is manual today — `orderNumber` doubles as a bank-transfer reference and staff mark orders paid by hand (`updatePayment`). No payment gateway exists. QRIS at point of sale removes manual reconciliation for in-person customers and captures a payment RRN automatically.
+
+**Validated by spike (2026-05-21):** Full create→pay→confirm loop proven against Xendit Test Mode (`scripts/qris-sandbox-poc.mjs`, `scripts/qris-sandbox-server.mjs`). Paid signal arrives via webhook (QR flips ACTIVE→INACTIVE on pay), carries `receipt_id` (RRN) + `source` (paying wallet).
+
+**Locked decisions (pre-spec):** Xendit QR Codes API behind a `QrisProvider` adapter; in-person POS only (no public pay page, no cron); webhook confirmation via `convex/http.ts` (mirror grabfood/webhooks.ts); DYNAMIC QR with exact `finalTotal`; on paid → existing `AwaitingPayment→PaymentReceived` transition (idempotent).
+
+**Branch:** `feature/84-qris-payment-integration`
+
+**Source artifacts:**
+- `.planning/phases/84-qris-payment-integration/84-OVERVIEW.md` — scope + locked decisions
+- `docs/research/2026-05-21-qris-protocol-and-fields.md` — protocol + Xendit field mapping
 
 ---
 
