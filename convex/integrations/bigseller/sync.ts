@@ -51,6 +51,30 @@ type ActionCtx = {
   scheduler: { runAfter: (delay: number, ref: any, args: any) => Promise<any> };
 };
 
+// ─── Capped-concurrency helper (Phase 83-07, O2) ───────────────────────────────
+// No existing batched-concurrency helper in the repo (the closest analog is the
+// unbounded Promise.all over ctx.db.get in convex/orders/helpers/batchFetching.ts).
+// Implemented as a chunked Promise.all: slice `items` into groups of `limit`,
+// await each group fully before starting the next. Results preserve input order,
+// so page rows collected via this helper stay ordered by pageNo (O2 requirement).
+// Bounds total in-flight requests to `limit` (T-83-07-04: DoS / rate-limit).
+export async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const chunk = items.slice(i, i + limit);
+    const settled = await Promise.all(chunk.map(fn));
+    results.push(...settled);
+  }
+  return results;
+}
+
+// Page concurrency cap for the O2 fan-out (pages 2..N within a platform).
+const BIGSELLER_PAGE_CONCURRENCY = 4;
+
 // ─── Token Resolution ────────────────────────────────────────────────────────
 
 async function resolveBigSellerToken(ctx: ActionCtx): Promise<string | null> {
@@ -98,6 +122,124 @@ async function handleAuthFailure(
     lastRefreshStatus: "error",
     lastRefreshError: "Token expired or invalid (BigSeller auth failure)",
   });
+}
+
+// ─── Single-page fetch (Phase 83-07, O2) ──────────────────────────────────────
+// Performs ONE pageList fetch + parse for a given pageNo and returns a structured
+// outcome. Captures the refreshed `muctoken` header (returned, NOT written to any
+// shared outer variable — the SEQUENTIAL caller accumulates it post-resolution so
+// concurrent page calls stay write-safe; T-83-07-03). Detects HTML/JSON auth
+// errors and surfaces them via `authError` so the caller can abort without
+// persisting a degraded token. Does NOT perform the page-1 readiness-race retry
+// (page-1-only, sequential) or the page-1 fatal status write — those stay in the
+// sequential page-1 path in processPlatform.
+type FetchPageResult = {
+  rows: BigSellerOrderRow[];
+  totalPage: number;
+  refreshedToken: string;
+  authError: boolean;
+  // Non-auth, non-fatal error (e.g. readiness lag / code:-1 on page>1). The
+  // caller logs it; on page 1 it decides readiness-retry vs fatal.
+  errorMsg?: string;
+  errorCode?: number;
+  // Raw msg from BigSeller for readiness-lag detection on page 1.
+  msg?: string;
+};
+
+async function fetchPage(
+  endpoint: string,
+  headers: Record<string, string>,
+  body: unknown,
+  platform: string,
+  pageNo: number,
+  currentToken: string,
+): Promise<FetchPageResult> {
+  let responseText: string;
+  let refreshedToken = "";
+  try {
+    const response = await fetch(`${BIGSELLER_API_BASE}/${endpoint}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    // D-03: capture the refreshed muctoken from response headers. Returned to the
+    // caller (not written to a shared outer variable) so concurrent page fetches
+    // cannot race the token accumulation (T-83-07-03).
+    const headerToken = response.headers.get("muctoken") ?? "";
+    if (headerToken && headerToken !== currentToken) {
+      refreshedToken = headerToken;
+    }
+    responseText = await response.text();
+  } catch (err) {
+    console.error(`BigSeller ${platform} pageList fetch error (page ${pageNo}):`, err);
+    return { rows: [], totalPage: 0, refreshedToken, authError: false, errorMsg: String(err) };
+  }
+
+  // HTML detection = auth failure.
+  if (detectHtmlResponse(responseText)) {
+    return { rows: [], totalPage: 0, refreshedToken, authError: true };
+  }
+
+  let parsed: {
+    code: number;
+    errorCode?: number;
+    msg?: string;
+    data?: {
+      itemPageVo?: {
+        totalPage?: number;
+        totalSize?: number;
+        rows?: BigSellerOrderRow[];
+      };
+    };
+  };
+  try {
+    parsed = JSON.parse(responseText);
+  } catch {
+    console.error(`BigSeller ${platform} pageList invalid JSON (page ${pageNo})`);
+    return { rows: [], totalPage: 0, refreshedToken, authError: false, errorMsg: "invalid JSON" };
+  }
+
+  // JSON-based auth failure -- same as HTML auth failure.
+  if (isJsonAuthError(parsed)) {
+    console.error(
+      `BigSeller JSON auth error during fetchOrders (${platform} page ${pageNo}): ` +
+        `code=${parsed.code}, errorCode=${parsed.errorCode}, msg=${parsed.msg}`,
+    );
+    return { rows: [], totalPage: 0, refreshedToken, authError: true };
+  }
+
+  if (parsed.code !== 0) {
+    // Surface real diagnostic — BigSeller returns code:-1 with a msg explaining why
+    // (e.g., "sync task in progress", "invalid field"). Truncate to 500 chars.
+    const responseSnippet = responseText.slice(0, 500);
+    console.error(
+      `BigSeller ${platform} pageList error (page ${pageNo}): ` +
+        `code=${parsed.code}, errorCode=${parsed.errorCode ?? "none"}, ` +
+        `msg=${JSON.stringify(parsed.msg ?? null)}, body=${responseSnippet}`,
+    );
+    return {
+      rows: [],
+      totalPage: 0,
+      refreshedToken,
+      authError: false,
+      errorMsg: `code=${parsed.code}`,
+      errorCode: parsed.code,
+      msg: parsed.msg,
+    };
+  }
+
+  const pageData = parsed.data?.itemPageVo;
+  if (!pageData) {
+    console.warn(`BigSeller ${platform} pageList returned no itemPageVo (page ${pageNo}) -- empty`);
+    return { rows: [], totalPage: 0, refreshedToken, authError: false };
+  }
+
+  return {
+    rows: pageData.rows ?? [],
+    totalPage: pageData.totalPage ?? 0,
+    refreshedToken,
+    authError: false,
+  };
 }
 
 // ─── Public Entry Point ──────────────────────────────────────────────────────
@@ -590,18 +732,21 @@ export const fetchOrders = internalAction({
     }
 
     const headers = buildBigSellerHeaders(mucToken);
+    // Phase 83-07 (O1): per-platform counts are RETURNED from processPlatform and
+    // AGGREGATED after Promise.all resolves (single-threaded) — NOT mutated from
+    // inside concurrent branches (T-83-07-01). Declared here as the aggregation
+    // targets; assigned once below.
     let totalInserted = 0;
     let totalUpdated = 0;
     let totalRevenue = 0;
-    // Phase 74.5.1 Plan 06 (R9): per-sync counters — accumulated across the
-    // shopee/tiktok emit branch (below). Wired to updateSyncLog at completion.
+    // Phase 74.5.1 Plan 06 (R9): per-sync counters wired to updateSyncLog.
     let totalItemsDeducted = 0;
     let totalItemsSkipped = 0;
     const allSkuCodes = new Set<string>();
     const allPlatforms = new Set<string>();
-    // D-03 token auto-refresh: accumulate the freshest muctoken returned in the
-    // response headers across all platforms/pages; persist ONCE at end of a
-    // successful sync. authErrorObserved gates the persist defensively.
+    // D-03 token auto-refresh: the freshest muctoken seen across all platforms/
+    // pages; assigned from the post-resolution aggregation (T-83-07-03), persisted
+    // ONCE at end of a successful sync. authErrorObserved gates the persist.
     let latestRefreshedToken = "";
     let authErrorObserved = false;
 
@@ -678,116 +823,78 @@ export const fetchOrders = internalAction({
       platformShops.set(platform, existing);
     }
 
-    // Fetch orders per platform using platform-specific endpoints
-    for (const [platform, shopIds] of platformShops) {
+    // ── Phase 83-07 (O2): per-platform fetch + processing ──────────────────────
+    // processPlatform fetches page 1 SEQUENTIALLY (it carries the readiness-race
+    // retry + the page-1-fatal handling and reveals totalPage), then fans out
+    // pages 2..N with mapWithConcurrency (cap 4, results ordered by pageNo). All
+    // collected rows are processed through the existing normalize → upsert →
+    // saveRevenue → link → item-emit pipeline. Per-platform counts/token/auth are
+    // RETURNED (not mutated on the shared outer scope) so the O1 platform fan-out
+    // (Task 2) can aggregate them post-resolution, concurrency-safe (T-83-07-01/03).
+    type PlatformResult = {
+      inserted: number;
+      updated: number;
+      revenue: number;
+      itemsDeducted: number;
+      itemsSkipped: number;
+      skuCodes: string[];
+      platforms: string[];
+      refreshedToken: string;
+      authError: boolean;
+      // page-1 fatal rejection scoped to THIS platform (O1: do not abort the
+      // sibling platform's already-resolved work — staffreview R2).
+      fatalError?: string;
+    };
+
+    const processPlatform = async (
+      platform: string,
+      shopIds: number[],
+    ): Promise<PlatformResult> => {
+      const result: PlatformResult = {
+        inserted: 0,
+        updated: 0,
+        revenue: 0,
+        itemsDeducted: 0,
+        itemsSkipped: 0,
+        skuCodes: [],
+        platforms: [],
+        refreshedToken: "",
+        authError: false,
+      };
+
       const endpoint = getPageListEndpoint(platform);
       const platformTemplate = (platform === "shopee" || platform === "tiktok")
         ? platform
         : "common" as const;
 
-      let pageNo = 1;
-      let totalPage = 1;
-      // Tracks readiness-race retries on page 1 only. BigSeller can mark the
-      // generic sync task `taskStatus=complete` while the per-platform pageList
-      // index is still warming up (code:-1, msg:"Failed, please try again later").
-      // Reset per platform so each shop gets its own retry budget.
+      const buildBody = (pageNo: number) =>
+        buildPageListBody(args.startDate, args.endDate, pageNo, shopIds, platformTemplate);
+
+      // Local token accumulator — merged into the platform result; the OUTER
+      // latestRefreshedToken is only assigned after Promise.all resolves.
+      const captureToken = (token: string) => {
+        if (token) result.refreshedToken = token;
+      };
+
+      // ── Page 1: SEQUENTIAL (readiness-race retry + page-1 fatal) ──
+      let page1: FetchPageResult | null = null;
       let page1ReadinessRetries = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const res = await fetchPage(endpoint, headers, buildBody(1), platform, 1, mucToken);
+        captureToken(res.refreshedToken);
 
-      while (pageNo <= totalPage) {
-        const body = buildPageListBody(
-          args.startDate,
-          args.endDate,
-          pageNo,
-          shopIds,
-          platformTemplate,
-        );
-
-        let responseText: string;
-        try {
-          const response = await fetch(
-            `${BIGSELLER_API_BASE}/${endpoint}`,
-            {
-              method: "POST",
-              headers,
-              body: JSON.stringify(body),
-            }
-          );
-          // D-03: capture the refreshed muctoken from response headers. The
-          // BigSeller server returns a fresher JWT (iat=now, exp=iat+20d) on
-          // every successful call. Accumulate the freshest one in outer scope.
-          const refreshedToken = response.headers.get("muctoken") ?? "";
-          if (refreshedToken && refreshedToken !== mucToken) {
-            latestRefreshedToken = refreshedToken;
-          }
-          responseText = await response.text();
-        } catch (err) {
-          console.error(`BigSeller ${platform} pageList fetch error (page ${pageNo}):`, err);
-          pageNo++;
-          continue;
+        if (res.authError) {
+          result.authError = true;
+          return result;
         }
 
-        // HTML detection = auth failure -- abort entire fetch
-        if (detectHtmlResponse(responseText)) {
-          // D-03 defensive guard: mark auth error so the end-of-sync persist
-          // never overwrites a known-good token with a degraded one. The early
-          // return alone prevents reaching the persist block; the flag survives
-          // future refactors that might remove the early return.
-          authErrorObserved = true;
-          await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
-          return;
-        }
-
-        let parsed: {
-          code: number;
-          errorCode?: number;
-          msg?: string;
-          data?: {
-            itemPageVo?: {
-              totalPage?: number;
-              totalSize?: number;
-              rows?: BigSellerOrderRow[];
-            };
-          };
-        };
-        try {
-          parsed = JSON.parse(responseText);
-        } catch {
-          console.error(`BigSeller ${platform} pageList invalid JSON (page ${pageNo})`);
-          pageNo++;
-          continue;
-        }
-
-        // JSON-based auth failure -- abort entire fetch (same as HTML auth failure)
-        if (isJsonAuthError(parsed)) {
-          console.error(`BigSeller JSON auth error during fetchOrders (${platform} page ${pageNo}): code=${parsed.code}, errorCode=${parsed.errorCode}, msg=${parsed.msg}`);
-          // D-03 defensive guard: see HTML-auth-failure branch above.
-          authErrorObserved = true;
-          await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
-          return;
-        }
-
-        if (parsed.code !== 0) {
-          // Surface real diagnostic — BigSeller returns code:-1 with a msg explaining why
-          // (e.g., "sync task in progress", "invalid field"). The previous version
-          // logged only the code, which made root-causing impossible from logs alone.
-          // Truncate responseText to 500 chars to keep log lines bounded.
-          const responseSnippet = responseText.slice(0, 500);
-          console.error(
-            `BigSeller ${platform} pageList error (page ${pageNo}): ` +
-              `code=${parsed.code}, errorCode=${parsed.errorCode ?? "none"}, ` +
-              `msg=${JSON.stringify(parsed.msg ?? null)}, body=${responseSnippet}`
-          );
-          // Readiness-race retry: BigSeller's docs (BIGSELLER_PROFIT_API.md:74-76)
-          // confirm `code:-1, msg:"Failed, please try again later"` means the
-          // pageList index is still warming up after the generic sync task marked
-          // taskStatus=complete. Retry on page 1 only, gated to that exact msg.
-          // Other code:-1 modes (missing required field) still fail fast at the
-          // page-1 transition below.
+        if (res.errorCode !== undefined && res.errorCode !== 0) {
+          // Readiness-race retry: page 1 only, gated to the exact warming-up msg.
           const isReadinessLag =
-            pageNo === 1 &&
-            parsed.code === -1 &&
-            typeof parsed.msg === "string" &&
-            parsed.msg.toLowerCase().includes("try again later");
+            res.errorCode === -1 &&
+            typeof res.msg === "string" &&
+            res.msg.toLowerCase().includes("try again later");
           if (
             isReadinessLag &&
             page1ReadinessRetries < BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS.length
@@ -800,76 +907,82 @@ export const fetchOrders = internalAction({
                 `in ${delay}ms`,
             );
             await new Promise((resolve) => setTimeout(resolve, delay));
-            continue; // retry same page
+            continue; // retry page 1
           }
-          // First-page failure on page 1 is fatal: BigSeller is rejecting the request
-          // for the entire query. Marking the sync 'failed' (instead of silently
-          // completing with 0 orders) lets the user see something is wrong rather
-          // than "No orders found for this date range."
-          if (pageNo === 1) {
-            await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
-              stage: "failed",
-              pollAttempt: 0,
-              maxPolls: BIGSELLER_MAX_POLLS,
-              attempt: args.attempt,
-              startDate: args.startDate,
-              endDate: args.endDate,
-              errorMessage:
-                `BigSeller ${platform} rejected pageList request: ` +
-                `code=${parsed.code}` +
-                (parsed.msg ? ` (${parsed.msg})` : ""),
-              completedAt: Date.now(),
-            });
-            await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
-              logId: args.syncLogId,
-              status: "error",
-              errorMessage: `BigSeller ${platform} pageList code=${parsed.code}: ${parsed.msg ?? "unknown"}`,
-            });
-            return;
-          }
-          pageNo++;
-          continue;
+          // Page-1 fatal: BigSeller is rejecting the whole query for this platform.
+          // O1 (staffreview R2): scope the failure to THIS platform — record it and
+          // return; the sibling platform's resolved data still lands. The caller
+          // marks the overall sync 'error' naming the failing platform.
+          result.fatalError =
+            `BigSeller ${platform} rejected pageList request: code=${res.errorCode}` +
+            (res.msg ? ` (${res.msg})` : "");
+          return result;
         }
+        page1 = res;
+        break;
+      }
 
-        const pageData = parsed.data?.itemPageVo;
-        if (!pageData) {
-          console.warn(`BigSeller ${platform} pageList returned no itemPageVo -- empty sync`);
-          break;
-        }
+      // ── Update stage to storing ONCE per platform (O1 caveat (a): no per-page
+      // 'storing' write that would race / fire N times under the fan-out). ──
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
+        stage: "storing",
+        pollAttempt: 0,
+        maxPolls: BIGSELLER_MAX_POLLS,
+        attempt: args.attempt,
+        startDate: args.startDate,
+        endDate: args.endDate,
+      });
 
-        totalPage = pageData.totalPage ?? 0;
-        const rows = pageData.rows ?? [];
+      const totalPage = page1.totalPage ?? 0;
+      // Collect rows in pageNo order: page 1 first, then the ordered fan-out.
+      const allRows: BigSellerOrderRow[] = [...page1.rows];
 
-        if (rows.length === 0) break;
-
-        // Normalize platform-specific fee fields into common fields
-        // Pass loop platform variable -- order.platform is null on platform-specific endpoints (BUG-02)
-        for (const row of rows) {
-          normalizePlatformFees(row, platform as "shopee" | "tiktok" | "common");
-        }
-
-        // Update stage to storing
-        await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
-          stage: "storing",
-          pollAttempt: 0,
-          maxPolls: BIGSELLER_MAX_POLLS,
-          attempt: args.attempt,
-          startDate: args.startDate,
-          endDate: args.endDate,
-        });
-
-        // Batch upsert orders -- pass platform variable (BUG-02 fix)
-        const storageRows = rows.map((row) => mapOrderToStorage(row, args.syncLogId, platform));
-        const upsertResult: { inserted: number; updated: number } = await ctx.runMutation(
-          internal.bigsellerOrders.mutations.upsertOrders,
-          { orders: storageRows }
+      // ── Pages 2..N: PARALLEL fan-out (cap 4, ordered by pageNo) ──
+      if (totalPage > 1) {
+        const pageNos: number[] = [];
+        for (let n = 2; n <= totalPage; n++) pageNos.push(n);
+        const pageResults = await mapWithConcurrency(
+          pageNos,
+          BIGSELLER_PAGE_CONCURRENCY,
+          (n) => fetchPage(endpoint, headers, buildBody(n), platform, n, mucToken),
         );
-        totalInserted += upsertResult.inserted;
-        totalUpdated += upsertResult.updated;
+        // mapWithConcurrency preserves input order, so pageResults[i] is pageNos[i].
+        for (const res of pageResults) {
+          captureToken(res.refreshedToken);
+          if (res.authError) {
+            // Auth error on a fanned-out page: surface it, do NOT persist token.
+            result.authError = true;
+            continue;
+          }
+          // A non-auth page>1 error logs (in fetchPage) and contributes 0 rows —
+          // matches today's `pageNo++; continue`.
+          allRows.push(...res.rows);
+        }
+      }
 
-        // Bridge to externalRevenue -- pass platform variable (BUG-02 fix)
-        const revenueRecords = rows.map((row) => mapOrderToRevenue(row, args.syncLogId, platform));
-        const revenueResults: Array<{ id: string; isNew: boolean }> = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
+      if (allRows.length === 0) return result;
+
+      // Normalize platform-specific fee fields into common fields.
+      for (const row of allRows) {
+        normalizePlatformFees(row, platform as "shopee" | "tiktok" | "common");
+      }
+
+      // Batch upsert orders. saveRevenue/upsertOrders are keyed by
+      // externalTransactionId (unique per order) → idempotent, cannot double-count
+      // (T-83-07-01).
+      const storageRows = allRows.map((row) => mapOrderToStorage(row, args.syncLogId, platform));
+      const upsertResult: { inserted: number; updated: number } = await ctx.runMutation(
+        internal.bigsellerOrders.mutations.upsertOrders,
+        { orders: storageRows }
+      );
+      result.inserted += upsertResult.inserted;
+      result.updated += upsertResult.updated;
+
+      // Bridge to externalRevenue.
+      const revenueRecords = allRows.map((row) => mapOrderToRevenue(row, args.syncLogId, platform));
+      const revenueResults: Array<{ id: string; isNew: boolean }> = await ctx.runMutation(
+        internal.externalData.mutations.saveRevenue,
+        {
           records: revenueRecords.map((r) => ({
             source: r.source as "shopee" | "tiktok",
             externalTransactionId: r.externalTransactionId,
@@ -886,132 +999,173 @@ export const fetchOrders = internalAction({
             transactionType: r.transactionType,
             syncLogId: r.syncLogId,
           })),
-        });
-
-        // Link revenue IDs back to bigsellerOrders for retroactive mapping
-        const revenueIds = revenueResults.map((r) => r.id);
-        // Phase 83-04 (O4): prefetch the entire revenue batch ONCE so both the
-        // revenue→order linking loop below AND the cross-platform leak guard
-        // further down read from one in-memory map — replaces ~400 sequential
-        // single-doc per-id lookups per full-month sync. getRevenueByIds returns
-        // Array<[id, doc]> (Flag #5 — a raw Map isn't a Convex-serializable
-        // return type); build the lookup Map caller-side.
-        const revDocEntries = await ctx.runQuery(
-          internal.integrations.bigseller.queries.getRevenueByIds,
-          { revenueIds: revenueIds as Id<"externalRevenue">[] }
-        );
-        const revDocsById = new Map(revDocEntries);
-        if (revenueIds.length > 0) {
-          const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
-          for (const revId of revenueIds) {
-            const revDoc = revDocsById.get(revId);
-            if (revDoc?.externalTransactionId) {
-              const orderId = revDoc.externalTransactionId.replace("bigseller:", "");
-              if (orderId) {
-                links.push({
-                  platformOrderId: orderId,
-                  revenueId: revId as Id<"externalRevenue">,
-                });
-              }
-            }
-          }
-          if (links.length > 0) {
-            await ctx.runMutation(
-              internal.bigsellerOrders.mutations.linkRevenueToOrders,
-              { links }
-            );
-          }
         }
+      );
 
-        // ── Phase 79: Emit externalRevenueItems per Shopee/TikTok order ──
-        // Branch only for shopee/tiktok where skuVoList is populated. The per-
-        // platform loop guarantees `platform` is the canonical source for every
-        // row in this batch — defensive assertion below catches future
-        // refactors that might break that invariant (T-79-02).
-        if (platform === "shopee" || platform === "tiktok") {
-          for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const result = revenueResults[i];
-            if (!result?.id) continue;
-            if (!row.skuVoList || row.skuVoList.length === 0) continue;
-            const revenueId = result.id as Id<"externalRevenue">;
-
-            // Cross-platform leak guard (T-79-02): the per-platform loop
-            // groups shops by BIGSELLER_SHOP_PLATFORM_MAP[shopId], and
-            // mapOrderToRevenue stamps `source = platform.toLowerCase()`,
-            // so revenueResults[i] MUST belong to `platform`. If a future
-            // refactor breaks that contract, fail loudly rather than emit
-            // items against the wrong platform's revenueId.
-            const revDoc = revDocsById.get(revenueId);
-            if (revDoc && revDoc.source !== platform) {
-              throw new Error(
-                `Cross-platform leak guard: revenueSource=${revDoc.source} !== order.platform=${platform} (revenueId=${revenueId})`
-              );
-            }
-
-            const prorated = prorateItems(
-              {
-                orderAmount: row.orderAmount,
-                saleAmount: row.saleAmount,
-                skuVoList: row.skuVoList,
-              },
-              priceOracle,
-              mappingBySku
-            );
-            const items = prorated.map((p) => {
-              const mapping = mappingBySku.get(p.sku);
-              const menuProductIdStr = mapping?.menuProductId;
-              const menuProduct = menuProductIdStr
-                ? menuProductById.get(menuProductIdStr)
-                : null;
-              const productName = menuProduct?.name ?? p.sku; // fallback: raw SKU code
-              return {
-                externalItemId: p.sku, // D-18 dedup key (revenueId, externalItemId)
-                productName,
-                unitPrice: p.unitPrice,
-                quantity: p.skuNum,
-                totalPrice: p.totalPrice,
-                linkedMenuProductId: menuProductIdStr
-                  ? (menuProductIdStr as Id<"menuProducts">)
-                  : undefined,
-                isAutoMatched: Boolean(menuProductIdStr),
-                matchConfidence: (menuProductIdStr ? "exact" : "none") as
-                  | "exact"
-                  | "none",
-              };
-            });
-            if (items.length > 0) {
-              // Phase 74.5.1 Plan 06 (R9): migrated to saveRevenueItemsWithCounts
-              // (Option A) to read `deducted` + `skipped` counters for syncLog
-              // wiring. Gate to shopee/tiktok at :808 is PRESERVED — this call
-              // only runs when platform is shopee or tiktok.
-              const itemsResult: {
-                ids: Id<"externalRevenueItems">[];
-                inserted: number;
-                deducted: number;
-                skipped: number;
-              } = await ctx.runMutation(
-                internal.externalData.mutations.saveRevenueItemsWithCounts,
-                { revenueId, items }
-              );
-              totalItemsDeducted += itemsResult.deducted;
-              totalItemsSkipped += itemsResult.skipped;
+      // Link revenue IDs back to bigsellerOrders for retroactive mapping.
+      const revenueIds = revenueResults.map((r) => r.id);
+      // Phase 83-04 (O4): prefetch the entire revenue batch ONCE (Array<[id,doc]>,
+      // Flag #5); build the lookup Map caller-side.
+      const revDocEntries = await ctx.runQuery(
+        internal.integrations.bigseller.queries.getRevenueByIds,
+        { revenueIds: revenueIds as Id<"externalRevenue">[] }
+      );
+      const revDocsById = new Map(revDocEntries);
+      if (revenueIds.length > 0) {
+        const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
+        for (const revId of revenueIds) {
+          const revDoc = revDocsById.get(revId);
+          if (revDoc?.externalTransactionId) {
+            const orderId = revDoc.externalTransactionId.replace("bigseller:", "");
+            if (orderId) {
+              links.push({ platformOrderId: orderId, revenueId: revId as Id<"externalRevenue"> });
             }
           }
         }
-
-        // Collect SKU codes and platforms for product mapping
-        // Use loop platform variable, not row.platform (null on platform-specific endpoints)
-        for (const row of rows) {
-          totalRevenue += row.platformIncome ?? 0;
-          allPlatforms.add(platform);
-          for (const sku of row.skuVoList || []) {
-            if (sku.sku) allSkuCodes.add(`${platform}::${sku.sku}`);
-          }
+        if (links.length > 0) {
+          await ctx.runMutation(
+            internal.bigsellerOrders.mutations.linkRevenueToOrders,
+            { links }
+          );
         }
-
-        pageNo++;
       }
+
+      // ── Phase 79: Emit externalRevenueItems per Shopee/TikTok order ──
+      // processPlatform stamps `source` from its own `platform`, so the per-row
+      // cross-platform leak guard (T-79-02) stays correct under O1 concurrency.
+      if (platform === "shopee" || platform === "tiktok") {
+        for (let i = 0; i < allRows.length; i++) {
+          const row = allRows[i];
+          const res = revenueResults[i];
+          if (!res?.id) continue;
+          if (!row.skuVoList || row.skuVoList.length === 0) continue;
+          const revenueId = res.id as Id<"externalRevenue">;
+
+          // Cross-platform leak guard (T-79-02): see comment above. `source` is
+          // stamped from this branch's own `platform`, so concurrency cannot
+          // route items to the wrong platform.
+          const revDoc = revDocsById.get(revenueId);
+          if (revDoc && revDoc.source !== platform) {
+            throw new Error(
+              `Cross-platform leak guard: revenueSource=${revDoc.source} !== order.platform=${platform} (revenueId=${revenueId})`
+            );
+          }
+
+          const prorated = prorateItems(
+            {
+              orderAmount: row.orderAmount,
+              saleAmount: row.saleAmount,
+              skuVoList: row.skuVoList,
+            },
+            priceOracle,
+            mappingBySku
+          );
+          const items = prorated.map((p) => {
+            const mapping = mappingBySku.get(p.sku);
+            const menuProductIdStr = mapping?.menuProductId;
+            const menuProduct = menuProductIdStr
+              ? menuProductById.get(menuProductIdStr)
+              : null;
+            const productName = menuProduct?.name ?? p.sku; // fallback: raw SKU code
+            return {
+              externalItemId: p.sku, // D-18 dedup key (revenueId, externalItemId)
+              productName,
+              unitPrice: p.unitPrice,
+              quantity: p.skuNum,
+              totalPrice: p.totalPrice,
+              linkedMenuProductId: menuProductIdStr
+                ? (menuProductIdStr as Id<"menuProducts">)
+                : undefined,
+              isAutoMatched: Boolean(menuProductIdStr),
+              matchConfidence: (menuProductIdStr ? "exact" : "none") as
+                | "exact"
+                | "none",
+            };
+          });
+          if (items.length > 0) {
+            const itemsResult: {
+              ids: Id<"externalRevenueItems">[];
+              inserted: number;
+              deducted: number;
+              skipped: number;
+            } = await ctx.runMutation(
+              internal.externalData.mutations.saveRevenueItemsWithCounts,
+              { revenueId, items }
+            );
+            result.itemsDeducted += itemsResult.deducted;
+            result.itemsSkipped += itemsResult.skipped;
+          }
+        }
+      }
+
+      // Collect SKU codes + platforms (use loop platform variable, not row.platform).
+      const skuCodeSet = new Set<string>();
+      for (const row of allRows) {
+        result.revenue += row.platformIncome ?? 0;
+        result.platforms.push(platform);
+        for (const sku of row.skuVoList || []) {
+          if (sku.sku) skuCodeSet.add(`${platform}::${sku.sku}`);
+        }
+      }
+      result.skuCodes = [...skuCodeSet];
+
+      return result;
+    };
+
+    // ── Phase 83-07 (O1): run both platforms CONCURRENTLY. priceOracle /
+    // mappingBySku / menuProductById are built once above and read ONLY inside
+    // processPlatform — safe for concurrent use (SPEC O1). Counts are aggregated
+    // AFTER the Promise.all resolves (single-threaded). ──
+    const platformResults = await Promise.all(
+      [...platformShops].map(([platform, shopIds]) => processPlatform(platform, shopIds))
+    );
+
+    // ── Aggregate post-resolution (single-threaded — concurrency-safe) ──
+    for (const r of platformResults) {
+      totalInserted += r.inserted;
+      totalUpdated += r.updated;
+      totalRevenue += r.revenue;
+      totalItemsDeducted += r.itemsDeducted;
+      totalItemsSkipped += r.itemsSkipped;
+      for (const code of r.skuCodes) allSkuCodes.add(code);
+      for (const p of r.platforms) allPlatforms.add(p);
+      // Freshest token: any non-empty refreshedToken from a platform that did NOT
+      // observe an auth error. (All platforms hit the same server within seconds,
+      // so any fresh token is acceptable; auth-error platforms contribute none.)
+      if (r.refreshedToken && !r.authError) latestRefreshedToken = r.refreshedToken;
+    }
+    authErrorObserved = platformResults.some((r) => r.authError);
+
+    // ── Auth failure: if EITHER platform saw an auth error, the token is bad for
+    // the whole sync — mark failed and abort (mirrors the pre-O1 early-return). ──
+    if (authErrorObserved) {
+      await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
+      return;
+    }
+
+    // ── Page-1 fatal (staffreview R2): scope the failure to the offending
+    // platform but let the sibling's resolved data stand. Mark the sync 'error'
+    // naming the failing platform(s); do NOT silently complete with the partial
+    // data as a success. ──
+    const fatalPlatforms = platformResults.filter((r) => r.fatalError);
+    if (fatalPlatforms.length > 0) {
+      const messages = fatalPlatforms.map((r) => r.fatalError).join("; ");
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
+        stage: "failed",
+        pollAttempt: 0,
+        maxPolls: BIGSELLER_MAX_POLLS,
+        attempt: args.attempt,
+        startDate: args.startDate,
+        endDate: args.endDate,
+        errorMessage: messages,
+        completedAt: Date.now(),
+      });
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: args.syncLogId,
+        status: "error",
+        errorMessage: messages,
+      });
+      return;
     }
 
     // ── D-03: persist the freshest auto-refreshed muctoken ONCE at end of a
