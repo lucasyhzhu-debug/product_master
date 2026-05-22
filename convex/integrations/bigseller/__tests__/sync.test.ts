@@ -14,7 +14,7 @@
  * decoded expiry (mirrors the end-of-sync persist block).
  */
 
-import { convexTest } from "convex-test";
+import { convexTest, type TestConvex } from "convex-test";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import schema from "../../../schema";
 import { internal } from "../../../_generated/api";
@@ -30,7 +30,7 @@ const NEW_TOKEN =
 const SEEDED_TOKEN =
   "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIiwiZXhwIjoxNzc5MDAwMDAwLCJpYXQiOjE3NzcyNzIwMDB9.sigOLD";
 
-async function seedCredential(t: ReturnType<typeof convexTest>, token: string) {
+async function seedCredential(t: TestConvex<typeof schema>, token: string) {
   await t.run(async (ctx) => {
     await ctx.db.insert("platformCredentials", {
       platformId: BIGSELLER_PLATFORM_ID,
@@ -41,7 +41,7 @@ async function seedCredential(t: ReturnType<typeof convexTest>, token: string) {
   });
 }
 
-async function readCredential(t: ReturnType<typeof convexTest>) {
+async function readCredential(t: TestConvex<typeof schema>) {
   return t.run(async (ctx) =>
     ctx.db
       .query("platformCredentials")
@@ -157,7 +157,7 @@ describe("BigSeller token auto-refresh — persist wiring (updateToken)", () => 
 
 describe("getRevenueByIds (O4 N+1 elimination)", () => {
   async function seedRevenue(
-    t: ReturnType<typeof convexTest>,
+    t: TestConvex<typeof schema>,
     externalTransactionId: string,
   ): Promise<Id<"externalRevenue">> {
     return t.run(async (ctx) =>
@@ -298,7 +298,7 @@ function stubFetch(
   }));
 }
 
-async function seedSyncContext(t: ReturnType<typeof convexTest>, token = SEEDED_TOKEN) {
+async function seedSyncContext(t: TestConvex<typeof schema>, token = SEEDED_TOKEN) {
   await t.run(async (ctx) => {
     await ctx.db.insert("platformCredentials", {
       platformId: BIGSELLER_PLATFORM_ID,
@@ -318,7 +318,7 @@ async function seedSyncContext(t: ReturnType<typeof convexTest>, token = SEEDED_
   return syncLogId as Id<"externalSyncLogs">;
 }
 
-async function runFetch(t: ReturnType<typeof convexTest>, syncLogId: Id<"externalSyncLogs">) {
+async function runFetch(t: TestConvex<typeof schema>, syncLogId: Id<"externalSyncLogs">) {
   await t.action(internal.integrations.bigseller.sync.fetchOrders, {
     startDate: "2026-05-01",
     endDate: "2026-05-31",
