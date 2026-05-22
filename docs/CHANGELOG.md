@@ -16,6 +16,19 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83: BigSeller sync refresh — quad-review hardening — 2026-05-22
+
+**For the team:** Final review pass on the Phase 83 sync work fixed one display bug and hardened several edge cases. The "Synced N orders / Revenue: X" summary no longer over-counts when BigSeller happens to return the same order on two pages (the saved data was always correct — only the on-screen tally was inflated). A failed sync now always lands on a clear error state instead of occasionally getting stuck showing "storing…" (which previously blocked the next scheduled run). Error messages now name which platform's token expired instead of blaming the whole sync.
+
+- **C1 — summary dedup:** rows are de-duplicated by `platformOrderId` (→ `externalTransactionId`) before computing `summary.totalRevenue` / `totalOrders` / item counters; persisted `externalRevenue` upserts were already idempotent and are untouched. Dup-across-pages test now asserts the corrected summary (`totalRevenue`/`totalOrders`).
+- **I1 — terminal-state safety net:** the parallel fan-out + aggregation in `fetchOrders` is wrapped in try/catch that writes a terminal `failed` state and clears `isActive`, so an uncaught throw can no longer pin `bigsellerSyncState` at `"storing"` and block the cron overlap guard.
+- **I2 — unmapped-platform guard:** an unmapped (`"common"`) shop now fails cleanly at the top of `processPlatform` instead of throwing an `ArgumentValidationError` deep in `saveRevenue` via an unsound cast.
+- **I3 — scoped auth failure:** a token-expiry/auth failure names the failing platform(s) and only claims a global token expiry when every platform failed auth; the sibling platform's already-persisted data is preserved.
+- **I4 — preserve token expiry:** `updateToken` uses `args.tokenExpiresAt ?? cred.tokenExpiresAt` so a transient auth-failure update no longer wipes the stored expiry that the new freshness banner reads.
+- **I5 — consistent shape:** `getCredentialStatus` no-credentials branch now returns `tokenExpiresIn: null`.
+- **M2 — dead code:** removed the now-unused `BIGSELLER_POLL_INTERVAL_MS` constant (superseded by `pollDelayMs`).
+- Deferred (documented in `83-QUAD-REVIEW-FIXES.md`): SKU-side N+1 tail (pre-existing, separate optimization), UTC-vs-WIB date math in `startSync` (pre-existing).
+
 ### Phase 83-07: BigSeller sync O1+O2 — parallel platform + page fetch — 2026-05-22
 
 **For the team:** This is the biggest sync speed-up. Previously the sync pulled Shopee fully, then TikTok, one page at a time within each — strictly sequential. It now fetches both platforms at the same time, and within each platform fans out pages 2..N in parallel (4 at a time). Combined with the earlier optimizations, this cuts a full-month sync from ~6-10 min toward ~1-2 min. The data is identical: each order is still saved exactly once, and a built-in guard prevents one platform's items from ever being attributed to the other.
