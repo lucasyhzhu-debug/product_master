@@ -297,7 +297,7 @@ Full details: `.planning/milestones/v2.0-ROADMAP.md`
 Plans:
 - [x] 83-03-token-auto-refresh-PLAN.md — Token auto-refresh (D-03) + freshness banner (D-04) + D-02 CHANGELOG archival note [own PR, wave 1] — DONE 2026-05-22 (5 tasks, 6 commits, all gates green)
 - [x] 83-04-n1-elimination-PLAN.md — O4 N+1 elimination via getRevenueByIds batch lookup [wave 1] — DONE 2026-05-22 (3 tasks, 3 commits, Flag #5 confirmed: Map not Convex-serializable → Array<[id,doc]> fallback; +2 tests, 188 bigseller pass, build green)
-- [ ] 83-05-adaptive-polling-PLAN.md — O3 adaptive polling (15s×3/30s×2/60s) [wave 2, after 83-04]
+- [x] 83-05-adaptive-polling-PLAN.md — O3 adaptive polling (15s×3/30s×2/60s) [wave 2, after 83-04] — DONE 2026-05-22 (3 tasks, 3 commits, pollDelayMs ramp + 4 reschedule swaps; Flag #3 confirmed no literal-60s assertion → new ramp test locks 15/15/15/30/30/60/60/60 + max-8 bound; removed unused BIGSELLER_POLL_INTERVAL_MS import; +3 tests, 191 bigseller pass, build green)
 - [ ] 83-06-pagesize-bump-PLAN.md — O6 pageSize 50→100 [wave 3, after 83-05]
 - [ ] 83-07-parallel-fetch-PLAN.md — O1+O2 parallel platforms + pages (paired) + race tests [wave 4, after 83-06]
 
