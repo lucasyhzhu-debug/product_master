@@ -890,13 +890,18 @@ export const fetchOrders = internalAction({
 
         // Link revenue IDs back to bigsellerOrders for retroactive mapping
         const revenueIds = revenueResults.map((r) => r.id);
+        // Phase 83-04 (O4): prefetch the entire revenue batch ONCE so both the
+        // revenue→order linking loop below AND the cross-platform leak guard
+        // further down read from one in-memory map — replaces ~400 sequential
+        // single-doc per-id lookups per full-month sync.
+        const revDocsById = await ctx.runQuery(
+          internal.integrations.bigseller.queries.getRevenueByIds,
+          { revenueIds: revenueIds as Id<"externalRevenue">[] }
+        );
         if (revenueIds.length > 0) {
           const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
           for (const revId of revenueIds) {
-            const revDoc = await ctx.runQuery(
-              internal.integrations.bigseller.queries.getRevenueById,
-              { revenueId: revId as Id<"externalRevenue"> }
-            );
+            const revDoc = revDocsById.get(revId);
             if (revDoc?.externalTransactionId) {
               const orderId = revDoc.externalTransactionId.replace("bigseller:", "");
               if (orderId) {
@@ -934,10 +939,7 @@ export const fetchOrders = internalAction({
             // so revenueResults[i] MUST belong to `platform`. If a future
             // refactor breaks that contract, fail loudly rather than emit
             // items against the wrong platform's revenueId.
-            const revDoc = await ctx.runQuery(
-              internal.integrations.bigseller.queries.getRevenueById,
-              { revenueId }
-            );
+            const revDoc = revDocsById.get(revenueId);
             if (revDoc && revDoc.source !== platform) {
               throw new Error(
                 `Cross-platform leak guard: revenueSource=${revDoc.source} !== order.platform=${platform} (revenueId=${revenueId})`
