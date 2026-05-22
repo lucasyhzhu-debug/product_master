@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83-06: BigSeller sync O6 — raise pageList pageSize 50 → 100 — 2026-05-22
+
+**For the team:** BigSeller syncs fetch order data one page at a time. Each page used to hold 50 orders; it now holds 100, which halves the number of round-trips per platform for a full-month sync — fewer requests, faster pulls. No change to what data comes back.
+
+#### Changed
+- **O6 pageSize bump (D-05, low-risk-first #3):** raised `BIGSELLER_PAGE_SIZE` 50 → 100 in `convex/integrations/bigseller/config.ts`, halving the page count per platform. The 3 HAR fixtures (`__tests__/fixtures/2026-05-19-{common,shopee,tiktok}-pageList-body.json`) and the helpers-test value assertion moved to `pageSize: 100` in lockstep so the HAR fixture stays the single source of truth (lesson 83-01a).
+
+#### Revert runbook
+If a manual/cron BigSeller sync returns `code:-1` after this lands (BigSeller rejecting pageSize 100 as over the server max):
+1. Set `BIGSELLER_PAGE_SIZE` back to 50 in `convex/integrations/bigseller/config.ts`.
+2. Set the 3 fixture `pageSize` values back to 50.
+3. Restore the helpers-test `toHaveProperty("pageSize", 50)` assertion.
+4. Pin 50 as the empirical server max in the config comment.
+
+No data loss either way — `code:-1` just means the request was rejected; nothing is partially written.
+
 ### Phase 83-05: BigSeller sync O3 — adaptive poll interval — 2026-05-22
 
 **For the team:** Manual BigSeller syncs finish sooner for typical short-window pulls. The sync waits for BigSeller to finish preparing the data by polling, and it used to wait a flat 60 seconds between every check. BigSeller usually has the data ready within 30-90 seconds, so the flat wait wasted minutes. Polling now ramps — 15s for the first three checks, 30s for the next two, 60s after that — cutting roughly 3-5 minutes off a typical short-window sync. The total number of checks is unchanged (max 8), so the longest-possible wait is exactly the same as before.
