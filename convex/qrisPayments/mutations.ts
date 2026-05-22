@@ -189,10 +189,14 @@ export const recordPaidAndTransition = internalMutation({
       return { transitioned: false };
     }
 
-    // 6. Transition. Capture oldStatus for the reserve-failure revert.
+    // 6. Transition. Capture old status + paymentStatus for the reserve-failure
+    //    revert. Set paymentStatus: "Paid" — payment has arrived, matching the
+    //    convention on every payment-received transition (statusUpdates.ts:733).
     const oldStatus = order.status;
+    const oldPaymentStatus = order.paymentStatus;
     await ctx.db.patch(order._id, {
       status: "PaymentReceived",
+      paymentStatus: "Paid",
       confirmedAt: Date.now(),
     });
 
@@ -203,6 +207,7 @@ export const recordPaidAndTransition = internalMutation({
     } catch {
       await ctx.db.patch(order._id, {
         status: oldStatus,
+        paymentStatus: oldPaymentStatus,
         confirmedAt: undefined,
       });
       await ctx.db.patch(row._id, {
@@ -240,10 +245,12 @@ export const recordPaidAndTransition = internalMutation({
 // Match helpers (staffreview C8).
 // ---------------------------------------------------------------------------
 
-/** Find a qrisPayments row by globally-unique xenditQrId. */
+/** Find a qrisPayments row by globally-unique xenditQrId (indexed lookup). */
 async function findByQrId(ctx: MutationCtx, xenditQrId: string) {
-  const rows = await ctx.db.query("qrisPayments").collect();
-  return rows.find((r) => r.xenditQrId === xenditQrId) ?? null;
+  return await ctx.db
+    .query("qrisPayments")
+    .withIndex("by_xenditQrId", (q) => q.eq("xenditQrId", xenditQrId))
+    .first();
 }
 
 /**

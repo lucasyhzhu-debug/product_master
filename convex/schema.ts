@@ -664,7 +664,8 @@ export default defineSchema({
     rawPayload: v.optional(v.string()), // staffreview R1 — A1/A2 raw webhook body for early debugging
   })
     .index("by_order", ["orderId"])
-    .index("by_externalId", ["externalId"]),
+    .index("by_externalId", ["externalId"])
+    .index("by_xenditQrId", ["xenditQrId"]),
 
   // ============================================
   // WHATSAPP TEMPLATE MANAGEMENT

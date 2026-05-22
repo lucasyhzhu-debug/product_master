@@ -119,6 +119,9 @@ describe("recordPaidAndTransition (R4b — non-vacuous idempotency)", () => {
 
     const orderAfterFirst = await t.run((ctx) => ctx.db.get(seed.orderId));
     expect(orderAfterFirst?.status).toBe("PaymentReceived");
+    // paymentStatus must flip to "Paid" on the payment-received transition
+    // (triple-review I1 — was left "Unpaid" despite money arriving).
+    expect(orderAfterFirst?.paymentStatus).toBe("Paid");
 
     const reservedAfterFirst = await readReservedQty(t, seed.locationId, seed.packagingComponentTypeId);
     // Reserve actually decremented stock by the order's packaging requirement.
