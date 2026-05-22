@@ -14,7 +14,7 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import {
   Phone, MapPin, Copy, FileText, MessageCircle,
-  ShieldAlert, Pencil, XCircle, Truck, Loader2,
+  ShieldAlert, Pencil, XCircle, Truck, Loader2, QrCode,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
@@ -34,6 +34,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { StatusActionButtons } from './StatusActionButtons';
+import { QrisChargeDialog } from './QrisChargeDialog';
+import { useQrisConfig } from '@/hooks/convex/useQris';
 import { AuditTrail } from './AuditTrail';
 import { StepWhatsAppTemplate } from './StepWhatsAppTemplate';
 import type { WhatsAppTemplateType } from './StepWhatsAppTemplate';
@@ -148,6 +150,9 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   // Modal / dialog state — tracks which WhatsApp template to show (null = closed)
   const [activeWhatsAppTemplate, setActiveWhatsAppTemplate] = useState<WhatsAppTemplateType | null>(null);
   const [showForceCompleteDialog, setShowForceCompleteDialog] = useState(false);
+  const [showQrisDialog, setShowQrisDialog] = useState(false);
+  // Read unconditionally at the top (hooks-order, pitfall #9); button is conditionally rendered.
+  const qrisConfig = useQrisConfig();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [forceCompleteReason, setForceCompleteReason] = useState('');
   const [isCancelLoading, setIsCancelLoading] = useState(false);
@@ -552,6 +557,19 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                     }}
                   />
 
+                  {/* Charge via QRIS (Phase 84) — visible ONLY when the order is
+                      AwaitingPayment AND the QRIS_ENABLED flag is on. The create
+                      action re-checks flag + role + state server-side (D-01). */}
+                  {orderId && order.status === 'AwaitingPayment' && qrisConfig?.enabled === true && (
+                    <Button
+                      className="w-full min-h-[44px] sm:min-h-[36px] text-base sm:text-sm"
+                      onClick={() => setShowQrisDialog(true)}
+                    >
+                      <QrCode className="h-4 w-4 mr-2" />
+                      Charge via QRIS
+                    </Button>
+                  )}
+
                   {/* Force Complete — manager/admin only */}
                   {isManagerOrAdmin && !['Complete', 'Cancelled'].includes(order.status) && (
                     <div className="pt-1 border-t">
@@ -671,6 +689,15 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
           confirmLabel="Delete"
           variant="destructive"
         />
+
+        {/* Charge via QRIS dialog (Phase 84) */}
+        {orderId && (
+          <QrisChargeDialog
+            open={showQrisDialog}
+            orderId={orderId}
+            onOpenChange={setShowQrisDialog}
+          />
+        )}
 
       </SheetContent>
     </Sheet>
