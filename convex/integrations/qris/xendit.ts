@@ -56,6 +56,11 @@ export const xenditProvider: QrisProvider = {
       headers: {
         Authorization: authHeader(),
         "Content-Type": "application/json",
+        // Pin the QR Codes API to v2 (2022-07-31). The create body uses the v2
+        // shape (reference_id + currency), and — critically — the dashboard
+        // `qr_code` webhook event ONLY fires for this version. Without it Xendit
+        // uses the account default and the paid callback may never arrive.
+        "api-version": "2022-07-31",
       },
       body: JSON.stringify(buildCreateQrBody(orderNumber, finalTotal)),
     });
@@ -78,6 +83,7 @@ export const xenditProvider: QrisProvider = {
       headers: {
         Authorization: authHeader(),
         "Content-Type": "application/json",
+        "api-version": "2022-07-31",
       },
     });
 
