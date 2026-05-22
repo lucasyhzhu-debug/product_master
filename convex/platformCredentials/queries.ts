@@ -195,6 +195,7 @@ export type PlatformHealthStatus = {
   label: string;              // e.g., "Connected", "7 days remaining", "Not configured"
   lastActivity: number | null; // last sync timestamp (ms) or null
   daysRemaining: number | null; // for token_expiry platforms, null otherwise
+  tokenExpiresAt: number | null; // raw expiry (ms) for sub-day precision banners (Phase 83-03 D-04)
   hasExpiry: boolean;          // from healthConfig
   reconnectSteps: string[];    // from registry — for help dialogs
   syncHistory: SyncLogEntry[]; // last 5 sync logs; empty for non-last_sync platforms
@@ -225,6 +226,7 @@ export const getHealthStatusAll = query({
       let label = "Not configured";
       let lastActivity: number | null = null;
       let daysRemaining: number | null = null;
+      let tokenExpiresAt: number | null = null;
       let syncHistory: SyncLogEntry[] = [];
 
       if (healthConfig.healthCheckType === "always_green") {
@@ -343,6 +345,10 @@ export const getHealthStatusAll = query({
         } else {
           const msRemaining = cred.tokenExpiresAt - now;
           daysRemaining = msRemaining / MS_PER_DAY;
+          // D-04: surface the raw expiry (ms) so the panel banner can use
+          // sub-day precision (the <24h yellow threshold) instead of the
+          // integer-day daysRemaining.
+          tokenExpiresAt = cred.tokenExpiresAt;
           lastActivity = cred.lastRefreshAt ?? null;
 
           if (daysRemaining <= 0) {
@@ -395,6 +401,7 @@ export const getHealthStatusAll = query({
         label,
         lastActivity,
         daysRemaining,
+        tokenExpiresAt,
         hasExpiry: healthConfig.hasExpiry,
         reconnectSteps: meta.reconnectSteps,
         syncHistory,
