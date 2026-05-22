@@ -99,15 +99,22 @@ export async function processWebhook(
   }
   const evt = payload?.data ?? payload; // A2: unwrap the { event, data } envelope.
 
-  // 3. Only a COMPLETED event records payment + drives the transition.
-  if (evt?.status === "COMPLETED") {
+  // 3. Only a SUCCESSFUL QR payment records payment + drives the transition.
+  //    Xendit's QR Codes v2 (2022-07-31) reports a successful payment as
+  //    status "SUCCEEDED" (confirmed live via Test-Mode simulate). Older
+  //    docs/spike said "COMPLETED" — accept both so we're robust to either.
+  const isPaid = evt?.status === "SUCCEEDED" || evt?.status === "COMPLETED";
+  // payment_detail is SINGULAR in the v2 payload (the spike's "payment_details"
+  // was wrong); keep the plural as a fallback.
+  const pd = evt?.payment_detail ?? evt?.payment_details;
+  if (isPaid) {
     try {
       await deps.runMutation({
         xenditQrId: evt.qr_id ?? evt.id, // C8: globally-unique QR id is the primary match key.
         externalId: evt.reference_id ?? evt.external_id, // A4: fallback match key (orderNumber).
         amount: evt.amount,
-        receiptId: evt?.payment_details?.receipt_id,
-        source: evt?.payment_details?.source,
+        receiptId: pd?.receipt_id,
+        source: pd?.source,
         rawPayload: body, // A1/A2: store the raw payload for forensics.
       });
     } catch (err) {
