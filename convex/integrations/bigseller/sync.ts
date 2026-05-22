@@ -17,7 +17,7 @@ import { decodeJwtPayload } from "../../lib/jwt";
 import {
   BIGSELLER_API_BASE,
   BIGSELLER_MAX_POLLS,
-  BIGSELLER_POLL_INTERVAL_MS,
+  pollDelayMs,
   BIGSELLER_PLATFORM_ID,
   BIGSELLER_FROLLIE_SHOP_IDS,
   BIGSELLER_MAX_SYNC_DAYS,
@@ -319,9 +319,9 @@ export const triggerSync = internalAction({
       endDate: args.endDate,
     });
 
-    // Schedule first poll after 60s
+    // Schedule first poll using the adaptive ramp (current attempt = 0 -> 15s)
     await ctx.scheduler.runAfter(
-      BIGSELLER_POLL_INTERVAL_MS,
+      pollDelayMs(0),
       internal.integrations.bigseller.sync.pollSyncTask,
       {
         startDate: args.startDate,
@@ -374,7 +374,7 @@ export const pollSyncTask = internalAction({
       // Network error during poll -- continue polling if attempts remain
       if (args.pollAttempt < args.maxPolls) {
         await ctx.scheduler.runAfter(
-          BIGSELLER_POLL_INTERVAL_MS,
+          pollDelayMs(args.pollAttempt),
           internal.integrations.bigseller.sync.pollSyncTask,
           { ...args, pollAttempt: args.pollAttempt + 1 }
         );
@@ -414,7 +414,7 @@ export const pollSyncTask = internalAction({
       // Invalid JSON -- continue polling
       if (args.pollAttempt < args.maxPolls) {
         await ctx.scheduler.runAfter(
-          BIGSELLER_POLL_INTERVAL_MS,
+          pollDelayMs(args.pollAttempt),
           internal.integrations.bigseller.sync.pollSyncTask,
           { ...args, pollAttempt: args.pollAttempt + 1 }
         );
@@ -556,7 +556,7 @@ export const pollSyncTask = internalAction({
     });
 
     await ctx.scheduler.runAfter(
-      BIGSELLER_POLL_INTERVAL_MS,
+      pollDelayMs(args.pollAttempt),
       internal.integrations.bigseller.sync.pollSyncTask,
       { ...args, pollAttempt: args.pollAttempt + 1 }
     );
