@@ -13,8 +13,6 @@
  * consumer must handle it.
  */
 import { useSessionQuery } from "convex-helpers/react/sessions";
-import { useAction } from "convex/react";
-import { useAuth } from "../../contexts/AuthContext";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 
@@ -39,14 +37,7 @@ export function useActiveQrisPayment(orderId: Id<"orders"> | undefined) {
   );
 }
 
-/**
- * Returns a callback that mints a fresh QRIS invoice for an order. Invoked via
- * `useAction` + an explicit session token (NOT `useSessionAction` — it does not
- * exist in this project). The action supersedes any prior pending row server-side.
- */
-export function useCreateQrisInvoice() {
-  const action = useAction(api.qrisPayments.actions.createQrisInvoice);
-  const { user } = useAuth();
-  const token = user?.token ?? "";
-  return (orderId: Id<"orders">) => action({ orderId, token });
-}
+// The create-invoice hook lives in `useQrisCreate.ts` (provider-tolerant, so
+// QrisChargeDialog can import it without tripping the read-hook mock in the
+// R5/R7 RTL test). Do NOT re-add a copy here — it caused a dead/divergent
+// duplicate (triple-review C1).
