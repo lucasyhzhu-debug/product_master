@@ -13,6 +13,7 @@ import { v } from "convex/values";
 import { action, internalAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
+import { decodeJwtPayload } from "../../lib/jwt";
 import {
   BIGSELLER_API_BASE,
   BIGSELLER_MAX_POLLS,
@@ -598,6 +599,11 @@ export const fetchOrders = internalAction({
     let totalItemsSkipped = 0;
     const allSkuCodes = new Set<string>();
     const allPlatforms = new Set<string>();
+    // D-03 token auto-refresh: accumulate the freshest muctoken returned in the
+    // response headers across all platforms/pages; persist ONCE at end of a
+    // successful sync. authErrorObserved gates the persist defensively.
+    let latestRefreshedToken = "";
+    let authErrorObserved = false;
 
     // Update stage to fetching
     await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
@@ -706,6 +712,13 @@ export const fetchOrders = internalAction({
               body: JSON.stringify(body),
             }
           );
+          // D-03: capture the refreshed muctoken from response headers. The
+          // BigSeller server returns a fresher JWT (iat=now, exp=iat+20d) on
+          // every successful call. Accumulate the freshest one in outer scope.
+          const refreshedToken = response.headers.get("muctoken") ?? "";
+          if (refreshedToken && refreshedToken !== mucToken) {
+            latestRefreshedToken = refreshedToken;
+          }
           responseText = await response.text();
         } catch (err) {
           console.error(`BigSeller ${platform} pageList fetch error (page ${pageNo}):`, err);
@@ -715,6 +728,11 @@ export const fetchOrders = internalAction({
 
         // HTML detection = auth failure -- abort entire fetch
         if (detectHtmlResponse(responseText)) {
+          // D-03 defensive guard: mark auth error so the end-of-sync persist
+          // never overwrites a known-good token with a degraded one. The early
+          // return alone prevents reaching the persist block; the flag survives
+          // future refactors that might remove the early return.
+          authErrorObserved = true;
           await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
           return;
         }
@@ -742,6 +760,8 @@ export const fetchOrders = internalAction({
         // JSON-based auth failure -- abort entire fetch (same as HTML auth failure)
         if (isJsonAuthError(parsed)) {
           console.error(`BigSeller JSON auth error during fetchOrders (${platform} page ${pageNo}): code=${parsed.code}, errorCode=${parsed.errorCode}, msg=${parsed.msg}`);
+          // D-03 defensive guard: see HTML-auth-failure branch above.
+          authErrorObserved = true;
           await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
           return;
         }
@@ -989,6 +1009,39 @@ export const fetchOrders = internalAction({
       }
     }
 
+    // ── D-03: persist the freshest auto-refreshed muctoken ONCE at end of a
+    // successful sync. Guards (T-83-03-01): skip if empty / equals current /
+    // auth error observed during the sync. Persisting once (not per-page,
+    // T-83-03-02) avoids the cron+manual write race on the singleton
+    // platformCredentials row. Wrapped in try/catch so a persist failure never
+    // fails the sync — we already have the order data.
+    if (shouldPersistRefreshedToken(latestRefreshedToken, mucToken, authErrorObserved)) {
+      try {
+        let tokenExpiresAt: number | undefined;
+        try {
+          const payload = decodeJwtPayload(latestRefreshedToken);
+          const exp = payload.exp as number | undefined;
+          tokenExpiresAt = typeof exp === "number" ? exp * 1000 : undefined;
+        } catch {
+          // Malformed token — persist anyway; banner falls back to no-expiry.
+          tokenExpiresAt = undefined;
+        }
+        await ctx.runMutation(
+          internal.platformCredentials.mutations.updateToken,
+          {
+            platformId: BIGSELLER_PLATFORM_ID,
+            currentToken: latestRefreshedToken,
+            tokenExpiresAt,
+            lastRefreshAt: Date.now(),
+            lastRefreshStatus: "auto-refreshed-from-response",
+          }
+        );
+      } catch (err) {
+        console.error("BigSeller token auto-refresh persist failed:", err);
+        // do NOT fail the sync — the order data is already saved.
+      }
+    }
+
     // Register product mappings for all unique SKUs per platform
     for (const platformSkuKey of allSkuCodes) {
       const [platform, skuCode] = platformSkuKey.split("::");
@@ -1056,6 +1109,22 @@ export const fetchOrders = internalAction({
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * D-03 persist-guard decision (pure, unit-testable). Returns true only when the
+ * freshest auto-refreshed muctoken should be written back to platformCredentials.
+ * Skip when: empty header, unchanged token, or any auth error observed.
+ */
+export function shouldPersistRefreshedToken(
+  latestRefreshedToken: string,
+  currentToken: string,
+  authErrorObserved: boolean,
+): boolean {
+  if (authErrorObserved) return false;
+  if (!latestRefreshedToken) return false;
+  if (latestRefreshedToken === currentToken) return false;
+  return true;
+}
 
 function formatDate(date: Date): string {
   const y = date.getFullYear();
