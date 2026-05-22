@@ -57,8 +57,14 @@ export const BIGSELLER_PLATFORM_ENDPOINTS: Record<string, string> = {
   tiktok: "tiktok/pageList.json",
 };
 
-/** Page size for BigSeller pageList API requests */
-export const BIGSELLER_PAGE_SIZE = 50;
+/**
+ * Page size for BigSeller pageList API requests.
+ * Phase 83-06 / O6: raised 50 → 100 to halve the page count per platform.
+ * EMPIRICAL LIMIT: if BigSeller starts returning code:-1 on pageList, revert
+ * to 50 and pin the working maximum here (50 is the BigSeller default-UI page
+ * size; 100 was not confirmed as a server-enforced max before this change).
+ */
+export const BIGSELLER_PAGE_SIZE = 100;
 
 /**
  * Per-platform pageList retry delays (in ms) for the readiness race where
