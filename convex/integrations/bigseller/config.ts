@@ -16,9 +16,6 @@ export const BIGSELLER_API_BASE = "https://www.bigseller.com/api/v1/statis/profi
 /** Maximum poll attempts before declaring timeout (8 polls * 60s = ~8 min) */
 export const BIGSELLER_MAX_POLLS = 8;
 
-/** Delay between poll attempts in milliseconds */
-export const BIGSELLER_POLL_INTERVAL_MS = 60000;
-
 /**
  * Adaptive poll delay (Phase 83-05 / O3): 15s for the first 3 polls, 30s for the
  * next 2, 60s thereafter. BIGSELLER_MAX_POLLS stays 8 so the worst-case bound is

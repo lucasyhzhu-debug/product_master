@@ -96,6 +96,10 @@ async function handleAuthFailure(
   endDate: string,
   attempt: number,
   syncLogId: Id<"externalSyncLogs">,
+  // I3 (quad-review): optional scoped message. When one platform's auth failed but
+  // a sibling succeeded under O1 parallelism, the caller passes a message naming
+  // the failing platform so we don't falsely claim a global token expiry.
+  scopedMessage?: { stageMessage: string; logMessage: string },
 ): Promise<void> {
   await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
     stage: "failed",
@@ -104,7 +108,7 @@ async function handleAuthFailure(
     attempt,
     startDate,
     endDate,
-    errorMessage: "Token expired -- paste new token in Settings",
+    errorMessage: scopedMessage?.stageMessage ?? "Token expired -- paste new token in Settings",
     completedAt: Date.now(),
   });
 
@@ -112,7 +116,7 @@ async function handleAuthFailure(
   await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
     logId: syncLogId,
     status: "error",
-    errorMessage: "BigSeller token expired or invalid",
+    errorMessage: scopedMessage?.logMessage ?? "BigSeller token expired or invalid",
   });
 
   // Update platform credential health status to error
@@ -832,6 +836,9 @@ export const fetchOrders = internalAction({
     // RETURNED (not mutated on the shared outer scope) so the O1 platform fan-out
     // (Task 2) can aggregate them post-resolution, concurrency-safe (T-83-07-01/03).
     type PlatformResult = {
+      // I3 (quad-review): carry the platform name so auth/fatal failures can be
+      // scoped + named in the terminal message instead of an all-or-nothing claim.
+      platform: string;
       inserted: number;
       updated: number;
       revenue: number;
@@ -851,6 +858,7 @@ export const fetchOrders = internalAction({
       shopIds: number[],
     ): Promise<PlatformResult> => {
       const result: PlatformResult = {
+        platform,
         inserted: 0,
         updated: 0,
         revenue: 0,
@@ -861,6 +869,19 @@ export const fetchOrders = internalAction({
         refreshedToken: "",
         authError: false,
       };
+
+      // ── I2 (quad-review): guard the unmapped "common" platform. When a shop ID
+      // is absent from BIGSELLER_SHOP_PLATFORM_MAP, `platform` defaults to "common".
+      // The downstream saveRevenue / saveProductMappings emit casts `r.source` to
+      // "shopee" | "tiktok" — feeding "common" would throw deep in the validator.
+      // Fail this platform cleanly (scoped, like a page-1 fatal) instead of letting
+      // an unsound cast throw. Does NOT affect the configured shopee/tiktok shops. ──
+      if (platform !== "shopee" && platform !== "tiktok") {
+        result.fatalError =
+          `BigSeller shop(s) [${shopIds.join(", ")}] are not mapped to a known ` +
+          `platform (resolved to "${platform}"). Add them to BIGSELLER_SHOP_PLATFORM_MAP.`;
+        return result;
+      }
 
       const endpoint = getPageListEndpoint(platform);
       const platformTemplate = (platform === "shopee" || platform === "tiktok")
@@ -961,6 +982,25 @@ export const fetchOrders = internalAction({
       }
 
       if (allRows.length === 0) return result;
+
+      // ── C1 (quad-review): dedup rows by platformOrderId (→ externalTransactionId)
+      // BEFORE any processing. The same order can appear on >1 page (BigSeller's
+      // pageList is not snapshot-stable across pages). The upsert/saveRevenue path
+      // is already idempotent (keyed by externalTransactionId), but the DISPLAY
+      // summary (result.revenue sum over rows, totalOrders = inserted+updated) and
+      // the per-order item-emit loop double-count a re-seen order. Deduping the row
+      // list at the source fixes revenue, order-count, AND itemsDeducted/Skipped in
+      // one place (keep first occurrence — page order is preserved by the fan-out). ──
+      const seenOrderIds = new Set<string>();
+      const dedupedRows: BigSellerOrderRow[] = [];
+      for (const row of allRows) {
+        const key = row.platformOrderId;
+        if (key && seenOrderIds.has(key)) continue;
+        if (key) seenOrderIds.add(key);
+        dedupedRows.push(row);
+      }
+      allRows.length = 0;
+      allRows.push(...dedupedRows);
 
       // Normalize platform-specific fee fields into common fields.
       for (const row of allRows) {
@@ -1112,6 +1152,15 @@ export const fetchOrders = internalAction({
       return result;
     };
 
+    // ── I1 (quad-review): wrap the parallel fan-out + post-aggregation in a
+    // try/catch. An uncaught throw inside processPlatform (leak-guard throw,
+    // saveRevenue validator error, item-emit failure) rejects Promise.all and
+    // escapes fetchOrders with NO terminal state write — pinning bigsellerSyncState
+    // at stage "storing" forever, which the startSync overlap guard treats as
+    // "in progress" and blocks every future run. On throw, write a terminal
+    // "failed" state naming the failing context and abort. Successful-path behavior
+    // is unchanged (the early `return`s inside exit the try without hitting catch). ──
+    try {
     // ── Phase 83-07 (O1): run both platforms CONCURRENTLY. priceOracle /
     // mappingBySku / menuProductById are built once above and read ONLY inside
     // processPlatform — safe for concurrent use (SPEC O1). Counts are aggregated
@@ -1136,10 +1185,33 @@ export const fetchOrders = internalAction({
     }
     authErrorObserved = platformResults.some((r) => r.authError);
 
-    // ── Auth failure: if EITHER platform saw an auth error, the token is bad for
-    // the whole sync — mark failed and abort (mirrors the pre-O1 early-return). ──
+    // ── Auth failure (I3 quad-review): scope to the failing platform(s). Under O1
+    // parallelism a sibling platform may have already persisted data, so we must
+    // NOT claim a blanket "token expired" for the whole sync when only one platform
+    // hit an auth error. Name the failing platform(s); only claim a true global
+    // token expiry when EVERY processed platform saw the auth error. ──
     if (authErrorObserved) {
-      await handleAuthFailure(ctx, args.startDate, args.endDate, args.attempt, args.syncLogId);
+      const failedAuthPlatforms = platformResults
+        .filter((r) => r.authError)
+        .map((r) => r.platform);
+      const allFailed = platformResults.every((r) => r.authError);
+      const named = failedAuthPlatforms.join(", ");
+      const scopedMessage = allFailed
+        ? undefined // every platform failed auth → genuine global token expiry (default message)
+        : {
+            stageMessage:
+              `BigSeller auth failed for ${named} (token rejected). ` +
+              `Other platform data was saved. Paste a fresh token in Settings.`,
+            logMessage: `BigSeller auth failure scoped to: ${named}`,
+          };
+      await handleAuthFailure(
+        ctx,
+        args.startDate,
+        args.endDate,
+        args.attempt,
+        args.syncLogId,
+        scopedMessage,
+      );
       return;
     }
 
@@ -1264,6 +1336,31 @@ export const fetchOrders = internalAction({
       `BigSeller sync complete: ${totalOrders} orders (${totalInserted} new, ${totalUpdated} updated), ` +
         `revenue: ${totalRevenue} IDR, unmapped SKUs: ${unmappedSkus}`
     );
+    } catch (err) {
+      // I1 (quad-review): terminal-state safety net. Any uncaught throw from the
+      // fan-out / aggregation lands here. Write a terminal "failed" state so the
+      // sync is not stuck "storing" (which would block the cron overlap guard
+      // indefinitely), and mark the sync log error. Best-effort: if these writes
+      // themselves throw, let the action fail — but we've at least attempted to
+      // clear the active state.
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("BigSeller fetchOrders fan-out failed:", err);
+      await ctx.runMutation(internal.integrations.bigseller.mutations.updateSyncStage, {
+        stage: "failed",
+        pollAttempt: 0,
+        maxPolls: BIGSELLER_MAX_POLLS,
+        attempt: args.attempt,
+        startDate: args.startDate,
+        endDate: args.endDate,
+        errorMessage: `BigSeller sync failed during order processing: ${message}`,
+        completedAt: Date.now(),
+      });
+      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+        logId: args.syncLogId,
+        status: "error",
+        errorMessage: `BigSeller sync failed during order processing: ${message}`,
+      });
+    }
   },
 });
 
