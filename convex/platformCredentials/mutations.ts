@@ -59,7 +59,11 @@ export const updateToken = internalMutation({
     currentToken: v.optional(v.string()),
     tokenExpiresAt: v.optional(v.number()),
     lastRefreshAt: v.number(),
-    lastRefreshStatus: v.union(v.literal("success"), v.literal("error")),
+    lastRefreshStatus: v.union(
+      v.literal("success"),
+      v.literal("error"),
+      v.literal("auto-refreshed-from-response"),
+    ),
     lastRefreshError: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
