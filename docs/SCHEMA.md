@@ -1843,3 +1843,40 @@ One new table supports kitchen staff clock-in/out time tracking. NO FK to `kitch
 **`kitchenConfig`** — unchanged schema. The `aggregateStaffPerformance` helper runtime-probes the document for an optional `componentTracking: { code, tracked, unit }[]` array (D-14 worktree adapter). When present it is authoritative; otherwise the helper falls through to the legacy `enabledProductionComponents` / `enabledKitchenComponents` arrays + derives units from `componentTypes` (production → pcs) and `kitchenComponents` (→ g).
 
 **`kitchenShiftRecords`** — no schema change. `getStaffPerformanceSummary` now delegates to `convex/staffAttendance/aggregation.ts::aggregateStaffPerformance` which additively extends the return shape with `totalHoursWorked`, `daysAttended`, `flaggedShiftCount`, and `perDayBreakdown[]`. Existing consumers are unchanged.
+
+## QRIS Payments (Phase 84)
+
+### `qrisPayments` — In-Person QRIS Charge Attempts (Xendit)
+
+One row per QR-generation attempt for an order. The source of truth for QRIS payment state; the order's `paymentStatus`/`paymentMethod` are stamped from here on the webhook transition.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `orderId` | `id("orders")` | The order being charged. Required. |
+| `provider` | `string` | Payment provider — `"xendit"` today (provider-agnostic by design). Required. |
+| `externalId` | `string` | The order's `orderNumber` (MMDD-NNN). **NOT globally unique** — resets daily; match only when scoped to the active row. Required. |
+| `xenditQrId` | `string` | Xendit QR Codes `id` — globally unique. Primary webhook match key. Required. |
+| `qrString` | `string` | The EMV QR payload rendered as the scannable code. Required. |
+| `amount` | `number` | Exact charge amount (IDR) = order `finalTotal` at mint time. Required. |
+| `status` | `string` | `"pending"` \| `"paid"` \| `"expired"`. Supersede-on-regenerate flips prior `pending` → `expired`. Required. |
+| `expiresAt` | `number` | Our own 30-min window (epoch ms), NOT Xendit's `expires_at`. Required. |
+| `paidAt` | `optional number` | Set on the webhook paid transition. |
+| `receiptId` | `optional string` | Xendit receipt / RRN reference from the callback. |
+| `source` | `optional string` | Paying wallet (e.g. GoPay/OVO) from the callback. |
+| `rawPayload` | `optional string` | Raw webhook body (JSON string) for audit/debugging. |
+| `needsReview` | `optional boolean` | Flagged when amount mismatched OR the QR was superseded/expired before payment. |
+| `reviewReason` | `optional string` | Compositional reason string (both signals survive when both apply). |
+
+**Indexes:**
+- `by_order` (`orderId`) — active-row resolution for the order-detail dialog.
+- `by_externalId` (`externalId`) — webhook fallback match (scoped to active/pending row).
+- `by_xenditQrId` (`xenditQrId`) — PRIMARY webhook match (globally unique; avoids full-table scan).
+
+**Business rules:**
+- **Payment always honored:** the row is recorded `paid` durably BEFORE the order transition/stock-reserve; a reserve failure keeps the paid row + flags `needsReview` + reverts order status (never lose a payment).
+- **Idempotency** is by the order STATUS guard (`AwaitingPayment` → `PaymentReceived`), not webhook dedup — Xendit may legitimately re-deliver.
+- Payment detection is **webhook-only** (no status polling).
+
+### Extensions to existing tables
+
+**`businessSettings`** — added `qrisNmid` (`optional string`): the order-staff-safe QRIS National Merchant ID surfaced in the charge dialog (folded into `getQrisConfig` so the dialog never calls the admin/manager-only `businessSettings.get`).

@@ -16,6 +16,26 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 84: QRIS Payment Integration (Xendit) — 2026-05-22
+
+**For the team:** Staff can now charge a customer in person with a QRIS QR code instead of waiting for a manual bank transfer. Open an order that's awaiting payment, tap **Charge via QRIS**, and a dynamic exact-amount QR appears for the customer to scan with any QRIS wallet (GoPay, OVO, DANA, bank apps, etc.). The screen shows a live "Waiting for payment…" indicator and flips to "Payment Received" automatically the moment the payment lands — no manual marking, and the order advances itself. Ships **turned OFF** on production (the `Charge via QRIS` button is hidden) until Xendit finishes account verification (KYB); flip the `QRIS_ENABLED` flag + live keys when that clears.
+
+#### Added
+- **Schema:** `qrisPayments` table (one row per QR attempt: order link, Xendit QR id, qrString, amount, status `pending`/`paid`/`expired`, paidAt, receipt/source, needsReview + reason) with `by_order`, `by_externalId`, and `by_xenditQrId` indexes; `businessSettings.qrisNmid` (order-staff-safe NMID).
+- **Provider adapter:** provider-agnostic `QrisProvider` interface (`convex/integrations/qris/provider.ts`) + Xendit implementation (`xendit.ts`) pinning the QR Codes API to v2 (the only version that fires the `qr_code` webhook). Payment detection is webhook-only — no status polling.
+- **Backend:** `createQrisInvoice` action (token auth via `requireRole`, server-side flag re-check, AwaitingPayment + ≥1500 IDR guards, supersede-on-regenerate); order-staff-safe `getActiveQrisPayment` / `getQrisConfig` queries; payment-durable idempotent `recordPaidAndTransition` + pure `decideWebhookOutcome`.
+- **Inbound webhook:** `POST /api/xendit/qr-payment` in `convex/http.ts` with constant-time `verifyCallbackToken`, idempotent `AwaitingPayment → PaymentReceived` transition, and a safe no-op (200, no state change) on unmatched callbacks.
+- **Frontend:** `QrisChargeDialog` (single derived state machine: loading / active / paid / expired / error; reactive paid-flip via Convex subscription) + `useQris` / `useQrisCreate` hooks. "Charge via QRIS" button, live waiting indicator, and `needsReview` badge wired into BOTH `OrderSlideOver` and `OrderDetail` (pitfall #20).
+- `qrcode.react@4.2.0`; vendor bundle cap raised 600 → 650 kB.
+
+#### Payment-safety guarantees
+- **Payment always honored:** the `qrisPayments` row is recorded `paid` durably BEFORE the order transition/stock-reserve is attempted; a reserve failure reverts order status, flags `needsReview`, logs the transition, and keeps the payment (never lost).
+- **Decoupled status fields:** the transition explicitly sets `paymentStatus: "Paid"` + `paymentMethod: "QRIS"` and mirrors all canonical side-effects (audit log, stock reservation), since `orders.status` and `paymentStatus` are independent.
+- **Matching:** primarily on the globally-unique `xenditQrId` (indexed); `externalId` (MMDD-NNN — not globally unique) matching is scoped to the active row, never a blind `.first()`.
+
+#### Verification
+- 36 QRIS unit/integration/RTL tests (Vitest + convex-test); type-check + build green (vendor < 650 kB). Plan-stage staffreview (8 criticals) + triple-review (3 impl-only) + /code-review (high-effort, 3 agents) — all resolved. Live E2E against Xendit Test Mode pending (flag-OFF on prod).
+
 ### Phase 83: BigSeller sync refresh — quad-review hardening — 2026-05-22
 
 **For the team:** Final review pass on the Phase 83 sync work fixed one display bug and hardened several edge cases. The "Synced N orders / Revenue: X" summary no longer over-counts when BigSeller happens to return the same order on two pages (the saved data was always correct — only the on-screen tally was inflated). A failed sync now always lands on a clear error state instead of occasionally getting stuck showing "storing…" (which previously blocked the next scheduled run). Error messages now name which platform's token expired instead of blaming the whole sync.

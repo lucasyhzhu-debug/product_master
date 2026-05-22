@@ -2573,6 +2573,21 @@ export function getWibMonthDayStr(utcMs: number): string;
 
 ---
 
+### QRIS Payments (Phase 84)
+
+In-person QRIS charging via Xendit. Files: `convex/qrisPayments/{actions,mutations,queries}.ts`, `convex/integrations/qris/{provider,xendit,webhooks}.ts`, route registered in `convex/http.ts`.
+
+| Function | Type | Roles | Purpose |
+|----------|------|-------|---------|
+| `qrisPayments.actions.createQrisInvoice` | `action` | order_staff, manager, admin (via `getOrderForCreate` → `requireRole`) | Mint a Xendit dynamic QR for an order. Re-checks `QRIS_ENABLED`, guards `AwaitingPayment` + `finalTotal ≥ 1500`, supersedes prior pending rows, inserts one new `pending` row. Token never forwarded to Xendit. |
+| `qrisPayments.queries.getActiveQrisPayment` | `protectedQuery` | order_staff, manager, admin | Most-recent non-expired row for an order (drives the dialog; flips reactively on paid). |
+| `qrisPayments.queries.getQrisConfig` | `protectedQuery` | order_staff, manager, admin | `{ enabled, qrisNmid, merchantName }` — reads `QRIS_ENABLED` server-side + folds in order-staff-safe NMID (avoids admin-only `businessSettings.get`, pitfall #19). |
+| `qrisPayments.mutations.recordPaidAndTransition` | `internalMutation` | webhook-only | Payment-durable idempotent paid transition (records `paid` before reserve; `AwaitingPayment → PaymentReceived`; reserve-failure reverts + flags `needsReview`). |
+| `qrisPayments.mutations.{insertPending,expirePrior}` | `internalMutation` | action-only | Insert one pending row / supersede prior pending rows. |
+| `POST /api/xendit/qr-payment` | `httpAction` | Xendit callback (constant-time `verifyCallbackToken`) | Inbound webhook. 401 on bad token (no mutation); idempotent transition on COMPLETED; safe 200 no-op on unmatched. |
+
+Match priority: globally-unique `xenditQrId` (indexed) first, then active row by `externalId`. Payment detection is webhook-only (no polling).
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |
@@ -2580,6 +2595,9 @@ export function getWibMonthDayStr(utcMs: number): string;
 | `K3MART_API_TOKEN` | K3 Mart JWT token (fallback if DB token unavailable) | ~24h |
 | `GOBIZ_API_TOKEN` | GoBiz access token (Bearer token, fallback if DB token unavailable) | ~1h |
 | `GOBIZ_REFRESH_TOKEN` | GoBiz refresh token (fallback if DB token unavailable) | days/weeks |
+| `QRIS_ENABLED` | Feature flag — `"true"` shows the Charge via QRIS button + arms the action/webhook. Unset = OFF (current prod state pending Xendit KYB). | persistent |
+| `XENDIT_API_KEY` | Xendit secret key (Basic-auth username, empty password). Action throws if missing. Server-side only, never returned to client. | persistent |
+| `XENDIT_WEBHOOK_TOKEN` | Xendit webhook verification token (constant-time compared against the `x-callback-token` header). | persistent |
 
 ---
 
