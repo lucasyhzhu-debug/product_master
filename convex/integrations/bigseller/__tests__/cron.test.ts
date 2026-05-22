@@ -16,6 +16,7 @@ import { convexTest } from "convex-test";
 import { describe, it, expect } from "vitest";
 import schema from "../../../schema";
 import { internal } from "../../../_generated/api";
+import { pollDelayMs, BIGSELLER_MAX_POLLS } from "../config";
 
 describe("nightlySync cron — skip-if-not-idle", () => {
   it("runs a 7-day sync when bigsellerSyncState.stage === 'idle'", async () => {
@@ -117,5 +118,23 @@ describe("nightlySync cron — skip-if-not-idle", () => {
     expect(errorLog).toBeDefined();
     expect(typeof errorLog!.errorMessage).toBe("string");
     expect(errorLog!.errorMessage!.length).toBeGreaterThan(0);
+  });
+});
+
+describe("pollDelayMs adaptive ramp (O3)", () => {
+  it("ramps 15s x3, 30s x2, 60s thereafter", () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 7].map(pollDelayMs)).toEqual([
+      15000, 15000, 15000, 30000, 30000, 60000, 60000, 60000,
+    ]);
+  });
+
+  it("never exceeds 60s for any attempt within the bound", () => {
+    for (let attempt = 0; attempt < BIGSELLER_MAX_POLLS; attempt++) {
+      expect(pollDelayMs(attempt)).toBeLessThanOrEqual(60000);
+    }
+  });
+
+  it("keeps the worst-case bound: max polls unchanged at 8", () => {
+    expect(BIGSELLER_MAX_POLLS).toBe(8);
   });
 });

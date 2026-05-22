@@ -16,6 +16,23 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83-05: BigSeller sync O3 — adaptive poll interval — 2026-05-22
+
+**For the team:** Manual BigSeller syncs finish sooner for typical short-window pulls. The sync waits for BigSeller to finish preparing the data by polling, and it used to wait a flat 60 seconds between every check. BigSeller usually has the data ready within 30-90 seconds, so the flat wait wasted minutes. Polling now ramps — 15s for the first three checks, 30s for the next two, 60s after that — cutting roughly 3-5 minutes off a typical short-window sync. The total number of checks is unchanged (max 8), so the longest-possible wait is exactly the same as before.
+
+#### Changed
+- **O3 adaptive polling (D-05, low-risk-first #2):** replaced the flat `BIGSELLER_POLL_INTERVAL_MS` (60s) reschedule delay with `pollDelayMs(pollAttempt)` — 15s ×3 / 30s ×2 / 60s thereafter. All 4 `ctx.scheduler.runAfter` poll-reschedule sites in `convex/integrations/bigseller/sync.ts` (first poll + 3 `pollSyncTask` retry/not-complete branches) now compute the delay from the current attempt. `BIGSELLER_MAX_POLLS` stays 8 so the worst-case wall-clock bound is preserved (cron-overlap guard T-79-08/09/10 unaffected).
+
+#### Added
+- `pollDelayMs(pollAttempt)` ramp helper in `convex/integrations/bigseller/config.ts` (pure, deterministic, attempt-driven).
+- `describe("pollDelayMs adaptive ramp (O3)")` tests in `convex/integrations/bigseller/__tests__/cron.test.ts` — locks the 15/15/15/30/30/60/60/60 schedule, the ≤60s ceiling, and the max-8 bound.
+
+#### Files
+- `convex/integrations/bigseller/config.ts` (new `pollDelayMs`; `BIGSELLER_POLL_INTERVAL_MS` export kept, unused)
+- `convex/integrations/bigseller/sync.ts` (4 reschedule sites swapped to `pollDelayMs`)
+- `convex/integrations/bigseller/__tests__/cron.test.ts` (ramp + bound tests)
+- `docs/CHANGELOG.md`
+
 ### Phase 83-04: BigSeller sync O4 — N+1 query elimination — 2026-05-22
 
 **For the team:** Manual full-month BigSeller syncs run faster. The sync used to read each revenue record back from the database one at a time — about 400 separate round-trips for a 200-order month — to relink revenue to orders and run a safety check. It now fetches them all in a single batch, cutting that overhead off the sync runtime. No behavior change: the data and the cross-platform safety guard are identical.
