@@ -20,6 +20,18 @@ export const BIGSELLER_MAX_POLLS = 8;
 export const BIGSELLER_POLL_INTERVAL_MS = 60000;
 
 /**
+ * Adaptive poll delay (Phase 83-05 / O3): 15s for the first 3 polls, 30s for the
+ * next 2, 60s thereafter. BIGSELLER_MAX_POLLS stays 8 so the worst-case bound is
+ * unchanged. BigSeller's taskStatus typically flips to `complete` within 30-90s
+ * for small windows — the flat 60s wasted minutes on short syncs.
+ */
+export function pollDelayMs(pollAttempt: number): number {
+  if (pollAttempt < 3) return 15000;
+  if (pollAttempt < 5) return 30000;
+  return 60000;
+}
+
+/**
  * Frollie-specific BigSeller shop IDs -- update if shops change in BigSeller dashboard.
  * Frollie - S = 5090946 (Shopee), Frollie - T = 5092855 (TikTok)
  * Consider moving to platformCredentials metadata in a future iteration for admin-editability.
