@@ -16,6 +16,29 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83-03: BigSeller token auto-refresh + freshness banner — 2026-05-22
+
+**For the team:** BigSeller stops nagging you to repaste a token every ~20 days. Every successful sync now grabs the fresher login token BigSeller hands back in its response and saves it automatically, sliding the 20-day expiry forward indefinitely. As long as the nightly sync keeps running, the token never decays. If something does go wrong (cron failing for ~19 days), the BigSeller card shows a yellow "token expires in Nh — paste fresh token" warning under 24h, and a red blocking banner once it has actually expired (which also disables the Sync Now button until you paste a new one).
+
+#### Added
+- **Token auto-refresh (D-03):** `fetchOrders` (`convex/integrations/bigseller/sync.ts`) captures the refreshed `muctoken` JWT from the BigSeller response headers on every successful call, accumulates the freshest one, and persists it ONCE at end of a successful sync via `platformCredentials.mutations.updateToken` with `lastRefreshStatus: "auto-refreshed-from-response"`. Defensive guards (pure `shouldPersistRefreshedToken` helper): skip the persist if the header is empty, equals the current token, or any auth error was observed during the sync; the persist is wrapped in try/catch so a write failure never fails the sync. The persisted `tokenExpiresAt` is the decoded `exp * 1000` (~now + 20 days).
+- **Freshness banner (D-04):** `BigSellerSyncPanel` shows a yellow `<24h` warning and a red expired (blocking) banner, driven by a new `tokenExpiresAt` field on `PlatformHealthStatus`. New `src/lib/bigsellerToken.ts` `decodeMucTokenExp()` helper (frontend twin of `convex/lib/jwt.ts`, no signature verification, display-only) — built rather than reusing health `daysRemaining` because that value is integer-day granularity, insufficient for the 24h threshold.
+
+#### Changed
+- `platformCredentials.lastRefreshStatus` union (schema + `updateToken` validator) widened with `"auto-refreshed-from-response"` so the auto-refresh persist does not throw `ArgumentValidationError`.
+
+#### Note — 83-01b orderState fallback ARCHIVED (D-02)
+BigSeller still accepts the legacy 5-value `orderState` (`completed`, `shipped`, `canceled`, `other`, `new`) as of the 83-01a backfill (2026-05). The subtractive 83-01b W1-W3 fallback (drop `canceled`+`new`, switch `currency`/`searchContent` to `""`) is ARCHIVED — documented standby only, NO code shipped. Re-trigger only if BigSeller starts rejecting the legacy values again (would carry a cancellation-data-loss caveat).
+
+#### Files
+- `convex/platformCredentials/mutations.ts`, `convex/schema.ts` (validator + table union widened)
+- `convex/integrations/bigseller/sync.ts` (token capture + persist-once-at-end + `shouldPersistRefreshedToken`)
+- `convex/integrations/bigseller/__tests__/sync.test.ts` (NEW — guard + wiring + exp derivation tests)
+- `convex/platformCredentials/queries.ts` (`tokenExpiresAt` on `PlatformHealthStatus`)
+- `src/lib/bigsellerToken.ts` (NEW) + `src/lib/__tests__/bigsellerToken.test.ts` (NEW)
+- `src/components/salesAnalytics/SettingsTab.tsx`, `BigSellerSyncPanel.tsx` + its test
+- `docs/SCHEMA.md`, `docs/BIGSELLER_PROFIT_API.md`, `docs/CHANGELOG.md`
+
 ### Phase 83-01a: BigSeller pageList schema refresh — 2026-05-19
 
 **For the team:** BigSeller profit-data sync is restored. We had not ingested any new orders since 2026-04-22 because BigSeller silently added 6 new required fields to their `pageList` request shape between February and May 2026, and our calls were getting silently rejected with the generic `code:-1` "Failed, please try again later" error. After this fix, the next manual sync (or nightly cron) will resume ingesting orders normally. To backfill the 27-day gap, run two manual syncs from the BigSeller admin card: chunk 1 = 22 Apr–05 May, chunk 2 = 06 May–19 May (the 31-day per-sync cap means a single 28-day window is too tight).

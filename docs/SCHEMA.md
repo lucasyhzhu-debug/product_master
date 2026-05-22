@@ -1204,7 +1204,7 @@ Stores login credentials for external platforms (K3Mart, etc.) for automatic tok
 | tokenExpiresAt | number? | Token expiry timestamp |
 | refreshToken | string? | OAuth refresh token (GoBiz) |
 | lastRefreshAt | number? | Last refresh attempt timestamp |
-| lastRefreshStatus | `"success" \| "error"`? | Result of last refresh |
+| lastRefreshStatus | `"success" \| "error" \| "auto-refreshed-from-response"`? | Result of last refresh. `"auto-refreshed-from-response"` is set when the nightly/manual BigSeller sync captures a fresher `muctoken` JWT from the response headers and slides the 20-day TTL forward (Phase 83-03). |
 | lastRefreshError | string? | Error message if last refresh failed |
 | updatedBy | string | User who last updated credentials |
 | updatedAt | number | Last update timestamp |
