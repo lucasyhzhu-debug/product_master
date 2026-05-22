@@ -122,6 +122,8 @@ describe("recordPaidAndTransition (R4b — non-vacuous idempotency)", () => {
     // paymentStatus must flip to "Paid" on the payment-received transition
     // (triple-review I1 — was left "Unpaid" despite money arriving).
     expect(orderAfterFirst?.paymentStatus).toBe("Paid");
+    // paymentMethod stamped "QRIS" so reporting can separate QRIS from bank transfer.
+    expect(orderAfterFirst?.paymentMethod).toBe("QRIS");
 
     const reservedAfterFirst = await readReservedQty(t, seed.locationId, seed.packagingComponentTypeId);
     // Reserve actually decremented stock by the order's packaging requirement.

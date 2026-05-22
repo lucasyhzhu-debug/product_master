@@ -189,14 +189,20 @@ export const recordPaidAndTransition = internalMutation({
       return { transitioned: false };
     }
 
-    // 6. Transition. Capture old status + paymentStatus for the reserve-failure
-    //    revert. Set paymentStatus: "Paid" — payment has arrived, matching the
-    //    convention on every payment-received transition (statusUpdates.ts:733).
+    // 6. Transition. Capture old status/paymentStatus/paymentMethod for the
+    //    reserve-failure revert. Set paymentStatus: "Paid" + paymentMethod:
+    //    "QRIS" — payment has arrived, matching the convention on every
+    //    payment-received transition (statusUpdates.ts:733). Stamping
+    //    paymentMethod lets reporting separate QRIS from bank transfer (BCA/etc.)
+    //    directly on the order; "QRIS" is the canonical PaymentMethod value
+    //    (src/components/orders/PaymentMethodButtons.tsx).
     const oldStatus = order.status;
     const oldPaymentStatus = order.paymentStatus;
+    const oldPaymentMethod = order.paymentMethod;
     await ctx.db.patch(order._id, {
       status: "PaymentReceived",
       paymentStatus: "Paid",
+      paymentMethod: "QRIS",
       confirmedAt: Date.now(),
     });
 
@@ -208,6 +214,7 @@ export const recordPaidAndTransition = internalMutation({
       await ctx.db.patch(order._id, {
         status: oldStatus,
         paymentStatus: oldPaymentStatus,
+        paymentMethod: oldPaymentMethod,
         confirmedAt: undefined,
       });
       await ctx.db.patch(row._id, {
