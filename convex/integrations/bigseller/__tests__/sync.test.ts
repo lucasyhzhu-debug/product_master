@@ -21,6 +21,7 @@ import { internal } from "../../../_generated/api";
 import { decodeJwtPayload } from "../../../lib/jwt";
 import { shouldPersistRefreshedToken } from "../sync";
 import { BIGSELLER_PLATFORM_ID } from "../config";
+import type { Id } from "../../../_generated/dataModel";
 
 // Real HAR JWT shape (exp:1780911842 ~ iat+20d). Signature is irrelevant — we
 // never verify it (83-RESEARCH.md). Generated from the documented payload.
@@ -121,5 +122,76 @@ describe("BigSeller token auto-refresh — persist wiring (updateToken)", () => 
     const cred = await readCredential(t);
     expect(cred?.currentToken).toBe(SEEDED_TOKEN);
     expect(cred?.lastRefreshStatus).toBeUndefined();
+  });
+});
+
+describe("getRevenueByIds (O4 N+1 elimination)", () => {
+  async function seedRevenue(
+    t: ReturnType<typeof convexTest>,
+    externalTransactionId: string,
+  ): Promise<Id<"externalRevenue">> {
+    return t.run(async (ctx) =>
+      ctx.db.insert("externalRevenue", {
+        source: "shopee",
+        periodStart: 1779000000000,
+        periodEnd: 1779000000000,
+        dataOrigin: "api_revenue",
+        confidence: "exact",
+        externalTransactionId,
+        revenueGross: 100,
+      }),
+    );
+  }
+
+  it("returns exactly the docs for the real ids; a missing/deleted id is omitted (not null)", async () => {
+    const t = convexTest(schema);
+    const idA = await seedRevenue(t, "bigseller:A");
+    const idB = await seedRevenue(t, "bigseller:B");
+    const idC = await seedRevenue(t, "bigseller:C");
+
+    // A 4th id that is deleted -> must be absent from the result, not null.
+    const idGhost = await seedRevenue(t, "bigseller:GHOST");
+    await t.run(async (ctx) => ctx.db.delete(idGhost));
+
+    const entries = await t.query(
+      internal.integrations.bigseller.queries.getRevenueByIds,
+      { revenueIds: [idA, idB, idC, idGhost] },
+    );
+
+    // Flag #5 — a raw Map is NOT a supported Convex return type (it throws
+    // "Map ... is not a supported Convex type" over the runQuery boundary), so
+    // getRevenueByIds returns Array<[id, doc]> and the caller builds the Map.
+    expect(Array.isArray(entries)).toBe(true);
+    const map = new Map(entries);
+    expect(map.size).toBe(3);
+    expect(map.get(idA)?.externalTransactionId).toBe("bigseller:A");
+    expect(map.get(idB)?.externalTransactionId).toBe("bigseller:B");
+    expect(map.get(idC)?.externalTransactionId).toBe("bigseller:C");
+    expect(map.has(idGhost)).toBe(false);
+    expect(map.get(idGhost)).toBeUndefined();
+  });
+
+  it("parity: getRevenueByIds(id) deep-equals getRevenueById({revenueId: id}) for every id", async () => {
+    const t = convexTest(schema);
+    const ids = [
+      await seedRevenue(t, "bigseller:P1"),
+      await seedRevenue(t, "bigseller:P2"),
+      await seedRevenue(t, "bigseller:P3"),
+    ];
+
+    const batch = new Map(
+      await t.query(
+        internal.integrations.bigseller.queries.getRevenueByIds,
+        { revenueIds: ids },
+      ),
+    );
+
+    for (const id of ids) {
+      const single = await t.query(
+        internal.integrations.bigseller.queries.getRevenueById,
+        { revenueId: id },
+      );
+      expect(batch.get(id)).toEqual(single);
+    }
   });
 });

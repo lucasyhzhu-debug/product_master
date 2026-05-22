@@ -16,6 +16,23 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 83-04: BigSeller sync O4 — N+1 query elimination — 2026-05-22
+
+**For the team:** Manual full-month BigSeller syncs run faster. The sync used to read each revenue record back from the database one at a time — about 400 separate round-trips for a 200-order month — to relink revenue to orders and run a safety check. It now fetches them all in a single batch, cutting that overhead off the sync runtime. No behavior change: the data and the cross-platform safety guard are identical.
+
+#### Changed
+- **O4 N+1 elimination (D-05, low-risk-first #1):** replaced ~400 sequential `getRevenueById` lookups with one `getRevenueByIds` batch prefetch. After `saveRevenue` returns, `fetchOrders` (`convex/integrations/bigseller/sync.ts`) prefetches the entire revenue batch ONCE; both the revenue→order linking loop and the cross-platform leak guard (T-79-02) now read from one in-memory map. Pure refactor, no behavior change. The leak guard still throws on a `revDoc.source !== platform` mismatch.
+
+#### Added
+- `getRevenueByIds(revenueIds)` internalQuery in `convex/integrations/bigseller/queries.ts` — batch form of `getRevenueById`. Returns `Array<[id, doc]>` (a raw `Map` is not a Convex-serializable return type — Flag #5; the caller builds the Map via `new Map(entries)`). Missing/deleted ids are omitted from the result.
+- Parity + round-trip + missing-id-omission tests in `convex/integrations/bigseller/__tests__/sync.test.ts`.
+
+#### Files
+- `convex/integrations/bigseller/queries.ts` (new `getRevenueByIds`)
+- `convex/integrations/bigseller/sync.ts` (both N+1 loops read from one prefetched batch)
+- `convex/integrations/bigseller/__tests__/sync.test.ts` (parity/round-trip tests)
+- `docs/CHANGELOG.md`
+
 ### Phase 83-03: BigSeller token auto-refresh + freshness banner — 2026-05-22
 
 **For the team:** BigSeller stops nagging you to repaste a token every ~20 days. Every successful sync now grabs the fresher login token BigSeller hands back in its response and saves it automatically, sliding the 20-day expiry forward indefinitely. As long as the nightly sync keeps running, the token never decays. If something does go wrong (cron failing for ~19 days), the BigSeller card shows a yellow "token expires in Nh — paste fresh token" warning under 24h, and a red blocking banner once it has actually expired (which also disables the Sync Now button until you paste a new one).

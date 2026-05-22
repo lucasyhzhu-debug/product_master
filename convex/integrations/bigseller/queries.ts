@@ -142,19 +142,24 @@ export const getRevenueById = internalQuery({
  * single in-memory map (eliminates ~400 sequential single-doc lookups per
  * full-month sync).
  *
- * Returns a Map keyed by the revenue id string. Missing/deleted ids are absent
- * from the result (no null entries). Convex serializes Map over the runQuery
- * boundary; parity + round-trip are verified in sync.test.ts.
+ * Returns an Array of [revenueId, doc] entries. Missing/deleted ids are absent
+ * from the result (no null entries). The caller builds a Map via
+ * `new Map(entries)` (the convex/productionCounts/queries.ts:31 pattern).
+ *
+ * Flag #5 (83-PATTERNS) — a raw `Map` is NOT a supported Convex serialization
+ * type; returning one throws "Map ... is not a supported Convex type" over the
+ * runQuery boundary (confirmed by the parity test in sync.test.ts). Hence the
+ * Array<[id, doc]> shape.
  */
 export const getRevenueByIds = internalQuery({
   args: { revenueIds: v.array(v.id("externalRevenue")) },
   handler: async (ctx, args) => {
     const docs = await Promise.all(args.revenueIds.map((id) => ctx.db.get(id)));
-    const map = new Map<string, Doc<"externalRevenue">>();
+    const entries: Array<[string, Doc<"externalRevenue">]> = [];
     docs.forEach((doc, i) => {
-      if (doc) map.set(args.revenueIds[i], doc);
+      if (doc) entries.push([args.revenueIds[i], doc]);
     });
-    return map;
+    return entries;
   },
 });
 

@@ -893,11 +893,14 @@ export const fetchOrders = internalAction({
         // Phase 83-04 (O4): prefetch the entire revenue batch ONCE so both the
         // revenue→order linking loop below AND the cross-platform leak guard
         // further down read from one in-memory map — replaces ~400 sequential
-        // single-doc per-id lookups per full-month sync.
-        const revDocsById = await ctx.runQuery(
+        // single-doc per-id lookups per full-month sync. getRevenueByIds returns
+        // Array<[id, doc]> (Flag #5 — a raw Map isn't a Convex-serializable
+        // return type); build the lookup Map caller-side.
+        const revDocEntries = await ctx.runQuery(
           internal.integrations.bigseller.queries.getRevenueByIds,
           { revenueIds: revenueIds as Id<"externalRevenue">[] }
         );
+        const revDocsById = new Map(revDocEntries);
         if (revenueIds.length > 0) {
           const links: Array<{ platformOrderId: string; revenueId: Id<"externalRevenue"> }> = [];
           for (const revId of revenueIds) {
