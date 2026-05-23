@@ -16,6 +16,30 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Bug Fix: BigSeller token surfaces "Token expired" banner immediately when JWT is past expiry — 2026-05-23
+
+**For the team:** When the BigSeller `muc_token` is dead (expired or revoked), the Settings card now flips to "Token expired -- paste new token" right away. Previously, a dead token caused the sync to spin for ~100 seconds on three slow retries before showing a generic "rejected pageList request" failure with no actionable next step. The terminal banner for the *browser-logout* case (where the JWT is still locally valid but BigSeller has revoked the session server-side) now also hints "if you recently logged out of BigSeller in the browser, paste a fresh muc_token in Settings". This does NOT auto-recover from a browser logout — BigSeller's login is CAPTCHA-gated, so a fresh paste remains the only path back. The fix just makes the failure mode legible.
+
+#### Fixed
+- `convex/integrations/bigseller/sync.ts:920` — page-1 readiness retry loop now pre-checks the persisted JWT's `exp` claim (with a 1-hour grace window). When `code=-1, "Failed, please try again later"` arrives AND the local token is past `exp`, the sync routes straight to `handleAuthFailure` instead of looping through 3 retries (~100 s) and producing a generic terminal message.
+- Page-1-fatal terminal banner widened to include a browser-logout repaste hint when the upstream rejection looks like a session-timeout shape.
+
+#### Added
+- `convex/integrations/bigseller/helpers.ts` — `isJwtExpiredOrExpiring(token, graceMs)` pure helper. Fail-safe on malformed/missing-`exp` JWTs and pathological values (NaN, ±Infinity, non-number `exp`).
+- 9 new helper tests (boundary, pathological values, grace windows) + 1 sync integration test asserting the dispatch branch fires (expired-JWT + readiness-lag → 1 page-1 call per platform, syncLog "Token expired", credential health "error", bad token preserved for UI).
+
+#### Tests
+- `npm run type-check` PASS; `npm run build` PASS; bigseller suite 165 tests pass (was 161 — +4 net).
+
+#### Debug session
+- `.planning/debug/bigseller-muc-token-refresh.md` (5 hypotheses, evidence log, Resolution).
+- Staff review: `docs/reviews/staffreview-fix-bigseller-jwt-expiry-detection-2026-05-23.md`.
+
+#### Architectural observation (deferred to future planning)
+- 3rd `code=-1` debug session against BigSeller pageList in ~2 weeks (BigSeller has overloaded `code=-1` across sync-task lag + missing required field + session timeout). If a 4th interpretation lands, consider a `classifyResponse(parsed, currentToken)` state-machine refactor consolidating the additive layers. Consistent with Phase 83-01a's "additive-only fix discipline" lesson — different axis, not regression.
+
+---
+
 ### Phase 84: QRIS Payment Integration (Xendit) — 2026-05-22
 
 **For the team:** Staff can now charge a customer in person with a QRIS QR code instead of waiting for a manual bank transfer. Open an order that's awaiting payment, tap **Charge via QRIS**, and a dynamic exact-amount QR appears for the customer to scan with any QRIS wallet (GoPay, OVO, DANA, bank apps, etc.). The screen shows a live "Waiting for payment…" indicator and flips to "Payment Received" automatically the moment the payment lands — no manual marking, and the order advances itself. Ships **turned OFF** on production (the `Charge via QRIS` button is hidden) until Xendit finishes account verification (KYB); flip the `QRIS_ENABLED` flag + live keys when that clears.
