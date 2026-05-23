@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
   detectHtmlResponse,
   isJsonAuthError,
+  isJwtExpiredOrExpiring,
   buildPageListBody,
   mapOrderToRevenue,
   mapOrderToStorage,
@@ -14,6 +15,20 @@ import {
   buildSyncTaskCreateBody,
   type BigSellerOrderRow,
 } from "../helpers";
+
+function toBase64Url(input: string): string {
+  return Buffer.from(input, "utf-8")
+    .toString("base64")
+    .replace(/=+$/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
+function makeJwt(payload: Record<string, unknown>): string {
+  const header = toBase64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = toBase64Url(JSON.stringify(payload));
+  return `${header}.${body}.sig`;
+}
 
 // ============================================
 // detectHtmlResponse() Tests
@@ -53,6 +68,57 @@ describe("isJsonAuthError", () => {
 
   it("returns false for generic errors", () => {
     expect(isJsonAuthError({ code: -1, msg: "error" })).toBe(false);
+  });
+});
+
+// ============================================
+// isJwtExpiredOrExpiring() Tests
+// ============================================
+describe("isJwtExpiredOrExpiring", () => {
+  it("returns true for empty token (fail-safe)", () => {
+    expect(isJwtExpiredOrExpiring("")).toBe(true);
+  });
+
+  it("returns true for malformed JWT (fail-safe)", () => {
+    expect(isJwtExpiredOrExpiring("not-a-jwt")).toBe(true);
+    expect(isJwtExpiredOrExpiring("only.two")).toBe(true);
+  });
+
+  it("returns true when payload has no exp claim (fail-safe)", () => {
+    const token = makeJwt({ sub: "user-1" });
+    expect(isJwtExpiredOrExpiring(token)).toBe(true);
+  });
+
+  it("returns true when exp is in the past", () => {
+    const past = Math.floor(Date.now() / 1000) - 3600; // 1h ago
+    const token = makeJwt({ exp: past });
+    expect(isJwtExpiredOrExpiring(token)).toBe(true);
+  });
+
+  it("returns false when exp is comfortably in the future", () => {
+    const future = Math.floor(Date.now() / 1000) + 86400 * 7; // 7d
+    const token = makeJwt({ exp: future });
+    expect(isJwtExpiredOrExpiring(token)).toBe(false);
+  });
+
+  it("returns true when exp is within the grace window", () => {
+    // exp is 30 min from now; grace is 1 hour → should report expiring.
+    const soon = Math.floor(Date.now() / 1000) + 1800;
+    const token = makeJwt({ exp: soon });
+    expect(isJwtExpiredOrExpiring(token, 3600 * 1000)).toBe(true);
+  });
+
+  it("returns false when exp is beyond the grace window", () => {
+    // exp is 2h from now; grace is 1h → should NOT report expiring.
+    const later = Math.floor(Date.now() / 1000) + 7200;
+    const token = makeJwt({ exp: later });
+    expect(isJwtExpiredOrExpiring(token, 3600 * 1000)).toBe(false);
+  });
+
+  it("defaults graceMs to 0 (only past-exp counts as expired)", () => {
+    const justBarely = Math.floor(Date.now() / 1000) + 60; // 60s from now
+    const token = makeJwt({ exp: justBarely });
+    expect(isJwtExpiredOrExpiring(token)).toBe(false);
   });
 });
 

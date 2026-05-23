@@ -6,6 +6,7 @@
  */
 
 import type { Id } from "../../_generated/dataModel";
+import { decodeJwtPayload } from "../../lib/jwt";
 import {
   BIGSELLER_FROLLIE_SHOP_IDS,
   BIGSELLER_PAGE_SIZE,
@@ -158,6 +159,37 @@ export function isJsonAuthError(parsed: { code: number; errorCode?: number; msg?
     return true;
   }
   return false;
+}
+
+/**
+ * Check whether the persisted muc_token JWT is past its `exp`, or within
+ * `graceMs` of expiring. Fail-SAFE — if the token is malformed or the payload
+ * is missing `exp`, this returns `true` so callers route to the auth-failure
+ * path instead of silently retrying.
+ *
+ * Used by the page-1 readiness-retry path: BigSeller returns generic
+ * `code=-1, msg="Failed, please try again later"` for at least three different
+ * upstream conditions (sync-task still in progress, missing required field,
+ * AND server-side session timeout). The `code=-1` surface is structurally
+ * indistinguishable for those cases at the response layer — but if our locally
+ * stored JWT is already past `exp`, the only remaining explanation is auth
+ * decay. This helper is the disambiguator.
+ *
+ * `exp` in JWT spec is Unix seconds; we compare against `Date.now() / 1000`.
+ */
+export function isJwtExpiredOrExpiring(token: string, graceMs: number = 0): boolean {
+  if (!token) return true;
+  let payload: Record<string, unknown>;
+  try {
+    payload = decodeJwtPayload(token);
+  } catch {
+    return true; // malformed → treat as expired (fail-safe)
+  }
+  const exp = payload.exp;
+  if (typeof exp !== "number") return true; // no exp claim → fail-safe
+  const nowSec = Date.now() / 1000;
+  const graceSec = graceMs / 1000;
+  return exp <= nowSec + graceSec;
 }
 
 // ─── Field Mappers ───────────────────────────────────────────────────────────
