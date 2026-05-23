@@ -45,14 +45,20 @@ export function calculateSuggestedQty(
 /**
  * Get ISO week number string from a YYYY-MM-DD date.
  * Returns format "2026-W07".
+ *
+ * Parses the input as a calendar date in UTC and reads back through `getUTC*`
+ * so the WIB-intended calendar day-of-week / year are TZ-stable. Previously
+ * used `+07:00` parse + local `getDay()`/`getFullYear()` which gave the wrong
+ * day in any non-WIB runtime (UTC CI runners returned the previous day).
  */
 export function getWeekNumber(date: string): string {
-  const d = new Date(date + "T00:00:00+07:00"); // Jakarta timezone
-  const dayNum = d.getDay() || 7; // Make Sunday = 7
-  d.setDate(d.getDate() + 4 - dayNum); // Set to Thursday of the week
-  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const [y, m, day] = date.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1, day));
+  const dayNum = d.getUTCDay() || 7; // Make Sunday = 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum); // Thursday of the ISO week
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 }
 
 /**
