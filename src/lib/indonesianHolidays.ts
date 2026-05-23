@@ -71,7 +71,7 @@ export function getCommercialDateName(date: string): string | undefined {
 /** Check if a YYYY-MM-DD date is a weekend (Sat/Sun) or public holiday */
 export function isWeekendOrHoliday(date: string): boolean {
   if (holidayMap.has(date)) return true;
-  const day = new Date(date + "T00:00:00+07:00").getDay();
+  const day = utcDayOfWeek(date);
   return day === 0 || day === 6;
 }
 
@@ -84,7 +84,7 @@ export function getDayType(
 ): "weekday" | "weekend" | "holiday" | "sales_date" {
   if (holidayMap.has(date)) return "holiday";
   if (commercialDateMap.has(date)) return "sales_date";
-  const day = new Date(date + "T00:00:00+07:00").getDay();
+  const day = utcDayOfWeek(date);
   if (day === 0 || day === 6) return "weekend";
   return "weekday";
 }
@@ -112,10 +112,21 @@ export function getDemandMultiplier(date: string): number {
 
 /** Get ISO week number string like "2026-W07" for a YYYY-MM-DD date */
 export function getISOWeekString(date: string): string {
-  const d = new Date(date + "T00:00:00+07:00");
-  const dayNum = d.getDay() || 7;
-  d.setDate(d.getDate() + 4 - dayNum);
-  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const [y, m, day] = date.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1, day));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+}
+
+/**
+ * Parse a `YYYY-MM-DD` calendar date and return its day-of-week (0=Sun..6=Sat)
+ * in a TZ-stable way. The old `new Date(s + "T00:00:00+07:00").getDay()` pattern
+ * read the day through the runtime's LOCAL TZ, which differs from WIB on CI.
+ */
+function utcDayOfWeek(date: string): number {
+  const [y, m, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, day)).getUTCDay();
 }
