@@ -21,6 +21,10 @@ import { chromium, type Page, type BrowserContext } from "playwright";
 import { execSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
+import { fileURLToPath } from "url";
+
+// ESM shim — `package.json` is `"type": "module"`, so `__dirname` is undefined.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const K3MART_URL = "https://umkm.k3mart.id";
 const SCREENSHOT_DIR = path.join(__dirname, "debug-screenshots");
