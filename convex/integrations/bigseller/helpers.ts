@@ -186,7 +186,9 @@ export function isJwtExpiredOrExpiring(token: string, graceMs: number = 0): bool
     return true; // malformed → treat as expired (fail-safe)
   }
   const exp = payload.exp;
-  if (typeof exp !== "number") return true; // no exp claim → fail-safe
+  // typeof NaN === "number" → guard with isFinite so pathological exp values
+  // (NaN, +/-Infinity) take the fail-safe branch instead of silently passing.
+  if (typeof exp !== "number" || !Number.isFinite(exp)) return true;
   const nowSec = Date.now() / 1000;
   const graceSec = graceMs / 1000;
   return exp <= nowSec + graceSec;

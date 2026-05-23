@@ -241,6 +241,11 @@ describe("getRevenueByIds (O4 N+1 elimination)", () => {
 const FRESH_TOKEN =
   "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIiwiZXhwIjoxNzgwOTExODQyLCJpYXQiOjE3NzkxODM4NDJ9.sigFRESH";
 
+// JWT with exp:1700000000 (Nov 2023 — definitively in the past). Used to exercise
+// the JWT-exp pre-check in the page-1 readiness-retry branch.
+const EXPIRED_TOKEN =
+  "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIiwiZXhwIjoxNzAwMDAwMDAwLCJpYXQiOjE2OTgyNzIwMDB9.sigEXP";
+
 function makeRow(platformOrderId: string, sku: string) {
   return {
     shopId: 0,
@@ -474,6 +479,46 @@ describe("BigSeller parallel fetch (O1/O2)", () => {
     // tokenExpiresAt decoded from the fresh token (exp*1000).
     const exp = decodeJwtPayload(FRESH_TOKEN).exp as number;
     expect(cred?.tokenExpiresAt).toBe(exp * 1000);
+  });
+
+  it("short-circuits the page-1 readiness retry when the persisted JWT is past exp", async () => {
+    // Regression test for the JWT-exp pre-check in sync.ts:920-937.
+    // Wire: seed an expired JWT. Have BOTH platforms return the readiness-lag
+    // shape (code=-1, "Failed, please try again later"). The pre-check must
+    // route to authError on the FIRST page-1 call — no readiness retries fire,
+    // and handleAuthFailure writes the "Token expired" terminal state.
+    const t = convexTest(schema);
+    const syncLogId = await seedSyncContext(t, EXPIRED_TOKEN);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    let callCount = 0;
+    stubFetch(() => {
+      callCount++;
+      return JSON.stringify({ code: -1, msg: "Failed, please try again later" });
+    });
+
+    await runFetch(t, syncLogId);
+
+    // (a) Pre-check fires once per platform — NO readiness retries (would have
+    // taken 10s+30s+60s and made >1 call per platform). Both platforms get
+    // exactly one page-1 call.
+    expect(callCount).toBe(2);
+
+    // (b) Sync log is "error" with the auth-failure message — NOT the
+    // page-1-fatal "rejected pageList request" message that the retry-exhaust
+    // path would have produced.
+    const log = await t.run(async (ctx) => ctx.db.get(syncLogId));
+    expect(log?.status).toBe("error");
+    expect(log?.errorMessage).toMatch(/token expired/i);
+
+    // (c) Credential health reflects auth failure (handleAuthFailure path).
+    const cred = await readCredential(t);
+    expect(cred?.lastRefreshStatus).toBe("error");
+    expect(cred?.lastRefreshError).toMatch(/token expired or invalid/i);
+    // The bad token is preserved (not erased) so the user can see it in the UI.
+    expect(cred?.currentToken).toBe(EXPIRED_TOKEN);
+
+    errorSpy.mockRestore();
   });
 
   it("scopes a one-platform page-1 fatal to that platform under O1 (sibling data still lands)", async () => {

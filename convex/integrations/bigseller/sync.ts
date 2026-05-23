@@ -919,15 +919,19 @@ export const fetchOrders = internalAction({
             res.msg.toLowerCase().includes("try again later");
 
           // JWT-exp pre-check: BigSeller's `code=-1, msg="Failed, please try again later"`
-          // is overloaded — it surfaces upstream sync-task lag AND server-side session
-          // timeout (the latter when the persisted JWT is past `exp` or when the user
-          // logged out of BigSeller in their browser, server-side-invalidating the
-          // session). The `code=-1` shape is indistinguishable at the response layer,
-          // so we use the LOCAL JWT `exp` claim as the disambiguator: if our token is
-          // already past `exp`, retrying is pointless and the user needs the
-          // "Token expired -- paste new token" banner immediately. Fail-safe on
-          // malformed/missing-`exp` tokens (isJwtExpiredOrExpiring returns true).
-          if (isReadinessLag && isJwtExpiredOrExpiring(mucToken)) {
+          // is overloaded across THREE upstream conditions — sync-task lag (the readiness
+          // race below handles this), missing required field (caller's body bug), AND
+          // server-side session timeout (persisted JWT past `exp` OR browser-logout-induced
+          // session revocation). The `code=-1` shape is indistinguishable at the response
+          // layer, so we use the LOCAL JWT `exp` claim as the disambiguator: if our token
+          // is already past `exp` (or within the 1-hour grace — the retry chain spans
+          // ~100s; without grace a JWT expiring mid-chain would slip through), retrying
+          // is pointless and the user needs the "Token expired -- paste new token"
+          // banner immediately. Fail-safe on malformed/missing `exp`.
+          // For browser-logout (locally-valid JWT, server-side-revoked session), the
+          // pre-check does NOT fire — we exhaust the retries and surface the widened
+          // fatal banner below (cannot detect server-side revocation in-band).
+          if (isReadinessLag && isJwtExpiredOrExpiring(mucToken, 60 * 60 * 1000)) {
             console.error(
               `BigSeller ${platform} pageList code=-1 with locally-expired JWT — ` +
                 `routing to auth-failure (skipping readiness retry).`,

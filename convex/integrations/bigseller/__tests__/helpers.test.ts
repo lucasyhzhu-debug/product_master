@@ -120,6 +120,27 @@ describe("isJwtExpiredOrExpiring", () => {
     const token = makeJwt({ exp: justBarely });
     expect(isJwtExpiredOrExpiring(token)).toBe(false);
   });
+
+  it("returns true for pathological exp values (NaN, Infinity)", () => {
+    // typeof NaN === "number" — guard must use isFinite to reject these.
+    expect(isJwtExpiredOrExpiring(makeJwt({ exp: NaN }))).toBe(true);
+    expect(isJwtExpiredOrExpiring(makeJwt({ exp: Infinity }))).toBe(true);
+    expect(isJwtExpiredOrExpiring(makeJwt({ exp: -Infinity }))).toBe(true);
+  });
+
+  it("returns true for exp as a non-number type (fail-safe)", () => {
+    expect(isJwtExpiredOrExpiring(makeJwt({ exp: "9999999999" }))).toBe(true);
+    expect(isJwtExpiredOrExpiring(makeJwt({ exp: null }))).toBe(true);
+    expect(isJwtExpiredOrExpiring(makeJwt({ exp: true }))).toBe(true);
+  });
+
+  it("uses <= boundary: exp exactly equal to now counts as expired", () => {
+    // The comparison is `exp <= nowSec + graceSec`. With graceMs=0, an exp that
+    // equals the current Unix second counts as expired (deterministic boundary).
+    const nowSec = Math.floor(Date.now() / 1000);
+    const token = makeJwt({ exp: nowSec });
+    expect(isJwtExpiredOrExpiring(token)).toBe(true);
+  });
 });
 
 // ============================================
