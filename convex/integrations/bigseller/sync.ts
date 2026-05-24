@@ -30,6 +30,7 @@ import {
   buildSyncTaskCreateBody,
   detectHtmlResponse,
   isJsonAuthError,
+  isJwtExpiredOrExpiring,
   getPageListEndpoint,
   mapOrderToRevenue,
   mapOrderToStorage,
@@ -916,6 +917,29 @@ export const fetchOrders = internalAction({
             res.errorCode === -1 &&
             typeof res.msg === "string" &&
             res.msg.toLowerCase().includes("try again later");
+
+          // JWT-exp pre-check: BigSeller's `code=-1, msg="Failed, please try again later"`
+          // is overloaded across THREE upstream conditions — sync-task lag (the readiness
+          // race below handles this), missing required field (caller's body bug), AND
+          // server-side session timeout (persisted JWT past `exp` OR browser-logout-induced
+          // session revocation). The `code=-1` shape is indistinguishable at the response
+          // layer, so we use the LOCAL JWT `exp` claim as the disambiguator: if our token
+          // is already past `exp` (or within the 1-hour grace — the retry chain spans
+          // ~100s; without grace a JWT expiring mid-chain would slip through), retrying
+          // is pointless and the user needs the "Token expired -- paste new token"
+          // banner immediately. Fail-safe on malformed/missing `exp`.
+          // For browser-logout (locally-valid JWT, server-side-revoked session), the
+          // pre-check does NOT fire — we exhaust the retries and surface the widened
+          // fatal banner below (cannot detect server-side revocation in-band).
+          if (isReadinessLag && isJwtExpiredOrExpiring(mucToken, 60 * 60 * 1000)) {
+            console.error(
+              `BigSeller ${platform} pageList code=-1 with locally-expired JWT — ` +
+                `routing to auth-failure (skipping readiness retry).`,
+            );
+            result.authError = true;
+            return result;
+          }
+
           if (
             isReadinessLag &&
             page1ReadinessRetries < BIGSELLER_PAGELIST_READINESS_RETRY_DELAYS_MS.length
@@ -934,9 +958,16 @@ export const fetchOrders = internalAction({
           // O1 (staffreview R2): scope the failure to THIS platform — record it and
           // return; the sibling platform's resolved data still lands. The caller
           // marks the overall sync 'error' naming the failing platform.
+          // For `code=-1, "try again later"` specifically: BigSeller likely revoked the
+          // session server-side (browser logout, server-side timeout) — JWT is locally
+          // valid but server refuses it. Hint at the manual-repaste workaround.
+          const browserLogoutHint = isReadinessLag
+            ? " — if you recently logged out of BigSeller in the browser, paste a fresh muc_token in Settings"
+            : "";
           result.fatalError =
             `BigSeller ${platform} rejected pageList request: code=${res.errorCode}` +
-            (res.msg ? ` (${res.msg})` : "");
+            (res.msg ? ` (${res.msg})` : "") +
+            browserLogoutHint;
           return result;
         }
         page1 = res;
