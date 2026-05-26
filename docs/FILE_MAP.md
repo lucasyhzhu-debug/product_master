@@ -76,3 +76,19 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 | Financial Data Export (`/financials/export`) | Roles: manager, admin | Phase 76 — Raw GL + multi-period P&L CSV exports for accountant handoff. Backend queries also enforce `requireRole(["manager","admin"])`. |
 
 **Backend enforcement:** `requireRole(ctx, args.token, ["admin"])` from `convex/lib/auth.ts`. Add `token: v.string()` to protected mutation args.
+
+---
+
+## Telegram Pack List Bot v1 (2026-05-26)
+
+Notifications + on-demand `/pack` command in a dedicated Telegram group. No frontend code.
+
+- **Backend (orchestration):** `convex/telegram/sendPackList.ts` (internalAction), `convex/telegram/webhook.ts` (pure `decideWebhookOutcome` + httpAction + `recordIfNew` internalMutation)
+- **Backend (pure logic):** `convex/telegram/packListFormat.ts` (formatter), `convex/lib/telegramHtml.ts` (escape + send helper)
+- **Backend (query):** `convex/telegram/queries/packListQuery.ts` (`getOrdersForPackList` internalQuery; reuses `convex/orders/helpers/kanbanBuilders.ts → buildKanbanCard`)
+- **Schema:** `convex/schema.ts` — `telegramUpdates` table (index `by_update_id`) for webhook idempotency dedupe
+- **Crons:** `convex/crons.ts` — `telegram morning pack list` (00:00 UTC = 07:00 WIB), `telegram midday pack list` (06:00 UTC = 13:00 WIB)
+- **HTTP route:** `convex/http.ts` — `POST /telegram-webhook`
+- **Tests:** `convex/lib/__tests__/telegramHtml.test.ts`, `convex/telegram/__tests__/{packListFormat,packListQuery,webhookHandler}.test.ts` (41 tests total)
+- **Env vars:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET` (each set separately per Convex deployment via `npx convex env set`)
+- **Permission:** webhook is unauthenticated externally (token-in-header, constant-time compare). Convex functions are internal-only (no `requireRole` — read-only feature, any group member can `/pack`). Single-group invariant is operational (the handler does NOT verify `chat_id`; keep the bot in exactly one group).

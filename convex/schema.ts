@@ -442,6 +442,17 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_priority", ["priority"]),
 
+  // Telegram /pack command idempotency dedupe.
+  // Telegram retries on non-200 responses for ~24h. We insert by update_id
+  // and treat duplicate inserts as no-ops, so a retry never re-fires sendPackList.
+  // R4: low volume (one row per /pack command in the dedicated group); revisit
+  // adding a monthly prune cron when this exceeds ~10k rows.
+  telegramUpdates: defineTable({
+    updateId: v.number(),       // Telegram update.update_id
+    receivedAt: v.number(),     // Date.now() when we received it
+  })
+    .index("by_update_id", ["updateId"]),
+
   // ============================================
   // PRD-4: AUTHENTICATION TABLES
   // ============================================

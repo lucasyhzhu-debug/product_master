@@ -20,4 +20,20 @@ crons.daily(
   internal.integrations.bigseller.cron.nightlySync,
 );
 
+// Telegram pack list bot v1: morning post at 07:00 WIB (= 00:00 UTC).
+crons.daily(
+  "telegram morning pack list",
+  { hourUTC: 0, minuteUTC: 0 },
+  internal.telegram.sendPackList.sendPackList,
+  { reason: "morning" },
+);
+
+// Telegram pack list bot v1: midday "still pending" reminder at 13:00 WIB (= 06:00 UTC).
+crons.daily(
+  "telegram midday pack list",
+  { hourUTC: 6, minuteUTC: 0 },
+  internal.telegram.sendPackList.sendPackList,
+  { reason: "midday" },
+);
+
 export default crons;

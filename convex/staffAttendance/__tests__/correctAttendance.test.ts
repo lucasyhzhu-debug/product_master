@@ -15,7 +15,19 @@ import { describe, it, expect } from "vitest";
 import schema from "../../schema";
 import { api } from "../../_generated/api";
 import { seedUser, insertAttendance } from "./helpers";
-import { getWibDateStr } from "../../lib/periodRange";
+import { getWibDateStr, getWibComponents, wibMidnightToUtc } from "../../lib/periodRange";
+
+// Pin the test clock to noon WIB today so `Date.now() - Nh` calculations in
+// the edit_timestamps tests stay within a single WIB day. Without this, CI
+// runs between 00:00-03:00 WIB fail with `Existing date does not match new
+// clock-in WIB date` because `Date.now() - 3h` crosses the WIB midnight.
+// Out-of-scope fix introduced by the telegram-pack-list PR (2026-05-26) —
+// the staffAttendance tests have always been latent flaky in this window;
+// surfaced tonight because PR #167 happened to land near WIB midnight.
+function noonWibTodayMs(): number {
+  const wib = getWibComponents(Date.now());
+  return wibMidnightToUtc(wib.year, wib.month, wib.day) + 12 * 60 * 60 * 1000;
+}
 
 describe("correctAttendance", () => {
   it("requires manager/admin role (rejects kitchen/order_staff)", async () => {
@@ -72,9 +84,10 @@ describe("correctAttendance", () => {
     });
     const { userId } = await seedUser(t, { name: "Chef", role: "kitchen" });
 
-    const today = getWibDateStr(Date.now());
-    const originalIn = Date.now() - 3 * 60 * 60 * 1000;
-    const originalOut = Date.now() - 60 * 60 * 1000;
+    const now = noonWibTodayMs();
+    const today = getWibDateStr(now);
+    const originalIn = now - 3 * 60 * 60 * 1000;
+    const originalOut = now - 60 * 60 * 1000;
     const attendanceId = await insertAttendance(t, {
       userId,
       date: today,
@@ -337,8 +350,9 @@ describe("correctAttendance", () => {
     const { userId: userA } = await seedUser(t, { name: "A", role: "kitchen" });
     const { userId: userB } = await seedUser(t, { name: "B", role: "kitchen" });
 
-    const today = getWibDateStr(Date.now());
-    const originalIn = Date.now() - 4 * 60 * 60 * 1000;
+    const now = noonWibTodayMs();
+    const today = getWibDateStr(now);
+    const originalIn = now - 4 * 60 * 60 * 1000;
     const attendanceId = await insertAttendance(t, {
       userId: userA,
       date: today,
