@@ -43,11 +43,37 @@ This migration **modifies** existing files rather than creating new code. Per-fi
 | `D:\Claude\Product Manager\product_master\.claude\hooks\` | Mirrored in Task 15 | Mirror of user-level |
 | `D:\Claude\Product Manager\product_master\.claude\commands\{updateGSD,triple-review,staffreview}.md` | Verified untouched in Task 18 | Custom commands, project-scoped |
 | `D:\Claude\Product Manager\product_master\.claude\commands\updateGSD.md` | Potentially edited in Phase B Task 27 (self-fix) | User-owned |
-| `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md` | Updated with Patch 16 if Phase B Task 27 runs | User-owned |
+| `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md` | Modified in Task 1.5 (adds Patch 6 RETIRES.md + Patch 7 Opus override) and in Task 31 (adds Patch 8 updateGSD self-fix, if Task 31 runs) | User-owned |
 | `D:\Claude\Product Manager\product_master\docs\CHANGELOG.md` | One-line entry added in Task 32 | Project doc |
 | `C:\Users\Irfan\.claude\backups\KEEP-pre-redux-<ts>\` | Created in Task 3 | Backup 1 |
 | `C:\Users\Irfan\.claude\backups\KEEP-phase-a-patched-<ts>\` | Created in Phase B Task 22 | Backup 2 |
 | `C:\Users\Irfan\.claude\backups\KEEP-redux-110-final-<ts>\` | Created in Task 31 | Backup 3 |
+
+---
+
+## Customisation-to-Patch Cross-Reference
+
+The Customisation Manifest (in spec section "Customisation Manifest") uses numbers #1–#15 to identify user intent. The PATCHES.md files use independent "Patch N" numbering. They are N:1 — one PATCHES.md Patch often covers multiple Customisations. Use this table whenever a task says "apply Patch X for Customisation #Y":
+
+| Customisation # | Tracked in | As | Notes |
+|---|---|---|---|
+| #1 (plan-phase staffreview gate) | Project PATCHES.md | **Patch 4** | Anchored at `## 12.6` per PATCHES.md (NOT `## 12.5`; see Refinement at Task 8) |
+| #2 (execute triple_review_gate) | Project PATCHES.md | **Patch 1** (sub-component) | Folded into `quad_review` step |
+| #3 (execute document_and_merge_gate) | Project PATCHES.md | **Patch 1** (sub-component) | |
+| #4 (spec-phase Step 6.5 RETIRES.md) | Project PATCHES.md | **Patch 6** (added by Task 1.5) | NOT tracked pre-migration — Task 1.5 adds the entry |
+| #5 (gsd-debugger Opus model preference) | Project PATCHES.md | **Patch 7** (added by Task 1.5) | NOT tracked pre-migration — Task 1.5 adds the entry |
+| #6 (execute quad_review) | Project PATCHES.md | **Patch 1** (replaces upstream `code_review_gate`) | |
+| #7 (tiered findings routing rule) | Project PATCHES.md | Embedded across Patches 1–4 | Cross-cutting rule, not a standalone patch |
+| #8 (triple-review.md `--external-review` arg) | Project PATCHES.md | **Patch 1** (secondary file) | |
+| #9 (quick.md quad-review + simplify + doc-merge) | Project PATCHES.md | **Patch 2** | |
+| #10 (debug.md Quality Gates + Doc-merge) | Project PATCHES.md | **Patch 3** | |
+| #11 (updateGSD parameter-consistency) | Project PATCHES.md | **Patch 5** | |
+| #12 (gsd-phase-researcher blast_radius) | User PATCHES.md | **Patch 3** | |
+| #13 (spec-phase Step 2.5 graph blast-radius scout) | User PATCHES.md | **Patch 1** | |
+| #14 (discuss-phase scout_graph_blast_radius + CONTEXT.md template) | User PATCHES.md | **Patch 2** | |
+| #15 (custom `staffreview.md` command) | NOT a patch (Cohort 3) | — | Verified-untouched in Task 16 |
+
+**Reserved future numbering:** Patch 8 in project PATCHES.md is reserved for the updateGSD self-fix that Task 31 writes if it runs.
 
 ---
 
@@ -104,11 +130,179 @@ Run:
 cat "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md" | grep -c "^## Patch"
 cat "C:/Users/Irfan/.claude/gsd-local-patches/PATCHES.md" | grep -c "^## Patch"
 ```
-Expected:
-- Project PATCHES.md: 5 (Patches 1–5 covering customisations #1–#11)
+Expected (BEFORE Task 1.5 runs):
+- Project PATCHES.md: 5 (Patches 1–5 covering customisations #1–#3, #6–#11)
 - User PATCHES.md: 3 (Patches 1–3 covering customisations #12–#14)
 
-If counts are lower, STOP. Document the missing patches before proceeding.
+After Task 1.5 completes, project PATCHES.md will have **7 patches** (5 original + Patch 6 RETIRES.md + Patch 7 Opus override). After Task 31 if it runs, project PATCHES.md will have **8 patches** (adding Patch 8 updateGSD self-fix).
+
+If counts are lower than 5/3 right now, STOP. Document the missing patches before proceeding.
+
+- [ ] **Step 7: PATCHES.md content-integrity check (pre-migration baseline must be intact)**
+
+Each PATCHES.md Patch entry has a `**Verification:**` block with grep commands. Run them now against the CURRENT install. Any returning 0-but-expected-≥1 means pre-existing drift — Phase A's green-gate would be comparing against a wrong "expected" state.
+
+```bash
+# Project patches (Patches 1–5):
+# Patch 1 (execute-phase quad_review):
+grep -c '<step name="quad_review">' C:/Users/Irfan/.claude/get-shit-done/workflows/execute-phase.md  # >= 1
+grep -c '<step name="code_review_gate"' C:/Users/Irfan/.claude/get-shit-done/workflows/execute-phase.md  # == 0
+grep -c '<step name="simplify">' C:/Users/Irfan/.claude/get-shit-done/workflows/execute-phase.md  # >= 1
+grep -c '<step name="document_and_merge">' C:/Users/Irfan/.claude/get-shit-done/workflows/execute-phase.md  # >= 1
+grep -c "Route the COMPLETE tiered list" C:/Users/Irfan/.claude/get-shit-done/workflows/execute-phase.md  # >= 1
+grep -c "external-review" "D:/Claude/Product Manager/product_master/.claude/commands/triple-review.md"  # >= 3
+grep -c "EXTERNAL_REVIEW" "D:/Claude/Product Manager/product_master/.claude/commands/triple-review.md"  # >= 3
+grep -c "Quad Review" "D:/Claude/Product Manager/product_master/.claude/commands/triple-review.md"  # >= 1
+
+# Patch 2 (quick.md):
+grep -c "Step 6.3: Quad review" C:/Users/Irfan/.claude/get-shit-done/workflows/quick.md  # >= 1
+grep -c "external-review=\${REVIEW_FILE}" C:/Users/Irfan/.claude/get-shit-done/workflows/quick.md  # >= 1
+grep -c "Step 6.4: Simplify" C:/Users/Irfan/.claude/get-shit-done/workflows/quick.md  # >= 1
+grep -c "Step 9: Document and merge" C:/Users/Irfan/.claude/get-shit-done/workflows/quick.md  # >= 1
+grep -c "Route the COMPLETE tiered list" C:/Users/Irfan/.claude/get-shit-done/workflows/quick.md  # >= 1
+
+# Patch 3 (debug.md):
+grep -c "## 5. Quality Gates" C:/Users/Irfan/.claude/get-shit-done/workflows/debug.md  # >= 1
+grep -c "## 6. Document and Merge" C:/Users/Irfan/.claude/get-shit-done/workflows/debug.md  # >= 1
+
+# Patch 4 (plan-phase staffreview gate):
+grep -c "Staff[Rr]eview Gate" C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md  # >= 1
+grep -c "Route the COMPLETE tiered list" C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md  # >= 1
+
+# Patch 5 (updateGSD):
+grep -c "Parameter consistency" "D:/Claude/Product Manager/product_master/.claude/commands/updateGSD.md"  # >= 2
+grep -ic "help file" "D:/Claude/Product Manager/product_master/.claude/commands/updateGSD.md"  # >= 1
+
+# User patches (Patches 1–3):
+grep -c "Step 2.5: Graph Blast Radius Scout" C:/Users/Irfan/.claude/get-shit-done/workflows/spec-phase.md  # == 1
+grep -c "graph-surfaced anchor symbol" C:/Users/Irfan/.claude/get-shit-done/workflows/spec-phase.md  # >= 2
+grep -c "scout_graph_blast_radius" C:/Users/Irfan/.claude/get-shit-done/workflows/discuss-phase.md  # >= 2
+grep -c "### Blast Radius" C:/Users/Irfan/.claude/get-shit-done/workflows/discuss-phase.md  # >= 2
+grep -c "blast_radius_awareness" C:/Users/Irfan/.claude/agents/gsd-phase-researcher.md  # == 2
+grep -c "fan_in >= 10" C:/Users/Irfan/.claude/agents/gsd-phase-researcher.md  # == 1
+```
+
+Inspect output. Any 0-where-≥1-was-expected: stop and reconcile PATCHES.md vs install state BEFORE the installer runs, otherwise Phase A green-gate will pass mechanically against a half-broken baseline.
+
+---
+
+## Task 1.5: Document Customisations #4 and #5 + extract content for re-apply (NEW)
+
+**Files:**
+- Read: `C:\Users\Irfan\.claude\get-shit-done\workflows\spec-phase.md` (current install)
+- Read: `C:\Users\Irfan\.claude\get-shit-done\bin\lib\model-profiles.cjs` (current install)
+- Create: `C:\Users\Irfan\.claude\backups\cust-4-retires-content.md` (captured baseline)
+- Create: `C:\Users\Irfan\.claude\backups\cust-5-opus-line.txt` (captured baseline)
+- Modify: `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md` (add Patch 6 + Patch 7)
+
+**Purpose:** Customisations #4 (RETIRES.md) and #5 (gsd-debugger Opus override) exist in the installed files but are **not documented as patches** in either PATCHES.md. Task 4 (installer) will wipe both files. Without this task, Tasks 10 and 14 have nothing to read.
+
+This task **(a)** captures the current content of both customisations to disk for safety, and **(b)** adds proper Patch 6 + Patch 7 entries to project PATCHES.md so Tasks 10 and 14 can read them normally.
+
+- [ ] **Step 1: Extract Customisation #4 (spec-phase Step 6.5 RETIRES.md) content**
+
+```powershell
+$spec = Get-Content "C:\Users\Irfan\.claude\get-shit-done\workflows\spec-phase.md" -Raw
+# Step 6.5 starts at "## Step 6.5: Charter Removals (RETIRES.md)" and ends at "## Step 7:"
+$startIdx = $spec.IndexOf("## Step 6.5: Charter Removals (RETIRES.md)")
+$endIdx   = $spec.IndexOf("## Step 7:")
+if ($startIdx -lt 0 -or $endIdx -lt 0 -or $endIdx -le $startIdx) {
+  Write-Error "Cannot locate Step 6.5 boundaries in spec-phase.md. Halt."
+  exit 1
+}
+$retiresContent = $spec.Substring($startIdx, $endIdx - $startIdx).TrimEnd()
+$retiresContent | Out-File "C:\Users\Irfan\.claude\backups\cust-4-retires-content.md" -Encoding UTF8
+Write-Host "Cust #4 captured: $((Get-Item 'C:\Users\Irfan\.claude\backups\cust-4-retires-content.md').Length) bytes"
+```
+
+- [ ] **Step 2: Extract Customisation #5 (gsd-debugger Opus override) content**
+
+```powershell
+$modelProfilesFull = Get-Content "C:\Users\Irfan\.claude\get-shit-done\bin\lib\model-profiles.cjs" -Raw
+$modelProfilesFull | Out-File "C:\Users\Irfan\.claude\backups\cust-5-model-profiles-baseline.cjs" -Encoding UTF8
+
+$opusLine = (Get-Content "C:\Users\Irfan\.claude\get-shit-done\bin\lib\model-profiles.cjs") |
+            Where-Object { $_ -match "^\s*'gsd-debugger':" }
+if (-not $opusLine) {
+  Write-Error "Cannot locate gsd-debugger line in model-profiles.cjs. Halt."
+  exit 1
+}
+$opusLine | Out-File "C:\Users\Irfan\.claude\backups\cust-5-opus-line.txt" -Encoding ASCII
+Write-Host "Cust #5 captured: $opusLine"
+```
+
+Expected output:
+```
+Cust #5 captured:   'gsd-debugger': { quality: 'opus', balanced: 'sonnet', budget: 'sonnet', adaptive: 'opus' },
+```
+
+- [ ] **Step 3: Append Patch 6 (RETIRES.md) to project PATCHES.md**
+
+Open `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md` and append AFTER the existing Patch 5 entry (and BEFORE the "Dropped patches" section if present), using the captured content from Step 1:
+
+```markdown
+## Patch 6: spec-phase — Step 6.5 Charter Removals (RETIRES.md)
+
+**File:** `get-shit-done/workflows/spec-phase.md`
+**Purpose:** For any phase that deletes, deprecates, or cuts over functionality, generate a RETIRES.md alongside SPEC.md so what is REMOVED is chartered with the same rigor as what is ADDED. Prevents silent retirement of side effects, callers, or upstream dependencies during refactor phases.
+**Insertion anchor:** Between `## Step 6: Generate SPEC.md` (ends with the SPEC.md write completion text) and `## Step 7: Commit`.
+**Dependencies:**
+- `{phase_dir}/{padded}-SPEC.md` written in Step 6
+- Phase scope contains deletion/deprecation/cutover language (scan triggers Step 6.5 conditionally)
+
+**Content:** (see captured baseline at `C:\Users\Irfan\.claude\backups\cust-4-retires-content.md`)
+The step block "## Step 6.5: Charter Removals (RETIRES.md)" defines: when to generate RETIRES.md (scan SPEC.md for deletion phrases), the RETIRES.md template (Phase header, retirement list, side-effect map, caller audit, rollback plan, verification checks), the write target `{phase_dir}/{padded_phase}-RETIRES.md`, and the inclusion of RETIRES.md in the same atomic commit as SPEC.md.
+
+**Verification:**
+```bash
+grep -c "## Step 6.5: Charter Removals (RETIRES.md)" .claude/get-shit-done/workflows/spec-phase.md
+# Expected: 1
+grep -c "RETIRES.md" .claude/get-shit-done/workflows/spec-phase.md
+# Expected: >= 5
+```
+
+---
+
+## Patch 7: model-profiles — gsd-debugger Opus override
+
+**File:** `get-shit-done/bin/lib/model-profiles.cjs` (or the equivalent post-fork path — see Task 14 decision tree)
+**Purpose:** Force the `gsd-debugger` agent to use Opus on both `quality` and `adaptive` profiles (defaults route it to Sonnet on `adaptive`). Debugging benefits disproportionately from deeper reasoning, and the user's standing preference (MEMORY.md → "Always use Opus for gsd-debugger") makes this a hard requirement.
+**Insertion anchor:** Inside the agent→model map object literal in `model-profiles.cjs`, alongside sibling entries for `gsd-planner`, `gsd-executor`, etc.
+**Dependencies:**
+- `model-profiles.cjs` (or equivalent) must exist with a recognisable agent→model mapping structure
+- `gsd-debugger` agent must exist in the install (verify with `Test-Path C:\Users\Irfan\.claude\agents\gsd-debugger.md` post-install)
+
+**Content:** (see captured baseline at `C:\Users\Irfan\.claude\backups\cust-5-opus-line.txt`)
+Add the line:
+```javascript
+  'gsd-debugger': { quality: 'opus', balanced: 'sonnet', budget: 'sonnet', adaptive: 'opus' },
+```
+
+**Verification:**
+```bash
+grep "'gsd-debugger':.*adaptive.*'opus'" .claude/get-shit-done/bin/lib/model-profiles.cjs
+# Expected: 1 match
+```
+
+**Fallback (per Task 14 decision tree Cases B/C/D/E):** If the file is restructured or removed by gsd-redux, this Patch entry's `**File:**` and `**Content:**` fields are amended in place, OR the patch is marked `**Status:** RETIRED` with rationale. Task 14 documents which case applied.
+```
+
+- [ ] **Step 4: Append Patch 7 to project PATCHES.md**
+
+Already covered in Step 3's block (Patch 6 and Patch 7 are added together in one Edit).
+
+- [ ] **Step 5: Verify both patches now exist in PATCHES.md**
+
+```bash
+grep -c "^## Patch [1-7]:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
+# Expected: 7
+grep -c "^## Patch 6:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
+# Expected: 1
+grep -c "^## Patch 7:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
+# Expected: 1
+```
+
+If any returns 0, re-apply the Edit operation from Step 3.
 
 ---
 
@@ -124,13 +318,19 @@ If counts are lower, STOP. Document the missing patches before proceeding.
 cd "D:\Claude\Product Manager\product_master"
 ```
 
-- [ ] **Step 2: Capture current branch**
+- [ ] **Step 2: Capture current branch (PERSIST TO FILE — survives session restarts)**
 
 ```powershell
 $origBranch = (git branch --show-current).Trim()
-Write-Host "Migration starting from branch: $origBranch"
+if (-not $origBranch) {
+  Write-Error "Could not detect current branch (detached HEAD?). Halt and resolve before migration."
+  exit 1
+}
+mkdir -Force "C:\Users\Irfan\.claude\backups" | Out-Null
+$origBranch | Out-File -FilePath "C:\Users\Irfan\.claude\backups\.last-origin-branch" -Encoding ASCII
+Write-Host "Migration starting from branch: $origBranch (saved to .last-origin-branch)"
 ```
-Expected output: `Migration starting from branch: fix/bigseller-jwt-expiry-detection` (or whatever branch is current).
+Expected output: `Migration starting from branch: <branch-name> (saved to .last-origin-branch)`. The migration may span multiple PowerShell sessions over ~5 hours — file persistence guarantees Task 37 lands the operator on the correct branch even if the variable was lost.
 
 - [ ] **Step 3: Stash uncommitted work with a tagged message**
 
@@ -218,6 +418,71 @@ fc /B "C:\Users\Irfan\.claude\get-shit-done\workflows\plan-phase.md" `
 if ($LASTEXITCODE -ne 0) { Write-Error "Backup integrity check failed — re-run Task 3." }
 ```
 Expected: `fc /B` reports "no differences encountered" (exit 0).
+
+---
+
+## Task 3.5: Rollback A dry-run (verify restore works BEFORE the installer wipes anything)
+
+**Files:**
+- Create (then delete): `C:\Users\Irfan\.claude\test-rollback-marker.txt` (probe file)
+- Read-only: `$backup1User` (Backup 1)
+
+**Purpose:** The plan has three rollback procedures (A, B, C) but the operator only exercises them at failure time. If a rollback procedure is itself broken (file lock, robocopy permission denied), discovering this at migration-failure time is the worst possible moment. Dry-run now while everything is still nominal.
+
+- [ ] **Step 1: Place a marker file outside the backup**
+
+```powershell
+$marker = "C:\Users\Irfan\.claude\test-rollback-marker.txt"
+"This file should disappear after Rollback A dry-run." | Out-File -FilePath $marker -Encoding ASCII
+if (-not (Test-Path $marker)) { Write-Error "Could not create marker. Halt."; exit 1 }
+Write-Host "Marker created at: $marker"
+```
+
+- [ ] **Step 2: Run the Rollback A robocopy command in dry-run mode**
+
+`/L` flag = list-only, no actual changes. Confirms the restore would touch the marker:
+
+```powershell
+$ts1 = (Get-Content "C:\Users\Irfan\.claude\backups\.last-backup1-ts" -Raw).Trim()
+$backup1User = "C:\Users\Irfan\.claude\backups\KEEP-pre-redux-$ts1"
+
+robocopy $backup1User "C:\Users\Irfan\.claude" /MIR /L /R:0 /W:0 /XD backups .cache /TEE | Out-String | Select-String "EXTRA File.*test-rollback-marker"
+```
+Expected: matching line shows robocopy WOULD delete `test-rollback-marker.txt` if run for-real. If no match, the rollback path isn't actually mirroring back from Backup 1 — diagnose before continuing.
+
+- [ ] **Step 3: Run the actual restore (small scope) to prove it works**
+
+For-real restore. This DELETES the marker because Backup 1 doesn't contain it:
+
+```powershell
+robocopy $backup1User "C:\Users\Irfan\.claude" /MIR /R:0 /W:0 /XD backups .cache /TEE /LOG:"C:\Users\Irfan\.claude\backups\rollback-dryrun.log"
+```
+
+- [ ] **Step 4: Verify marker is gone AND a sample patched file matches Backup 1**
+
+```powershell
+if (Test-Path $marker) {
+  Write-Error "Rollback A FAILED — marker file still exists. Robocopy didn't actually restore."
+  exit 1
+}
+Write-Host "Marker correctly removed."
+
+fc /B "C:\Users\Irfan\.claude\get-shit-done\workflows\plan-phase.md" `
+      "$backup1User\get-shit-done\workflows\plan-phase.md" | Out-Null
+if ($LASTEXITCODE -ne 0) {
+  Write-Error "Rollback A FAILED — restored plan-phase.md doesn't match Backup 1."
+  exit 1
+}
+Write-Host "Rollback A dry-run: PASS"
+```
+
+- [ ] **Step 5: Inspect the dry-run log for file-lock or permission errors**
+
+```powershell
+Select-String -Path "C:\Users\Irfan\.claude\backups\rollback-dryrun.log" `
+              -Pattern "ERROR|ACCESS_DENIED|sharing violation" | Format-Table
+```
+Expected: empty (no errors). If errors appear, investigate (Claude Code session re-spawned? antivirus interference?) BEFORE Task 4, because the actual rollback at failure time would hit the same issue.
 
 ---
 
@@ -399,34 +664,51 @@ Expected: JSON with `from_version: "@opengsd/get-shit-done-redux@1.0.0"`.
 
 ---
 
-## Task 8: Apply Patch — plan-phase.md (Customisation #1)
+## Task 8: Apply Patch — plan-phase.md (Customisation #1 → Project PATCHES.md Patch 4)
 
 **Files:**
 - Modify: `C:\Users\Irfan\.claude\get-shit-done\workflows\plan-phase.md`
 
-- [ ] **Step 1: Read PATCHES.md to get Patch content**
+**Numbering note (Refinement #2 — fixes pre-existing collision):** The pre-migration install has a duplicate `## 12.5` section heading in `plan-phase.md` — upstream's `## 12.5. Plan Bounce` AND our `## 12.5. Staffreview Gate` collided. Project PATCHES.md Patch 4 documents the staffreview gate as `## 12.6` (NOT 12.5). On this fresh install, apply at `## 12.6` per PATCHES.md to eliminate the collision.
 
-Open `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md` and locate the entry for Customisation #1 (staffreview gate). Note the *Insertion anchor* and *Content* fields.
+- [ ] **Step 1: Read PATCHES.md Patch 4 for content**
+
+Open `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md` and locate **Patch 4** (Customisation #1, staffreview gate). Note the *Insertion anchor* (between `## 12.5. Plan Bounce` and `## 13. Requirements Coverage Gate`) and the *Content* (the new `## 12.6. Staff Review Gate` block).
 
 - [ ] **Step 2: Re-verify anchor in fresh 1.0.0 file**
 
 ```bash
-grep -n "Step 12.5\|staffreview" "C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md"
+grep -n "## 12.5. Plan Bounce\|## 13. Requirements Coverage Gate\|staffreview" "C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md"
 ```
-If matches found, note line numbers. If no matches, the anchor moved — refer to Task 6 Step 2 for re-anchoring procedure.
+Expected: at least one hit for `## 12.5. Plan Bounce` and one for `## 13.`. Zero hits for `staffreview` (fresh install has no patch yet). If `## 12.5. Plan Bounce` is missing, the anchor moved — refer to Task 6 Step 2 for re-anchoring procedure.
 
 - [ ] **Step 3: Apply the patch using Edit tool**
 
-Use the `Edit` tool (in Claude Code) to insert the patch content at the located anchor. The patch from PATCHES.md contains the new step block (Step 12.5 staffreview gate) — copy it verbatim.
+Use the `Edit` tool to insert the patch content. The new section heading **must be `## 12.6. Staff Review Gate (MANDATORY)`** — NOT `## 12.5`. This eliminates the pre-existing numbering collision with upstream's Plan Bounce step (which uses 12.5).
 
-The Edit tool's `old_string` should be the lines IMMEDIATELY preceding where the new step goes (e.g., the end of Step 12). The `new_string` should be those same lines PLUS the new Step 12.5 block.
+The Edit tool's `old_string` should be the line(s) IMMEDIATELY before `## 13. Requirements Coverage Gate` (i.e., the closing lines of `## 12.5. Plan Bounce`). The `new_string` should be those same lines PLUS the new `## 12.6. Staff Review Gate` block from PATCHES.md.
 
-- [ ] **Step 4: Verify patch landed**
+Also re-route the routing references in Step 11 and Step 12 per Patch 4 content ("proceed to step 13" → "proceed to step 12.6 (staff review)" in the listed 4 spots — verification-passed, no-issues, both stall "Proceed anyway" branches).
+
+- [ ] **Step 4: Verify patch landed (matches PATCHES.md Patch 4 verification block)**
 
 ```bash
+grep -c "## 12.6. Staff Review Gate" "C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md"
+# Expected: >= 1
+
+grep -c "step 12.6 (staff review)" "C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md"
+# Expected: >= 3 (verification-passed + 2 stall-proceed routes)
+
+grep -c "Route the COMPLETE tiered list" "C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md"
+# Expected: >= 1
+
 grep -c "staffreview" "C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md"
+# Expected: >= 4
+
+# Numbering-collision check (must be ZERO after fix):
+grep -c "^## 12.5. Staffreview Gate\|^## 12.5. Staff Review Gate" "C:/Users/Irfan/.claude/get-shit-done/workflows/plan-phase.md"
+# Expected: 0 (the gate is now at 12.6, NOT 12.5 — 12.5 belongs to upstream's Plan Bounce only)
 ```
-Expected: ≥ 4 matches (Step 12.5 references staffreview multiple times).
 
 - [ ] **Step 5: If verify fails, diagnose**
 
@@ -485,19 +767,24 @@ Expected: ≥ 1 (rule is embedded inside the patches from Steps 1–3).
 **Files:**
 - Modify: `C:\Users\Irfan\.claude\get-shit-done\workflows\spec-phase.md`
 
-- [ ] **Step 1: Apply Patch — Step 6.5 RETIRES.md (Customisation #4)**
+- [ ] **Step 1: Apply Patch — Step 6.5 RETIRES.md (Customisation #4 → Project PATCHES.md Patch 6, added by Task 1.5)**
+
+Read Patch 6 from `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md`. The *Content* field directs to the captured baseline at `C:\Users\Irfan\.claude\backups\cust-4-retires-content.md` (extracted in Task 1.5 Step 1 BEFORE the installer wiped the original).
 
 Anchor: between `Step 6: Generate SPEC.md` and `Step 7: Commit`. Verify both exist:
 ```bash
 grep -n "Step 6: Generate SPEC.md\|Step 7: Commit" "C:/Users/Irfan/.claude/get-shit-done/workflows/spec-phase.md"
 ```
-Apply via Edit tool per PATCHES.md content.
 
-Verify:
+Apply via Edit tool. The `new_string` should be the captured content from `cust-4-retires-content.md` inserted between the located anchors.
+
+Verify (per Patch 6's documented verification block):
 ```bash
-grep -c "Step 6.5: Charter Removals (RETIRES.md)" "C:/Users/Irfan/.claude/get-shit-done/workflows/spec-phase.md"
+grep -c "## Step 6.5: Charter Removals (RETIRES.md)" "C:/Users/Irfan/.claude/get-shit-done/workflows/spec-phase.md"
+# Expected: 1
+grep -c "RETIRES.md" "C:/Users/Irfan/.claude/get-shit-done/workflows/spec-phase.md"
+# Expected: >= 5
 ```
-Expected: 1.
 
 - [ ] **Step 2: Apply Patch — Step 2.5 Graph Blast Radius Scout (Customisation #13)**
 
@@ -603,12 +890,14 @@ Expected: ≥ 1.
 
 ---
 
-## Task 14: Apply Cohort 2 patch — model-profiles.cjs (Customisation #5)
+## Task 14: Apply Cohort 2 patch — model-profiles.cjs (Customisation #5 → Project PATCHES.md Patch 7, added by Task 1.5)
 
 **Files:**
 - Modify (decision tree below): `C:\Users\Irfan\.claude\get-shit-done\bin\lib\model-profiles.cjs` OR equivalent
 
-This task has a decision tree because the new fork may have restructured model resolution.
+**Read Patch 7 from `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md`.** The captured baseline content is at `C:\Users\Irfan\.claude\backups\cust-5-opus-line.txt` (extracted in Task 1.5 Step 2).
+
+This task has a decision tree because the new fork may have restructured model resolution. **All "update PATCHES.md" instructions in this task refer to Patch 7 (NOT Patch 5 — Patch 5 is the unrelated updateGSD parameter-consistency patch).**
 
 - [ ] **Step 1: Locate model-profiles configuration in gsd-redux 1.0.0**
 
@@ -634,46 +923,59 @@ Apply the decision tree from the spec:
 
 **Case A — Same `.cjs` file with same object-literal structure** (most likely if Plan agent's research was accurate):
 - Locate the section defining model resolutions
-- Use Edit tool to insert: `'gsd-debugger': { quality: 'opus', balanced: 'sonnet', budget: 'sonnet', adaptive: 'opus' }`
+- Use Edit tool to insert the captured line verbatim: `'gsd-debugger': { quality: 'opus', balanced: 'sonnet', budget: 'sonnet', adaptive: 'opus' },`
 
 **Case B — Same file, different structure (e.g., JSON)**:
 - Adapt patch content to JSON format
-- Update PATCHES.md Patch 5's *Content* field to reflect the new structure
+- Update **Patch 7's** *Content* field in PATCHES.md to reflect the new structure
 - Apply via Edit tool
 
 **Case C — Different file path, recognisable model-profiles concept**:
 - Apply equivalent override at the new location
-- Update PATCHES.md Patch 5's *File:* field to the new path
+- Update **Patch 7's** *File:* field in PATCHES.md to the new path
 
-**Case D — Model resolution mechanism removed**:
-- Document Patch 5 as RETIRED in PATCHES.md with an explanation
-- Skip the Opus override (gsd-debugger will use default model)
-- Move to Step 4 (this task ends without an actual edit)
+**Case D — Model resolution mechanism removed entirely**:
+- This is a hard regression on MEMORY.md user preference ("Always use Opus for gsd-debugger agent — not Sonnet"). Do NOT silently accept.
+- **REQUIRED PAUSE — ask the user via AskUserQuestion before declaring Patch 7 RETIRED:**
 
-**Case E — `gsd-debugger` agent name doesn't exist**:
-- Same as Case D — document RETIRED and skip
+  Use the `AskUserQuestion` tool with these options:
+  - **Accept default model** — document Patch 7 as RETIRED in PATCHES.md. gsd-debugger will use whatever default the fork ships with. User preference downgraded with explicit acknowledgement.
+  - **File issue against open-gsd/get-shit-done-redux** — keep Patch 7 unresolved, document as PENDING_UPSTREAM in PATCHES.md, proceed with default model in the meantime.
+  - **Rollback Phase A** — abort migration, restore Backup 1, stay on `get-shit-done-cc@1.41.0` until upstream solution emerges.
 
-- [ ] **Step 3: Apply override (if applicable)**
+- Only after explicit user choice: update Patch 7 in PATCHES.md per the decision (RETIRED note, PENDING_UPSTREAM note, or trigger Rollback A).
+
+**Case E — `gsd-debugger` agent name doesn't exist in the fresh install**:
+- Verify with: `Test-Path "C:\Users\Irfan\.claude\agents\gsd-debugger.md"` — if False, the agent itself was renamed/removed.
+- Same as Case D: this drops a user preference silently. **Use AskUserQuestion** with these options:
+  - **Accept the rename** — search for the renamed agent (`Get-ChildItem ...\agents\ -Filter "*debug*"`) and apply Patch 7 against the new agent name if found, else mark RETIRED.
+  - **Treat as upstream regression** — file issue, mark Patch 7 PENDING_UPSTREAM, proceed with default model.
+  - **Rollback Phase A** — abort migration.
+
+- [ ] **Step 3: Apply override (Cases A/B/C, or post-AskUserQuestion for Cases D/E)**
 
 For Cases A/B/C, use Edit tool to apply the override.
+For Cases D/E, only apply if user chose a path that retains an override (e.g., Case E "Accept the rename" with new agent name); otherwise skip to Step 4.
 
-- [ ] **Step 4: Verify (Cases A/B/C only)**
+- [ ] **Step 4: Verify (Cases A/B/C, and Case E when override retargeted)**
 
 ```bash
-grep "gsd-debugger" "C:/Users/Irfan/.claude/get-shit-done/bin/lib/model-profiles.cjs" 2>&1
+grep "'gsd-debugger':.*adaptive.*'opus'" "C:/Users/Irfan/.claude/get-shit-done/bin/lib/model-profiles.cjs" 2>&1
 # OR for Case C, the new path:
 # grep "gsd-debugger" "C:/Users/Irfan/.claude/get-shit-done/config/models.json"
+# OR for Case E retarget, substitute the renamed agent name
 ```
-Expected: 1 match showing the gsd-debugger entry.
+Expected: 1 match showing the override entry (matches Patch 7's verification block).
 
-For Case D/E, verify PATCHES.md has the RETIRED note:
+For Cases D/E with RETIRED outcome, verify Patch 7's status in PATCHES.md:
 ```bash
-grep -A2 "Patch 5" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md" | grep -i "retired"
+grep -B1 -A3 "^## Patch 7:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md" | grep -i "status:\|retired\|pending_upstream"
+# Expected: 1 match showing the status annotation
 ```
 
 - [ ] **Step 5: Document in PATCHES.md (Cases B/C/D/E)**
 
-For Cases B, C, D, or E, update PATCHES.md Patch 5's Content section to reflect the new state. This keeps the patch manifest accurate for future updates.
+For Cases B, C, D, or E, update **Patch 7's** Content/File/Status section to reflect the new state. This keeps the patch manifest accurate for future updates. **Do NOT touch Patch 5 — Patch 5 is the unrelated updateGSD parameter-consistency patch.**
 
 ---
 
@@ -793,12 +1095,39 @@ foreach ($dir in @("agents", "hooks")) {
 }
 ```
 
-- [ ] **Step 3: Decision gate**
+- [ ] **Step 3: Decision gate (use this rubric, don't freeze)**
 
-If WARNING lines appeared, decide:
-- These are files I want to preserve → restore them after Task 18's mirror by copying from Backup 1's project tree
-- These are obsolete → let Task 18 delete them (acceptable)
-- Unclear → halt and inspect before continuing
+If WARNING lines appeared, apply the heuristic below before deciding:
+
+| Heuristic on the unique file | Decision |
+|---|---|
+| Path contains `/cache/`, `/.tmp/`, `.bak`, `.swp`, or `~` suffix | **Obsolete** — let MIR delete (Task 18) |
+| File appears in `git ls-files` under `.claude/` (tracked + clean) | **Preserve** — restore from Backup 1's project tree after Task 18 |
+| File is in `.planning/` or has `.md` extension AND modified date > 2026-04-18 | **Inspect** — likely a fresh project artifact, preserve unless clearly stale |
+| File is in `.claude/get-shit-done/` AND modified date > last GSD-update timestamp (2026-05-08) | **Inspect** — likely a local mod NOT tracked in PATCHES.md (a missed customisation) — STOP, document, then decide |
+| File is in `.claude/get-shit-done/` AND modified date < 2026-05-08 | **Safe to delete** — pre-existing drift from old install, not part of current customisation set |
+| File has identical name + path in `gsd-pristine/` | **Safe to delete** — was once part of the GSD install, now removed upstream |
+| None of the above applies | Halt and inspect manually before continuing |
+
+Pseudo-script to apply the rubric:
+```powershell
+foreach ($f in $unique) {
+  $full = "$projDir\$f"
+  if (-not (Test-Path $full)) { continue }
+  $info = Get-Item $full
+  $tracked = (git -C "D:\Claude\Product Manager\product_master" ls-files ".claude/$f" 2>$null) -ne ""
+  $age = $info.LastWriteTime
+  if ($f -match "\.bak$|\.swp$|~$|/cache/|/\.tmp/") { Write-Host "DELETE: $f" }
+  elseif ($tracked) { Write-Host "PRESERVE: $f (git-tracked)" }
+  elseif ($f -match "^\.planning/" -and $age -gt [datetime]"2026-04-18") { Write-Host "INSPECT: $f (fresh project artifact)" }
+  elseif ($f -match "get-shit-done/" -and $age -gt [datetime]"2026-05-08") { Write-Host "INSPECT-CRITICAL: $f (possible untracked customisation — HALT and document)" }
+  elseif ($age -lt [datetime]"2026-05-08") { Write-Host "DELETE: $f (pre-existing drift)" }
+  else { Write-Host "INSPECT: $f (uncategorised)" }
+}
+```
+
+For PRESERVE items: after Task 18 finishes, copy them back from Backup 1's project tree.
+For INSPECT-CRITICAL items: STOP. These could be undocumented customisations (like #4 and #5 were before Task 1.5).
 
 ---
 
@@ -997,7 +1326,25 @@ node $gsdToolsPath.Trim() graphify status
 ```
 Expected: exit 0 with status output. If gsd-redux doesn't have a graphify subcommand, expect a "command not found" error from the binary's own help — that's still informative (means the subcommand renamed/removed).
 
-- [ ] **Step 3: Command invocability in Claude Code**
+- [ ] **Step 3: Non-interactive frontmatter validation (fallback / lower bound)**
+
+Before the interactive check (Step 4), confirm each custom command file has parseable frontmatter — slash-command registration requires it. Catches the "file exists but malformed" failure non-interactively:
+
+```powershell
+foreach ($f in @("updateGSD.md", "staffreview.md", "triple-review.md")) {
+  $path = "D:\Claude\Product Manager\product_master\.claude\commands\$f"
+  $content = Get-Content $path -Raw -ErrorAction SilentlyContinue
+  if (-not $content) { Write-Error "FAIL: $f missing"; continue }
+  if ($content -notmatch "(?s)^---\s*\n.*?\nname:.*?\n.*?---") {
+    Write-Error "FAIL: $f frontmatter malformed (no top-of-file --- block with name: field) — slash-command registration will silently miss"
+  } else {
+    Write-Host "OK: $f has parseable frontmatter"
+  }
+}
+```
+Expected: all three `OK`. If any `FAIL`, halt — fix the frontmatter before the interactive check (which would just exhibit the same symptom).
+
+- [ ] **Step 4: Interactive command invocability in Claude Code**
 
 Open Claude Code in the project directory. Test each:
 1. Type `/up` → autocomplete should suggest `/updateGSD`. Press Tab. Invoke with no args. Confirm command renders (asks for what to change).
@@ -1007,9 +1354,11 @@ Open Claude Code in the project directory. Test each:
 
 For each: note PASS or FAIL.
 
-- [ ] **Step 4: Decision gate**
+- [ ] **Step 5: Decision gate**
 
-If any command isn't autocomplete-suggested OR doesn't render when invoked: halt before commit. The file exists (per Task 16) but isn't registered with Claude Code's command system. May need investigation into gsd-redux's command registration mechanism.
+If Step 3 frontmatter check passed AND all Step 4 interactive checks PASS: proceed to Task 22.
+If Step 3 failed: fix frontmatter first.
+If Step 3 passed but Step 4 failed (file structure OK but command doesn't fire): halt before commit. May need investigation into gsd-redux's command registration mechanism — frontmatter is well-formed but registration isn't picking it up.
 
 ---
 
@@ -1407,12 +1756,12 @@ For stale lookup table — update the keyword-to-file mappings table to reflect 
 
 For two-layer assumption — update the section "Parameter consistency rule" to say "Check both command file and workflow file IF both exist; gsd-redux may have collapsed these."
 
-- [ ] **Step 3: Document as Patch 16 in PATCHES.md**
+- [ ] **Step 3: Document as Patch 8 in PATCHES.md** (sequential numbering — Patches 6 + 7 are taken by Task 1.5's RETIRES.md + Opus override)
 
-Add a new Patch entry to `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md`:
+Add a new Patch entry to `D:\Claude\Product Manager\product_master\.claude\gsd-local-patches\PATCHES.md`, AFTER Patch 7:
 
 ```markdown
-## Patch 16: updateGSD.md — lookup table + scope correction for gsd-redux 1.1.0
+## Patch 8: updateGSD.md — lookup table + scope correction for gsd-redux 1.1.0
 
 **File:** `.claude/commands/updateGSD.md`
 **Purpose:** Pre-existing lookup-table drift (`.claude/commands/gsd/*.md` paths that never existed in any GSD install) + post-1.1.0 corrections discovered during Phase B audit. Without these fixes, /updateGSD cannot locate target files for patch application.
@@ -1447,11 +1796,11 @@ cd "D:\Claude\Product Manager\product_master"
 git add .claude/commands/updateGSD.md .claude/gsd-local-patches/PATCHES.md
 ```
 ```bash
-git commit -m "chore(gsd): phase B self-fix — Patch 16 corrects updateGSD for gsd-redux
+git commit -m "chore(gsd): phase B self-fix — Patch 8 corrects updateGSD for gsd-redux
 
 - updateGSD failed against gsd-redux 1.1.0 due to <specific issue>
 - Bootstrap hand-edit applied to commands/updateGSD.md
-- Documented as Patch 16 in PATCHES.md
+- Documented as Patch 8 in PATCHES.md
 - Retried /updateGSD against failed patches — now succeeds"
 ```
 
@@ -1489,14 +1838,14 @@ Same commands with `D:/Claude/Product Manager/product_master/.claude/` paths.
 - [ ] **Step 3: PATCHES.md integrity check**
 
 ```bash
-grep -c "^## Patch [1-5]:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
-# Expected: == 5
+grep -c "^## Patch [1-7]:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
+# Expected: == 7 (Patches 1–5 original + Patch 6 RETIRES.md + Patch 7 Opus override added by Task 1.5)
 
 grep -c "^## Patch [1-3]:" "C:/Users/Irfan/.claude/gsd-local-patches/PATCHES.md"
 # Expected: == 3
 
-grep -c "^## Patch 16:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
-# Expected: 0 or 1 (1 if Task 31 ran)
+grep -c "^## Patch 8:" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
+# Expected: 0 or 1 (1 if Task 31 self-fix ran)
 
 grep -c "## Patch Reapplication History" "D:/Claude/Product Manager/product_master/.claude/gsd-local-patches/PATCHES.md"
 # Expected: == 1
@@ -1652,7 +2001,8 @@ Use Edit tool to insert at the top of the file (just below the title/header):
 
 - Replaced unmaintained upstream package with the active fork at `@opengsd/get-shit-done-redux`.
 - Re-applied 11 customisation patches against new baseline (5 workflow patches + 3 graphify patches + 2 code/agent patches + 1 cross-cutting rule). Full manifest in `.claude/gsd-local-patches/PATCHES.md`.
-- Fixed pre-existing `updateGSD` lookup-table drift (Patch 16) if Task 31 ran.
+- Added Patch 6 (spec-phase RETIRES.md) and Patch 7 (gsd-debugger Opus override) to project PATCHES.md to formalise previously-undocumented customisations.
+- Fixed pre-existing `updateGSD` lookup-table drift (Patch 8) if Task 31 ran.
 - Verified compatibility via 15-customisation grep battery + 4-scenario workflow dry-run.
 - Backups retained at `~/.claude/backups/KEEP-pre-redux-*` (v1.41.0 fallback) and `KEEP-redux-110-final-*` (new reference state).
 ```
@@ -1721,11 +2071,17 @@ if ($stashIndex) {
 }
 ```
 
-- [ ] **Step 6: Switch back to original branch**
+- [ ] **Step 6: Switch back to original branch (read from file persisted in Task 2)**
 
 ```powershell
-$origBranch = "fix/bigseller-jwt-expiry-detection"  # or whatever was captured in Task 2
+$origBranch = (Get-Content "C:\Users\Irfan\.claude\backups\.last-origin-branch" -Raw -ErrorAction SilentlyContinue).Trim()
+if (-not $origBranch) {
+  Write-Error "Original branch not captured (file .last-origin-branch missing or empty). Run 'git branch' to confirm where you should land before continuing."
+  exit 1
+}
+Write-Host "Returning to pre-migration branch: $origBranch"
 git switch $origBranch
+git status   # confirm clean tree on original branch (the stash pop in Step 5 restored uncommitted work)
 ```
 
 ---
@@ -1746,8 +2102,9 @@ After Task 37, migration is complete. Optional follow-ups:
 
 | Spec section | Covered by tasks |
 |---|---|
-| Pre-flight | Task 1, 2 |
+| Pre-flight | Task 1, 1.5 (new — patch-manifest reconciliation), 2 |
 | Backup 1 | Task 3 |
+| Rollback A dry-run (new — Improvement #6) | Task 3.5 |
 | Install 1.0.0 | Task 4 |
 | Binary path discovery | Task 5 |
 | Anchor verification | Task 6 |
@@ -1775,10 +2132,10 @@ After Task 37, migration is complete. Optional follow-ups:
 | CHANGELOG | Task 36 |
 | Final commit + merge | Task 37 |
 
-**Placeholder scan:** Verified no TBDs, no "TODO: implement", no "similar to Task N." All grep commands are exact. All file paths are absolute. The model-profiles patch (Task 14) has a decision tree rather than vague "adapt as needed" — each case has a concrete action.
+**Placeholder scan:** Verified no TBDs, no "TODO: implement", no "similar to Task N." All grep commands are exact. All file paths are absolute. The model-profiles patch (Task 14) has a decision tree rather than vague "adapt as needed" — each case has a concrete action. Cases D/E include explicit `AskUserQuestion` pauses to prevent silent regression on MEMORY.md user preferences.
 
-**Type consistency:** PowerShell variable names consistent across tasks (`$ts1`, `$ts2`, `$ts3` for backup timestamps; `$gsdToolsPath` for the resolved binary path; `$origStashTag` for the stash identifier). Backup directory naming consistent (`KEEP-<purpose>-<ts>/`). Patch number conventions consistent (Cohort 1 #1–#7, Cohort 2 #5, #12, Cohort 3 #8, #11, #15 — these reference the customisation numbers from the spec's manifest).
+**Type consistency:** PowerShell variable names consistent across tasks (`$ts1/2/3` for backup timestamps, `$gsdToolsPath` for resolved binary path, `$origStashTag` for stash identifier, `$origBranch` for original branch). **All session-state values are persisted to files** so the migration survives PowerShell session restarts (`.last-backup1-ts`, `.last-backup2-ts`, `.last-backup3-ts`, `.gsd-tools-path`, `.last-migration-stash-tag`, `.last-origin-branch`). Backup directory naming consistent (`KEEP-<purpose>-<ts>/`). Patch-number cross-reference table (top of plan, between File Map and Phase A) disambiguates Customisation numbers (#1–#15) from PATCHES.md Patch numbers (Project 1–7, plus 8 if Task 31 runs; User 1–3).
 
-**Conditional tasks marked:** Task 30 ("only if Task 29 made changes"), Task 31 ("only if Task 29 had failures or Task 23 catalogued drift"). Operator/agent should skip these tasks if conditions aren't met — explicit in task headers.
+**Conditional tasks marked:** Task 30 ("only if Task 29 made changes"), Task 31 ("only if Task 29 had failures"). Task 1.5 is **mandatory** (adds Patch 6 + Patch 7 entries that Tasks 10 and 14 depend on). Task 3.5 is **mandatory** (proves Rollback A works while the operator is fresh).
 
-**Time budget:** Phase A ~130 min (Tasks 1–22). Phase B ~110 min (Tasks 23–37). Total ~5 hours expected, including padding for diagnosis. Can be split: Task 22 (Phase A atomic commit) is a meaningful resume point.
+**Time budget:** Phase A ~145 min (Tasks 1–22 with new Tasks 1.5 + 3.5 adding ~15 min). Phase B ~110 min (Tasks 23–37). Total ~5 hours expected, including padding for diagnosis. Can be split: Task 22 (Phase A atomic commit) is a meaningful resume point. Estimate may extend 30–60% if Task 14 hits Cases B/C/D/E, Task 29 has failures requiring Task 31 self-fix, or Task 17 surfaces multiple INSPECT-CRITICAL files.
