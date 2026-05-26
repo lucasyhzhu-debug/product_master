@@ -150,6 +150,7 @@ import type * as lib_periodBuckets from "../lib/periodBuckets.js";
 import type * as lib_periodRange from "../lib/periodRange.js";
 import type * as lib_queryHelpers from "../lib/queryHelpers.js";
 import type * as lib_stockDelta from "../lib/stockDelta.js";
+import type * as lib_telegramHtml from "../lib/telegramHtml.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as manualJournal_mutations from "../manualJournal/mutations.js";
 import type * as manualJournal_queries from "../manualJournal/queries.js";
@@ -259,6 +260,10 @@ import type * as staffAttendance_mutations from "../staffAttendance/mutations.js
 import type * as staffAttendance_queries from "../staffAttendance/queries.js";
 import type * as storageLocations_mutations from "../storageLocations/mutations.js";
 import type * as storageLocations_queries from "../storageLocations/queries.js";
+import type * as telegram_packListFormat from "../telegram/packListFormat.js";
+import type * as telegram_queries_packListQuery from "../telegram/queries/packListQuery.js";
+import type * as telegram_sendPackList from "../telegram/sendPackList.js";
+import type * as telegram_webhook from "../telegram/webhook.js";
 import type * as vouchers_mutations from "../vouchers/mutations.js";
 import type * as vouchers_queries from "../vouchers/queries.js";
 import type * as whatsappTemplates_mutations from "../whatsappTemplates/mutations.js";
@@ -413,6 +418,7 @@ declare const fullApi: ApiFromModules<{
   "lib/periodRange": typeof lib_periodRange;
   "lib/queryHelpers": typeof lib_queryHelpers;
   "lib/stockDelta": typeof lib_stockDelta;
+  "lib/telegramHtml": typeof lib_telegramHtml;
   "lib/validation": typeof lib_validation;
   "manualJournal/mutations": typeof manualJournal_mutations;
   "manualJournal/queries": typeof manualJournal_queries;
@@ -522,6 +528,10 @@ declare const fullApi: ApiFromModules<{
   "staffAttendance/queries": typeof staffAttendance_queries;
   "storageLocations/mutations": typeof storageLocations_mutations;
   "storageLocations/queries": typeof storageLocations_queries;
+  "telegram/packListFormat": typeof telegram_packListFormat;
+  "telegram/queries/packListQuery": typeof telegram_queries_packListQuery;
+  "telegram/sendPackList": typeof telegram_sendPackList;
+  "telegram/webhook": typeof telegram_webhook;
   "vouchers/mutations": typeof vouchers_mutations;
   "vouchers/queries": typeof vouchers_queries;
   "whatsappTemplates/mutations": typeof whatsappTemplates_mutations;

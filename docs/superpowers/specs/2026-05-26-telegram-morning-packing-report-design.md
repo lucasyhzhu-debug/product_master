@@ -99,7 +99,6 @@ convex/
 ```ts
 internal.telegram.packListQuery.getOrdersForPackList({}) →
   {
-    date: string;             // "Mon 27 May 2026" in WIB
     totalCount: number;
     deliveryCount: number;
     pickupCount: number;
@@ -107,10 +106,13 @@ internal.telegram.packListQuery.getOrdersForPackList({}) →
   }
 ```
 
+> **Triple-review correction (2026-05-26):** an earlier draft of this spec also returned `date: string` ("Mon 27 May 2026"). The implementation dropped it — the formatter (`packListFormat.ts`) owns date formatting from `generatedAt: Date.now()` because the same query backs three callers (morning cron, midday cron, `/pack`) that each want their own header style. Returning a pre-formatted date from the query would have hard-coded one of those styles.
+
 Implementation:
 - Two index scans on `orders` via `by_status_due_date`: one for `status: "PaymentReceived"` with `dueDate <= endOfTodayWibMs`, one for `status: "BeingPrepared"` with the same bound. Merge results.
 - `endOfTodayWibMs` computed from `wibMidnightToUtc` + `getWibComponents` as described in Scope.
-- `withIndex` upper bound on `dueDate` automatically excludes documents where `dueDate` is undefined (range queries skip undefined values), so the "no dueDate = excluded" rule is enforced by the index, not by post-filter.
+- **Convex `.lte("dueDate", X)` does NOT skip undefined values** — undefined sorts BEFORE all numeric values in a Convex index, so a `.lte` upper bound includes orders with `dueDate === undefined`. The handler post-filters with `if (o.dueDate !== undefined) orders.push(o)` after the bounded index scan to enforce the "no dueDate = excluded" rule. The index range still bounds the slice so this is NOT a full table scan.
+  > _Earlier drafts of this spec claimed the `withIndex` bound excluded undefined values — that was incorrect, surfaced by the `excludes orders without a dueDate` test failing on first impl. Corrected here so future maintainers don't re-introduce the assumption._
 - For each surviving order, fetch `orderItems` via `by_order` index and build a `KanbanOrderCard`.
 - Sort: `expedited` desc, then `dueDate` asc, then `_creationTime` asc.
 

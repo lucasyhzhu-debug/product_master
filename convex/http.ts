@@ -10,6 +10,7 @@ import {
   handleMenuPushWebhook,
 } from "./integrations/grabfood/webhooks";
 import { handleXenditQrPayment } from "./integrations/qris/webhooks";
+import { handleTelegramWebhook } from "./telegram/webhook";
 
 const http = httpRouter();
 
@@ -112,6 +113,17 @@ http.route({
   path: "/api/xendit/qr-payment",
   method: "POST",
   handler: handleXenditQrPayment,
+});
+
+// ─── Telegram Bot Webhook ────────────────────────────────────────────────────
+// Single inbound route for the /pack text command. Token-authenticated via
+// X-Telegram-Bot-Api-Secret-Token header (constant-time compare). Idempotent
+// dedupe by update_id in convex/telegram/webhook.ts.
+
+http.route({
+  path: "/telegram-webhook",
+  method: "POST",
+  handler: handleTelegramWebhook,
 });
 
 export default http;

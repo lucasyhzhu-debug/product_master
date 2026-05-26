@@ -16,6 +16,35 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Added: Telegram morning pack list bot — 2026-05-26
+
+**For the team:** Frollie now posts the day's pack list to a dedicated Telegram group at 07:00 WIB, with a 13:00 WIB "still pending" reminder for any orders that haven't been packed yet. Staff can also type `/pack` in the group at any time to get an on-demand pack list. The message mirrors what the kanban board shows — order number, customer, items × quantity, delivery address (or "Pickup"), notes, and a `[rush]` tag for expedited orders. Empty days show "Nothing to pack today. ✅" so staff know the morning silence is intentional. The bot is one-way (notifications + a single text command); no per-order inline buttons in v1.
+
+#### Added
+- `convex/telegram/sendPackList.ts` — internalAction (cron + `/pack` entry point) that runs the query, formats output, and sends chunks sequentially. Best-effort breadcrumb if a chunk fails mid-send.
+- `convex/telegram/packListFormat.ts` — pure formatter `KanbanOrderCard[] → string[]`. Headers per reason (morning / midday / on-demand), HTML escape on user-supplied fields, 4096-char chunking with per-order truncation guard, `[rush]` badges, delivery-address fallback "(no address — check order)" for the data-integrity gap.
+- `convex/telegram/queries/packListQuery.ts` — `getOrdersForPackList` internalQuery; reuses `buildKanbanCard` so the bot output stays in sync with the kanban UI shape. Filters by status ∈ {PaymentReceived, BeingPrepared} + dueDate <= end of today WIB. Excludes orderItems flagged `isCancelled`.
+- `convex/telegram/webhook.ts` — pure `decideWebhookOutcome` handler core (constant-time secret compare, strict `/pack` regex match, atomic `recordIfNew` dedupe) + httpAction wrapper. Try/catch around `runAction` so a scheduler hiccup can't pin Telegram into a 500 retry loop.
+- `convex/lib/telegramHtml.ts` — `escapeHtml` + `sendTelegramHtml` helpers (raw `fetch`, structured warn breadcrumb on failure).
+- `convex/schema.ts` — `telegramUpdates` table for webhook idempotency dedupe by `update_id`, indexed by `by_update_id`.
+- `convex/crons.ts` — `telegram morning pack list` (00:00 UTC = 07:00 WIB) + `telegram midday pack list` (06:00 UTC = 13:00 WIB).
+- `convex/http.ts` — `POST /telegram-webhook` route.
+- 41 tests across 4 new suites (4 HTML escape · 16 formatter · 9 convex-test query integration · 12 webhook handler).
+
+#### Migration / Operational
+- Three new env vars required (set separately per Convex deployment): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET`. Crons and the action throw a clear error if missing.
+- Webhook URL: `https://<deployment>.convex.site/telegram-webhook` registered via Telegram's `setWebhook` API with `secret_token` header.
+- BotFather `/setcommands` must register `pack - Generate pack list now` so the command is autocompleted in groups under privacy-mode.
+- Single-group invariant (v1 limitation): the bot does NOT verify `chat_id` matches `TELEGRAM_CHAT_ID`; any group the bot is in can `/pack` and the report lands in the configured group. Operational discipline: keep the bot in a single group.
+
+#### Plan / Spec / Reviews
+- Spec: `docs/superpowers/specs/2026-05-26-telegram-morning-packing-report-design.md`
+- Plan: `docs/superpowers/plans/2026-05-26-telegram-morning-packing-report.md`
+- Plan-stage staffreview: `docs/reviews/staffreview-telegram-morning-packing-report-2026-05-26.md`
+- Implementation-stage triple-review: `docs/reviews/staffreview-feature-telegram-pack-list-bot-2026-05-26.md` + fix commit `dfc2b2e9` (C1 chunk overflow guard, C3 webhook scheduler try/catch, I2 partial-send breadcrumb, I3 legacy-status comment)
+
+---
+
 ### Bug Fix: BigSeller token surfaces "Token expired" banner immediately when JWT is past expiry — 2026-05-23
 
 **For the team:** When the BigSeller `muc_token` is dead (expired or revoked), the Settings card now flips to "Token expired -- paste new token" right away. Previously, a dead token caused the sync to spin for ~100 seconds on three slow retries before showing a generic "rejected pageList request" failure with no actionable next step. The terminal banner for the *browser-logout* case (where the JWT is still locally valid but BigSeller has revoked the session server-side) now also hints "if you recently logged out of BigSeller in the browser, paste a fresh muc_token in Settings". This does NOT auto-recover from a browser logout — BigSeller's login is CAPTCHA-gated, so a fresh paste remains the only path back. The fix just makes the failure mode legible.
