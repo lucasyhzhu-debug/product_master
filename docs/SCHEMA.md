@@ -1880,3 +1880,24 @@ One row per QR-generation attempt for an order. The source of truth for QRIS pay
 ### Extensions to existing tables
 
 **`businessSettings`** — added `qrisNmid` (`optional string`): the order-staff-safe QRIS National Merchant ID surfaced in the charge dialog (folded into `getQrisConfig` so the dialog never calls the admin/manager-only `businessSettings.get`).
+
+---
+
+## Telegram Pack List Bot (2026-05-26)
+
+### `telegramUpdates` — Webhook Idempotency Dedupe
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `_id` | `Id<"telegramUpdates">` | Auto-generated. |
+| `_creationTime` | `number` | Insertion time. |
+| `updateId` | `number` | Telegram `update.update_id`. Required, expected unique. |
+| `receivedAt` | `number` | `Date.now()` at insertion. Required. |
+
+**Indexes:**
+- `by_update_id` (`updateId`) — the only access path; webhook handler does `.unique()` lookup to dedupe.
+
+**Business rules:**
+- One row per `/pack` text command received. Telegram retries on non-200 responses for up to ~24h; the atomic `recordIfNew` mutation inserts if absent and returns `false` on duplicate, so a retry never re-fires `sendPackList`.
+- Low volume (one row per `/pack` command in a single dedicated group). Plan revisit threshold: ~10k rows for a monthly prune cron.
+- No consumers outside the webhook handler — safe to leave in place across rollbacks.
