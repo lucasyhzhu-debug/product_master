@@ -12,6 +12,12 @@ export interface FormatInput {
 }
 
 const CHUNK_BUDGET = 4000;   // safety margin under Telegram's 4096-char hard limit
+// Continuation header `<i>…continued (NNN)</i>\n\n` is ~30 chars max. A single
+// rendered order must fit under `CHUNK_BUDGET - continuation_header` so that
+// starting a new chunk for it doesn't blow past 4096. 3800 leaves 200 chars
+// headroom for the continuation header + small slack.
+const MAX_ORDER_LEN = 3800;
+const TRUNCATE_MARKER = "\n  …[truncated — check order in app]";
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -97,7 +103,15 @@ export function formatPackList(input: FormatInput): string[] {
   const chunks: string[] = [];
   let current = header;
   for (const c of sorted) {
-    const rendered = renderOrder(c);
+    let rendered = renderOrder(c);
+    // C1 (triple-review): if a single order exceeds MAX_ORDER_LEN, truncate so
+    // the new-chunk path `continuation_header + rendered` can't blow past 4096
+    // (Telegram's hard limit — returns 400 above it). Today's realistic max is
+    // ~780 chars, but a pathological order (long notes, many items) could trip
+    // this without the guard.
+    if (rendered.length > MAX_ORDER_LEN) {
+      rendered = rendered.slice(0, MAX_ORDER_LEN - TRUNCATE_MARKER.length) + TRUNCATE_MARKER;
+    }
     const addition = `\n\n${rendered}`;
     if (current.length + addition.length > CHUNK_BUDGET) {
       chunks.push(current);

@@ -153,4 +153,21 @@ describe("decideWebhookOutcome — idempotency (R5)", () => {
     expect(recordIfNew).toHaveBeenCalledWith(42);
     expect(runAction).not.toHaveBeenCalled();
   });
+
+  it("C3: still returns 200 if runAction throws (so Telegram doesn't retry-loop after recordIfNew committed)", async () => {
+    // Suppress the expected console.warn from the catch path so the test output
+    // stays clean — we still assert the catch fired by checking the 200 status.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const runAction = vi.fn().mockRejectedValue(new Error("scheduler hiccup"));
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: makeUpdate({ text: "/pack", update_id: 7 }),
+      deps: { recordIfNew: async () => true, runAction },
+    });
+    expect(result.status).toBe(200);
+    expect(runAction).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });

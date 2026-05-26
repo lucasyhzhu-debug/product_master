@@ -4,6 +4,14 @@ import { wibMidnightToUtc, getWibComponents } from "../../lib/periodRange";
 import { buildKanbanCard, type KanbanOrderCard } from "../../orders/helpers/kanbanBuilders";
 import type { Doc } from "../../_generated/dataModel";
 
+// I3 (triple-review): only PaymentReceived + BeingPrepared per plan/spec — these are
+// the two CURRENT statuses an order sits in between "paid" and "packed". The
+// schema retains 7 legacy "in-progress" statuses (Confirmed, InProduction, Boxed,
+// Labeled, Packaging, WaitingShipment, WaitingPickup) for unmigrated production
+// docs, but the morning pack list intentionally ignores them — they're either
+// already past packing or use the deprecated production flow. If a live order
+// appears in one of those statuses with a dueDate <= today, it will silently NOT
+// appear on the pack list. Revisit if a data audit surfaces such orders.
 const ACTIVE_STATUSES = ["PaymentReceived", "BeingPrepared"] as const;
 
 /**

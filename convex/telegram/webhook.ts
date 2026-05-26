@@ -77,7 +77,16 @@ export async function decideWebhookOutcome(input: {
   if (!isNew) {
     return { status: 200, body: "ok" };
   }
-  await input.deps.runAction();
+  // C3 (triple-review): never return non-200 once we've already recorded the
+  // update_id. If `runAction` throws (e.g. scheduler hiccup), returning 500
+  // would have Telegram retry — but on retry `recordIfNew` returns false and
+  // we skip `runAction` entirely, so the failure becomes a permanent 500 loop
+  // until Telegram gives up (~24h). Mirror the QRIS pattern: log and ACK 200.
+  try {
+    await input.deps.runAction();
+  } catch (err) {
+    console.warn("[telegram] runAction failed after recordIfNew committed", err);
+  }
   return { status: 200, body: "ok" };
 }
 

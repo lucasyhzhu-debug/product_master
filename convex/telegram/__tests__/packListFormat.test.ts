@@ -239,4 +239,21 @@ describe("formatPackList — chunking for 4096 char limit", () => {
       expect(count).toBe(1);
     }
   });
+
+  it("C1: truncates a single order whose render exceeds MAX_ORDER_LEN so no chunk overflows 4096", () => {
+    // Synthesize an order whose `renderOrder()` output alone exceeds 4000 chars
+    // via pathological notes (5000 chars). Without the truncation guard, this
+    // would produce a chunk = continuation_header + rendered_order ≈ 5030 chars
+    // and Telegram would reject it with HTTP 400.
+    const out = formatPackList({
+      ...baseInput,
+      cards: [card({ orderNumber: "0526-BIG", notes: "x".repeat(5000) })],
+      counts: { total: 1, delivery: 1, pickup: 0 },
+    });
+    for (const chunk of out) {
+      expect(chunk.length).toBeLessThanOrEqual(4096);
+    }
+    // Marker shows staff the order was truncated and they need to check the app.
+    expect(out.join("\n")).toContain("truncated");
+  });
 });

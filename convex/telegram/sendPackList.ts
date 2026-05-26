@@ -39,8 +39,29 @@ export const sendPackList = internalAction({
     });
 
     // Sequential send to preserve order — chunks reference each other ("continued (2)" etc).
-    for (const chunk of chunks) {
-      await sendTelegramHtml(token, chatId, chunk);
+    // I2 (triple-review): if chunk N+1 fails after chunk N already sent, staff
+    // see a truncated message and `/pack` retry is dedupe-blocked. Send a
+    // best-effort breadcrumb so staff know to re-run /pack later (after dedupe
+    // row eventually expires, or to check the dashboard for the failed cron).
+    let sentCount = 0;
+    try {
+      for (const chunk of chunks) {
+        await sendTelegramHtml(token, chatId, chunk);
+        sentCount++;
+      }
+    } catch (err) {
+      if (sentCount > 0) {
+        try {
+          await sendTelegramHtml(
+            token,
+            chatId,
+            `<i>⚠️ Pack list send failed after ${sentCount}/${chunks.length} chunks. Check Convex logs.</i>`,
+          );
+        } catch {
+          // best-effort — primary throw is what matters
+        }
+      }
+      throw err;
     }
 
     return { chunkCount: chunks.length, orderCount: data.totalCount };
