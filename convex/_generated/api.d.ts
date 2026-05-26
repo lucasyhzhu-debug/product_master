@@ -262,6 +262,7 @@ import type * as storageLocations_mutations from "../storageLocations/mutations.
 import type * as storageLocations_queries from "../storageLocations/queries.js";
 import type * as telegram_packListFormat from "../telegram/packListFormat.js";
 import type * as telegram_queries_packListQuery from "../telegram/queries/packListQuery.js";
+import type * as telegram_sendPackList from "../telegram/sendPackList.js";
 import type * as vouchers_mutations from "../vouchers/mutations.js";
 import type * as vouchers_queries from "../vouchers/queries.js";
 import type * as whatsappTemplates_mutations from "../whatsappTemplates/mutations.js";
@@ -528,6 +529,7 @@ declare const fullApi: ApiFromModules<{
   "storageLocations/queries": typeof storageLocations_queries;
   "telegram/packListFormat": typeof telegram_packListFormat;
   "telegram/queries/packListQuery": typeof telegram_queries_packListQuery;
+  "telegram/sendPackList": typeof telegram_sendPackList;
   "vouchers/mutations": typeof vouchers_mutations;
   "vouchers/queries": typeof vouchers_queries;
   "whatsappTemplates/mutations": typeof whatsappTemplates_mutations;
