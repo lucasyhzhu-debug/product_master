@@ -74,9 +74,11 @@ Expected: `tsc -b && vite build` succeeds with no errors. If it fails, stop and 
 Add this block to `convex/schema.ts` inside the `defineSchema({ ... })` object, alphabetically positioned (after `tags` or before `users` works). Keep adjacent to other small auxiliary tables.
 
 ```ts
-// Phase 85: Telegram /pack command idempotency dedupe.
+// Telegram /pack command idempotency dedupe.
 // Telegram retries on non-200 responses for ~24h. We insert by update_id
 // and treat duplicate inserts as no-ops, so a retry never re-fires sendPackList.
+// R4: low volume (one row per /pack command in the dedicated group); revisit
+// adding a monthly prune cron when this exceeds ~10k rows.
 telegramUpdates: defineTable({
   updateId: v.number(),       // Telegram update.update_id
   receivedAt: v.number(),     // Date.now() when we received it
@@ -190,6 +192,12 @@ export async function sendTelegramHtml(
   );
   const json = (await response.json()) as { ok: boolean; result?: { message_id: number }; description?: string };
   if (!response.ok || !json.ok || !json.result) {
+    // R3: log a structured breadcrumb BEFORE throw so the Convex dashboard
+    // surfaces the failure even if the throw is wrapped/rethrown upstream.
+    console.warn("telegram sendMessage failed", {
+      status: response.status,
+      description: json.description,
+    });
     throw new Error(
       `Telegram sendMessage failed: ${response.status} ${JSON.stringify(json)}`,
     );
@@ -365,6 +373,24 @@ describe("formatPackList — order rendering", () => {
     expect(out.join("\n")).not.toContain("→ undefined");
   });
 
+  it("R1: Delivery order with missing address surfaces the data gap visibly", () => {
+    const out = formatPackList({
+      ...baseInput,
+      cards: [card({ deliveryType: "Delivery", deliveryAddress: undefined })],
+      counts: { total: 1, delivery: 1, pickup: 0 },
+    });
+    expect(out.join("\n")).toContain("Delivery → (no address — check order)");
+  });
+
+  it("R1: Delivery order with whitespace-only address treated as missing", () => {
+    const out = formatPackList({
+      ...baseInput,
+      cards: [card({ deliveryType: "Delivery", deliveryAddress: "   " })],
+      counts: { total: 1, delivery: 1, pickup: 0 },
+    });
+    expect(out.join("\n")).toContain("(no address — check order)");
+  });
+
   it("renders notes line with 📝 prefix when notes present", () => {
     const out = formatPackList({
       ...baseInput,
@@ -496,7 +522,12 @@ function wibParts(utcMs: number) {
   };
 }
 
-function buildHeader(reason: FormatReason, generatedAt: number, counts: FormatInput["counts"]): string {
+function buildHeader(
+  reason: FormatReason,
+  generatedAt: number,
+  counts: FormatInput["counts"],
+  isEmpty: boolean,
+): string {
   const p = wibParts(generatedAt);
   const dateStr = `${p.weekday} ${p.day} ${p.month} ${p.year}`;
   let title: string;
@@ -507,7 +538,10 @@ function buildHeader(reason: FormatReason, generatedAt: number, counts: FormatIn
   } else {
     title = `<b>Pack List (on-demand) — ${dateStr} · ${p.hh}:${p.mm}</b>`;
   }
-  if (counts.total === 0) {
+  // Empty signal derives from cards.length (defensive — see I2 in staffreview).
+  // The query enforces counts.total === cards.length, but the formatter's
+  // contract should be robust to future callers passing inconsistent counts.
+  if (isEmpty) {
     return `${title}\n\nNothing to pack today. ✅`;
   }
   const label = reason === "midday" ? "orders not yet shipped" : "orders to pack today";
@@ -521,8 +555,12 @@ function renderOrder(card: KanbanOrderCard): string {
   for (const it of card.items) {
     lines.push(`  ${it.quantity}× ${escapeHtml(it.productName)}`);
   }
-  if (card.deliveryType === "Delivery" && card.deliveryAddress) {
-    lines.push(`  Delivery → ${escapeHtml(card.deliveryAddress)}`);
+  if (card.deliveryType === "Delivery") {
+    // R1: surface missing-address data integrity gap instead of silently rendering "Delivery" alone.
+    const addr = card.deliveryAddress && card.deliveryAddress.trim().length > 0
+      ? escapeHtml(card.deliveryAddress)
+      : "(no address — check order)";
+    lines.push(`  Delivery → ${addr}`);
   } else if (card.deliveryType === "Pickup") {
     lines.push(`  Pickup`);
   } else if (card.deliveryType) {
@@ -536,8 +574,9 @@ function renderOrder(card: KanbanOrderCard): string {
 }
 
 export function formatPackList(input: FormatInput): string[] {
-  const header = buildHeader(input.reason, input.generatedAt, input.counts);
-  if (input.cards.length === 0) {
+  const isEmpty = input.cards.length === 0;
+  const header = buildHeader(input.reason, input.generatedAt, input.counts, isEmpty);
+  if (isEmpty) {
     return [header];
   }
 
@@ -602,12 +641,16 @@ git commit -m "feat(telegram): add pure pack-list formatter with chunking + HTML
  *
  * Glob from absolute root (Pitfall 5 from convex-test docs): keep keys canonical.
  */
-import { convexTest } from "convex-test";
+import { convexTest, type TestConvex } from "convex-test";
 import { describe, it, expect } from "vitest";
 import schema from "../../schema";
 import { internal } from "../../_generated/api";
 
 const modules = import.meta.glob("/convex/**/*.ts");
+
+// Schema-aware test context so `ctx.db.query(...).withIndex("by_status_due_date", ...)`
+// resolves the real user-defined index (mirrors convex/qrisPayments/__tests__/_factory.ts:22-29).
+type TestContext = TestConvex<typeof schema>;
 
 // Construct a UTC ms for "WIB midnight of date D" — same helper convention as periodRange.test.ts.
 function wibMidnight(year: number, month: number, day: number): number {
@@ -620,7 +663,7 @@ const TOMORROW_START = wibMidnight(2026, 5, 28);
 const YESTERDAY_START = wibMidnight(2026, 5, 26);
 
 async function seedOrder(
-  t: ReturnType<typeof convexTest>,
+  t: TestContext,
   override: Partial<{
     orderNumber: string;
     status: "PaymentReceived" | "BeingPrepared" | "Draft" | "AwaitingDelivery" | "Complete";
@@ -628,12 +671,14 @@ async function seedOrder(
     expedited: boolean;
     deliveryType: "Delivery" | "Pickup";
     notes: string;
+    cancelledItem: boolean;  // for T1 — seed a 2nd orderItem marked cancelled
   }> = {},
 ) {
   return await t.run(async (ctx) => {
     const customerId = await ctx.db.insert("customers", {
       name: "Test Customer",
       phone: "0812",
+      createdBy: "test",  // required field — schema.ts:183
     });
     const orderId = await ctx.db.insert("orders", {
       orderNumber: override.orderNumber ?? "0527-001",
@@ -665,6 +710,20 @@ async function seedOrder(
       lineCost: 20000,
       lineMargin: 30000,
     });
+    if (override.cancelledItem) {
+      await ctx.db.insert("orderItems", {
+        orderId,
+        productName: "Cancelled Bite Triple",
+        quantity: 5,
+        unitPrice: 30000,
+        unitCost: 12000,
+        discountAmount: 0,
+        lineTotal: 150000,
+        lineCost: 60000,
+        lineMargin: 90000,
+        isCancelled: true,
+      });
+    }
     return orderId;
   });
 }
@@ -765,6 +824,20 @@ describe("getOrdersForPackList — sort + counts", () => {
     expect(result.pickupCount).toBe(1);
   });
 });
+
+describe("getOrdersForPackList — cancelled item exclusion (T1)", () => {
+  it("excludes orderItems flagged isCancelled from the rendered card", async () => {
+    const t = convexTest(schema, modules);
+    await seedOrder(t, { orderNumber: "0527-001", cancelledItem: true });
+    const result = await t.query(
+      internal.telegram.queries.packListQuery.getOrdersForPackList,
+      { now: TODAY_START + 12 * 3600_000 },
+    );
+    expect(result.totalCount).toBe(1);
+    expect(result.orders[0].items).toHaveLength(1);
+    expect(result.orders[0].items[0].productName).toBe("Jumbo");
+  });
+});
 ```
 
 - [ ] **Step 4.2: Run tests, expect all to fail**
@@ -803,7 +876,9 @@ export const getOrdersForPackList = internalQuery({
     const now = args.now ?? Date.now();
     const wib = getWibComponents(now);
     // End of today WIB = next WIB midnight minus 1 ms.
-    const endOfTodayMs = wibMidnightToUtc(wib.year, wib.month - 1, wib.day + 1) - 1;
+    // Both getWibComponents AND wibMidnightToUtc use 0-indexed month — pass wib.month directly.
+    // Day-of-month overflow (e.g., day + 1 = 32) is safe; Date.UTC normalizes it.
+    const endOfTodayMs = wibMidnightToUtc(wib.year, wib.month, wib.day + 1) - 1;
 
     // Two scans on by_status_due_date: one per active status, bounded by dueDate.
     // The withIndex upper bound on dueDate also excludes documents where
@@ -863,7 +938,7 @@ npx vitest run convex/telegram/__tests__/packListQuery.test.ts
 
 Expected: 8/8 pass.
 
-If any fail, check: (a) the `by_status_due_date` index range bound on `dueDate` — both must be inside `withIndex`, not `.filter()`; (b) `getWibComponents` returns month as 1-indexed (Jan = 1) but `wibMidnightToUtc` takes month 0-indexed (Jan = 0) — note the `-1` conversion.
+If any fail, check: (a) the `by_status_due_date` index range bound on `dueDate` — both must be inside `withIndex`, not `.filter()`; (b) both `getWibComponents` and `wibMidnightToUtc` use 0-indexed month (Jan = 0) — pass `wib.month` directly, NOT `wib.month - 1`; (c) day-of-month overflow (e.g., `day + 1 = 32`) is safe because `Date.UTC` normalizes it.
 
 - [ ] **Step 4.5: Commit**
 
@@ -982,7 +1057,7 @@ crons.daily(
   internal.integrations.bigseller.cron.nightlySync,
 );
 
-// Phase 85: Morning pack list at 07:00 WIB (= 00:00 UTC).
+// Telegram pack list bot v1: morning post at 07:00 WIB (= 00:00 UTC).
 crons.daily(
   "telegram morning pack list",
   { hourUTC: 0, minuteUTC: 0 },
@@ -990,7 +1065,7 @@ crons.daily(
   { reason: "morning" },
 );
 
-// Phase 85: Midday "still pending" reminder at 13:00 WIB (= 06:00 UTC).
+// Telegram pack list bot v1: midday "still pending" reminder at 13:00 WIB (= 06:00 UTC).
 crons.daily(
   "telegram midday pack list",
   { hourUTC: 6, minuteUTC: 0 },
@@ -1055,7 +1130,7 @@ describe("decideWebhookOutcome — auth", () => {
       providedSecret: null,
       expectedSecret: SECRET,
       body: makeUpdate(),
-      deps: { isDuplicate: async () => false, recordUpdate: async () => {}, runAction: async () => {} },
+      deps: { recordIfNew: async () => true, runAction: async () => {} },
     });
     expect(result.status).toBe(401);
   });
@@ -1065,7 +1140,7 @@ describe("decideWebhookOutcome — auth", () => {
       providedSecret: "wrong",
       expectedSecret: SECRET,
       body: makeUpdate(),
-      deps: { isDuplicate: async () => false, recordUpdate: async () => {}, runAction: async () => {} },
+      deps: { recordIfNew: async () => true, runAction: async () => {} },
     });
     expect(result.status).toBe(401);
   });
@@ -1075,7 +1150,7 @@ describe("decideWebhookOutcome — auth", () => {
       providedSecret: SECRET,
       expectedSecret: undefined,
       body: makeUpdate(),
-      deps: { isDuplicate: async () => false, recordUpdate: async () => {}, runAction: async () => {} },
+      deps: { recordIfNew: async () => true, runAction: async () => {} },
     });
     expect(result.status).toBe(401);
   });
@@ -1088,7 +1163,7 @@ describe("decideWebhookOutcome — command parsing", () => {
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack" }),
-      deps: { isDuplicate: async () => false, recordUpdate: async () => {}, runAction },
+      deps: { recordIfNew: async () => true, runAction },
     });
     expect(result.status).toBe(200);
     expect(runAction).toHaveBeenCalledTimes(1);
@@ -1100,7 +1175,7 @@ describe("decideWebhookOutcome — command parsing", () => {
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack@FrolliePackBot" }),
-      deps: { isDuplicate: async () => false, recordUpdate: async () => {}, runAction },
+      deps: { recordIfNew: async () => true, runAction },
     });
     expect(result.status).toBe(200);
     expect(runAction).toHaveBeenCalledTimes(1);
@@ -1112,7 +1187,7 @@ describe("decideWebhookOutcome — command parsing", () => {
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "hello" }),
-      deps: { isDuplicate: async () => false, recordUpdate: async () => {}, runAction },
+      deps: { recordIfNew: async () => true, runAction },
     });
     expect(result.status).toBe(200);
     expect(runAction).not.toHaveBeenCalled();
@@ -1124,40 +1199,67 @@ describe("decideWebhookOutcome — command parsing", () => {
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: { update_id: 5 },  // no message
-      deps: { isDuplicate: async () => false, recordUpdate: async () => {}, runAction },
+      deps: { recordIfNew: async () => true, runAction },
     });
     expect(result.status).toBe(200);
     expect(runAction).not.toHaveBeenCalled();
   });
+
+  it("ignores /pack with trailing args (e.g. '/pack now please') — strict command match", async () => {
+    const runAction = vi.fn().mockResolvedValue(undefined);
+    const recordIfNew = vi.fn().mockResolvedValue(true);
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: makeUpdate({ text: "/pack now please" }),
+      deps: { recordIfNew, runAction },
+    });
+    expect(result.status).toBe(200);
+    expect(runAction).not.toHaveBeenCalled();
+    // recordIfNew also NOT called — we don't burn an update_id slot on non-commands.
+    expect(recordIfNew).not.toHaveBeenCalled();
+  });
 });
 
-describe("decideWebhookOutcome — idempotency", () => {
-  it("does not re-fire when update_id is duplicate", async () => {
+describe("decideWebhookOutcome — idempotency (R5)", () => {
+  it("does not re-fire when recordIfNew reports duplicate (returns false)", async () => {
     const runAction = vi.fn().mockResolvedValue(undefined);
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack", update_id: 999 }),
-      deps: { isDuplicate: async () => true, recordUpdate: async () => {}, runAction },
+      deps: { recordIfNew: async () => false, runAction },
     });
     expect(result.status).toBe(200);
     expect(runAction).not.toHaveBeenCalled();
   });
 
-  it("records the update_id before scheduling the action", async () => {
+  it("records the update_id BEFORE running the action (atomic dedupe + record)", async () => {
     const calls: string[] = [];
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack" }),
       deps: {
-        isDuplicate: async () => false,
-        recordUpdate: async () => { calls.push("record"); },
+        recordIfNew: async () => { calls.push("record"); return true; },
         runAction: async () => { calls.push("run"); },
       },
     });
     expect(result.status).toBe(200);
     expect(calls).toEqual(["record", "run"]);
+  });
+
+  it("does not call runAction when recordIfNew returns false even if other auth/parse passes", async () => {
+    const runAction = vi.fn().mockResolvedValue(undefined);
+    const recordIfNew = vi.fn().mockResolvedValue(false);
+    await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: makeUpdate({ text: "/pack", update_id: 42 }),
+      deps: { recordIfNew, runAction },
+    });
+    expect(recordIfNew).toHaveBeenCalledWith(42);
+    expect(runAction).not.toHaveBeenCalled();
   });
 });
 ```
@@ -1176,7 +1278,7 @@ Expected: fail with `Cannot find module '../webhook'`.
 
 ```ts
 import { v } from "convex/values";
-import { httpAction, internalMutation, internalQuery } from "../_generated/server";
+import { httpAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
 
 interface WebhookResult {
@@ -1185,8 +1287,12 @@ interface WebhookResult {
 }
 
 export interface WebhookDeps {
-  isDuplicate: (updateId: number) => Promise<boolean>;
-  recordUpdate: (updateId: number) => Promise<void>;
+  /**
+   * R5: collapsed read+write into a single atomic mutation. Returns true if
+   * THIS call inserted the row, false if it already existed. Eliminates the
+   * read-then-write race window between isDuplicate and recordUpdate.
+   */
+  recordIfNew: (updateId: number) => Promise<boolean>;
   runAction: () => Promise<void>;
 }
 
@@ -1236,50 +1342,45 @@ export async function decideWebhookOutcome(input: {
   if (typeof updateId !== "number") return { status: 200, body: "ok" };
   if (typeof text !== "string") return { status: 200, body: "ok" };
 
-  // Match /pack or /pack@<botname>. Telegram sends the @bot suffix in groups.
-  // Trim trailing args/whitespace ("/pack now" → still match the command).
-  const command = text.trim().split(/\s+/)[0];
-  const isPackCommand = /^\/pack(@[A-Za-z0-9_]+)?$/.test(command);
+  // Match /pack or /pack@<botname> EXACTLY. Telegram sends the @bot suffix in groups.
+  // Strict mode (full-string match): "/pack now please" does NOT match — trailing
+  // args are likely typos or accidental sends, and /pack takes no parameters in v1.
+  // If lenient args support is desired in a future version, change to a head-only match.
+  const trimmed = text.trim();
+  const isPackCommand = /^\/pack(@[A-Za-z0-9_]+)?$/.test(trimmed);
   if (!isPackCommand) return { status: 200, body: "ok" };
 
-  // Idempotency: skip if we already processed this update.
-  if (await input.deps.isDuplicate(updateId)) {
+  // Atomic idempotency check + record (R5). recordIfNew returns false if the
+  // update_id was already stored — in which case we ACK 200 without re-firing.
+  const isNew = await input.deps.recordIfNew(updateId);
+  if (!isNew) {
     return { status: 200, body: "ok" };
   }
-
-  // Record BEFORE scheduling so a re-delivery races correctly.
-  await input.deps.recordUpdate(updateId);
   await input.deps.runAction();
   return { status: 200, body: "ok" };
 }
 
-// ─── Convex glue: query, mutation, httpAction ────────────────────────────────
+// ─── Convex glue: atomic recordIfNew mutation + httpAction ───────────────────
 
-export const checkUpdateExists = internalQuery({
+/**
+ * R5: atomic dedupe in one mutation. Reads the index, inserts if absent,
+ * returns whether THIS call inserted. Convex serializes mutations on the
+ * read set, so two concurrent deliveries with the same update_id can't both
+ * return true.
+ */
+export const recordIfNew = internalMutation({
   args: { updateId: v.number() },
-  handler: async (ctx, args) => {
-    const row = await ctx.db
-      .query("telegramUpdates")
-      .withIndex("by_update_id", (q) => q.eq("updateId", args.updateId))
-      .unique();
-    return row !== null;
-  },
-});
-
-export const recordUpdate = internalMutation({
-  args: { updateId: v.number() },
-  handler: async (ctx, args) => {
-    // Use the same query inside the mutation to guard against a race where
-    // two concurrent webhook deliveries arrive within the same Convex tick.
+  handler: async (ctx, args): Promise<boolean> => {
     const existing = await ctx.db
       .query("telegramUpdates")
       .withIndex("by_update_id", (q) => q.eq("updateId", args.updateId))
       .unique();
-    if (existing) return;
+    if (existing) return false;
     await ctx.db.insert("telegramUpdates", {
       updateId: args.updateId,
       receivedAt: Date.now(),
     });
+    return true;
   },
 });
 
@@ -1296,10 +1397,8 @@ export const handleTelegramWebhook = httpAction(async (ctx, request) => {
     expectedSecret: process.env.TELEGRAM_WEBHOOK_SECRET,
     body,
     deps: {
-      isDuplicate: (updateId) =>
-        ctx.runQuery(internal.telegram.webhook.checkUpdateExists, { updateId }),
-      recordUpdate: (updateId) =>
-        ctx.runMutation(internal.telegram.webhook.recordUpdate, { updateId }),
+      recordIfNew: (updateId) =>
+        ctx.runMutation(internal.telegram.webhook.recordIfNew, { updateId }),
       runAction: async () => {
         await ctx.scheduler.runAfter(0, internal.telegram.sendPackList.sendPackList, {
           reason: "command",
@@ -1494,15 +1593,35 @@ npx convex run telegram/sendPackList:sendPackList '{"reason":"midday"}'
 
 Expected: same orders, but header reads `Still Pending — <date> · <HH:MM>` and the count line says "orders not yet shipped".
 
-- [ ] **Step 10.4: Smoke-test the `/pack` command**
+- [ ] **Step 10.4a: Smoke-test the `/pack` command — happy path**
 
 In the dev Telegram group, send `/pack` (you should see the autocomplete pop up since BotFather registered the command).
 
 Expected:
 - Within ~3 seconds a message appears with the on-demand header.
-- Convex logs (dashboard → Logs) show: `handleTelegramWebhook` → `recordUpdate` → scheduled `sendPackList` → action ran.
+- Convex logs (dashboard → Logs) show: `handleTelegramWebhook` → `recordIfNew` returned true → scheduled `sendPackList` → action ran.
 
-Send `/pack` again immediately to test dedupe — second response should NOT generate a second pack list message (the bot will still produce one if the `update_id` is different, which it will be for a brand-new send; dedupe only kicks in on Telegram retries of the SAME update_id). To force-test the dedupe path: pull the update_id from the first webhook call's logs and re-POST to the route with the same payload.
+If no message appears: see RUNBOOK §Webhook not firing. The most common cause is `last_error_message` on `getWebhookInfo` — check it (Step 10.6).
+
+- [ ] **Step 10.4b: Smoke-test dedupe — forced replay of the same update_id**
+
+A second normal `/pack` will produce a second message (Telegram assigns a fresh `update_id` per send, so dedupe won't fire). To exercise the dedupe path, replay the EXACT same webhook payload:
+
+1. From the Convex log of Step 10.4a, copy the full request body Telegram sent (visible in the log entry for `handleTelegramWebhook`). It will contain `"update_id": <N>`.
+2. Re-POST it to the dev webhook URL with the same secret header:
+
+   ```powershell
+   curl.exe -X POST "https://exciting-fennec-671.convex.site/telegram-webhook" `
+     -H "Content-Type: application/json" `
+     -H "X-Telegram-Bot-Api-Secret-Token: <SECRET>" `
+     -d "<JSON_BODY_FROM_LOG>"
+   ```
+
+Expected:
+- HTTP 200 OK
+- NO second pack list message in Telegram
+- Convex log shows `recordIfNew` returned `false` and `runAction` was NOT called
+- `telegramUpdates` table still has exactly ONE row for that `update_id`
 
 - [ ] **Step 10.5: Smoke-test the empty-day path**
 
@@ -1610,7 +1729,7 @@ Add to the table list (alphabetical or grouped under "Integrations"):
 Add a new entry — if no telegram section exists, create one:
 
 ```markdown
-### Telegram bot (Phase 85)
+### Telegram pack list bot v1
 - Backend: `convex/telegram/{sendPackList,webhook,packListFormat}.ts`, `convex/telegram/queries/packListQuery.ts`, `convex/lib/telegramHtml.ts`
 - Crons: `convex/crons.ts` — "telegram morning pack list", "telegram midday pack list"
 - HTTP route: `convex/http.ts` — `POST /telegram-webhook`
@@ -1680,7 +1799,7 @@ After CI green + review approved, squash-merge via GitHub UI (matches the projec
 
 ## Task 15: Prod cutover
 
-**This is a separate manual ceremony AFTER merge. Treat as Phase 85.1 if you want to split it; otherwise it's the last step of this phase.**
+**This is a separate manual ceremony AFTER merge. Treat as a follow-up if you want to split it; otherwise it's the last step of this phase.**
 
 - [ ] **Step 15.1: Prompt user for prod credentials**
 
@@ -1753,6 +1872,31 @@ The 07:00 WIB cron will fire the day after deployment. Confirm the prod group re
 
 Update `docs/CHANGELOG.md` to mark the feature as shipped + the cutover date. If MEMORY.md tracks active work, add the new prod bot username + chat id reference.
 
+- [ ] **Step 15.11: Single-group invariant check (I4)**
+
+The webhook handler does NOT gate `/pack` by chat id — it accepts the command from ANY group the bot is in, and always posts the report to `TELEGRAM_CHAT_ID`. If the prod bot is in multiple groups, a staffer in another group could `/pack` and the result would land in the operations group, which is confusing.
+
+Verify: in Telegram, search the prod bot username, check the "Groups in common" list. Should be exactly one — `Frollie · Morning Pack List`. If there are extras, remove the bot from them.
+
+This is a documented v1 limitation. v2 may add chat-id gating; until then, keep the bot single-group.
+
+- [ ] **Step 15.12: Rollback runbook (must understand before declaring done)**
+
+If the cron is misbehaving in prod (wrong content, double-posting, paging staff at the wrong hour):
+
+1. **Stop `/pack` immediately:**
+   ```powershell
+   curl.exe -X POST "https://api.telegram.org/bot<PROD_TOKEN>/deleteWebhook"
+   ```
+
+2. **Stop the daily/midday crons:** revert the `convex/crons.ts` commit and `npx convex deploy --prod`. The next cron tick will not fire because the registration is gone.
+
+3. **Full disable (nuclear):** `npx convex env unset TELEGRAM_BOT_TOKEN --prod` — every action that needs to send a message will throw `Telegram env vars missing` and exit. Crons fail loudly in the dashboard but produce no Telegram messages.
+
+4. **Re-enable after fixing:** re-register the webhook (Step 15.5), re-deploy with the fix, set env vars back. The `telegramUpdates` table can stay — its idempotency contract spans deploys.
+
+The `telegramUpdates` table has no consumers outside the webhook handler, so it can be left in place during any rollback without affecting other features.
+
 ---
 
 ## Self-Review Checklist (post-write)
@@ -1767,10 +1911,10 @@ Run through these before handing off to execution:
 - [x] Header with date + count + delivery/pickup split — Task 3 (`buildHeader`)
 - [x] 07:00 + 13:00 WIB schedule — Task 6
 - [x] `/pack` command — Tasks 7 + 8
-- [x] Empty day "Nothing to pack today" — Task 3 (empty-day branch in `buildHeader`)
+- [x] Empty day "Nothing to pack today" — Task 3 (empty-day branch in `buildHeader`, signal = `cards.length === 0` per I2)
 - [x] HTML escape on user-supplied fields — Task 2 (`escapeHtml`), used throughout Task 3
 - [x] 4096-char chunking — Task 3 (`CHUNK_BUDGET = 4000`)
-- [x] Idempotency dedupe — Tasks 1 + 7 (`telegramUpdates` + `decideWebhookOutcome`)
+- [x] Idempotency dedupe — Tasks 1 + 7 (`telegramUpdates` + atomic `recordIfNew` per R5)
 - [x] Constant-time secret compare — Task 7
 - [x] Env vars on prod + dev separately — Tasks 9 + 15
 - [x] Tests at all 3 levels (unit / convex-test integration / manual smoke) — Tasks 2, 3, 4, 7 + Task 10
@@ -1780,3 +1924,22 @@ Run through these before handing off to execution:
 **Placeholder scan:** No "TBD" / "implement later" / "similar to" — every code block is complete.
 
 **Type consistency:** `FormatReason` is the union literal used in both `formatPackList`'s input and `sendPackList`'s args. `KanbanOrderCard` is imported from the existing `convex/orders/helpers/kanbanBuilders.ts` consistently. `WebhookDeps` interface is defined once in Task 7 and consumed by both the pure handler core and the httpAction wrapper.
+
+**Staffreview fixes applied** (`docs/reviews/staffreview-telegram-morning-packing-report-2026-05-26.md`):
+
+| # | Finding | Where applied |
+|---|---------|---------------|
+| C1 | Month off-by-one — `wib.month` not `wib.month - 1` | Task 4 Step 4.3 impl + 4.4 troubleshooting note |
+| C2 | `customers.createdBy` required field added to test seed | Task 4 Step 4.1 `seedOrder` |
+| I1 | `TestConvex<typeof schema>` typing on `seedOrder` | Task 4 Step 4.1 imports + type alias |
+| I2 | Formatter empty-day check uses `cards.length` via `isEmpty` param | Task 3 Step 3.3 `buildHeader` + `formatPackList` |
+| I3 | Smoke 10.4 split into 10.4a (happy path) + 10.4b (forced replay) | Task 10 |
+| I4 | Single-group invariant check added | Task 15 Step 15.11 |
+| R1 | Delivery with missing address renders `(no address — check order)` | Task 3 `renderOrder` + 2 new tests |
+| R2 | "Phase 85" framing dropped (no milestone claimed yet) | Throughout — replaced with "Telegram pack list bot v1" |
+| R3 | `console.warn` breadcrumb before `throw` in `sendTelegramHtml` | Task 2 Step 2.3 |
+| R4 | `telegramUpdates` retention threshold (~10k rows) noted in schema | Task 1 Step 1.1 |
+| R5 | `isDuplicate` + `recordUpdate` collapsed into atomic `recordIfNew` mutation | Task 7 — `WebhookDeps`, impl, all tests updated |
+| T1 | Cancelled-item exclusion test added | Task 4 Step 4.1 (new describe block + `cancelledItem` seed flag) |
+| Extra | `/pack` strict-match mode + trailing-args test | Task 7 — impl tightened + new test |
+| Extra | Rollback runbook (`deleteWebhook`, revert crons, unset env) | Task 15 Step 15.12 |
