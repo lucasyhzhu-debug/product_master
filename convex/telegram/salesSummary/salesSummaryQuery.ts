@@ -37,6 +37,16 @@ function pctDelta(cur: number, prev: number): number | null {
 const IN_SCOPE_SOURCES = ["gobiz", "k3mart", "internal"] as const;
 type InScopeSource = (typeof IN_SCOPE_SOURCES)[number];
 
+// Pull in-range externalRevenue for the 3 in-scope sources via the compound
+// by_source_period index — reads ONLY these sources, not the
+// whole period across bigseller/shopee/tiktok/grabfood/consignment.
+//
+// SCALE NOTE: this query + the product fan-out below issue O(rows) index reads
+// (one externalRevenueItems lookup per non-internal row; one orders + one
+// orderItems lookup per internal row). At the current scale (~1K externalRevenue
+// records total) a monthly run stays well under Convex's 16,384-read
+// per-query limit. WATCH-ITEM: when a monthly run's in-scope rows exceed ~5K,
+// move product aggregation to pre-aggregation/pagination.
 async function fetchInScopeRevenue(
   ctx: QueryCtx,
   start: number,
@@ -145,6 +155,9 @@ export const getSalesSummary = internalQuery({
     const channels = new Map<InScopePlatform, ChannelAgg>();
 
     for (const row of currentRows) {
+      // Skip returns & delta_inferred; we only want realized sales.
+      // Canonical predicate from convex/reports/unitEconomics.ts line 216.
+      if (row.transactionType && row.transactionType !== "sales") continue;
       const platform = toInScope(row.source);
       if (!platform) continue;
 
@@ -193,6 +206,9 @@ export const getSalesSummary = internalQuery({
     const prevGross = new Map<InScopePlatform, number>();
     let prevGrandGross = 0;
     for (const row of previousRows) {
+      // Skip returns & delta_inferred; we only want realized sales.
+      // Canonical predicate from convex/reports/unitEconomics.ts line 216.
+      if (row.transactionType && row.transactionType !== "sales") continue;
       const platform = toInScope(row.source);
       if (!platform) continue;
       const g = rowGross(row, prevOrderMap);

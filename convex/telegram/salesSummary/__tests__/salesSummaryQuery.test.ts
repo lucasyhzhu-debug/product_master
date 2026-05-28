@@ -119,6 +119,47 @@ describe("salesSummaryQuery — daily", () => {
   });
 });
 
+// Seed a K3Mart revenue row using row-level productName/quantitySold (no item children —
+// K3Mart adapter shapes rows this way, same as schema externalRevenue direct fields).
+async function seedK3Mart(
+  t: Ctx,
+  gross: number,
+  periodStart: number,
+  productName: string,
+  quantitySold: number,
+  transactionType: "sales" | "return",
+) {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("externalRevenue", {
+      source: "k3mart", revenueGross: gross,
+      productName, quantitySold,
+      transactionType,
+      periodStart, periodEnd: periodStart, transactionDate: periodStart,
+      transactionCount: 1, dataOrigin: "api_revenue", confidence: "exact",
+    });
+  });
+}
+
+describe("salesSummaryQuery — K3Mart return exclusion", () => {
+  it("excludes return rows from K3Mart gross and product qty", async () => {
+    const t = convexTest(schema, modules);
+    // sales row: 1,200,000 gross, 10 Jumbo
+    await seedK3Mart(t, 1_200_000, DAY_START + 3600_000, "Jumbo", 10, "sales");
+    // return row: 300,000 gross, 3 Jumbo — must be excluded
+    await seedK3Mart(t, 300_000, DAY_START + 7200_000, "Jumbo", 3, "return");
+
+    const data = await t.query(internal.telegram.salesSummary.salesSummaryQuery.getSalesSummary,
+      { cadence: "daily", now: DAY_NOW });
+
+    expect(data.channels).toHaveLength(1);
+    const k3 = data.channels[0];
+    expect(k3.platform).toBe("K3Mart");
+    expect(k3.gross).toBe(1_200_000);
+    expect(k3.products).toEqual([{ name: "Jumbo", qty: 10 }]);
+    expect(data.grandTotal.gross).toBe(1_200_000);
+  });
+});
+
 describe("salesSummaryQuery — weekly delta", () => {
   it("computes gross deltaPct vs the prior week", async () => {
     const t = convexTest(schema, modules);
