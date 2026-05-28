@@ -103,7 +103,9 @@ export function TelegramChatsManager() {
     );
   }, [chats, search]);
 
-  const now = Date.now();
+  // Captured once at mount (pure during render — react-hooks/purity); the error
+  // badge freshness window is 24h, so a mount-time snapshot is fine here.
+  const [now] = useState(() => Date.now());
 
   if (chats === undefined) {
     return (

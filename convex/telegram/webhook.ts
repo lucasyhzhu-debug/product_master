@@ -83,7 +83,7 @@ export async function decideWebhookOutcome(input: {
   const text = msg.text;
   if (typeof text !== "string") {
     // Non-text update (sticker, photo, etc.) — best-effort touch, no dedupe.
-    try { await input.deps.touchLastSeen(chatIdStr); } catch {}
+    try { await input.deps.touchLastSeen(chatIdStr); } catch { /* best-effort — lastSeen is non-critical */ }
     return { status: 200, body: "ok" };
   }
 
@@ -96,7 +96,7 @@ export async function decideWebhookOutcome(input: {
       return { status: 200, body: "ok" };
     }
     // Regular non-command text → best-effort lastSeen stamp (NOT deduped by update_id).
-    try { await input.deps.touchLastSeen(chatIdStr); } catch {}
+    try { await input.deps.touchLastSeen(chatIdStr); } catch { /* best-effort — lastSeen is non-critical */ }
     return { status: 200, body: "ok" };
   }
 
