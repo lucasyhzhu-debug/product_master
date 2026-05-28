@@ -530,4 +530,13 @@ describe("seedChatFromEnv (spec cases #8, #9, #10)", () => {
       t.action(internal.telegram.chatRegistry.seedChatFromEnv, { role: "pack-list" }),
     ).rejects.toThrow(/already registered with role/);
   });
+
+  it("seedFromEnvWrite re-validates role (defense-in-depth, direct internal call)", async () => {
+    const t = convexTest(schema, modules);
+    await expect(
+      t.mutation(internal.telegram.chatRegistry.seedFromEnvWrite, {
+        chatId: "-100SEED", chatType: "supergroup", title: "X", role: "bogus",
+      }),
+    ).rejects.toThrow(/Unknown telegram role/);
+  });
 });

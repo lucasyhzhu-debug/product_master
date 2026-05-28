@@ -480,6 +480,11 @@ export const seedFromEnvWrite = internalMutation({
     role: v.string(),
   },
   handler: async (ctx, args): Promise<SeedResult> => {
+    if (!isKnownTelegramRole(args.role)) {
+      throw new ConvexError(
+        `Unknown telegram role: '${args.role}'. Must be one of: ${KNOWN_TELEGRAM_ROLES.join(", ")}`,
+      );
+    }
     const now = Date.now();
     const existing = await ctx.db
       .query("telegramChats")
