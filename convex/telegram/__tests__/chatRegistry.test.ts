@@ -103,3 +103,64 @@ describe("getChatIdByRole (spec case #3)", () => {
     }
   });
 });
+
+describe("touchChatLastSeen (spec cases #13, #14)", () => {
+  it("no-ops for unregistered chat (pollution prevention)", async () => {
+    const t = convexTest(schema, modules);
+    await t.mutation(internal.telegram.chatRegistry.touchChatLastSeen, {
+      chatId: "-100999",
+    });
+    const rows = await t.run(async (ctx) =>
+      ctx.db.query("telegramChats").collect(),
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it("no-ops for archived chat", async () => {
+    const t = convexTest(schema, modules);
+    let id: string;
+    await t.run(async (ctx) => {
+      id = await ctx.db.insert("telegramChats", {
+        chatId: "-100333",
+        chatType: "group",
+        title: "Archived",
+        archivedAt: 100,
+        registeredAt: 0,
+        lastSeenAt: 50,
+      });
+    });
+    await t.mutation(internal.telegram.chatRegistry.touchChatLastSeen, {
+      chatId: "-100333",
+    });
+    const row = await t.run(async (ctx) =>
+      ctx.db
+        .query("telegramChats")
+        .withIndex("by_chatId", (q) => q.eq("chatId", "-100333"))
+        .unique(),
+    );
+    expect(row?.lastSeenAt).toBe(50);  // unchanged
+  });
+
+  it("patches lastSeenAt for active registered chat", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "-100444",
+        chatType: "supergroup",
+        title: "Live",
+        registeredAt: 0,
+        lastSeenAt: 50,
+      });
+    });
+    await t.mutation(internal.telegram.chatRegistry.touchChatLastSeen, {
+      chatId: "-100444",
+    });
+    const row = await t.run(async (ctx) =>
+      ctx.db
+        .query("telegramChats")
+        .withIndex("by_chatId", (q) => q.eq("chatId", "-100444"))
+        .unique(),
+    );
+    expect(row?.lastSeenAt).toBeGreaterThan(50);
+  });
+});
