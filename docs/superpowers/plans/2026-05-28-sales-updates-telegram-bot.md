@@ -18,6 +18,9 @@
 2. **Direct revenue is faithful to the dashboard.** `fetchInternalOrderDataMap` is exported (`convex/externalData/queries.ts:29`); the query reuses it so Direct gross matches `getRevenueByOutletInternal`.
 3. **Product source is defensive.** GoFood/K3Mart products come from `externalRevenueItems` when present, else `externalRevenue.productName`/`quantitySold`; Direct products come from `orderItems` (excluding `isCancelled`). Tests pin all three shapes.
 
+## Post-staffreview adjustments (2026-05-28)
+Folded in from `docs/reviews/staffreview-sales-updates-telegram-bot-2026-05-28.md` (Approve, 0 Critical): (a) Rollback & Deployment section + deploy precondition added; (b) Task 2 queries via the existing `by_source_period` index instead of collect-all-then-filter; (c) Task 2 carries a read-budget scale comment + watch-item; (d) Task 3 omits the order count for K3Mart (consignment stock-deltas, not orders). Improvements 3 (dedup helper) and 5 (graceful no-chat log) were noted optional for v1 and deferred.
+
 ---
 
 ## Git Workflow
@@ -57,6 +60,13 @@
 - [ ] Daily/weekly/monthly crons registered (23:00 / Mon 07:00 / 1st 08:00 WIB); `bigseller nightly 7d resync` deleted
 - [ ] Message renders revenue per channel, GoFood broken out by outlet, top-N per-SKU products, weekly/monthly deltas
 - [ ] Operator can assign a chat to `sales-updates` via `/admin/telegram-chats` (existing Phase 85 flow — no code needed)
+
+## Rollback & Deployment
+**Deploy:** single Convex deploy (backend-only, no schema → no migration ordering). Crons + functions register atomically; the deleted `bigseller nightly 7d resync` stops on that deploy. The `nightlySync` *action* is NOT deleted (only its cron registration) — manual/test invocation still works.
+
+**Deploy precondition (HARD):** a Telegram chat MUST be assigned the `sales-updates` role before the first cron fires. There is **no env fallback** for `sales-updates` (`TELEGRAM_FALLBACK_ROLE` only covers `pack-list`). Until assigned, every cron run throws `No Telegram chat assigned` (visible as a failed cron in the dashboard) and no message sends. Recoverable any time by assigning the role — no redeploy needed. (See Task 6 runbook.)
+
+**Rollback:** `git revert` the merge + redeploy. Restores the `bigseller nightly 7d resync` cron and removes the 3 new crons. The feature is read-only (the only writes are the idempotent upserts the sync actions already perform), so there is nothing to clean up. Safe, instant.
 
 ---
 
@@ -427,12 +437,29 @@ function pctDelta(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
-// Pull in-range externalRevenue for the 3 in-scope sources via by_period.
+// In-scope source literals (gobiz→GoFood, k3mart→K3Mart, internal→Direct).
+const IN_SCOPE_SOURCES = ["gobiz", "k3mart", "internal"] as const;
+
+// Pull in-range externalRevenue for the 3 in-scope sources via the compound
+// by_source_period index (schema.ts:1223) — reads ONLY these sources, not the
+// whole period across bigseller/shopee/tiktok/grabfood/consignment.
+//
+// SCALE NOTE: this query + the product fan-out below issue O(rows) index reads
+// (one externalRevenueItems lookup per non-internal row; one orders + one
+// orderItems lookup per internal row). At the current scale (~1K externalRevenue
+// records total, MEMORY.md) a monthly run stays well under Convex's 16,384-read
+// per-query limit. WATCH-ITEM: when a monthly run's in-scope rows exceed ~5K,
+// move product aggregation to pre-aggregation/pagination (see risks §4).
 async function fetchInScopeRevenue(ctx: QueryCtx, start: number, end: number): Promise<Doc<"externalRevenue">[]> {
-  const rows = await ctx.db.query("externalRevenue")
-    .withIndex("by_period", (q) => q.gte("periodStart", start).lt("periodStart", end))
-    .collect();
-  return rows.filter((r) => r.source === "gobiz" || r.source === "k3mart" || r.source === "internal");
+  const perSource = await Promise.all(
+    IN_SCOPE_SOURCES.map((source) =>
+      ctx.db.query("externalRevenue")
+        .withIndex("by_source_period", (q) =>
+          q.eq("source", source).gte("periodStart", start).lt("periodStart", end))
+        .collect()
+    )
+  );
+  return perSource.flat();
 }
 
 // Resolve raw source → in-scope Platform (or null if out of scope).
@@ -667,6 +694,23 @@ describe("formatSalesSummary — daily", () => {
     expect(chunks).toHaveLength(1);
     expect(chunks[0]).toContain("No sales recorded");
   });
+
+  it("omits the order count for K3Mart (consignment) but keeps it for GoFood/Direct", () => {
+    const withK3: SalesSummaryData = {
+      ...daily,
+      channels: [
+        ...daily.channels,
+        { platform: "K3Mart", gross: 1_200_000, orders: 18, deltaPct: null,
+          outlets: [{ name: "—", gross: 1_200_000, orders: 18, products: [{ name: "Original", qty: 7 }] }],
+          products: [{ name: "Original", qty: 7 }] },
+      ],
+    };
+    const text = formatSalesSummary({ data: withK3, refresh: OK }).join("\n");
+    expect(text).toContain("K3Mart</b> — Rp 1.2M"); // no "(18 orders)"
+    expect(text).not.toContain("(18 orders)");
+    expect(text).toContain("(2 orders)"); // GoFood still shows its order count
+    expect(text).toContain("7× Original");
+  });
 });
 
 describe("formatSalesSummary — weekly", () => {
@@ -723,7 +767,11 @@ function products(list: ProductTally[]): string {
 }
 
 function renderChannel(ch: ChannelSummary): string {
-  const head = `${CHANNEL_EMOJI[ch.platform]} <b>${ch.platform}</b> — ${rupiah(ch.gross)} (${ch.orders} orders)${delta(ch.deltaPct)}`;
+  // K3Mart rows are consignment stock-deltas (dataOrigin "stock_delta"), so the
+  // count is per-product-line, not an order count — omit it to avoid a
+  // misleading "(N orders)". GoFood/Direct counts are genuine order counts.
+  const count = ch.platform === "K3Mart" ? "" : ` (${ch.orders} orders)`;
+  const head = `${CHANNEL_EMOJI[ch.platform]} <b>${ch.platform}</b> — ${rupiah(ch.gross)}${count}${delta(ch.deltaPct)}`;
   if (ch.platform === "GoFood") {
     const lines = ch.outlets.map((o) =>
       `  • ${escapeHtml(o.name)} — ${rupiah(o.gross)}${products(o.products)}`);
@@ -974,4 +1022,4 @@ git commit -m "docs(sales-summary): CHANGELOG + FILE_MAP for sales-updates bot"
 1. **`orderItems` `by_order` index + `menuProducts.name` field** — assumed standard; type-check/test will fail loud if the names differ. Adjust accessor in Task 2.
 2. **GoFood/K3Mart data shape** — Task 2 handles items, row-level fallback, and (internal) orderItems; if a channel uses a 4th shape, add a branch in the `addProduct` block and a seeding test.
 3. **K3Mart cron auth** — `syncK3MartSales` resolves stored creds via `getK3MartToken(ctx)` (no session token); if it throws under cron, the daily footer shows `K3Mart ✗` and the summary still sends (by design).
-4. **Read budget** — per-internal-order orderItems lookups scale with daily order count (~tens). Fine at current scale; if Direct order volume grows past ~1k/day, batch via a date-ranged `orders` query instead.
+4. **Read budget (monthly)** — `fetchInScopeRevenue` reads only in-scope sources via `by_source_period` (no longer scans the whole period). The product fan-out still issues O(rows) reads: 1 `externalRevenueItems` lookup per GoFood/K3Mart row + 1 `orders` + 1 `orderItems` lookup per internal row. Safe at the current ~1K-record scale (well under Convex's 16,384-read limit). WATCH: when a monthly run's in-scope rows exceed ~5K, switch product aggregation to pre-aggregation or pagination.
