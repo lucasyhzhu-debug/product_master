@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { parseCommand } from "../chatRegistry";
 import { convexTest } from "convex-test";
 import schema from "../../schema";
@@ -365,5 +365,169 @@ describe("archiveChat / restoreChat (spec cases #11, #12)", () => {
         token, chatId: "GHOST",
       } as any),
     ).rejects.toThrow(/No registered Telegram chat/);
+  });
+});
+
+describe("sendTestMessage (spec case #18)", () => {
+  beforeEach(() => {
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.TELEGRAM_BOT_TOKEN;
+  });
+
+  it("populates lastError on Telegram 403", async () => {
+    const t = convexTest(schema, modules);
+    const token = await seedAdminSession(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "T1", chatType: "group", title: "Test",
+        registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: false, description: "Forbidden: bot was kicked" }), {
+        status: 403,
+      }),
+    ) as unknown as typeof fetch;
+    await expect(
+      t.action(api.telegram.chatRegistry.sendTestMessage, {
+        token, chatId: "T1",
+      } as any),
+    ).rejects.toThrow();
+    const row = await t.run(async (ctx) =>
+      ctx.db.query("telegramChats").withIndex("by_chatId", (q) => q.eq("chatId", "T1")).unique());
+    expect(row?.lastError?.message).toContain("Forbidden");
+    expect(row?.lastError?.at).toBeGreaterThan(0);
+  });
+
+  it("truncates lastError.message to 200 chars with trailing ellipsis", async () => {
+    const t = convexTest(schema, modules);
+    const token = await seedAdminSession(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "T2", chatType: "group", title: "Test",
+        registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    const longMsg = "x".repeat(500);
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: false, description: longMsg }), {
+        status: 500,
+      }),
+    ) as unknown as typeof fetch;
+    await expect(
+      t.action(api.telegram.chatRegistry.sendTestMessage, {
+        token, chatId: "T2",
+      } as any),
+    ).rejects.toThrow();
+    const row = await t.run(async (ctx) =>
+      ctx.db.query("telegramChats").withIndex("by_chatId", (q) => q.eq("chatId", "T2")).unique());
+    expect(row?.lastError?.message.length).toBe(200);
+    expect(row?.lastError?.message.endsWith("…")).toBe(true);
+  });
+});
+
+describe("seedChatFromEnv (spec cases #8, #9, #10)", () => {
+  beforeEach(() => {
+    process.env.TELEGRAM_BOT_TOKEN = "test-token";
+    process.env.TELEGRAM_CHAT_ID = "-100SEED";
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({
+        ok: true,
+        result: { id: -100, type: "supergroup", title: "Seeded Title" },
+      }), { status: 200 }),
+    ) as unknown as typeof fetch;
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete process.env.TELEGRAM_BOT_TOKEN;
+    delete process.env.TELEGRAM_CHAT_ID;
+  });
+
+  it("throws on invalid role string", async () => {
+    const t = convexTest(schema, modules);
+    await expect(
+      t.action(internal.telegram.chatRegistry.seedChatFromEnv, { role: "bogus" }),
+    ).rejects.toThrow(/Unknown telegram role/);
+  });
+
+  it("throws when TELEGRAM_BOT_TOKEN missing (case #8)", async () => {
+    delete process.env.TELEGRAM_BOT_TOKEN;
+    const t = convexTest(schema, modules);
+    await expect(
+      t.action(internal.telegram.chatRegistry.seedChatFromEnv, { role: "pack-list" }),
+    ).rejects.toThrow(/TELEGRAM_BOT_TOKEN/);
+  });
+
+  it("throws when TELEGRAM_CHAT_ID missing (case #8)", async () => {
+    delete process.env.TELEGRAM_CHAT_ID;
+    const t = convexTest(schema, modules);
+    await expect(
+      t.action(internal.telegram.chatRegistry.seedChatFromEnv, { role: "pack-list" }),
+    ).rejects.toThrow(/TELEGRAM_CHAT_ID/);
+  });
+
+  it("throws on Telegram getChat API failure (case #9)", async () => {
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: false, description: "Unauthorized" }), {
+        status: 401,
+      }),
+    ) as unknown as typeof fetch;
+    const t = convexTest(schema, modules);
+    await expect(
+      t.action(internal.telegram.chatRegistry.seedChatFromEnv, { role: "pack-list" }),
+    ).rejects.toThrow(/Unauthorized/);
+  });
+
+  // Case #10: four row-existence sub-cases
+  it("status='inserted' when no pre-existing row (case #10a)", async () => {
+    const t = convexTest(schema, modules);
+    const result = await t.action(internal.telegram.chatRegistry.seedChatFromEnv, {
+      role: "pack-list",
+    });
+    expect(result).toMatchObject({ status: "inserted", role: "pack-list" });
+  });
+
+  it("status='graduated-dormant' when existing row has no role (case #10b)", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "-100SEED", chatType: "supergroup", title: "Existing",
+        registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    const result = await t.action(internal.telegram.chatRegistry.seedChatFromEnv, {
+      role: "pack-list",
+    });
+    expect(result).toMatchObject({ status: "graduated-dormant", role: "pack-list" });
+  });
+
+  it("status='already-exists-same-role' when existing row has same role (case #10c)", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "-100SEED", chatType: "supergroup", title: "Existing",
+        role: "pack-list", registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    const result = await t.action(internal.telegram.chatRegistry.seedChatFromEnv, {
+      role: "pack-list",
+    });
+    expect(result).toMatchObject({ status: "already-exists-same-role" });
+  });
+
+  it("throws when existing row has DIFFERENT role (case #10d — intentional non-idempotent)", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "-100SEED", chatType: "supergroup", title: "Existing",
+        role: "sales-updates", registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    await expect(
+      t.action(internal.telegram.chatRegistry.seedChatFromEnv, { role: "pack-list" }),
+    ).rejects.toThrow(/already registered with role/);
   });
 });

@@ -336,3 +336,189 @@ export const restoreChat = mutation({
     await ctx.db.patch(row._id, { archivedAt: undefined });
   },
 });
+
+// ─── sendTestMessage ─────────────────────────────────────────────────────────
+
+/**
+ * Diagnostic test-send from admin UI. Populates `lastError` on failure so the
+ * UI can render the inline error row. Truncates error message to 200 chars +
+ * ellipsis (spec §"Backend behavior", staffreview refinement).
+ */
+export const sendTestMessage = action({
+  args: { token: v.string(), chatId: v.string() },
+  handler: async (ctx, args): Promise<void> => {
+    // Step 1: auth + existence check via internal query (mirror QRIS pattern).
+    await ctx.runQuery(internal.telegram.chatRegistry.requireChatRow, {
+      token: args.token,
+      chatId: args.chatId,
+    });
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
+
+    const wibTime = new Date(Date.now() + 7 * 60 * 60 * 1000)
+      .toISOString().slice(11, 19); // HH:MM:SS in WIB
+    const text = `🧪 Test from FrollieProBot — wiring works! Sent at ${wibTime} WIB.`;
+
+    try {
+      await sendTelegramHtml(botToken, args.chatId, text);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      const message = raw.length > 200 ? raw.slice(0, 199) + "…" : raw;
+      await ctx.runMutation(internal.telegram.chatRegistry.recordLastError, {
+        chatId: args.chatId,
+        message,
+      });
+      throw err;
+    }
+  },
+});
+
+/**
+ * @internal Implementation detail of `sendTestMessage` — do not call externally.
+ * Auth-gated existence check (mirror QRIS: the action is a raw `action`, so we
+ * gate via an internal query that runs requireRole + the existence check in one
+ * place).
+ */
+export const requireChatRow = internalQuery({
+  args: { token: v.string(), chatId: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    if (!row) {
+      throw new ConvexError(`No registered Telegram chat with id '${args.chatId}'`);
+    }
+    return row;
+  },
+});
+
+/**
+ * @internal Implementation detail of `sendTestMessage` — do not call externally.
+ * Writes `lastError`; the action calls this on caught failure.
+ */
+export const recordLastError = internalMutation({
+  args: { chatId: v.string(), message: v.string() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    if (!row) return;
+    await ctx.db.patch(row._id, {
+      lastError: { at: Date.now(), message: args.message },
+    });
+  },
+});
+
+// ─── seedChatFromEnv ─────────────────────────────────────────────────────────
+
+type SeedResult =
+  | { status: "inserted"; chatId: string; title: string; role: string }
+  | { status: "graduated-dormant"; chatId: string; title: string; role: string }
+  | { status: "already-exists-same-role"; chatId: string; title: string; role: string };
+
+/**
+ * One-time bootstrap (Convex dashboard → Functions tab). Reads TELEGRAM_CHAT_ID
+ * env, calls Telegram getChat to discover title+type, then INSERT / GRADUATE /
+ * NO-OP / THROW per spec §"seedChatFromEnv" 4-row-state table.
+ */
+export const seedChatFromEnv = internalAction({
+  args: { role: v.string() },
+  handler: async (ctx, args): Promise<SeedResult> => {
+    // 1. Validate role
+    if (!isKnownTelegramRole(args.role)) {
+      throw new ConvexError(
+        `Unknown telegram role: '${args.role}'. Must be one of: ${KNOWN_TELEGRAM_ROLES.join(", ")}`,
+      );
+    }
+    // 2. Env presence
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token) throw new Error("TELEGRAM_BOT_TOKEN env var missing");
+    if (!chatId) throw new Error("TELEGRAM_CHAT_ID env var missing");
+
+    // 3. Discover title + type via Telegram getChat
+    const res = await fetch(
+      `https://api.telegram.org/bot${token}/getChat?chat_id=${encodeURIComponent(chatId)}`,
+    );
+    const json = (await res.json()) as {
+      ok: boolean;
+      result?: { type: string; title?: string };
+      description?: string;
+    };
+    if (!res.ok || !json.ok || !json.result) {
+      throw new Error(
+        `Telegram getChat failed: ${res.status} ${json.description ?? "unknown"}`,
+      );
+    }
+    const rawType = json.result.type;
+    if (rawType !== "private" && rawType !== "group" && rawType !== "supergroup") {
+      throw new Error(`Unsupported chat type from Telegram: ${rawType}`);
+    }
+    const title = json.result.title ?? "(untitled)";
+
+    // 4. Branch on row state
+    return await ctx.runMutation(
+      internal.telegram.chatRegistry.seedFromEnvWrite,
+      { chatId, chatType: rawType, title, role: args.role },
+    );
+  },
+});
+
+/**
+ * @internal Implementation detail of `seedChatFromEnv` — do not call externally.
+ * Performs the 4-row-state branch (insert / graduate / no-op / throw) in one
+ * atomic mutation after the action discovers title+type from Telegram getChat.
+ */
+export const seedFromEnvWrite = internalMutation({
+  args: {
+    chatId: v.string(),
+    chatType: v.union(v.literal("private"), v.literal("group"), v.literal("supergroup")),
+    title: v.string(),
+    role: v.string(),
+  },
+  handler: async (ctx, args): Promise<SeedResult> => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+
+    if (!existing) {
+      await ctx.db.insert("telegramChats", {
+        chatId: args.chatId,
+        chatType: args.chatType,
+        title: args.title,
+        role: args.role,
+        registeredAt: now,
+        lastSeenAt: now,
+      });
+      return { status: "inserted", chatId: args.chatId, title: args.title, role: args.role };
+    }
+
+    if (existing.role === undefined) {
+      await ctx.db.patch(existing._id, { role: args.role, lastSeenAt: now });
+      return {
+        status: "graduated-dormant",
+        chatId: args.chatId,
+        title: existing.title,
+        role: args.role,
+      };
+    }
+
+    if (existing.role === args.role) {
+      return {
+        status: "already-exists-same-role",
+        chatId: args.chatId,
+        title: existing.title,
+        role: args.role,
+      };
+    }
+
+    throw new ConvexError(
+      `Chat ${args.chatId} already registered with role '${existing.role}'. Use /admin/telegram-chats to reassign.`,
+    );
+  },
+});
