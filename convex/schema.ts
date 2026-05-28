@@ -453,6 +453,31 @@ export default defineSchema({
   })
     .index("by_update_id", ["updateId"]),
 
+  // Phase 85: registry of Telegram chats the bot can deliver to. One row per chat;
+  // role assignment is gated in /admin/telegram-chats. See chatRegistry.ts.
+  telegramChats: defineTable({
+    chatId: v.string(),
+    chatType: v.union(
+      v.literal("private"),
+      v.literal("group"),
+      v.literal("supergroup"),
+    ),
+    title: v.string(),
+    // Role is open string at schema level; validated against KNOWN_TELEGRAM_ROLES
+    // in app code via isKnownTelegramRole (see convex/telegram/config.ts).
+    role: v.optional(v.string()),
+    registeredBy: v.optional(v.number()),
+    registeredAt: v.number(),
+    lastSeenAt: v.number(),
+    archivedAt: v.optional(v.number()),
+    lastError: v.optional(v.object({
+      at: v.number(),
+      message: v.string(), // truncated to 200 chars; trailing "…" if truncated
+    })),
+  })
+    .index("by_chatId", ["chatId"])
+    .index("by_role_archived", ["role", "archivedAt"]),
+
   // ============================================
   // PRD-4: AUTHENTICATION TABLES
   // ============================================
