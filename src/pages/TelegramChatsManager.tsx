@@ -84,7 +84,10 @@ export function TelegramChatsManager() {
   const [reassignTarget, setReassignTarget] = useState<{
     chatId: string; role: string; currentHolderTitle: string;
   } | null>(null);
-  const [testPreviewChatId, setTestPreviewChatId] = useState<string | null>(null);
+  // Capture the preview WIB time when the dialog opens (not from mount-time
+  // `now`) so it matches the time the backend stamps at send.
+  const [testPreview, setTestPreview] = useState<{ chatId: string; wibTime: string } | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<string | null>(null);
 
   const chats = useTelegramChats(showArchived);
   const assignRole = useAssignRole();
@@ -99,7 +102,7 @@ export function TelegramChatsManager() {
     return chats.filter(
       (c) =>
         c.title.toLowerCase().includes(q) ||
-        (c.role && c.role.toLowerCase() === q),
+        (c.role && c.role.toLowerCase().includes(q)),
     );
   }, [chats, search]);
 
@@ -122,15 +125,21 @@ export function TelegramChatsManager() {
 
   async function handleRoleChange(row: ChatRow, value: string) {
     const newRole = value === "_none" ? null : value;
-    if (newRole === null || newRole === row.role) {
+    // No-op: the chat already holds this value (incl. None→None). Avoid a
+    // spurious mutation + misleading toast.
+    if (newRole === (row.role ?? null)) return;
+    if (newRole === null) {
       try {
-        await assignRole({ chatId: row.chatId, role: newRole });
-        toast.success("Role updated");
+        await assignRole({ chatId: row.chatId, role: null });
+        toast.success("Role cleared");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to update role");
+        toast.error(err instanceof Error ? err.message : "Failed to clear role");
       }
       return;
     }
+    // Display-only conflict check from already-fetched data — surfaces the
+    // reassign dialog. NOT the enforcement point: assignRole re-resolves the
+    // current holder atomically server-side (forceReassign).
     const holder = chats?.find(
       (c) => c.role === newRole && c.archivedAt === undefined && c.chatId !== row.chatId,
     );
@@ -180,10 +189,17 @@ export function TelegramChatsManager() {
     }
   }
 
+  async function confirmArchive() {
+    if (!archiveTarget) return;
+    const chatId = archiveTarget;
+    setArchiveTarget(null);
+    await handleArchive(chatId);
+  }
+
   async function confirmTestSend() {
-    if (!testPreviewChatId) return;
-    const chatId = testPreviewChatId;
-    setTestPreviewChatId(null);
+    if (!testPreview) return;
+    const { chatId } = testPreview;
+    setTestPreview(null);
     try {
       await sendTest(chatId);
       toast.success("Test message sent");
@@ -261,11 +277,20 @@ export function TelegramChatsManager() {
                             <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => setTestPreviewChatId(row.chatId)}>
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setTestPreview({
+                                  chatId: row.chatId,
+                                  wibTime: new Date(Date.now() + 7 * 60 * 60 * 1000)
+                                    .toISOString()
+                                    .slice(11, 19),
+                                })
+                              }
+                            >
                               <Send className="mr-2 h-4 w-4" /> Test send
                             </DropdownMenuItem>
                             {row.archivedAt === undefined ? (
-                              <DropdownMenuItem onSelect={() => void handleArchive(row.chatId)}>
+                              <DropdownMenuItem onSelect={() => setArchiveTarget(row.chatId)}>
                                 <Archive className="mr-2 h-4 w-4" /> Archive
                               </DropdownMenuItem>
                             ) : (
@@ -317,21 +342,37 @@ export function TelegramChatsManager() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={testPreviewChatId !== null} onOpenChange={(o) => !o && setTestPreviewChatId(null)}>
+      <AlertDialog open={testPreview !== null} onOpenChange={(o) => !o && setTestPreview(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Send test message?</AlertDialogTitle>
             <AlertDialogDescription>This message will be sent to the Telegram chat:</AlertDialogDescription>
           </AlertDialogHeader>
           <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 p-4 text-sm">
-            {TEST_MESSAGE_PREVIEW(
-              new Date(now + 7 * 60 * 60 * 1000).toISOString().slice(11, 19),
-            )}
+            {testPreview && TEST_MESSAGE_PREVIEW(testPreview.wibTime)}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void confirmTestSend()}>
               Send to Telegram
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Archive confirmation — destructive (clears role + stops cron delivery). */}
+      <AlertDialog open={archiveTarget !== null} onOpenChange={(o) => !o && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cron jobs and tests will stop delivering here. You can restore later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmArchive()}>
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
