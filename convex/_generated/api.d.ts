@@ -265,6 +265,8 @@ import type * as telegram_chatRegistry from "../telegram/chatRegistry.js";
 import type * as telegram_config from "../telegram/config.js";
 import type * as telegram_packListFormat from "../telegram/packListFormat.js";
 import type * as telegram_queries_packListQuery from "../telegram/queries/packListQuery.js";
+import type * as telegram_salesSummary_range from "../telegram/salesSummary/range.js";
+import type * as telegram_salesSummary_salesSummaryQuery from "../telegram/salesSummary/salesSummaryQuery.js";
 import type * as telegram_sendPackList from "../telegram/sendPackList.js";
 import type * as telegram_webhook from "../telegram/webhook.js";
 import type * as vouchers_mutations from "../vouchers/mutations.js";
@@ -536,6 +538,8 @@ declare const fullApi: ApiFromModules<{
   "telegram/config": typeof telegram_config;
   "telegram/packListFormat": typeof telegram_packListFormat;
   "telegram/queries/packListQuery": typeof telegram_queries_packListQuery;
+  "telegram/salesSummary/range": typeof telegram_salesSummary_range;
+  "telegram/salesSummary/salesSummaryQuery": typeof telegram_salesSummary_salesSummaryQuery;
   "telegram/sendPackList": typeof telegram_sendPackList;
   "telegram/webhook": typeof telegram_webhook;
   "vouchers/mutations": typeof vouchers_mutations;
