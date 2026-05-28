@@ -22,8 +22,8 @@ After merging any code change, add a new entry with:
 
 #### Added
 - `convex/telegram/salesSummary/range.ts` — cadence-to-WIB date-range helper (daily / weekly / monthly), pure function.
-- `convex/telegram/salesSummary/salesSummaryQuery.ts` — `getSalesSummaryData` internalQuery; aggregates gross revenue and per-SKU counts by channel (GoFood per outlet, K3Mart, Direct) for a WIB date range; computes weekly and monthly period-over-period deltas; excludes non-sales and return rows.
-- `convex/telegram/salesSummary/salesSummaryFormat.ts` — pure formatter: `SalesSummaryData → string[]` Telegram HTML, channel sections, delta badges (▲/▼/→), chunked to 4096-char limit.
+- `convex/telegram/salesSummary/salesSummaryQuery.ts` — `getSalesSummary` internalQuery; aggregates gross revenue and per-SKU counts by channel (GoFood per outlet, K3Mart, Direct) for a WIB date range; computes weekly and monthly period-over-period deltas; excludes non-sales and return rows.
+- `convex/telegram/salesSummary/salesSummaryFormat.ts` — pure formatter: `SalesSummaryData → string[]` Telegram HTML, channel sections, delta badges (▲/▼, null deltas render empty), 4000-char chunk budget (under Telegram's 4096 limit).
 - `convex/telegram/salesSummary/sendSalesSummary.ts` — orchestrator internalAction: best-effort GoFood/K3Mart/Internal data refresh, then query + format + send to the `sales-updates` Telegram role.
 - `convex/crons.ts` — three new crons: `sales summary daily` (23:00 WIB = 16:00 UTC), `sales summary weekly` (Mon 07:00 WIB = Mon 00:00 UTC), `sales summary monthly` (1st of month 08:00 WIB = 1st 01:00 UTC).
 
@@ -35,9 +35,9 @@ After merging any code change, add a new entry with:
 - Operator step: assign a Telegram group to the `sales-updates` role via `/admin/telegram-chats`. Until assigned, the crons fire but silently no-op (no delivery destination).
 
 #### Plan / Spec / Docs
-- Spec: `docs/superpowers/specs/2026-05-28-sales-updates-bot-spec.md`
-- Plan: `docs/superpowers/plans/2026-05-28-sales-updates-bot-plan.md`
-- Plan-stage staffreview: `docs/reviews/staffreview-sales-updates-bot-plan-2026-05-28.md`
+- Spec: `docs/superpowers/specs/2026-05-28-sales-updates-telegram-bot-design.md`
+- Plan: `docs/superpowers/plans/2026-05-28-sales-updates-telegram-bot.md`
+- Plan-stage staffreview: `docs/reviews/staffreview-sales-updates-telegram-bot-2026-05-28.md`
 
 ---
 

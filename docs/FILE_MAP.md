@@ -116,8 +116,8 @@ Self-registration + role-based multi-chat routing. Replaces the single `TELEGRAM
 Daily/weekly/monthly sales round-ups posted to a Telegram group via the Phase 85 role-based registry (`sales-updates` role). No frontend code, no schema change.
 
 - **Backend (orchestrator):** `convex/telegram/salesSummary/sendSalesSummary.ts` (internalAction — best-effort data refresh then query + format + send to `sales-updates` role)
-- **Backend (query):** `convex/telegram/salesSummary/salesSummaryQuery.ts` (`getSalesSummaryData` internalQuery — gross revenue + per-SKU by channel/outlet, period-over-period deltas, excludes non-sales/return rows)
-- **Backend (formatter):** `convex/telegram/salesSummary/salesSummaryFormat.ts` (pure formatter: `SalesSummaryData → string[]` Telegram HTML, delta badges, 4096-char chunking)
+- **Backend (query):** `convex/telegram/salesSummary/salesSummaryQuery.ts` (`getSalesSummary` internalQuery — gross revenue + per-SKU by channel/outlet, period-over-period deltas, excludes non-sales/return rows)
+- **Backend (formatter):** `convex/telegram/salesSummary/salesSummaryFormat.ts` (pure formatter: `SalesSummaryData → string[]` Telegram HTML, delta badges ▲/▼, 4000-char chunk budget (under Telegram's 4096 limit))
 - **Backend (helper):** `convex/telegram/salesSummary/range.ts` (cadence → WIB date-range, pure function)
 - **Crons:** `convex/crons.ts` — `sales summary daily` (23:00 WIB = 16:00 UTC), `sales summary weekly` (Mon 07:00 WIB = Mon 00:00 UTC), `sales summary monthly` (1st 08:00 WIB = 1st 01:00 UTC). **Removed:** `bigseller nightly 7d resync` (BigSeller now refreshed on-demand / via daily trigger).
 - **Tests:** `convex/telegram/salesSummary/__tests__/{range,salesSummaryQuery,salesSummaryFormat}.test.ts`
