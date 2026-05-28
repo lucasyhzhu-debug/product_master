@@ -18,7 +18,7 @@ After merging any code change, add a new entry with:
 
 ### Sales-updates Telegram bot (daily/weekly/monthly) — 2026-05-29
 
-**For the team:** Frollie now posts automated sales round-ups to a Telegram group. A daily summary fires at 23:00 WIB showing gross revenue and per-SKU breakdown by channel (GoFood per outlet, K3Mart, Direct) with a comparison to the same day last week. A weekly recap posts Monday 07:00 WIB (vs. prior week), and a monthly recap posts on the 1st at 08:00 WIB (vs. prior month). All three use the Phase 85 role-based registry — no env vars, just assign a Telegram group to the `sales-updates` role in `/admin/telegram-chats`.
+**For the team:** Frollie now posts automated sales round-ups to a Telegram group. A daily snapshot fires at 23:00 WIB showing gross revenue and per-SKU breakdown by channel (GoFood per outlet, K3Mart, Direct) — end-of-day totals, no trend comparison. A weekly recap posts Monday 07:00 WIB (vs. prior week) and a monthly recap posts on the 1st at 08:00 WIB (vs. prior month) — those two include ▲/▼ delta badges. All three use the Phase 85 role-based registry — no env vars, just assign a Telegram group to the `sales-updates` role in `/admin/telegram-chats`.
 
 #### Added
 - `convex/telegram/salesSummary/range.ts` — cadence-to-WIB date-range helper (daily / weekly / monthly), pure function.
@@ -28,7 +28,7 @@ After merging any code change, add a new entry with:
 - `convex/crons.ts` — three new crons: `sales summary daily` (23:00 WIB = 16:00 UTC), `sales summary weekly` (Mon 07:00 WIB = Mon 00:00 UTC), `sales summary monthly` (1st of month 08:00 WIB = 1st 01:00 UTC).
 
 #### Changed / Removed
-- `convex/crons.ts` — removed `bigseller nightly 7d resync` cron; BigSeller is now refreshed on-demand or via the daily sales-summary trigger (Shopee/TikTok are out of summary scope).
+- `convex/crons.ts` — removed `bigseller nightly 7d resync` cron. `nightlySync` (BigSeller/Shopee) has no scheduled trigger and is now on-demand only (manual invocation from the Convex dashboard or the BigSeller sync UI). This retires Phase 79's DA-12 automatic trailing-7-day Shopee backfill (the same-day row self-heal that previously ran nightly). Operators who rely on that auto-backfill should now trigger `nightlySync` manually or schedule it externally.
 
 #### Migration / Operational
 - No schema change.
