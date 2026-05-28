@@ -1,8 +1,4 @@
 // convex/telegram/salesSummary/sendSalesSummary.ts
-"use node";
-
-declare const process: { env: Record<string, string | undefined> };
-
 import { v } from "convex/values";
 import { internalAction } from "../../_generated/server";
 import { api, internal } from "../../_generated/api";
