@@ -260,6 +260,7 @@ import type * as staffAttendance_mutations from "../staffAttendance/mutations.js
 import type * as staffAttendance_queries from "../staffAttendance/queries.js";
 import type * as storageLocations_mutations from "../storageLocations/mutations.js";
 import type * as storageLocations_queries from "../storageLocations/queries.js";
+import type * as telegram___tests___testHelpers from "../telegram/__tests__/testHelpers.js";
 import type * as telegram_chatRegistry from "../telegram/chatRegistry.js";
 import type * as telegram_config from "../telegram/config.js";
 import type * as telegram_packListFormat from "../telegram/packListFormat.js";
@@ -530,6 +531,7 @@ declare const fullApi: ApiFromModules<{
   "staffAttendance/queries": typeof staffAttendance_queries;
   "storageLocations/mutations": typeof storageLocations_mutations;
   "storageLocations/queries": typeof storageLocations_queries;
+  "telegram/__tests__/testHelpers": typeof telegram___tests___testHelpers;
   "telegram/chatRegistry": typeof telegram_chatRegistry;
   "telegram/config": typeof telegram_config;
   "telegram/packListFormat": typeof telegram_packListFormat;

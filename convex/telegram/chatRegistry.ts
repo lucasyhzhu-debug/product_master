@@ -203,3 +203,136 @@ export const replyStartHelp = internalAction({
     );
   },
 });
+
+// ─── listChats ───────────────────────────────────────────────────────────────
+
+/**
+ * Public-protected query for the admin UI. Returns all rows (filtered client
+ * side by includeArchived flag); table is bounded <100 rows so .collect() is
+ * cheap. Index lookup on archivedAt alone is unsafe (undefined sorts BEFORE
+ * defined values — CLAUDE.md MEMORY).
+ */
+export const listChats = query({
+  args: { token: v.string(), includeArchived: v.boolean() },
+  handler: async (ctx, args): Promise<Doc<"telegramChats">[]> => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const all = await ctx.db.query("telegramChats").collect();
+    if (args.includeArchived) return all;
+    return all.filter((r) => r.archivedAt === undefined);
+  },
+});
+
+// ─── assignRole ──────────────────────────────────────────────────────────────
+
+/**
+ * Set, clear, or reassign a chat's role. Two backend guards (spec
+ * §"Backend validation invariants"):
+ *   1. chatId existence — throws if no row.
+ *   2. role allowlist — throws if role not in KNOWN_TELEGRAM_ROLES.
+ *
+ * Reassignment atomicity: if `forceReassign === true` AND another chat already
+ * holds the requested role, BOTH writes happen in this single mutation (Convex
+ * serializes on the read set, so no observer sees neither-holder or both-holder).
+ */
+export const assignRole = mutation({
+  args: {
+    token: v.string(),
+    chatId: v.string(),
+    role: v.union(v.string(), v.null()),
+    forceReassign: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+
+    // Guard 2: role allowlist (only when assigning, not clearing)
+    if (args.role !== null) {
+      if (!isKnownTelegramRole(args.role)) {
+        throw new ConvexError(
+          `Unknown telegram role: '${args.role}'. Must be one of: ${KNOWN_TELEGRAM_ROLES.join(", ")}`,
+        );
+      }
+    }
+
+    // Guard 1: target chat exists
+    const target = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    if (!target) {
+      throw new ConvexError(`No registered Telegram chat with id '${args.chatId}'`);
+    }
+
+    // Clearing path — allowed even on archived rows (idempotent no-op cleanup).
+    if (args.role === null) {
+      await ctx.db.patch(target._id, { role: undefined });
+      return;
+    }
+
+    // Guard 3 (edge case): never ASSIGN a role to an archived chat. getChatIdByRole
+    // skips archived rows, so the role would be "assigned" but never resolve —
+    // a silent dead-end. Force the admin to restore first.
+    if (target.archivedAt !== undefined) {
+      throw new ConvexError(
+        `Cannot assign a role to an archived chat ('${args.chatId}'). Restore it first.`,
+      );
+    }
+
+    // Find current holder (if any) of this role (active rows only)
+    const currentHolder = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_role_archived", (q) =>
+        q.eq("role", args.role!).eq("archivedAt", undefined),
+      )
+      .first();
+
+    if (currentHolder && currentHolder._id !== target._id) {
+      if (!args.forceReassign) {
+        throw new ConvexError(
+          `Role '${args.role}' already held by chat '${currentHolder.chatId}'. Pass forceReassign: true to override.`,
+        );
+      }
+      // Atomic reassignment in one mutation
+      await ctx.db.patch(currentHolder._id, { role: undefined });
+    }
+    await ctx.db.patch(target._id, { role: args.role });
+  },
+});
+
+// ─── archiveChat ─────────────────────────────────────────────────────────────
+
+/**
+ * Soft delete: set archivedAt AND clear role atomically. Clearing role
+ * prevents archived rows from holding role uniqueness slots, so a new chat
+ * can claim the role immediately after archive.
+ */
+export const archiveChat = mutation({
+  args: { token: v.string(), chatId: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    if (!row) {
+      throw new ConvexError(`No registered Telegram chat with id '${args.chatId}'`);
+    }
+    await ctx.db.patch(row._id, { archivedAt: Date.now(), role: undefined });
+  },
+});
+
+// ─── restoreChat ─────────────────────────────────────────────────────────────
+
+export const restoreChat = mutation({
+  args: { token: v.string(), chatId: v.string() },
+  handler: async (ctx, args) => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    if (!row) {
+      throw new ConvexError(`No registered Telegram chat with id '${args.chatId}'`);
+    }
+    await ctx.db.patch(row._id, { archivedAt: undefined });
+  },
+});
