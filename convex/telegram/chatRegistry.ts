@@ -193,7 +193,7 @@ export const upsertChatRow = internalMutation({
  */
 export const replyStartHelp = internalAction({
   args: { chatId: v.string() },
-  handler: async (ctx, args): Promise<void> => {
+  handler: async (_ctx, args): Promise<void> => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) throw new Error("TELEGRAM_BOT_TOKEN missing");
     await sendTelegramHtml(
