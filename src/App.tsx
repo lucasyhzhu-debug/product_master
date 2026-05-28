@@ -171,6 +171,11 @@ const ChannelAuditWorkbench = lazyWithPreload(() =>
 );
 // END 74.5.1 ROUTES — lazy imports
 
+// Phase 85: /admin/telegram-chats — Telegram chat registry
+const TelegramChatsManager = lazyWithPreload(() =>
+  import('./pages/TelegramChatsManager').then(m => ({ default: m.TelegramChatsManager }))
+);
+
 function App() {
   return (
     <TooltipProvider>
@@ -524,6 +529,16 @@ function App() {
                     }
                   />
                   {/* END 74.5.1 ROUTES */}
+
+                  {/* Phase 85: /admin/telegram-chats — Telegram chat registry */}
+                  <Route
+                    path="admin/telegram-chats"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessTelegramChats">
+                        <TelegramChatsManager />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* Asset Register (manager + admin, Phase 60) */}
                   <Route
