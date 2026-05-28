@@ -35,7 +35,6 @@ function pctDelta(cur: number, prev: number): number | null {
 }
 
 const IN_SCOPE_SOURCES = ["gobiz", "k3mart", "internal"] as const;
-type InScopeSource = (typeof IN_SCOPE_SOURCES)[number];
 
 // Pull in-range externalRevenue for the 3 in-scope sources via the compound
 // by_source_period index — reads ONLY these sources, not the

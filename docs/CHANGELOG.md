@@ -16,6 +16,31 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Sales-updates Telegram bot (daily/weekly/monthly) — 2026-05-29
+
+**For the team:** Frollie now posts automated sales round-ups to a Telegram group. A daily summary fires at 23:00 WIB showing gross revenue and per-SKU breakdown by channel (GoFood per outlet, K3Mart, Direct) with a comparison to the same day last week. A weekly recap posts Monday 07:00 WIB (vs. prior week), and a monthly recap posts on the 1st at 08:00 WIB (vs. prior month). All three use the Phase 85 role-based registry — no env vars, just assign a Telegram group to the `sales-updates` role in `/admin/telegram-chats`.
+
+#### Added
+- `convex/telegram/salesSummary/range.ts` — cadence-to-WIB date-range helper (daily / weekly / monthly), pure function.
+- `convex/telegram/salesSummary/salesSummaryQuery.ts` — `getSalesSummaryData` internalQuery; aggregates gross revenue and per-SKU counts by channel (GoFood per outlet, K3Mart, Direct) for a WIB date range; computes weekly and monthly period-over-period deltas; excludes non-sales and return rows.
+- `convex/telegram/salesSummary/salesSummaryFormat.ts` — pure formatter: `SalesSummaryData → string[]` Telegram HTML, channel sections, delta badges (▲/▼/→), chunked to 4096-char limit.
+- `convex/telegram/salesSummary/sendSalesSummary.ts` — orchestrator internalAction: best-effort GoFood/K3Mart/Internal data refresh, then query + format + send to the `sales-updates` Telegram role.
+- `convex/crons.ts` — three new crons: `sales summary daily` (23:00 WIB = 16:00 UTC), `sales summary weekly` (Mon 07:00 WIB = Mon 00:00 UTC), `sales summary monthly` (1st of month 08:00 WIB = 1st 01:00 UTC).
+
+#### Changed / Removed
+- `convex/crons.ts` — removed `bigseller nightly 7d resync` cron; BigSeller is now refreshed on-demand or via the daily sales-summary trigger (Shopee/TikTok are out of summary scope).
+
+#### Migration / Operational
+- No schema change.
+- Operator step: assign a Telegram group to the `sales-updates` role via `/admin/telegram-chats`. Until assigned, the crons fire but silently no-op (no delivery destination).
+
+#### Plan / Spec / Docs
+- Spec: `docs/superpowers/specs/2026-05-28-sales-updates-bot-spec.md`
+- Plan: `docs/superpowers/plans/2026-05-28-sales-updates-bot-plan.md`
+- Plan-stage staffreview: `docs/reviews/staffreview-sales-updates-bot-plan-2026-05-28.md`
+
+---
+
 ### Phase 85: Telegram self-registration & multi-chat routing — 2026-05-28
 
 **For the team:** Adding FrollieProBot to a new Telegram group no longer needs a developer running `curl getUpdates` to fish out a chat ID. Add the bot to any group, type `/register@FrollieProBot`, and the chat appears in a new admin page where a manager assigns it a role (e.g. "pack-list", "sales-updates"). The pack-list bot now resolves where to deliver by that role at send time, so we can route different message types to different groups without touching env vars. The admin page also shows which chats are live vs dormant, when each was last seen, and any error the bot last hit, with a one-click test-send to confirm wiring.

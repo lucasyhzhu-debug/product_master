@@ -108,3 +108,17 @@ Self-registration + role-based multi-chat routing. Replaces the single `TELEGRAM
 - **Route:** `/admin/telegram-chats` (lazy, `<ProtectedRoute requiredPermission="canAccessTelegramChats">`)
 - **Env vars:** new `TELEGRAM_FALLBACK_ROLE` (set to `pack-list` during migration window); existing `TELEGRAM_CHAT_ID` retained as fallback until cutover.
 - **Permission:** `canAccessTelegramChats` (`src/lib/types.ts`) — manager + admin. Backend write mutations/actions use `requireRole(ctx, token, ["manager", "admin"])` (symmetric per Pitfall #19).
+
+---
+
+## Telegram sales-updates bot (2026-05-29)
+
+Daily/weekly/monthly sales round-ups posted to a Telegram group via the Phase 85 role-based registry (`sales-updates` role). No frontend code, no schema change.
+
+- **Backend (orchestrator):** `convex/telegram/salesSummary/sendSalesSummary.ts` (internalAction — best-effort data refresh then query + format + send to `sales-updates` role)
+- **Backend (query):** `convex/telegram/salesSummary/salesSummaryQuery.ts` (`getSalesSummaryData` internalQuery — gross revenue + per-SKU by channel/outlet, period-over-period deltas, excludes non-sales/return rows)
+- **Backend (formatter):** `convex/telegram/salesSummary/salesSummaryFormat.ts` (pure formatter: `SalesSummaryData → string[]` Telegram HTML, delta badges, 4096-char chunking)
+- **Backend (helper):** `convex/telegram/salesSummary/range.ts` (cadence → WIB date-range, pure function)
+- **Crons:** `convex/crons.ts` — `sales summary daily` (23:00 WIB = 16:00 UTC), `sales summary weekly` (Mon 07:00 WIB = Mon 00:00 UTC), `sales summary monthly` (1st 08:00 WIB = 1st 01:00 UTC). **Removed:** `bigseller nightly 7d resync` (BigSeller now refreshed on-demand / via daily trigger).
+- **Tests:** `convex/telegram/salesSummary/__tests__/{range,salesSummaryQuery,salesSummaryFormat}.test.ts`
+- **Operator step:** assign a Telegram group to the `sales-updates` role via `/admin/telegram-chats` (Phase 85 registry — no env vars needed).
