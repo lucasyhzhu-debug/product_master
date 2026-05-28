@@ -28,6 +28,7 @@ import {
   KNOWN_TELEGRAM_ROLES,
   isKnownTelegramRole,
   TELEGRAM_ADMIN_URL,
+  TELEGRAM_BOT_USERNAME,
 } from "./config";
 import type { Doc } from "../_generated/dataModel";
 
@@ -199,13 +200,16 @@ export const replyStartHelp = internalAction({
     await sendTelegramHtml(
       token,
       args.chatId,
-      `Hi! I'm FrollieProBot. Send /register@FrollieProBot to register this chat.`,
+      `Hi! I'm ${TELEGRAM_BOT_USERNAME}. Send /register@${TELEGRAM_BOT_USERNAME} to register this chat.`,
     );
   },
 });
 
 // ─── listChats ───────────────────────────────────────────────────────────────
 
+// Auth: explicit `token` arg + requireRole (the QRIS pattern), NOT useSessionQuery
+// (which injects sessionId, not token). Spec's API table said useSessionQuery;
+// resolved during plan revision — see plan §"Auth pattern".
 /**
  * Public-protected query for the admin UI. Returns all rows (filtered client
  * side by includeArchived flag); table is bounded <100 rows so .collect() is
@@ -357,10 +361,13 @@ export const sendTestMessage = action({
 
     const wibTime = new Date(Date.now() + 7 * 60 * 60 * 1000)
       .toISOString().slice(11, 19); // HH:MM:SS in WIB
-    const text = `🧪 Test from FrollieProBot — wiring works! Sent at ${wibTime} WIB.`;
+    const text = `🧪 Test from ${TELEGRAM_BOT_USERNAME} — wiring works! Sent at ${wibTime} WIB.`;
 
     try {
       await sendTelegramHtml(botToken, args.chatId, text);
+      await ctx.runMutation(internal.telegram.chatRegistry.clearLastError, {
+        chatId: args.chatId,
+      });
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       const message = raw.length > 200 ? raw.slice(0, 199) + "…" : raw;
@@ -409,6 +416,23 @@ export const recordLastError = internalMutation({
     await ctx.db.patch(row._id, {
       lastError: { at: Date.now(), message: args.message },
     });
+  },
+});
+
+/**
+ * @internal Implementation detail of `sendTestMessage` — do not call externally.
+ * Clears `lastError` after a successful send so the UI's "Error" badge (24h
+ * freshness window) doesn't persist past a recovery.
+ */
+export const clearLastError = internalMutation({
+  args: { chatId: v.string() },
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    if (!row || row.lastError === undefined) return;
+    await ctx.db.patch(row._id, { lastError: undefined });
   },
 });
 

@@ -45,9 +45,12 @@ interface TelegramUpdate {
  * (Pattern from convex/integrations/qris/webhooks.ts:18-24.)
  */
 function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  const len = Math.max(a.length, b.length);
+  let mismatch = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < len; i++) {
+    // charCodeAt past the end is NaN; (NaN || 0) === 0 keeps the XOR well-defined.
+    mismatch |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
   return mismatch === 0;
 }
 

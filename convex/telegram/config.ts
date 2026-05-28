@@ -21,3 +21,10 @@ export function isKnownTelegramRole(s: string): s is TelegramRole {
  * Frollie hardcodes the prod URL; OSS-starter consumers read from env.
  */
 export const TELEGRAM_ADMIN_URL = "https://recipe.frollie.com/admin/telegram-chats";
+
+/**
+ * Bot username (without @). Used in the /start help reply and test-send message.
+ * Frollie hardcodes it here; OSS-starter consumers read from env. Keeping it in
+ * config.ts (not chatRegistry.ts) preserves the "chatRegistry ships verbatim" claim.
+ */
+export const TELEGRAM_BOT_USERNAME = "FrollieProBot";

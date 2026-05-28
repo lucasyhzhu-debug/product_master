@@ -427,6 +427,39 @@ describe("sendTestMessage (spec case #18)", () => {
     expect(row?.lastError?.message.length).toBe(200);
     expect(row?.lastError?.message.endsWith("…")).toBe(true);
   });
+
+  it("clears lastError on successful send (recovery clears stale error badge)", async () => {
+    const t = convexTest(schema, modules);
+    const token = await seedAdminSession(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "T3", chatType: "group", title: "Test",
+        lastError: { at: 123, message: "old error" },
+        registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    global.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), {
+        status: 200,
+      }),
+    ) as unknown as typeof fetch;
+    await t.action(api.telegram.chatRegistry.sendTestMessage, {
+      token, chatId: "T3",
+    } as any);
+    const row = await t.run(async (ctx) =>
+      ctx.db.query("telegramChats").withIndex("by_chatId", (q) => q.eq("chatId", "T3")).unique());
+    expect(row?.lastError).toBeUndefined();
+  });
+
+  it("rejects missing chatId with descriptive error", async () => {
+    const t = convexTest(schema, modules);
+    const token = await seedAdminSession(t);
+    await expect(
+      t.action(api.telegram.chatRegistry.sendTestMessage, {
+        token, chatId: "GHOST",
+      } as any),
+    ).rejects.toThrow(/No registered Telegram chat/);
+  });
 });
 
 describe("seedChatFromEnv (spec cases #8, #9, #10)", () => {
