@@ -73,6 +73,11 @@ export async function decideWebhookOutcome(input: {
     return { status: 401, body: "unauthorized" };
   }
 
+  // Best-effort lastSeen stamp — non-critical, never blocks the 200 ACK.
+  const tryTouch = async (chatId: string) => {
+    try { await input.deps.touchLastSeen(chatId); } catch { /* best-effort — lastSeen is non-critical */ }
+  };
+
   // Validate envelope.
   const updateId = input.body.update_id;
   const msg = input.body.message;
@@ -86,7 +91,7 @@ export async function decideWebhookOutcome(input: {
   const text = msg.text;
   if (typeof text !== "string") {
     // Non-text update (sticker, photo, etc.) — best-effort touch, no dedupe.
-    try { await input.deps.touchLastSeen(chatIdStr); } catch { /* best-effort — lastSeen is non-critical */ }
+    await tryTouch(chatIdStr);
     return { status: 200, body: "ok" };
   }
 
@@ -99,7 +104,7 @@ export async function decideWebhookOutcome(input: {
       return { status: 200, body: "ok" };
     }
     // Regular non-command text → best-effort lastSeen stamp (NOT deduped by update_id).
-    try { await input.deps.touchLastSeen(chatIdStr); } catch { /* best-effort — lastSeen is non-critical */ }
+    await tryTouch(chatIdStr);
     return { status: 200, body: "ok" };
   }
 

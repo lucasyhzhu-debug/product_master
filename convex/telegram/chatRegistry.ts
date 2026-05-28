@@ -24,6 +24,7 @@ import {
 import { internal } from "../_generated/api";
 import { requireRole } from "../lib/auth";
 import { sendTelegramHtml, escapeHtml } from "../lib/telegramHtml";
+import { WIB_OFFSET_MS } from "../lib/periodRange";
 import {
   KNOWN_TELEGRAM_ROLES,
   isKnownTelegramRole,
@@ -31,6 +32,19 @@ import {
   TELEGRAM_BOT_USERNAME,
 } from "./config";
 import type { Doc } from "../_generated/dataModel";
+
+/**
+ * Throws ConvexError if `role` is not in KNOWN_TELEGRAM_ROLES. Shared by
+ * assignRole, seedChatFromEnv, and seedFromEnvWrite so the allowlist message
+ * has a single source (each call site keeps its own defense-in-depth check).
+ */
+function assertKnownRole(role: string): void {
+  if (!isKnownTelegramRole(role)) {
+    throw new ConvexError(
+      `Unknown telegram role: '${role}'. Must be one of: ${KNOWN_TELEGRAM_ROLES.join(", ")}`,
+    );
+  }
+}
 
 // ─── parseCommand ────────────────────────────────────────────────────────────
 
@@ -249,13 +263,7 @@ export const assignRole = mutation({
     await requireRole(ctx, args.token, ["manager", "admin"]);
 
     // Guard 2: role allowlist (only when assigning, not clearing)
-    if (args.role !== null) {
-      if (!isKnownTelegramRole(args.role)) {
-        throw new ConvexError(
-          `Unknown telegram role: '${args.role}'. Must be one of: ${KNOWN_TELEGRAM_ROLES.join(", ")}`,
-        );
-      }
-    }
+    if (args.role !== null) assertKnownRole(args.role);
 
     // Guard 1: target chat exists
     const target = await ctx.db
@@ -359,7 +367,7 @@ export const sendTestMessage = action({
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
 
-    const wibTime = new Date(Date.now() + 7 * 60 * 60 * 1000)
+    const wibTime = new Date(Date.now() + WIB_OFFSET_MS)
       .toISOString().slice(11, 19); // HH:MM:SS in WIB
     const text = `🧪 Test from ${TELEGRAM_BOT_USERNAME} — wiring works! Sent at ${wibTime} WIB.`;
 
@@ -452,11 +460,7 @@ export const seedChatFromEnv = internalAction({
   args: { role: v.string() },
   handler: async (ctx, args): Promise<SeedResult> => {
     // 1. Validate role
-    if (!isKnownTelegramRole(args.role)) {
-      throw new ConvexError(
-        `Unknown telegram role: '${args.role}'. Must be one of: ${KNOWN_TELEGRAM_ROLES.join(", ")}`,
-      );
-    }
+    assertKnownRole(args.role);
     // 2. Env presence
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -504,11 +508,7 @@ export const seedFromEnvWrite = internalMutation({
     role: v.string(),
   },
   handler: async (ctx, args): Promise<SeedResult> => {
-    if (!isKnownTelegramRole(args.role)) {
-      throw new ConvexError(
-        `Unknown telegram role: '${args.role}'. Must be one of: ${KNOWN_TELEGRAM_ROLES.join(", ")}`,
-      );
-    }
+    assertKnownRole(args.role);
     const now = Date.now();
     const existing = await ctx.db
       .query("telegramChats")
@@ -528,7 +528,15 @@ export const seedFromEnvWrite = internalMutation({
     }
 
     if (existing.role === undefined) {
-      await ctx.db.patch(existing._id, { role: args.role, lastSeenAt: now });
+      // Graduate a dormant row. Clear archivedAt too: if this chat was archived,
+      // seeding it as the role-holder must reactivate it — otherwise
+      // getChatIdByRole (which skips archived rows) would never resolve it and
+      // delivery would be silently broken despite the "success" return.
+      await ctx.db.patch(existing._id, {
+        role: args.role,
+        lastSeenAt: now,
+        archivedAt: undefined,
+      });
       return {
         status: "graduated-dormant",
         chatId: args.chatId,

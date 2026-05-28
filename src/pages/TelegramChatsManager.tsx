@@ -35,24 +35,14 @@ import { Input } from "@/components/ui/input";
 import {
   useTelegramChats, useAssignRole, useArchiveChat, useRestoreChat, useSendTestMessage,
 } from "@/hooks/convex/useTelegramChats";
-import { formatShortWIB } from "@/lib/dateUtils";
-import { KNOWN_TELEGRAM_ROLES } from "../../convex/telegram/config";
+import { formatShortWIB, WIB_OFFSET_MS } from "@/lib/dateUtils";
+import { KNOWN_TELEGRAM_ROLES, TELEGRAM_BOT_USERNAME } from "../../convex/telegram/config";
+import type { Doc } from "../../convex/_generated/dataModel";
 
 const TEST_MESSAGE_PREVIEW = (wibTime: string) =>
-  `🧪 Test from FrollieProBot — wiring works! Sent at ${wibTime} WIB.`;
+  `🧪 Test from ${TELEGRAM_BOT_USERNAME} — wiring works! Sent at ${wibTime} WIB.`;
 
-type ChatRow = {
-  _id: string;
-  chatId: string;
-  chatType: "private" | "group" | "supergroup";
-  title: string;
-  role?: string;
-  registeredBy?: number;
-  registeredAt: number;
-  lastSeenAt: number;
-  archivedAt?: number;
-  lastError?: { at: number; message: string };
-};
+type ChatRow = Doc<"telegramChats">;
 
 type StatusKey = "archived" | "error" | "live" | "dormant";
 
@@ -120,7 +110,10 @@ export function TelegramChatsManager() {
   }
 
   if (chats.length === 0) {
-    return <EmptyState />;
+    // Pass the toggle so an all-archived registry isn't a dead end: flipping
+    // "Show archived" re-queries with includeArchived → the archived rows
+    // appear in the main table (with Restore), escaping the onboarding view.
+    return <EmptyState showArchived={showArchived} onShowArchivedChange={setShowArchived} />;
   }
 
   async function handleRoleChange(row: ChatRow, value: string) {
@@ -212,7 +205,7 @@ export function TelegramChatsManager() {
     <div className="container mx-auto p-6 space-y-6">
       <PageHeader
         title="Telegram Chats"
-        description="Manage chats where FrollieProBot delivers messages."
+        description={`Manage chats where ${TELEGRAM_BOT_USERNAME} delivers messages.`}
         action={
           <div className="flex items-center gap-2">
             <Switch checked={showArchived} onCheckedChange={setShowArchived} id="show-archived" />
@@ -281,7 +274,7 @@ export function TelegramChatsManager() {
                               onSelect={() =>
                                 setTestPreview({
                                   chatId: row.chatId,
-                                  wibTime: new Date(Date.now() + 7 * 60 * 60 * 1000)
+                                  wibTime: new Date(Date.now() + WIB_OFFSET_MS)
                                     .toISOString()
                                     .slice(11, 19),
                                 })
@@ -381,25 +374,41 @@ export function TelegramChatsManager() {
   );
 }
 
-function EmptyState() {
-  const REGISTER_CMD = "/register@FrollieProBot";
+function EmptyState({
+  showArchived,
+  onShowArchivedChange,
+}: {
+  showArchived: boolean;
+  onShowArchivedChange: (v: boolean) => void;
+}) {
+  const REGISTER_CMD = `/register@${TELEGRAM_BOT_USERNAME}`;
   return (
     <div className="container mx-auto p-6 max-w-2xl">
       <PageHeader
         title="Telegram Chats"
-        description="Manage chats where FrollieProBot delivers messages."
+        description={`Manage chats where ${TELEGRAM_BOT_USERNAME} delivers messages.`}
+        action={
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={showArchived}
+              onCheckedChange={onShowArchivedChange}
+              id="show-archived-empty"
+            />
+            <label htmlFor="show-archived-empty" className="text-sm">Show archived</label>
+          </div>
+        }
       />
       <Card>
         <CardContent className="py-12 text-center space-y-6">
           <div className="inline-block rounded-2xl bg-blue-100 dark:bg-blue-950 p-4 text-2xl">
-            ✈ <span className="text-base">Hi! I'm @FrollieProBot</span>
+            ✈ <span className="text-base">Hi! I'm @{TELEGRAM_BOT_USERNAME}</span>
           </div>
           <div>
             <h3 className="text-lg font-medium">No chats registered yet</h3>
           </div>
           <ol className="text-left max-w-md mx-auto space-y-4">
             <li>
-              <span className="font-medium">1.</span> Add @FrollieProBot to your Telegram group
+              <span className="font-medium">1.</span> Add @{TELEGRAM_BOT_USERNAME} to your Telegram group
             </li>
             <li>
               <span className="font-medium">2.</span> Send{" "}

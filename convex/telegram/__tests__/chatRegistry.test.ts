@@ -537,6 +537,26 @@ describe("seedChatFromEnv (spec cases #8, #9, #10)", () => {
     expect(result).toMatchObject({ status: "graduated-dormant", role: "pack-list" });
   });
 
+  it("graduating an ARCHIVED dormant row clears archivedAt so getChatIdByRole resolves it", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "-100SEED", chatType: "supergroup", title: "Existing",
+        archivedAt: 100, registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    const result = await t.action(internal.telegram.chatRegistry.seedChatFromEnv, {
+      role: "pack-list",
+    });
+    expect(result).toMatchObject({ status: "graduated-dormant", role: "pack-list" });
+    const row = await t.run(async (ctx) =>
+      ctx.db.query("telegramChats").withIndex("by_chatId", (q) => q.eq("chatId", "-100SEED")).unique());
+    expect(row?.archivedAt).toBeUndefined();
+    // And it must now resolve (was silently broken before the fix).
+    const id = await t.query(internal.telegram.chatRegistry.getChatIdByRole, { role: "pack-list" });
+    expect(id).toBe("-100SEED");
+  });
+
   it("status='already-exists-same-role' when existing row has same role (case #10c)", async () => {
     const t = convexTest(schema, modules);
     await t.run(async (ctx) => {
