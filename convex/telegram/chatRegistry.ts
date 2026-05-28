@@ -258,6 +258,10 @@ export const assignRole = mutation({
     chatId: v.string(),
     role: v.union(v.string(), v.null()),
     forceReassign: v.optional(v.boolean()),
+    // When the target is archived, opt into restoring it (clear archivedAt) as
+    // part of the same atomic assign instead of throwing. The admin UI sets this
+    // after a "restore and assign?" confirmation.
+    restoreIfArchived: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["manager", "admin"]);
@@ -280,10 +284,12 @@ export const assignRole = mutation({
       return;
     }
 
-    // Guard 3 (edge case): never ASSIGN a role to an archived chat. getChatIdByRole
-    // skips archived rows, so the role would be "assigned" but never resolve —
-    // a silent dead-end. Force the admin to restore first.
-    if (target.archivedAt !== undefined) {
+    // Guard 3 (edge case): assigning a role to an archived chat is a silent
+    // dead-end (getChatIdByRole skips archived rows) UNLESS the caller opts into
+    // restoring it. With restoreIfArchived we clear archivedAt as part of the
+    // same atomic assign below; without it we still reject.
+    const restoringArchived = target.archivedAt !== undefined;
+    if (restoringArchived && !args.restoreIfArchived) {
       throw new ConvexError(
         `Cannot assign a role to an archived chat ('${args.chatId}'). Restore it first.`,
       );
@@ -306,7 +312,11 @@ export const assignRole = mutation({
       // Atomic reassignment in one mutation
       await ctx.db.patch(currentHolder._id, { role: undefined });
     }
-    await ctx.db.patch(target._id, { role: args.role });
+    // Single atomic write: set role, and un-archive if we were asked to restore.
+    await ctx.db.patch(target._id, {
+      role: args.role,
+      ...(restoringArchived ? { archivedAt: undefined } : {}),
+    });
   },
 });
 

@@ -78,6 +78,9 @@ export function TelegramChatsManager() {
   // `now`) so it matches the time the backend stamps at send.
   const [testPreview, setTestPreview] = useState<{ chatId: string; wibTime: string } | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<string | null>(null);
+  const [restoreAssignTarget, setRestoreAssignTarget] = useState<{
+    chatId: string; role: string;
+  } | null>(null);
 
   const chats = useTelegramChats(showArchived);
   const assignRole = useAssignRole();
@@ -128,6 +131,12 @@ export function TelegramChatsManager() {
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to clear role");
       }
+      return;
+    }
+    // Archived chat → can't hold a role until restored. Confirm, then
+    // restore+assign atomically (backend restoreIfArchived) rather than erroring.
+    if (row.archivedAt !== undefined) {
+      setRestoreAssignTarget({ chatId: row.chatId, role: newRole });
       return;
     }
     // Display-only conflict check from already-fetched data — surfaces the
@@ -187,6 +196,18 @@ export function TelegramChatsManager() {
     const chatId = archiveTarget;
     setArchiveTarget(null);
     await handleArchive(chatId);
+  }
+
+  async function confirmRestoreAssign() {
+    if (!restoreAssignTarget) return;
+    const { chatId, role } = restoreAssignTarget;
+    setRestoreAssignTarget(null);
+    try {
+      await assignRole({ chatId, role, restoreIfArchived: true });
+      toast.success("Chat restored and role assigned");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to restore and assign");
+    }
   }
 
   async function confirmTestSend() {
@@ -366,6 +387,30 @@ export function TelegramChatsManager() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void confirmArchive()}>
               Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restore-and-assign confirmation — archived chats can't hold a role. */}
+      <AlertDialog open={restoreAssignTarget !== null} onOpenChange={(o) => !o && setRestoreAssignTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore and assign role?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {restoreAssignTarget && (
+                <>
+                  This chat is archived. Restore it and assign the role{" "}
+                  <b>{restoreAssignTarget.role}</b>? Cron jobs and tests will start
+                  delivering here again.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmRestoreAssign()}>
+              Restore &amp; assign
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

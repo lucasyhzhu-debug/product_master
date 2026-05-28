@@ -223,6 +223,42 @@ describe("TelegramChatsManager reassignment dialog (spec case #21)", () => {
 });
 
 // ============================================
+// Restore-and-assign dialog (archived chat) — 1 test
+// ============================================
+
+describe("TelegramChatsManager restore-and-assign dialog", () => {
+  it("confirms restore then assigns with restoreIfArchived when role picked on an archived chat", async () => {
+    mockChats.mockReturnValue([
+      {
+        _id: "1",
+        chatId: "-100A",
+        chatType: "group",
+        title: "Archived",
+        archivedAt: 100,
+        registeredAt: 0,
+        lastSeenAt: 0,
+      },
+    ]);
+    renderPage();
+
+    const select = screen.getAllByRole("combobox")[0];
+    fireEvent.change(select, { target: { value: "pack-list" } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Restore and assign role\?/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Restore & assign/));
+
+    await waitFor(() => {
+      expect(mockAssignRole).toHaveBeenCalledWith(
+        expect.objectContaining({ restoreIfArchived: true, role: "pack-list", chatId: "-100A" }),
+      );
+    });
+  });
+});
+
+// ============================================
 // Empty state tests — 1 test
 // ============================================
 

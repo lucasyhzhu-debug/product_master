@@ -309,6 +309,27 @@ describe("assignRole (spec cases #4, #5, #6, #7)", () => {
       } as any),
     ).rejects.toThrow(/archived chat/);
   });
+
+  it("restores + assigns atomically when restoreIfArchived=true", async () => {
+    const t = convexTest(schema, modules);
+    const token = await seedAdminSession(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "ARCH2", chatType: "group", title: "Archived",
+        archivedAt: 100, registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+    await t.mutation(api.telegram.chatRegistry.assignRole, {
+      token, chatId: "ARCH2", role: "pack-list", restoreIfArchived: true,
+    } as any);
+    const row = await t.run(async (ctx) =>
+      ctx.db.query("telegramChats").withIndex("by_chatId", (q) => q.eq("chatId", "ARCH2")).unique());
+    expect(row?.archivedAt).toBeUndefined();
+    expect(row?.role).toBe("pack-list");
+    // And it now resolves for delivery.
+    const id = await t.query(internal.telegram.chatRegistry.getChatIdByRole, { role: "pack-list" });
+    expect(id).toBe("ARCH2");
+  });
 });
 
 describe("archiveChat / restoreChat (spec cases #11, #12)", () => {

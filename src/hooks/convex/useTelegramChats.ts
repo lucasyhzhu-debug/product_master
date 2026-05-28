@@ -27,8 +27,12 @@ export function useAssignRole() {
   const { user } = useAuth();
   const token = user?.token ?? "";
   const fn = useMutation(api.telegram.chatRegistry.assignRole);
-  return (args: { chatId: string; role: string | null; forceReassign?: boolean }) =>
-    fn({ ...args, token });
+  return (args: {
+    chatId: string;
+    role: string | null;
+    forceReassign?: boolean;
+    restoreIfArchived?: boolean;
+  }) => fn({ ...args, token });
 }
 
 export function useArchiveChat() {

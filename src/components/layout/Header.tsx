@@ -41,6 +41,7 @@ import {
   LayoutDashboard,
   Boxes,
   Database,
+  Send,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -162,6 +163,7 @@ const configItems: NavItem[] = [
   { path: '/vouchers', label: 'Vouchers', icon: Ticket, permission: 'canAccessVouchers' },
   { path: '/users', label: 'Users', icon: Users, permission: 'canAccessUsers' },
   { path: '/settings/business', label: 'Settings', icon: Settings, permission: 'canAccessBusinessSettings' },
+  { path: '/admin/telegram-chats', label: 'Telegram Chats', icon: Send, permission: 'canAccessTelegramChats' },
   { path: '/admin/unlinked-products-backfill', label: 'Unlinked Products Backfill', icon: Database, rolesAllowed: ['admin'] },
 ];
 
