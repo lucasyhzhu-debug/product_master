@@ -192,6 +192,13 @@ Full per-route permission table: `docs/FILE_MAP.md` (Full Role → Route Permiss
 
 20. **Order features live in TWO parallel surfaces — wire BOTH `OrderSlideOver` AND `OrderDetail`** — there are two order-detail UIs: `src/components/orders/OrderSlideOver.tsx` (the slide-over drawer on the Orders kanban board — the one staff actually use day-to-day) and `src/pages/OrderDetail.tsx` (the full-page route). They are NOT shared — each renders its own Actions section, dialogs, and buttons. Any order-level feature (a new action button, status control, dialog, badge, payment flow, etc.) added to one MUST be added to the other, or it silently won't appear in the surface the user is in. This bit Phase 84: the "Charge via QRIS" button + dialog were wired only into `OrderDetail.tsx`, so it never showed in the slide-over (where staff open orders), and only the live E2E caught it — automated tests render components in isolation and don't assert which surface the user reaches. **Rule:** when implementing or reviewing an order feature, grep BOTH files; treat a change to one as incomplete until the mirror change lands in the other. (Longer term these should share a common Actions component, but until then, mirror by hand.)
 
+21. **Adding a 3rd+ Telegram flow — extend `KNOWN_TELEGRAM_ROLES`, do NOT hardcode env vars** — Phase 85 replaced the single `TELEGRAM_CHAT_ID` env var with a `telegramChats` registry. To add a new bot-delivery destination (e.g. `delivery-alerts`):
+   1. Add `"delivery-alerts"` to `KNOWN_TELEGRAM_ROLES` in `convex/telegram/config.ts`.
+   2. Write the send-action using `getChatIdByRole({ role: "delivery-alerts" })`.
+   3. Operator adds bot to the new group + sends `/register@FrollieProBot`.
+   4. Operator assigns role in `/admin/telegram-chats`.
+   No code change needed for the chatId lookup, no new env var, no `seedChatFromEnv` call (those are for the legacy pack-list migration only).
+
 ---
 
 ## Documentation Index

@@ -16,6 +16,37 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Phase 85: Telegram self-registration & multi-chat routing — 2026-05-28
+
+**For the team:** Adding FrollieProBot to a new Telegram group no longer needs a developer running `curl getUpdates` to fish out a chat ID. Add the bot to any group, type `/register@FrollieProBot`, and the chat appears in a new admin page where a manager assigns it a role (e.g. "pack-list", "sales-updates"). The pack-list bot now resolves where to deliver by that role at send time, so we can route different message types to different groups without touching env vars. The admin page also shows which chats are live vs dormant, when each was last seen, and any error the bot last hit, with a one-click test-send to confirm wiring.
+
+#### Added
+- New `/register@FrollieProBot` command to self-register Telegram chats — no manual `getUpdates`/curl required. `/start` replies with a one-line how-to.
+- New `telegramChats` registry table — replaces the single hardcoded `TELEGRAM_CHAT_ID` env var as the source of truth for where the bot delivers. Send-actions now resolve chat IDs by semantic role (`pack-list`, `sales-updates`) via this registry.
+- New admin UI `/admin/telegram-chats` (`src/pages/TelegramChatsManager.tsx` + `src/hooks/convex/useTelegramChats.ts`) for role assignment, test-send preview, archive/restore, and last-seen + last-error visibility.
+- New permission `canAccessTelegramChats` (manager + admin) in `src/lib/types.ts`.
+- `convex/telegram/chatRegistry.ts` — `parseCommand`, `getChatIdByRole` (internalQuery lookup helper), `touchChatLastSeen`, `registerChat`/`replyStartHelp`, `listChats` query, `assignRole`/`archiveChat`/`restoreChat` mutations, `sendTestMessage` action, `seedChatFromEnv` one-time bootstrap internalAction.
+- `convex/telegram/config.ts` — `KNOWN_TELEGRAM_ROLES` allowlist const + `isKnownTelegramRole` type guard + `TELEGRAM_ADMIN_URL`. The only Frollie-specific surface (kept isolated for OSS-starter portability).
+
+#### Changed
+- `convex/telegram/webhook.ts` — generalized from `/pack`-only to multi-command dispatch (`/pack`, `/register`, `/start`); non-command messages route to `touchChatLastSeen` (update-only, no insert).
+- `convex/telegram/sendPackList.ts` — resolves the destination via `getChatIdByRole("pack-list")` instead of reading `process.env.TELEGRAM_CHAT_ID` directly.
+
+#### Migration / Operational
+- Existing pack-list cron migrates to the registry seamlessly; `TELEGRAM_CHAT_ID` is retained as a fallback during the migration window, controlled by the new `TELEGRAM_FALLBACK_ROLE` env var (set to `pack-list`).
+- One-time bootstrap: run `seedChatFromEnv({ role: "pack-list" })` from the Convex dashboard to materialize the existing group as a registry row. After that, table lookup wins and the env var is harmless cruft.
+- Hard-cutover (later, optional): remove `TELEGRAM_CHAT_ID` only after a seeded `pack-list` row exists, both pack-list crons have fired against the registry, and `TELEGRAM_FALLBACK_ROLE` is also unset.
+- Group→supergroup migration is NOT auto-handled (deferred) — manual recovery via archive-old + re-register-new documented in `docs/telegram/self-register-porting.md`.
+
+#### Plan / Spec / Docs
+- Spec: `docs/superpowers/specs/2026-05-27-telegram-self-register-design.md`
+- Plan-stage staffreview: `docs/reviews/staffreview-telegram-self-register-2026-05-27.md`
+- Integration guide (Variant C): `docs/telegram/telegram-bot-integration.md`
+- OSS porting checklist: `docs/telegram/self-register-porting.md`
+- Self-registration design portable to OSS Convex Telegram Bot Starter — see `docs/superpowers/plans/2026-05-27-convex-telegram-bot-starter-oss-draft.md`.
+
+---
+
 ### Added: Telegram morning pack list bot — 2026-05-26
 
 **For the team:** Frollie now posts the day's pack list to a dedicated Telegram group at 07:00 WIB, with a 13:00 WIB "still pending" reminder for any orders that haven't been packed yet. Staff can also type `/pack` in the group at any time to get an on-demand pack list. The message mirrors what the kanban board shows — order number, customer, items × quantity, delivery address (or "Pickup"), notes, and a `[rush]` tag for expedited orders. Empty days show "Nothing to pack today. ✅" so staff know the morning silence is intentional. The bot is one-way (notifications + a single text command); no per-order inline buttons in v1.

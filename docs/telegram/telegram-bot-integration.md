@@ -198,6 +198,67 @@ Critical bits to copy:
 
 ---
 
+## Variant C: Multi-chat with self-registration
+
+Adds a `telegramChats` registry table + `/register@<bot>` command. Send-actions
+resolve chat IDs by semantic role at send time. See spec
+`docs/superpowers/specs/2026-05-27-telegram-self-register-design.md` and
+porting checklist `docs/telegram/self-register-porting.md`.
+
+### When to use
+- 2+ semantic delivery destinations (pack-list, sales-updates, ...)
+- Want self-service group onboarding without `curl getUpdates`/env-var edits
+
+### Schema sketch
+
+A single `telegramChats` table holds one row per registered chat:
+
+```ts
+// convex/schema.ts
+telegramChats: defineTable({
+  // identity (immutable post-registration)
+  chatId: v.string(),          // string sidesteps the -100… supergroup number range
+  chatType: v.union(v.literal("private"), v.literal("group"), v.literal("supergroup")),
+  title: v.string(),
+  // role assignment (mutable via admin UI; validated in app code, not schema)
+  role: v.optional(v.string()),
+  // provenance
+  registeredBy: v.optional(v.number()),
+  registeredAt: v.number(),
+  lastSeenAt: v.number(),
+  // operational state
+  archivedAt: v.optional(v.number()),
+  lastError: v.optional(v.object({ at: v.number(), message: v.string() })),
+})
+  .index("by_chatId", ["chatId"])            // unique lookup for upsert + existence guards
+  .index("by_role_archived", ["role", "archivedAt"]), // role lookup + active-list, index-only
+```
+
+`by_role_archived` is a single compound index covering both access paths
+(`getChatIdByRole` and the active-chat list). A separate `by_role` index would
+push `archivedAt = undefined` into a post-scan `.filter()` — avoid it.
+
+### Role-to-action lookup pattern
+
+Every send-action goes through `getChatIdByRole({ role })` (an `internalQuery`)
+instead of reading `process.env.TELEGRAM_CHAT_ID`. Three-step chain:
+
+1. **Table** — query `telegramChats` `by_role_archived` for an active row
+   (`role === role`, `archivedAt === undefined`). Match → return `row.chatId`.
+2. **Env fallback** — if no row AND `process.env.TELEGRAM_FALLBACK_ROLE` is set
+   AND equals the requested role, return `process.env.TELEGRAM_CHAT_ID`. This
+   keeps the legacy env-var path working during migration; unset it post-cutover.
+3. **Throw** — otherwise `Error("No Telegram chat assigned to role X")`.
+
+So `sendPackList` calls
+`ctx.runQuery(internal.telegram.chatRegistry.getChatIdByRole, { role: "pack-list" })`
+rather than reading the env var directly. Adding a new destination is then just:
+add the role to `KNOWN_TELEGRAM_ROLES`, write the send-action against
+`getChatIdByRole`, and `/register` the group + assign the role in the admin UI —
+no new env var.
+
+---
+
 ## Worked example: daily delivery report (one-way)
 
 Use case: at the end of each business day, Convex aggregates delivery metrics and posts a structured summary to a Telegram operations group.

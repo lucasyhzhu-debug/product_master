@@ -74,6 +74,7 @@ All routes use `<ProtectedRoute>` with permission-based or role-based access. Au
 | Historical Import | `canManageReimbursements` | Admin |
 | Asset Register | `canAccessAssets` | Manager, Admin |
 | Financial Data Export (`/financials/export`) | Roles: manager, admin | Phase 76 — Raw GL + multi-period P&L CSV exports for accountant handoff. Backend queries also enforce `requireRole(["manager","admin"])`. |
+| Telegram Chats (`/admin/telegram-chats`) | `canAccessTelegramChats` | Manager, Admin | Phase 85 — register/assign-role/archive Telegram delivery chats. Backend writes enforce `requireRole(["manager","admin"])`. |
 
 **Backend enforcement:** `requireRole(ctx, args.token, ["admin"])` from `convex/lib/auth.ts`. Add `token: v.string()` to protected mutation args.
 
@@ -92,3 +93,18 @@ Notifications + on-demand `/pack` command in a dedicated Telegram group. No fron
 - **Tests:** `convex/lib/__tests__/telegramHtml.test.ts`, `convex/telegram/__tests__/{packListFormat,packListQuery,webhookHandler}.test.ts` (41 tests total)
 - **Env vars:** `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET` (each set separately per Convex deployment via `npx convex env set`)
 - **Permission:** webhook is unauthenticated externally (token-in-header, constant-time compare). Convex functions are internal-only (no `requireRole` — read-only feature, any group member can `/pack`). Single-group invariant is operational (the handler does NOT verify `chat_id`; keep the bot in exactly one group).
+
+---
+
+## Telegram chat registry (Phase 85, 2026-05-28)
+
+Self-registration + role-based multi-chat routing. Replaces the single `TELEGRAM_CHAT_ID` env var with the `telegramChats` registry; send-actions resolve chat IDs by semantic role at send time. Adds a gated admin page.
+
+- **Backend (registry):** `convex/telegram/chatRegistry.ts` (`parseCommand`, `getChatIdByRole` internalQuery, `touchChatLastSeen`, `registerChat`/`replyStartHelp`, `listChats` query, `assignRole`/`archiveChat`/`restoreChat` mutations, `sendTestMessage` action, `seedChatFromEnv` internalAction)
+- **Backend (config):** `convex/telegram/config.ts` (`KNOWN_TELEGRAM_ROLES`, `isKnownTelegramRole`, `TELEGRAM_ADMIN_URL` — the only Frollie-specific surface, kept isolated for OSS portability)
+- **Backend (touched):** `convex/telegram/webhook.ts` (multi-command dispatch + non-command `touchChatLastSeen`), `convex/telegram/sendPackList.ts` (resolves via `getChatIdByRole("pack-list")`)
+- **Schema:** `convex/schema.ts` — `telegramChats` table (indexes `by_chatId`, `by_role_archived`)
+- **Frontend:** `src/pages/TelegramChatsManager.tsx` (admin page), `src/hooks/convex/useTelegramChats.ts` (hook module)
+- **Route:** `/admin/telegram-chats` (lazy, `<ProtectedRoute requiredPermission="canAccessTelegramChats">`)
+- **Env vars:** new `TELEGRAM_FALLBACK_ROLE` (set to `pack-list` during migration window); existing `TELEGRAM_CHAT_ID` retained as fallback until cutover.
+- **Permission:** `canAccessTelegramChats` (`src/lib/types.ts`) — manager + admin. Backend write mutations/actions use `requireRole(ctx, token, ["manager", "admin"])` (symmetric per Pitfall #19).
