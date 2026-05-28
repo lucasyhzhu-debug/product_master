@@ -1901,3 +1901,35 @@ One row per QR-generation attempt for an order. The source of truth for QRIS pay
 - One row per `/pack` text command received. Telegram retries on non-200 responses for up to ~24h; the atomic `recordIfNew` mutation inserts if absent and returns `false` on duplicate, so a retry never re-fires `sendPackList`.
 - Low volume (one row per `/pack` command in a single dedicated group). Plan revisit threshold: ~10k rows for a monthly prune cron.
 - No consumers outside the webhook handler — safe to leave in place across rollbacks.
+
+---
+
+## Telegram Chat Registry (Phase 85, 2026-05-28)
+
+### `telegramChats` — Self-Registration & Role Routing Registry
+
+Registry of Telegram chats the bot delivers to. Replaces the single hardcoded `TELEGRAM_CHAT_ID` env var: chats self-register via `/register@FrollieProBot`, and a manager/admin assigns a semantic `role` in the gated admin UI (`/admin/telegram-chats`). Send-actions resolve a chat ID by role at send time via `getChatIdByRole`.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `_id` | `Id<"telegramChats">` | Auto-generated. |
+| `_creationTime` | `number` | Insertion time. |
+| `chatId` | `string` | Telegram chat ID (string sidesteps the 13-digit `-100…` supergroup range near `Number.MAX_SAFE_INTEGER`). Required, immutable post-registration. |
+| `chatType` | `"private" \| "group" \| "supergroup"` | Telegram chat type. Required. |
+| `title` | `string` | Chat title (HTML-escaped in confirmation messages). Required. |
+| `role` | `string?` | Semantic delivery role (`pack-list`, `sales-updates`). Validated against `KNOWN_TELEGRAM_ROLES` in app code, not the schema (OSS-portable string type). Unset = Dormant. |
+| `registeredBy` | `number?` | Telegram user ID that ran `/register`. |
+| `registeredAt` | `number` | `Date.now()` at first registration. Required. |
+| `lastSeenAt` | `number` | `Date.now()` of the most recent message/command seen from this chat. Required. |
+| `archivedAt` | `number?` | Soft-delete timestamp. Set on archive (role cleared in the same patch); archived rows are excluded from `getChatIdByRole`. |
+| `lastError` | `{ at: number; message: string }?` | Last delivery failure (e.g. bot kicked). `message` truncated to 200 chars + ellipsis. Always-visible inline in the admin UI. |
+
+**Indexes:**
+- `by_chatId` (`chatId`) — `.unique()` lookup for registration upsert + every write-function existence guard.
+- `by_role_archived` (`role`, `archivedAt`) — compound index covers both lookup patterns index-only: `getChatIdByRole(role)` (`q.eq("role", role).eq("archivedAt", undefined)`) and the active-list iteration in `listChats`. A separate `by_role` index would force `archivedAt = undefined` into a post-scan `.filter()` (anti-pattern).
+
+**Business rules:**
+- One active chat per role (uniqueness enforced in `assignRole`; `forceReassign: true` swaps the old holder + new in a single atomic mutation).
+- `role` is validated against `KNOWN_TELEGRAM_ROLES` (`convex/telegram/config.ts`) in `assignRole` and `seedChatFromEnv` — arbitrary strings are rejected with `ConvexError`.
+- Archive clears `role` atomically; archived rows are inert (excluded from lookups, ignored by `touchChatLastSeen`).
+- Role assignment is gated to manager+admin (`canAccessTelegramChats`); `/register` itself is open (inert until a role is assigned).

@@ -18,10 +18,14 @@ export const sendPackList = internalAction({
   // would need to resolve the api type before resolving this handler).
   handler: async (ctx, args): Promise<{ chunkCount: number; orderCount: number }> => {
     const token = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
-    if (!token || !chatId) {
-      throw new Error("Telegram env vars missing (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID)");
+    if (!token) {
+      throw new Error("Telegram env var missing (TELEGRAM_BOT_TOKEN)");
     }
+    // Resolve chatId by role — table first, env fallback (if TELEGRAM_FALLBACK_ROLE=pack-list).
+    const chatId = await ctx.runQuery(
+      internal.telegram.chatRegistry.getChatIdByRole,
+      { role: "pack-list" },
+    );
 
     const data = await ctx.runQuery(
       internal.telegram.queries.packListQuery.getOrdersForPackList,

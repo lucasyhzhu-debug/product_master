@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Agentic Stack — A Topology Reference</title>
+<!--
+  AGENTIC STACK TOPOLOGY · v1.0
+  Generated 2026-05-27 · Frollie Recipe Master
+  Author: lucas@malostudio.id
+  Update cadence: review quarterly, after each milestone, or when a ring's maturity
+  shifts by ±0.5. All data lives in the RINGS[] and GAPS[] arrays in the <script>
+  block at the bottom of this file — edit those, don't re-derive elsewhere.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Ink palette */
+    --ink-900: #07090f;
+    --ink-800: #0a0e1a;
+    --ink-700: #11162a;
+    --ink-600: #1a2138;
+    --ink-500: #232c47;
+
+    /* Signal palette */
+    --signal-amber: #ffb86b;
+    --signal-amber-dim: #ffb86b40;
+    --signal-cyan: #67e8f9;
+    --signal-cyan-dim: #67e8f930;
+
+    /* Maturity scale */
+    --mat-high: #6ee7b7;
+    --mat-mid: #fbbf24;
+    --mat-low: #fb7185;
+
+    /* Type */
+    --cream: #f5f0e8;
+    --cream-dim: #f5f0e8b3;
+    --cream-faint: #f5f0e866;
+    --rule: #ffffff14;
+
+    /* Per-ring accent */
+    --ring-1: #818cf8;
+    --ring-2: #38bdf8;
+    --ring-3: #5eead4;
+    --ring-4: #86efac;
+    --ring-5: #fcd34d;
+    --ring-6: #fdba74;
+    --ring-7: #fda4af;
+
+    --serif: 'Instrument Serif', 'Times New Roman', serif;
+    --sans: 'Geist', system-ui, sans-serif;
+    --mono: 'Geist Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ink-800);
+    color: var(--cream);
+    font-family: var(--sans);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% 40%, #131830 0%, transparent 70%),
+      radial-gradient(circle at 80% 20%, #2b1a2b 0%, transparent 50%);
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    z-index: 1;
+  }
+
+  .page {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 28px 36px 80px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ==== MASTHEAD ==== */
+  .masthead {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 28px;
+  }
+  .masthead-left { display: flex; flex-direction: column; gap: 4px; }
+  .pretitle {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--signal-amber);
+    opacity: 0.85;
+  }
+  .pretitle::before {
+    content: '◆ ';
+    color: var(--signal-amber);
+    font-size: 9px;
+    vertical-align: 1px;
+  }
+  .title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(36px, 5.4vw, 68px);
+    font-weight: 400;
+    line-height: 0.95;
+    color: var(--cream);
+    letter-spacing: -0.015em;
+    margin-top: 2px;
+  }
+  .standfirst {
+    font-family: var(--sans);
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--cream-dim);
+    max-width: 60ch;
+    margin-top: 14px;
+    font-weight: 300;
+  }
+  .standfirst em {
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--cream);
+    font-size: 15px;
+  }
+  .masthead-right {
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--cream-faint);
+    line-height: 1.7;
+  }
+  .masthead-right .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border: 1px solid var(--signal-amber-dim);
+    color: var(--signal-amber);
+    border-radius: 2px;
+    letter-spacing: 0.1em;
+  }
+  .masthead-right a {
+    color: var(--signal-cyan);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--signal-cyan-dim);
+  }
+  .masthead-right a:hover { border-bottom-style: solid; }
+
+  /* ==== SECTION 1: RADAR HERO ==== */
+  .hero {
+    display: grid;
+    grid-template-columns: 240px 1fr 320px;
+    gap: 24px;
+    margin-bottom: 56px;
+    align-items: stretch;
+    min-height: 720px;
+  }
+  @media (max-width: 1200px) {
+    .hero { grid-template-columns: 1fr; grid-template-rows: auto 720px auto; }
+  }
+
+  /* Left column: editorial */
+  .editorial {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-top: 8px;
+  }
+  .ed-num {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(80px, 11vw, 140px);
+    line-height: 0.85;
+    color: var(--cream);
+    letter-spacing: -0.04em;
+  }
+  .ed-num small {
+    font-size: 0.32em;
+    color: var(--cream-faint);
+    display: block;
+    margin-top: 18px;
+    font-family: var(--sans);
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .ed-tagline {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.25;
+    color: var(--cream);
+    margin-top: 28px;
+    border-left: 2px solid var(--signal-amber);
+    padding-left: 14px;
+  }
+  .ed-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    margin-top: auto;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+  }
+  .ed-meta div { margin-bottom: 4px; }
+  .ed-meta b { color: var(--signal-amber); font-weight: 600; }
+
+  /* Center column: radar */
+  .radar-frame {
+    position: relative;
+    background:
+      radial-gradient(circle at 50% 50%, #0e1326 0%, #060912 70%),
+      radial-gradient(circle at 50% 50%, transparent 60%, rgba(255,184,107,0.04) 100%);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    max-height: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .radar-frame::before {
+    /* corner ticks */
+    content: '';
+    position: absolute;
+    inset: 12px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    pointer-events: none;
+    background:
+      linear-gradient(to right, var(--signal-amber) 0 14px, transparent 14px) top left/30px 1px no-repeat,
+      linear-gradient(to bottom, var(--signal-amber) 0 14px, transparent 14px) top left/1px 30px no-repeat,
+      linear-gradient(to left, var(--signal-amber) 0 14px, transparent 14px) top right/30px 1px no-repeat,
+      linear-gradient(to bottom, var(--signal-amber) 0 14px, transparent 14px) top right/1px 30px no-repeat,
+      linear-gradient(to right, var(--signal-amber) 0 14px, transparent 14px) bottom left/30px 1px no-repeat,
+      linear-gradient(to top, var(--signal-amber) 0 14px, transparent 14px) bottom left/1px 30px no-repeat,
+      linear-gradient(to left, var(--signal-amber) 0 14px, transparent 14px) bottom right/30px 1px no-repeat,
+      linear-gradient(to top, var(--signal-amber) 0 14px, transparent 14px) bottom right/1px 30px no-repeat;
+    opacity: 0.6;
+  }
+  .radar-frame::after {
+    /* radar sweep */
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: conic-gradient(from 0deg at 50% 50%,
+      rgba(255,184,107,0) 0deg,
+      rgba(255,184,107,0) 280deg,
+      rgba(255,184,107,0.08) 340deg,
+      rgba(255,184,107,0.22) 358deg,
+      rgba(255,184,107,0.4) 360deg,
+      rgba(255,184,107,0) 361deg);
+    mix-blend-mode: screen;
+    animation: sweep 11s linear infinite;
+    pointer-events: none;
+    z-index: 3;
+  }
+  @keyframes sweep {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .radar-meta {
+    position: absolute;
+    top: 28px; left: 28px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    z-index: 4;
+    pointer-events: none;
+  }
+  .radar-meta b { color: var(--signal-amber); font-weight: 600; }
+  .radar-meta-r {
+    position: absolute;
+    top: 28px; right: 28px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    text-align: right;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  .view-tabs {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    background: rgba(7,9,15,0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 3px;
+    z-index: 5;
+  }
+  .view-tab {
+    padding: 7px 16px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: color 0.25s ease;
+  }
+  .view-tab:hover { color: var(--cream); }
+  .view-tab.active {
+    color: var(--signal-amber);
+    background: rgba(255,184,107,0.1);
+    box-shadow: inset 0 0 0 1px var(--signal-amber-dim);
+  }
+
+  .radar-svg { width: 100%; height: 100%; display: block; position: relative; z-index: 2; }
+
+  .ring-band {
+    fill: none;
+    stroke-width: 1.5;
+    opacity: 0.45;
+    transition: opacity 0.35s ease, stroke-width 0.35s ease;
+    cursor: pointer;
+  }
+  .ring-band:hover, .ring-band.active {
+    opacity: 1;
+    stroke-width: 2.5;
+  }
+  .ring-band.is-gap.gaps-view {
+    stroke-dasharray: 3 5;
+    animation: gapDash 12s linear infinite;
+  }
+  @keyframes gapDash { to { stroke-dashoffset: -160; } }
+
+  .ring-fill {
+    fill: none;
+    stroke-width: 28;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .maturity-view .ring-fill { opacity: 0.5; }
+  .maturity-view .ring-band { opacity: 0.18; }
+
+  .ring-label {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    fill: var(--cream);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--ink-800);
+    stroke-width: 4;
+    stroke-linejoin: round;
+  }
+  .ring-sublabel {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 12px;
+    fill: var(--cream-dim);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--ink-800);
+    stroke-width: 4;
+  }
+
+  .blip {
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+  }
+  .blip-dot {
+    fill: var(--ink-700);
+    stroke-width: 1;
+    transition: fill 0.2s ease;
+  }
+  .blip:hover .blip-dot { fill: var(--cream); }
+  .blip-tick { stroke-width: 1; opacity: 0.6; }
+  .blip-text {
+    font-family: var(--mono);
+    font-size: 9px;
+    fill: var(--cream);
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--ink-800);
+    stroke-width: 3;
+    stroke-linejoin: round;
+  }
+  .blip:hover .blip-text { fill: var(--signal-amber); }
+  .topology-view .blip { opacity: 1; }
+  .maturity-view .blip, .gaps-view .blip { opacity: 0.25; pointer-events: none; }
+
+  .maturity-score {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    fill: var(--cream);
+    text-anchor: middle;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    paint-order: stroke;
+    stroke: var(--ink-800);
+    stroke-width: 3;
+  }
+  .maturity-view .maturity-score { opacity: 1; }
+
+  .core-text {
+    font-family: var(--mono);
+    text-anchor: middle;
+    fill: var(--cream);
+    pointer-events: none;
+  }
+
+  /* Right column: inspector */
+  .inspector {
+    background: linear-gradient(180deg, var(--ink-700) 0%, var(--ink-800) 100%);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 22px 22px 24px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+  .inspector::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--signal-amber), transparent);
+    opacity: 0.5;
+  }
+  .inspector-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--signal-amber);
+    margin-bottom: 4px;
+  }
+  .inspector-ring {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 32px;
+    line-height: 1.05;
+    color: var(--cream);
+    margin-bottom: 2px;
+  }
+  .inspector-role {
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--cream-dim);
+    margin: 10px 0 18px;
+  }
+  .inspector-section {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .inspector-section:last-child { border-bottom: 0; padding-bottom: 0; }
+  .inspector-section h4 {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .inspector-section ul { list-style: none; }
+  .inspector-section li {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cream);
+    line-height: 1.7;
+    padding-left: 12px;
+    position: relative;
+  }
+  .inspector-section li::before {
+    content: '·';
+    position: absolute;
+    left: 0;
+    color: var(--signal-amber);
+  }
+  .maturity-bar {
+    display: flex;
+    gap: 3px;
+    margin: 4px 0 8px;
+  }
+  .maturity-bar div {
+    flex: 1;
+    height: 6px;
+    background: var(--ink-500);
+    border-radius: 1px;
+  }
+  .maturity-bar div.on { background: var(--mat-high); }
+  .maturity-bar.mid div.on { background: var(--mat-mid); }
+  .maturity-bar.low div.on { background: var(--mat-low); }
+  .maturity-score-row {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cream-dim);
+  }
+  .maturity-score-row b { color: var(--cream); font-weight: 600; }
+  .failure-quote {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #fcd1d1;
+    border-left: 2px solid var(--mat-low);
+    padding: 4px 0 4px 12px;
+  }
+  .gap-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    margin-right: 4px;
+    border-radius: 2px;
+  }
+  .gap-tag.quick { background: var(--signal-cyan-dim); color: var(--signal-cyan); }
+  .gap-tag.phase { background: rgba(252,113,133,0.18); color: var(--mat-low); }
+
+  /* ==== SECTION 2: EVIDENCE TABLE ==== */
+  .section {
+    margin-top: 56px;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--signal-amber);
+  }
+  .section-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 30px;
+    color: var(--cream);
+    flex: 1;
+    margin-left: 18px;
+    line-height: 1;
+  }
+  .section-sub {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--cream-dim);
+    font-weight: 300;
+  }
+
+  .evidence-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .evidence-table th, .evidence-table td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .evidence-table th {
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    font-weight: 500;
+    background: rgba(255,255,255,0.02);
+  }
+  .evidence-table td.col-ring {
+    font-family: var(--mono);
+    color: var(--signal-amber);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .evidence-table td.col-name {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 15px;
+    color: var(--cream);
+  }
+  .evidence-table td.col-count {
+    text-align: right;
+    color: var(--cream);
+  }
+  .evidence-table td.col-evidence {
+    color: var(--cream-dim);
+    font-family: var(--sans);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+  .evidence-table tr:hover td { background: rgba(255,184,107,0.04); }
+  .evidence-table .mat-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .mat-pill.high { background: rgba(110,231,183,0.15); color: var(--mat-high); }
+  .mat-pill.mid { background: rgba(251,191,36,0.15); color: var(--mat-mid); }
+  .mat-pill.low { background: rgba(251,113,133,0.15); color: var(--mat-low); }
+
+  /* ==== SECTION 3: INVESTMENT MATRIX ==== */
+  .matrix-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 32px;
+  }
+  @media (max-width: 1000px) { .matrix-grid { grid-template-columns: 1fr; } }
+  .scatter {
+    position: relative;
+    aspect-ratio: 5 / 4;
+    background:
+      linear-gradient(to right, transparent 49.5%, var(--rule) 49.5%, var(--rule) 50.5%, transparent 50.5%),
+      linear-gradient(to bottom, transparent 49.5%, var(--rule) 49.5%, var(--rule) 50.5%, transparent 50.5%),
+      linear-gradient(135deg, var(--ink-700) 0%, var(--ink-800) 100%);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 36px 36px 56px 56px;
+  }
+  .scatter-quadrant {
+    position: absolute;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    pointer-events: none;
+  }
+  .quad-tl { top: 14px; left: 56px; color: var(--mat-high); }
+  .quad-tr { top: 14px; right: 36px; color: var(--signal-amber); text-align: right;}
+  .quad-bl { bottom: 32px; left: 56px; color: var(--cream-faint); }
+  .quad-br { bottom: 32px; right: 36px; color: var(--mat-low); text-align: right; }
+
+  .axis-label {
+    position: absolute;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+  }
+  .axis-x { bottom: 18px; left: 50%; transform: translateX(-50%); }
+  .axis-y { left: 14px; top: 50%; transform: rotate(-90deg) translateX(50%); transform-origin: left top; }
+
+  .scatter-points { position: absolute; inset: 36px 36px 56px 56px; }
+  .gap-point {
+    position: absolute;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--signal-amber);
+    box-shadow: 0 0 0 4px rgba(255,184,107,0.15), 0 0 20px rgba(255,184,107,0.5);
+    transform: translate(-50%, 50%);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-800);
+  }
+  .gap-point:hover {
+    transform: translate(-50%, 50%) scale(1.25);
+    box-shadow: 0 0 0 6px rgba(255,184,107,0.25), 0 0 40px rgba(255,184,107,0.8);
+  }
+  .gap-point.cyan {
+    background: var(--signal-cyan);
+    box-shadow: 0 0 0 4px rgba(103,232,249,0.15), 0 0 20px rgba(103,232,249,0.5);
+    color: var(--ink-800);
+  }
+  .gap-point.cyan:hover {
+    box-shadow: 0 0 0 6px rgba(103,232,249,0.25), 0 0 40px rgba(103,232,249,0.8);
+  }
+
+  .gap-list { display: flex; flex-direction: column; gap: 10px; }
+  .gap-card {
+    background: var(--ink-700);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--signal-amber);
+    border-radius: 3px;
+    padding: 12px 14px;
+    transition: border-left-color 0.2s ease, transform 0.2s ease;
+  }
+  .gap-card.cyan { border-left-color: var(--signal-cyan); }
+  .gap-card:hover { transform: translateX(2px); }
+  .gap-card-head {
+    display: flex; align-items: baseline; gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--cream-faint);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .gap-card-num {
+    color: var(--signal-amber); font-weight: 700; font-size: 11px;
+  }
+  .gap-card.cyan .gap-card-num { color: var(--signal-cyan); }
+  .gap-card-ring { color: var(--cream-dim); }
+  .gap-card-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
+    color: var(--cream);
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  .gap-card-meta {
+    display: flex; gap: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--cream-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .gap-card-meta b { color: var(--cream); font-weight: 600; }
+
+  /* ==== SECTION 4: TRAJECTORY ==== */
+  .trajectory {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .traj-header {
+    display: grid;
+    grid-template-columns: 140px 1fr 80px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--cream-faint);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 4px;
+  }
+  .traj-header .traj-scale {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 10px;
+  }
+  .traj-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 80px;
+    align-items: center;
+    gap: 18px;
+    padding: 6px 0;
+  }
+  .traj-label {
+    display: flex; flex-direction: column;
+  }
+  .traj-label-num {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    color: var(--signal-amber);
+  }
+  .traj-label-name {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
+    color: var(--cream);
+    line-height: 1.1;
+  }
+  .traj-track {
+    position: relative;
+    height: 28px;
+    background: linear-gradient(to right,
+      var(--ink-700) 0%,
+      var(--ink-600) 20%, var(--ink-600) 80%,
+      var(--ink-700) 100%);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .traj-track::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(to right,
+      transparent 0,
+      transparent 19.99%,
+      var(--rule) 20%,
+      var(--rule) 20.05%);
+  }
+  .traj-fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: linear-gradient(90deg,
+      var(--past-color, var(--cream-faint)) 0%,
+      var(--now-color, var(--signal-amber)) var(--now-pct, 50%),
+      var(--target-color, var(--mat-high)) 100%);
+    opacity: 0.32;
+  }
+  .traj-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--ink-800);
+  }
+  .traj-marker.past { background: var(--cream-faint); }
+  .traj-marker.now { background: var(--signal-amber); width: 16px; height: 16px; box-shadow: 0 0 12px var(--signal-amber); }
+  .traj-marker.target { background: var(--mat-high); border-style: dashed; border-color: var(--mat-high); background: transparent; }
+  .traj-trend {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cream);
+    text-align: right;
+  }
+  .traj-trend.up { color: var(--mat-high); }
+  .traj-trend.flat { color: var(--mat-mid); }
+
+  /* ==== METHODOLOGY FOOTER ==== */
+  .methodology {
+    margin-top: 64px;
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 220px 1fr 1fr;
+    gap: 32px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--cream-dim);
+  }
+  @media (max-width: 900px) { .methodology { grid-template-columns: 1fr; } }
+  .methodology h5 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--signal-amber);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .methodology a {
+    color: var(--signal-cyan);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--signal-cyan-dim);
+  }
+  .methodology a:hover { border-bottom-style: solid; }
+  .methodology .colophon {
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--cream);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ==== PRINT ==== */
+  @media print {
+    body { background: white; color: #1a1a1a; }
+    body::before { display: none; }
+    .page { max-width: 100%; padding: 0; }
+    .radar-frame::after { display: none; }
+    .view-tabs { display: none; }
+    .pretitle, .section-num, .traj-label-num, .inspector-label { color: #9a6326; }
+    .title, .ed-num, .section-title, .inspector-ring, .gap-card-title, .traj-label-name { color: #0a0e1a; }
+    .standfirst, .inspector-role { color: #333; }
+    .radar-frame {
+      background: white;
+      border: 2px solid #1a1a1a;
+      page-break-inside: avoid;
+    }
+    .ring-band { stroke-width: 1; }
+    .blip-dot { fill: white; stroke-width: 1; }
+    .blip-text { fill: #1a1a1a; stroke: white; }
+    .ring-label, .ring-sublabel { fill: #1a1a1a; stroke: white; }
+    .core-text { fill: #1a1a1a; }
+    .hero, .section { page-break-inside: avoid; }
+    .scatter, .inspector { background: #f5f5f5; border: 1px solid #ccc; }
+  }
+
+  /* ==== ENTRANCE ANIMATION ==== */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+  .ring-band, .blip, .ring-label, .ring-sublabel {
+    animation: fadeUp 0.8s ease-out backwards;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ============================================== -->
+  <!-- MASTHEAD -->
+  <!-- ============================================== -->
+  <header class="masthead">
+    <div class="masthead-left">
+      <div class="pretitle">Engineering Topology · Reference Atlas</div>
+      <h1 class="title">The Agentic Stack</h1>
+      <p class="standfirst">A topology of the daily tools and processes that compose <em>one developer's</em> agentic engineering practice. Eight concentric rings, ordered by latency from the cursor. Three lenses for reading the same stack.</p>
+    </div>
+    <div class="masthead-right">
+      <span class="badge">v1.0 · MAY 2026</span><br>
+      <span style="margin-top:8px;display:inline-block">FROLLIE RECIPE MASTER</span><br>
+      <span>SHIPPED · 86 PHASES / 325 PLANS</span><br>
+      <a href="../MEMORY.md" style="margin-top:4px;display:inline-block">memory.md</a> · <a href="CHANGELOG.md">changelog</a>
+    </div>
+  </header>
+
+  <!-- ============================================== -->
+  <!-- HERO: RADAR + EDITORIAL + INSPECTOR -->
+  <!-- ============================================== -->
+  <section class="hero">
+
+    <aside class="editorial">
+      <div>
+        <div class="ed-num">8<small>Rings, ordered<br>by latency</small></div>
+        <p class="ed-tagline">"From cognition to feedback, the signal has to travel further at each step out."</p>
+      </div>
+      <div class="ed-meta">
+        <div>RING 0 · cognition · <b>milliseconds</b></div>
+        <div>RING 7 · feedback · <b>minutes — hours</b></div>
+        <div style="margin-top:10px">Distance carries cost.</div>
+      </div>
+    </aside>
+
+    <div class="radar-frame" id="radar-frame">
+      <div class="radar-meta">
+        STACK / RADAR<br>
+        <span id="meta-view">VIEW · TOPOLOGY</span>
+      </div>
+      <div class="radar-meta-r">
+        EST. 2026-02-15<br>
+        <span id="meta-ring">RING · 7 · FEEDBACK</span>
+      </div>
+
+      <svg class="radar-svg" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="core" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ffd9a3" />
+            <stop offset="50%" stop-color="#ffb86b" />
+            <stop offset="100%" stop-color="#a66b30" />
+          </radialGradient>
+          <filter id="coreGlow"><feGaussianBlur stdDeviation="3"/></filter>
+        </defs>
+
+        <!-- crosshairs -->
+        <line x1="500" y1="80" x2="500" y2="920" stroke="#ffffff10" stroke-width="0.6" stroke-dasharray="2 6"/>
+        <line x1="80" y1="500" x2="920" y2="500" stroke="#ffffff10" stroke-width="0.6" stroke-dasharray="2 6"/>
+
+        <g id="rings"></g>
+        <g id="fills"></g>
+        <g id="blips"></g>
+        <g id="scores"></g>
+
+        <!-- core -->
+        <circle cx="500" cy="500" r="68" fill="url(#core)" filter="url(#coreGlow)" opacity="0.5"/>
+        <circle cx="500" cy="500" r="58" fill="url(#core)" stroke="#ffe9c4" stroke-width="1.2" stroke-opacity="0.7"/>
+        <text x="500" y="492" class="core-text" font-size="9.5" letter-spacing="2" font-weight="600" fill="#3a2410">RING 0</text>
+        <text x="500" y="510" class="core-text" font-size="11" font-weight="500" fill="#1a0d04" style="font-family:var(--serif);font-style:italic">cognition</text>
+      </svg>
+
+      <div class="view-tabs" role="tablist">
+        <button class="view-tab active" data-view="topology">Topology</button>
+        <button class="view-tab" data-view="maturity">Maturity</button>
+        <button class="view-tab" data-view="gaps">Gaps</button>
+      </div>
+    </div>
+
+    <aside class="inspector" id="inspector"></aside>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 2: QUANTIFIED EVIDENCE -->
+  <!-- ============================================== -->
+  <section class="section" id="evidence">
+    <div class="section-head">
+      <span class="section-num">§ 02</span>
+      <h2 class="section-title">Quantified Evidence</h2>
+      <span class="section-sub">Counts, incidents, and wins per ring · last 12 months</span>
+    </div>
+    <table class="evidence-table">
+      <thead>
+        <tr>
+          <th style="width:60px">Ring</th>
+          <th style="width:180px">Discipline</th>
+          <th style="width:80px">Maturity</th>
+          <th style="width:60px;text-align:right">Tools</th>
+          <th style="width:80px;text-align:right">Incidents</th>
+          <th>Concrete win / evidence</th>
+        </tr>
+      </thead>
+      <tbody id="evidence-body"></tbody>
+    </table>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 3: INVESTMENT MATRIX -->
+  <!-- ============================================== -->
+  <section class="section" id="investment">
+    <div class="section-head">
+      <span class="section-num">§ 03</span>
+      <h2 class="section-title">Investment Matrix</h2>
+      <span class="section-sub">Effort × ROI for the seven priority gaps · cyan = quick win</span>
+    </div>
+    <div class="matrix-grid">
+      <div class="scatter" id="scatter">
+        <div class="scatter-quadrant quad-tl">QUICK WINS<br>↑ROI · ↓EFFORT</div>
+        <div class="scatter-quadrant quad-tr">STRATEGIC BETS<br>↑ROI · ↑EFFORT</div>
+        <div class="scatter-quadrant quad-bl">NICE-TO-HAVE</div>
+        <div class="scatter-quadrant quad-br">AVOID<br>↓ROI · ↑EFFORT</div>
+        <div class="axis-label axis-x">Effort →</div>
+        <div class="axis-label axis-y">ROI →</div>
+        <div class="scatter-points" id="scatter-points"></div>
+      </div>
+      <div class="gap-list" id="gap-list"></div>
+    </div>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- SECTION 4: TRAJECTORY -->
+  <!-- ============================================== -->
+  <section class="section" id="trajectory">
+    <div class="section-head">
+      <span class="section-num">§ 04</span>
+      <h2 class="section-title">12-Month Trajectory</h2>
+      <span class="section-sub">Where each ring was, where it is, where it should go · maturity 0 ◯ — 5 ●</span>
+    </div>
+    <div class="trajectory">
+      <div class="traj-header">
+        <div>Ring</div>
+        <div class="traj-scale">
+          <span>2025-05</span><span>2025-08</span><span>2025-11</span><span>2026-02</span><span>2026-05</span><span>↑ TARGET 2027-05</span>
+        </div>
+        <div style="text-align:right">Trend</div>
+      </div>
+      <div id="trajectory-body"></div>
+    </div>
+  </section>
+
+  <!-- ============================================== -->
+  <!-- METHODOLOGY -->
+  <!-- ============================================== -->
+  <footer class="methodology">
+    <div>
+      <h5>Methodology</h5>
+      <p>Ring assignment by latency from the cursor — milliseconds (Ring 0) to minutes (Ring 7). Maturity scored 0–5 by triangulation of three signals: <em>tools installed</em>, <em>tools actively used</em>, and <em>recent incidents attributable to ring failure</em>.</p>
+    </div>
+    <div>
+      <h5>Linked artefacts</h5>
+      <p>Failure modes in this atlas link to lesson docs in <code style="font-family:var(--mono);font-size:10.5px;color:var(--signal-cyan)">memory/</code> and <code style="font-family:var(--mono);font-size:10.5px;color:var(--signal-cyan)">.planning/</code>. Notable: <a href="../memory/lesson_convex_vercel_splitbrain.md">split-brain deploy</a>, <a href="../memory/lessons_phase_84_triple_review.md">Phase 84 dual-surface</a>, <a href="../memory/lessons_phase_81_triple_review.md">Phase 81 type cascade</a>.</p>
+    </div>
+    <div>
+      <h5>Maintenance</h5>
+      <p>Edit <code style="font-family:var(--mono);font-size:10.5px;color:var(--signal-cyan)">RINGS[]</code> and <code style="font-family:var(--mono);font-size:10.5px;color:var(--signal-cyan)">GAPS[]</code> in the script block — all visual derivation flows from there. Review quarterly or when any ring's maturity shifts by ±0.5.</p>
+      <p class="colophon" style="margin-top:14px">Set in Instrument Serif, Geist, and Geist Mono. Drawn in SVG. No frameworks.</p>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+// ============================================================
+// DATA — single source of truth for the entire document
+// ============================================================
+const RINGS = [
+  {
+    n: 1, r: 145, color: 'var(--ring-1)',
+    name: 'Process', subtitle: 'Skills & workflows',
+    role: 'HOW the agent thinks. Rigid workflows that prevent shortcut-taking. Your most distinctive ring — best-in-class.',
+    blips: ['GSD lifecycle', 'Superpowers', 'triple-review', 'staffreview', 'tdd', 'write-a-skill'],
+    failure: 'Skipped gates — why discipline rules were retired from memory into skill files themselves (2026-05-10).',
+    maturity: 5,
+    toolsCount: 50, incidents: 0,
+    evidence: '86 phases shipped on this discipline; triple-review caught 4 Criticals in Phase 81 alone (silent regression bucketing native orders as "Direct").',
+    trajectory: [3.5, 3.5, 4, 4.5, 5], target: 5,
+  },
+  {
+    n: 2, r: 215, color: 'var(--ring-2)',
+    name: 'Delegation', subtitle: 'Subagent fleet',
+    role: 'Parallel agents with isolated context windows. The labor specialisation layer.',
+    blips: ['convex-backend', 'react-ui-builder', 'code-auditor', 'gsd-executor', 'Explore', 'agent-builder'],
+    failure: 'Subagent claims work done but didn\'t — "trust but verify" exists for this.',
+    maturity: 4.5,
+    toolsCount: 30, incidents: 2,
+    evidence: '30+ specialised subagents (convex-backend knows the 70-table schema; code-auditor enforces patterns deterministically). Used in every phase.',
+    trajectory: [2, 3, 3.5, 4, 4.5], target: 4.5,
+  },
+  {
+    n: 3, r: 280, color: 'var(--ring-3)',
+    name: 'Tooling', subtitle: 'The hands',
+    role: 'Deterministic in-process file and shell operations.',
+    blips: ['Read · Edit · Write', 'Glob · Grep', 'Bash (PS + WSL)', 'TodoWrite', 'Hooks', 'LSP'],
+    failure: 'PowerShell-vs-bash syntax mix-ups on Windows; edit on unread file.',
+    maturity: 4,
+    toolsCount: 11, incidents: 1,
+    evidence: 'Standard CC tools + 3 actively-maintained hooks (Pitfall #17 cleaned the broken ones — gsd-check-update, gsd-hooks-health, gsd-context-monitor).',
+    trajectory: [3.5, 3.5, 3.5, 4, 4], target: 4.5,
+  },
+  {
+    n: 4, r: 345, color: 'var(--ring-4)',
+    name: 'Knowledge', subtitle: 'Codebase intelligence',
+    role: 'Pre-digested artifacts the agent loads on demand. Your moat — this compounds.',
+    blips: ['graphify-out/', '.planning/', 'docs/FILE_MAP', 'CLAUDE.md', 'lessons_*.md', 'CHANGELOG'],
+    failure: 'Stale generated files (_generated/api.d.ts now 3rd recurrence — Phase 76, 81, 83).',
+    maturity: 4.5,
+    toolsCount: 20, incidents: 3,
+    evidence: '20+ lesson docs in memory/; CHANGELOG-after-merge enforced; graphify wiki for architecture queries; FILE_MAP per-feature table.',
+    trajectory: [2.5, 3, 3.5, 4, 4.5], target: 5,
+  },
+  {
+    n: 5, r: 410, color: 'var(--ring-5)',
+    name: 'Integrations', subtitle: 'MCP servers',
+    role: 'The agent reaching beyond the repo. Currently inventory bloat — installed ≠ used.',
+    blips: ['Figma MCP', 'Linear MCP', 'Notion MCP', 'chrome-devtools', 'context7', 'Google Drive'],
+    failure: 'Many installed, few wired into workflow. Vendor APIs (BigSeller, Xendit, GrabFood) bypass MCP and call SDKs from inside Convex.',
+    maturity: 2,
+    toolsCount: 6, incidents: 0,
+    evidence: 'Linear MCP installed but issue tracking goes through gh CLI. Notion/Figma MCP installed, low recent usage. Inventory == liability.',
+    trajectory: [1, 1.5, 2, 2, 2], target: 4,
+  },
+  {
+    n: 6, r: 470, color: 'var(--ring-6)',
+    name: 'Infrastructure', subtitle: 'Where work lands',
+    role: 'Runtime, deploys, hosting, source control. Solid on the happy path; brittle on the unhappy one.',
+    blips: ['Convex (prod/dev)', 'Vercel', 'GitHub Actions', 'gh CLI', 'git worktree'],
+    failure: 'Split-brain deploys — Phase 83→84 had a 4h prod gap (deploy-convex test-type error, local build gate didn\'t cover convex tests).',
+    maturity: 3,
+    toolsCount: 5, incidents: 2,
+    evidence: 'Convex + Vercel + GitHub Actions stable for happy path. No per-PR preview env, no rollback automation, no IaC for secrets.',
+    trajectory: [2, 2.5, 3, 3, 3], target: 4.5,
+  },
+  {
+    n: 7, r: 530, color: 'var(--ring-7)',
+    name: 'Feedback', subtitle: 'Loop closure',
+    role: 'What tells you the work actually worked. The single highest-risk gap.',
+    blips: ['npm run build', 'Playwright', 'Vitest', 'convex logs --prod', '/code-review', 'bundlesize guard'],
+    failure: 'Green tests, broken feature — Phase 84 QRIS dual-surface bug shipped because automated tests render components in isolation.',
+    maturity: 2.5,
+    toolsCount: 7, incidents: 4,
+    evidence: 'Strong on build/type/test/CI. Missing: production observability, visual regression, feature flags as infra, structured alerting. convex logs --prod is reactive.',
+    trajectory: [2, 2, 2.5, 2.5, 2.5], target: 4.5,
+  },
+];
+
+const GAPS = [
+  { n: 1, ring: 7, title: 'Production error monitoring',     effort: 0.15, roi: 0.92, kind: 'quick', effortLabel: '1 day',    roiLabel: 'High',     why: 'Replace reactive convex logs with proactive Sentry/Bugsnag. Phase 83→84 4h gap had no alert.' },
+  { n: 2, ring: 6, title: 'One-button rollback',              effort: 0.20, roi: 0.75, kind: 'quick', effortLabel: '1 day',    roiLabel: 'High',     why: 'Convex + Vercel rollback scripts. Reduces blast radius of any bad deploy.' },
+  { n: 3, ring: 5, title: 'Audit & remove unused MCPs',       effort: 0.08, roi: 0.45, kind: 'quick', effortLabel: '1 hour',   roiLabel: 'Mid',      why: 'Context budget reclaimed; drift surface shrinks. Cheapest gap on the board.' },
+  { n: 4, ring: 7, title: 'Visual regression testing',        effort: 0.55, roi: 0.78, kind: 'phase', effortLabel: '1 phase',  roiLabel: 'High',     why: 'Percy or Chromatic. Would have caught Phase 84 dual-surface bug pre-merge.' },
+  { n: 5, ring: 7, title: 'Feature flags as first-class infra', effort: 0.65, roi: 0.72, kind: 'phase', effortLabel: '1 phase',  roiLabel: 'High',     why: 'Replace ad-hoc env flags like QRIS_ENABLED with LaunchDarkly or self-hosted alternative.' },
+  { n: 6, ring: 6, title: 'Per-PR preview environments',      effort: 0.75, roi: 0.70, kind: 'phase', effortLabel: '1-2 phases', roiLabel: 'High',   why: 'Convex + Vercel preview per PR. Lets UAT happen before merge, not after.' },
+  { n: 7, ring: 5, title: 'Wrap vendor APIs as MCP servers',  effort: 0.85, roi: 0.40, kind: 'phase', effortLabel: '1-2 phases', roiLabel: 'Mid',    why: 'BigSeller/Xendit/GrabFood as MCPs. Lower priority — current SDK calls work; speculative ROI.' },
+];
+
+const CX = 500, CY = 500;
+
+// ============================================================
+// RADAR: draw rings, blips, fills, scores
+// ============================================================
+const ringsLayer = document.getElementById('rings');
+const fillsLayer = document.getElementById('fills');
+const blipsLayer = document.getElementById('blips');
+const scoresLayer = document.getElementById('scores');
+
+function svgEl(name, attrs = {}) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+RINGS.forEach((ring, idx) => {
+  const isGap = ring.maturity <= 3;
+
+  // band
+  const band = svgEl('circle', { cx: CX, cy: CY, r: ring.r, stroke: ring.color, 'data-ring': ring.n });
+  band.setAttribute('class', 'ring-band' + (isGap ? ' is-gap' : ''));
+  band.style.animationDelay = (idx * 0.12 + 0.2) + 's';
+  band.addEventListener('mouseenter', () => focusRing(ring.n));
+  band.addEventListener('click', () => selectRing(ring.n));
+  ringsLayer.appendChild(band);
+
+  // maturity fill (semi-circle indicator from top, clockwise)
+  const circ = 2 * Math.PI * ring.r;
+  const fillLen = (ring.maturity / 5) * circ;
+  const fill = svgEl('circle', {
+    cx: CX, cy: CY, r: ring.r,
+    stroke: ring.maturity >= 4 ? 'var(--mat-high)' : ring.maturity >= 3 ? 'var(--mat-mid)' : 'var(--mat-low)',
+    'stroke-dasharray': `${fillLen} ${circ - fillLen}`,
+    'stroke-dashoffset': circ / 4,
+    transform: `rotate(-90 ${CX} ${CY})`,
+  });
+  fill.setAttribute('class', 'ring-fill');
+  fillsLayer.appendChild(fill);
+
+  // maturity score chip (bottom-right of ring)
+  const scAng = 28 * Math.PI / 180;
+  const sx = CX + ring.r * Math.cos(scAng);
+  const sy = CY + ring.r * Math.sin(scAng);
+  const score = svgEl('text', { x: sx, y: sy + 4 });
+  score.setAttribute('class', 'maturity-score');
+  score.textContent = ring.maturity + '/5';
+  scoresLayer.appendChild(score);
+
+  // ring label (at top)
+  const labelY = CY - ring.r;
+  const label = svgEl('text', { x: CX, y: labelY + 5, 'text-anchor': 'middle' });
+  label.setAttribute('class', 'ring-label');
+  label.style.animationDelay = (idx * 0.12 + 0.4) + 's';
+  label.textContent = `RING ${ring.n} · ${ring.name.toUpperCase()}`;
+  ringsLayer.appendChild(label);
+
+  const sub = svgEl('text', { x: CX, y: labelY + 22, 'text-anchor': 'middle' });
+  sub.setAttribute('class', 'ring-sublabel');
+  sub.style.animationDelay = (idx * 0.12 + 0.45) + 's';
+  sub.textContent = ring.subtitle;
+  ringsLayer.appendChild(sub);
+
+  // blips (tool chips on ring)
+  const startAng = -150 + (idx * 8); // stagger so adjacent rings don't align
+  const span = 290; // degrees of arc covered
+  const step = span / (ring.blips.length - 1 || 1);
+  ring.blips.forEach((tool, i) => {
+    const ang = (startAng + i * step) * Math.PI / 180;
+    const bx = CX + ring.r * Math.cos(ang);
+    const by = CY + ring.r * Math.sin(ang);
+
+    // outward label direction
+    const lx = CX + (ring.r + 22) * Math.cos(ang);
+    const ly = CY + (ring.r + 22) * Math.sin(ang);
+
+    const g = svgEl('g', {});
+    g.setAttribute('class', 'blip');
+    g.style.animationDelay = (idx * 0.12 + i * 0.04 + 0.5) + 's';
+    g.addEventListener('mouseenter', () => focusRing(ring.n));
+    g.addEventListener('click', () => selectRing(ring.n));
+
+    // small radial tick
+    const tick = svgEl('line', {
+      x1: bx, y1: by,
+      x2: lx, y2: ly,
+      stroke: ring.color,
+    });
+    tick.setAttribute('class', 'blip-tick');
+    g.appendChild(tick);
+
+    // dot at ring radius
+    const dot = svgEl('circle', { cx: bx, cy: by, r: 3, stroke: ring.color });
+    dot.setAttribute('class', 'blip-dot');
+    g.appendChild(dot);
+
+    // label text
+    const textAnchor = Math.cos(ang) > 0.2 ? 'start' : Math.cos(ang) < -0.2 ? 'end' : 'middle';
+    const txOff = textAnchor === 'start' ? 5 : textAnchor === 'end' ? -5 : 0;
+    const t = svgEl('text', {
+      x: lx + txOff, y: ly + 3,
+      'text-anchor': textAnchor,
+    });
+    t.setAttribute('class', 'blip-text');
+    t.textContent = tool;
+    g.appendChild(t);
+
+    blipsLayer.appendChild(g);
+  });
+});
+
+// ============================================================
+// VIEW SWITCHING
+// ============================================================
+const radarFrame = document.getElementById('radar-frame');
+const metaView = document.getElementById('meta-view');
+const metaRing = document.getElementById('meta-ring');
+
+function setView(view) {
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+  radarFrame.classList.remove('topology-view', 'maturity-view', 'gaps-view');
+  radarFrame.classList.add(view + '-view');
+  document.querySelectorAll('.ring-band').forEach(b => b.classList.toggle('gaps-view', view === 'gaps'));
+  metaView.textContent = 'VIEW · ' + view.toUpperCase();
+  state.view = view; persistState();
+}
+document.querySelectorAll('.view-tab').forEach(t => {
+  t.addEventListener('click', () => setView(t.dataset.view));
+});
+
+// ============================================================
+// INSPECTOR
+// ============================================================
+const inspector = document.getElementById('inspector');
+function focusRing(n) {
+  document.querySelectorAll('.ring-band').forEach(b => {
+    b.classList.toggle('active', b.dataset.ring == n);
+  });
+}
+function selectRing(n) {
+  focusRing(n);
+  const ring = RINGS.find(r => r.n === n);
+  if (!ring) return;
+  state.ring = n; persistState();
+  metaRing.textContent = `RING · ${n} · ${ring.name.toUpperCase()}`;
+
+  const matClass = ring.maturity >= 4 ? '' : ring.maturity >= 3 ? 'mid' : 'low';
+  const matBar = Array.from({length: 5}, (_, i) =>
+    `<div class="${i < Math.round(ring.maturity) ? 'on' : ''}"></div>`).join('');
+
+  const ringGaps = GAPS.filter(g => g.ring === n);
+  const gapsHtml = ringGaps.length ? `
+    <div class="inspector-section">
+      <h4>Where to invest</h4>
+      ${ringGaps.map(g => `
+        <div style="margin-bottom:8px;line-height:1.5">
+          <span class="gap-tag ${g.kind === 'quick' ? 'quick' : 'phase'}">${g.effortLabel}</span>
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--cream)">${g.title}</span>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  inspector.innerHTML = `
+    <div class="inspector-label">SELECTED · RING ${n}</div>
+    <div class="inspector-ring">${ring.subtitle}</div>
+    <p class="inspector-role">${ring.role}</p>
+
+    <div class="inspector-section">
+      <h4>Maturity</h4>
+      <div class="maturity-bar ${matClass}">${matBar}</div>
+      <div class="maturity-score-row"><b>${ring.maturity}/5</b> · ${ring.evidence}</div>
+    </div>
+
+    <div class="inspector-section">
+      <h4>Inventory · ${ring.blips.length} tools</h4>
+      <ul>${ring.blips.map(b => `<li>${b}</li>`).join('')}</ul>
+    </div>
+
+    <div class="inspector-section">
+      <h4>Fails as</h4>
+      <p class="failure-quote">${ring.failure}</p>
+    </div>
+
+    ${gapsHtml}
+  `;
+}
+
+// ============================================================
+// EVIDENCE TABLE
+// ============================================================
+const evBody = document.getElementById('evidence-body');
+RINGS.forEach(r => {
+  const matClass = r.maturity >= 4 ? 'high' : r.maturity >= 3 ? 'mid' : 'low';
+  const stars = '●'.repeat(Math.floor(r.maturity)) + (r.maturity % 1 ? '◐' : '') + '○'.repeat(5 - Math.ceil(r.maturity));
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="col-ring">${r.n.toString().padStart(2,'0')}</td>
+    <td class="col-name">${r.name}<div style="font-family:var(--sans);font-size:11px;color:var(--cream-faint);font-style:normal;letter-spacing:0.05em">${r.subtitle}</div></td>
+    <td><span class="mat-pill ${matClass}">${r.maturity}/5</span><div style="font-family:var(--mono);font-size:11px;color:var(--cream-faint);margin-top:3px">${stars}</div></td>
+    <td class="col-count">${r.toolsCount}</td>
+    <td class="col-count">${r.incidents}</td>
+    <td class="col-evidence">${r.evidence}</td>
+  `;
+  tr.addEventListener('click', () => { selectRing(r.n); document.getElementById('radar-frame').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  tr.style.cursor = 'pointer';
+  evBody.appendChild(tr);
+});
+
+// ============================================================
+// INVESTMENT MATRIX — scatter + list
+// ============================================================
+const scatterPoints = document.getElementById('scatter-points');
+const gapList = document.getElementById('gap-list');
+
+GAPS.forEach(g => {
+  const point = document.createElement('div');
+  point.className = 'gap-point' + (g.kind === 'quick' ? ' cyan' : '');
+  point.style.left = (g.effort * 100) + '%';
+  point.style.bottom = (g.roi * 100) + '%';
+  point.textContent = g.n;
+  point.title = `${g.title} · effort ${g.effortLabel} · ROI ${g.roiLabel}`;
+  point.addEventListener('click', () => { selectRing(g.ring); document.getElementById('radar-frame').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  scatterPoints.appendChild(point);
+
+  const card = document.createElement('div');
+  card.className = 'gap-card' + (g.kind === 'quick' ? ' cyan' : '');
+  card.innerHTML = `
+    <div class="gap-card-head">
+      <span class="gap-card-num">${g.n.toString().padStart(2,'0')}</span>
+      <span class="gap-card-ring">RING ${g.ring} · ${RINGS.find(r => r.n === g.ring).name}</span>
+    </div>
+    <div class="gap-card-title">${g.title}</div>
+    <div style="font-family:var(--sans);font-size:11.5px;line-height:1.5;color:var(--cream-dim);margin-bottom:8px">${g.why}</div>
+    <div class="gap-card-meta">
+      <span>EFFORT · <b>${g.effortLabel}</b></span>
+      <span>ROI · <b>${g.roiLabel}</b></span>
+      <span>${g.kind === 'quick' ? '◆ QUICK WIN' : '○ PHASE WORK'}</span>
+    </div>
+  `;
+  card.addEventListener('click', () => { selectRing(g.ring); document.getElementById('radar-frame').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  card.style.cursor = 'pointer';
+  gapList.appendChild(card);
+});
+
+// ============================================================
+// TRAJECTORY
+// ============================================================
+const trajBody = document.getElementById('trajectory-body');
+RINGS.forEach(r => {
+  const past = r.trajectory[0];
+  const now = r.trajectory[r.trajectory.length - 1];
+  const target = r.target;
+  const delta = now - past;
+  const trendDir = delta > 0.5 ? 'up' : delta > 0 ? 'flat' : 'flat';
+  const trendLabel = delta > 0.5 ? `+${delta.toFixed(1)}` : delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
+  const gapToTarget = target - now;
+
+  // map maturity 0-5 to percentage 0-80% (target zone is 80-100%)
+  const pastPct = (past / 5) * 80;
+  const nowPct = (now / 5) * 80;
+  const targetPct = 80 + (target / 5) * 20;
+
+  const row = document.createElement('div');
+  row.className = 'traj-row';
+  row.style.cursor = 'pointer';
+
+  const markers = r.trajectory.map((m, i) => {
+    const pct = (m / 5) * 80;
+    return `<div class="traj-marker past" style="left:${pct}%;opacity:${0.2 + i * 0.18}"></div>`;
+  }).join('') +
+  `<div class="traj-marker now" style="left:${nowPct}%"></div>` +
+  `<div class="traj-marker target" style="left:${targetPct}%"></div>`;
+
+  row.innerHTML = `
+    <div class="traj-label">
+      <span class="traj-label-num">RING ${r.n.toString().padStart(2,'0')}</span>
+      <span class="traj-label-name">${r.name}</span>
+    </div>
+    <div class="traj-track" style="--past-color:var(--cream-faint);--now-color:${gapToTarget > 0.5 ? 'var(--mat-low)' : 'var(--mat-high)'};--target-color:var(--mat-high);--now-pct:${nowPct}%">
+      <div class="traj-fill" style="left:0;width:${nowPct}%"></div>
+      ${markers}
+    </div>
+    <div class="traj-trend ${trendDir}">${trendLabel}${gapToTarget > 0.5 ? ' · gap' : ' · ok'}</div>
+  `;
+  row.addEventListener('click', () => selectRing(r.n));
+  trajBody.appendChild(row);
+});
+
+// ============================================================
+// URL STATE PERSISTENCE
+// ============================================================
+const state = { view: 'topology', ring: 7 };
+
+function persistState() {
+  const params = new URLSearchParams();
+  params.set('view', state.view);
+  params.set('ring', state.ring);
+  history.replaceState(null, '', '#' + params.toString());
+}
+
+function restoreState() {
+  if (!location.hash) return;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const v = params.get('view'); const r = parseInt(params.get('ring'));
+  if (['topology','maturity','gaps'].includes(v)) state.view = v;
+  if (r >= 1 && r <= 7) state.ring = r;
+}
+
+restoreState();
+setView(state.view);
+selectRing(state.ring);
+</script>
+
+</body>
+</html>

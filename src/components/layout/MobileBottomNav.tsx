@@ -24,6 +24,7 @@ import {
   FileUp,
   ClipboardCheck,
   UserCheck,
+  Send,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_PERMISSIONS } from '@/lib/types';
@@ -79,6 +80,7 @@ const moreItems: TabItem[] = [
   { path: '/customers', icon: Contact, label: 'Customers', permission: 'canAccessOrders' },
   { path: '/vouchers', icon: Ticket, label: 'Vouchers', permission: 'canAccessVouchers' },
   { path: '/users', icon: Users, label: 'Users', permission: 'canAccessUsers' },
+  { path: '/admin/telegram-chats', icon: Send, label: 'Telegram', permission: 'canAccessTelegramChats' },
 ];
 
 export function MobileBottomNav() {

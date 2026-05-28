@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { httpAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { parseCommand } from "./chatRegistry";
 
 interface WebhookResult {
   status: number;
@@ -14,7 +15,19 @@ export interface WebhookDeps {
    * read-then-write race window between isDuplicate and recordUpdate.
    */
   recordIfNew: (updateId: number) => Promise<boolean>;
-  runAction: () => Promise<void>;
+  /** Dispatch /pack — schedule sendPackList. */
+  runPack: () => Promise<void>;
+  /** Dispatch /register — schedule registerChat. */
+  runRegister: (args: {
+    chatId: string;
+    chatType: "private" | "group" | "supergroup";
+    title: string;
+    registeredBy: number | undefined;
+  }) => Promise<void>;
+  /** Dispatch /start — schedule replyStartHelp. */
+  runStart: (chatId: string) => Promise<void>;
+  /** Dispatch non-command messages — fire-and-forget touchChatLastSeen. */
+  touchLastSeen: (chatId: string) => Promise<void>;
 }
 
 interface TelegramUpdate {
@@ -22,7 +35,7 @@ interface TelegramUpdate {
   message?: {
     message_id?: number;
     text?: string;
-    chat?: { id?: number; type?: string };
+    chat?: { id?: number; type?: string; title?: string };
     from?: { id?: number };
   };
 }
@@ -32,9 +45,12 @@ interface TelegramUpdate {
  * (Pattern from convex/integrations/qris/webhooks.ts:18-24.)
  */
 function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  const len = Math.max(a.length, b.length);
+  let mismatch = a.length === b.length ? 0 : 1;
+  for (let i = 0; i < len; i++) {
+    // charCodeAt past the end is NaN; (NaN || 0) === 0 keeps the XOR well-defined.
+    mismatch |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
   return mismatch === 0;
 }
 
@@ -57,35 +73,72 @@ export async function decideWebhookOutcome(input: {
     return { status: 401, body: "unauthorized" };
   }
 
+  // Best-effort lastSeen stamp — non-critical, never blocks the 200 ACK.
+  const tryTouch = async (chatId: string) => {
+    try { await input.deps.touchLastSeen(chatId); } catch { /* best-effort — lastSeen is non-critical */ }
+  };
+
   // Validate envelope.
   const updateId = input.body.update_id;
-  const text = input.body.message?.text;
+  const msg = input.body.message;
   if (typeof updateId !== "number") return { status: 200, body: "ok" };
-  if (typeof text !== "string") return { status: 200, body: "ok" };
+  if (!msg) return { status: 200, body: "ok" };
 
-  // Match /pack or /pack@<botname> EXACTLY. Telegram sends the @bot suffix in groups.
-  // Strict mode (full-string match): "/pack now please" does NOT match — trailing
-  // args are likely typos or accidental sends, and /pack takes no parameters in v1.
-  // If lenient args support is desired in a future version, change to a head-only match.
-  const trimmed = text.trim();
-  const isPackCommand = /^\/pack(@[A-Za-z0-9_]+)?$/.test(trimmed);
-  if (!isPackCommand) return { status: 200, body: "ok" };
+  const chatIdNum = msg.chat?.id;
+  if (typeof chatIdNum !== "number") return { status: 200, body: "ok" };
+  const chatIdStr = String(chatIdNum);
 
-  // Atomic idempotency check + record (R5). recordIfNew returns false if the
-  // update_id was already stored — in which case we ACK 200 without re-firing.
+  const text = msg.text;
+  if (typeof text !== "string") {
+    // Non-text update (sticker, photo, etc.) — best-effort touch, no dedupe.
+    await tryTouch(chatIdStr);
+    return { status: 200, body: "ok" };
+  }
+
+  const command = parseCommand(text);
+
+  // Non-command text path.
+  if (!command) {
+    if (text.trim().startsWith("/")) {
+      // Unknown slash command — silent 200-ack, no touch, no dedupe.
+      return { status: 200, body: "ok" };
+    }
+    // Regular non-command text → best-effort lastSeen stamp (NOT deduped by update_id).
+    await tryTouch(chatIdStr);
+    return { status: 200, body: "ok" };
+  }
+
+  // Known command path — atomic R5 dedupe, then dispatch.
   const isNew = await input.deps.recordIfNew(updateId);
   if (!isNew) {
     return { status: 200, body: "ok" };
   }
   // C3 (triple-review): never return non-200 once we've already recorded the
-  // update_id. If `runAction` throws (e.g. scheduler hiccup), returning 500
+  // update_id. If dispatch throws (e.g. scheduler hiccup), returning 500
   // would have Telegram retry — but on retry `recordIfNew` returns false and
-  // we skip `runAction` entirely, so the failure becomes a permanent 500 loop
+  // we skip dispatch entirely, so the failure becomes a permanent 500 loop
   // until Telegram gives up (~24h). Mirror the QRIS pattern: log and ACK 200.
   try {
-    await input.deps.runAction();
+    if (command === "pack") {
+      await input.deps.runPack();
+    } else if (command === "register") {
+      const rawType = msg.chat?.type;
+      const chatType: "private" | "group" | "supergroup" =
+        rawType === "private" || rawType === "group" || rawType === "supergroup"
+          ? rawType
+          : "group";
+      await input.deps.runRegister({
+        chatId: chatIdStr,
+        chatType,
+        title: msg.chat?.title ?? "(untitled)",
+        registeredBy: msg.from?.id,
+      });
+    } else {
+      // "start"
+      await input.deps.runStart(chatIdStr);
+    }
   } catch (err) {
-    console.warn("[telegram] runAction failed after recordIfNew committed", err);
+    console.warn("[telegram] command dispatch failed after recordIfNew committed", err);
   }
   return { status: 200, body: "ok" };
 }
@@ -129,10 +182,20 @@ export const handleTelegramWebhook = httpAction(async (ctx, request) => {
     deps: {
       recordIfNew: (updateId) =>
         ctx.runMutation(internal.telegram.webhook.recordIfNew, { updateId }),
-      runAction: async () => {
+      runPack: async () => {
         await ctx.scheduler.runAfter(0, internal.telegram.sendPackList.sendPackList, {
           reason: "command",
         });
+      },
+      runRegister: async (args) => {
+        await ctx.scheduler.runAfter(0, internal.telegram.chatRegistry.registerChat, args);
+      },
+      runStart: async (chatId) => {
+        await ctx.scheduler.runAfter(0, internal.telegram.chatRegistry.replyStartHelp, { chatId });
+      },
+      touchLastSeen: async (chatId) => {
+        // NOT scheduled — direct mutation (no dedupe necessary).
+        await ctx.runMutation(internal.telegram.chatRegistry.touchChatLastSeen, { chatId });
       },
     },
   });

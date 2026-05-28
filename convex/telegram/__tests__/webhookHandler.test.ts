@@ -1,7 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
 import { decideWebhookOutcome } from "../webhook";
+import type { WebhookDeps } from "../webhook";
 
 const SECRET = "a".repeat(64);
+
+function defaultDeps(over: Partial<WebhookDeps> = {}): WebhookDeps {
+  return {
+    recordIfNew: async () => true,
+    runPack: async () => {},
+    runRegister: async () => {},
+    runStart: async () => {},
+    touchLastSeen: async () => {},
+    ...over,
+  };
+}
 
 function makeUpdate(over: Partial<{ update_id: number; text: string }> = {}) {
   return {
@@ -22,7 +34,7 @@ describe("decideWebhookOutcome — auth", () => {
       providedSecret: null,
       expectedSecret: SECRET,
       body: makeUpdate(),
-      deps: { recordIfNew: async () => true, runAction: async () => {} },
+      deps: defaultDeps(),
     });
     expect(result.status).toBe(401);
   });
@@ -32,7 +44,7 @@ describe("decideWebhookOutcome — auth", () => {
       providedSecret: "wrong",
       expectedSecret: SECRET,
       body: makeUpdate(),
-      deps: { recordIfNew: async () => true, runAction: async () => {} },
+      deps: defaultDeps(),
     });
     expect(result.status).toBe(401);
   });
@@ -42,7 +54,7 @@ describe("decideWebhookOutcome — auth", () => {
       providedSecret: SECRET,
       expectedSecret: undefined,
       body: makeUpdate(),
-      deps: { recordIfNew: async () => true, runAction: async () => {} },
+      deps: defaultDeps(),
     });
     expect(result.status).toBe(401);
   });
@@ -50,64 +62,64 @@ describe("decideWebhookOutcome — auth", () => {
 
 describe("decideWebhookOutcome — command parsing", () => {
   it("triggers sendPackList for /pack", async () => {
-    const runAction = vi.fn().mockResolvedValue(undefined);
+    const runPack = vi.fn().mockResolvedValue(undefined);
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack" }),
-      deps: { recordIfNew: async () => true, runAction },
+      deps: defaultDeps({ runPack }),
     });
     expect(result.status).toBe(200);
-    expect(runAction).toHaveBeenCalledTimes(1);
+    expect(runPack).toHaveBeenCalledTimes(1);
   });
 
   it("triggers sendPackList for /pack@BotName (group form)", async () => {
-    const runAction = vi.fn().mockResolvedValue(undefined);
+    const runPack = vi.fn().mockResolvedValue(undefined);
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack@FrolliePackBot" }),
-      deps: { recordIfNew: async () => true, runAction },
+      deps: defaultDeps({ runPack }),
     });
     expect(result.status).toBe(200);
-    expect(runAction).toHaveBeenCalledTimes(1);
+    expect(runPack).toHaveBeenCalledTimes(1);
   });
 
   it("ignores non-/pack text without scheduling action", async () => {
-    const runAction = vi.fn().mockResolvedValue(undefined);
+    const runPack = vi.fn().mockResolvedValue(undefined);
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "hello" }),
-      deps: { recordIfNew: async () => true, runAction },
+      deps: defaultDeps({ runPack }),
     });
     expect(result.status).toBe(200);
-    expect(runAction).not.toHaveBeenCalled();
+    expect(runPack).not.toHaveBeenCalled();
   });
 
   it("ignores updates with no message field", async () => {
-    const runAction = vi.fn().mockResolvedValue(undefined);
+    const runPack = vi.fn().mockResolvedValue(undefined);
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: { update_id: 5 },  // no message
-      deps: { recordIfNew: async () => true, runAction },
+      deps: defaultDeps({ runPack }),
     });
     expect(result.status).toBe(200);
-    expect(runAction).not.toHaveBeenCalled();
+    expect(runPack).not.toHaveBeenCalled();
   });
 
   it("ignores /pack with trailing args (e.g. '/pack now please') — strict command match", async () => {
-    const runAction = vi.fn().mockResolvedValue(undefined);
+    const runPack = vi.fn().mockResolvedValue(undefined);
     const recordIfNew = vi.fn().mockResolvedValue(true);
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack now please" }),
-      deps: { recordIfNew, runAction },
+      deps: defaultDeps({ recordIfNew, runPack }),
     });
     expect(result.status).toBe(200);
-    expect(runAction).not.toHaveBeenCalled();
+    expect(runPack).not.toHaveBeenCalled();
     // recordIfNew also NOT called — we don't burn an update_id slot on non-commands.
     expect(recordIfNew).not.toHaveBeenCalled();
   });
@@ -115,15 +127,15 @@ describe("decideWebhookOutcome — command parsing", () => {
 
 describe("decideWebhookOutcome — idempotency (R5)", () => {
   it("does not re-fire when recordIfNew reports duplicate (returns false)", async () => {
-    const runAction = vi.fn().mockResolvedValue(undefined);
+    const runPack = vi.fn().mockResolvedValue(undefined);
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack", update_id: 999 }),
-      deps: { recordIfNew: async () => false, runAction },
+      deps: defaultDeps({ recordIfNew: async () => false, runPack }),
     });
     expect(result.status).toBe(200);
-    expect(runAction).not.toHaveBeenCalled();
+    expect(runPack).not.toHaveBeenCalled();
   });
 
   it("records the update_id BEFORE running the action (atomic dedupe + record)", async () => {
@@ -132,42 +144,142 @@ describe("decideWebhookOutcome — idempotency (R5)", () => {
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack" }),
-      deps: {
+      deps: defaultDeps({
         recordIfNew: async () => { calls.push("record"); return true; },
-        runAction: async () => { calls.push("run"); },
-      },
+        runPack: async () => { calls.push("pack"); },
+      }),
     });
     expect(result.status).toBe(200);
-    expect(calls).toEqual(["record", "run"]);
+    expect(calls).toEqual(["record", "pack"]);
   });
 
-  it("does not call runAction when recordIfNew returns false even if other auth/parse passes", async () => {
-    const runAction = vi.fn().mockResolvedValue(undefined);
+  it("does not call runPack when recordIfNew returns false even if other auth/parse passes", async () => {
+    const runPack = vi.fn().mockResolvedValue(undefined);
     const recordIfNew = vi.fn().mockResolvedValue(false);
     await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack", update_id: 42 }),
-      deps: { recordIfNew, runAction },
+      deps: defaultDeps({ recordIfNew, runPack }),
     });
     expect(recordIfNew).toHaveBeenCalledWith(42);
-    expect(runAction).not.toHaveBeenCalled();
+    expect(runPack).not.toHaveBeenCalled();
   });
 
-  it("C3: still returns 200 if runAction throws (so Telegram doesn't retry-loop after recordIfNew committed)", async () => {
+  it("C3: still returns 200 if runPack throws (so Telegram doesn't retry-loop after recordIfNew committed)", async () => {
     // Suppress the expected console.warn from the catch path so the test output
     // stays clean — we still assert the catch fired by checking the 200 status.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const runAction = vi.fn().mockRejectedValue(new Error("scheduler hiccup"));
+    const runPack = vi.fn().mockRejectedValue(new Error("scheduler hiccup"));
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
       body: makeUpdate({ text: "/pack", update_id: 7 }),
-      deps: { recordIfNew: async () => true, runAction },
+      deps: defaultDeps({ recordIfNew: async () => true, runPack }),
     });
     expect(result.status).toBe(200);
-    expect(runAction).toHaveBeenCalledTimes(1);
+    expect(runPack).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("decideWebhookOutcome — /register routing (spec case #15)", () => {
+  it("dispatches /register to runRegister with chat metadata", async () => {
+    const runRegister = vi.fn().mockResolvedValue(undefined);
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: {
+        update_id: 1001,
+        message: {
+          message_id: 1, text: "/register",
+          chat: { id: -100123, type: "supergroup", title: "New Group" },
+          from: { id: 42, is_bot: false, first_name: "User" },
+        },
+      } as any,
+      deps: defaultDeps({ runRegister }),
+    });
+    expect(result.status).toBe(200);
+    expect(runRegister).toHaveBeenCalledWith({
+      chatId: "-100123",
+      chatType: "supergroup",
+      title: "New Group",
+      registeredBy: 42,
+    });
+  });
+});
+
+describe("decideWebhookOutcome — /register dedupe (spec case #16)", () => {
+  it("does not re-fire runRegister when update_id duplicates", async () => {
+    const runRegister = vi.fn();
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: {
+        update_id: 2002,
+        message: { message_id: 1, text: "/register", chat: { id: -100, type: "group", title: "X" } },
+      } as any,
+      deps: defaultDeps({ recordIfNew: async () => false, runRegister }),
+    });
+    expect(result.status).toBe(200);
+    expect(runRegister).not.toHaveBeenCalled();
+  });
+});
+
+describe("decideWebhookOutcome — non-command messages (spec case #17)", () => {
+  it("dispatches non-command text to touchLastSeen (no dedupe by update_id)", async () => {
+    const touchLastSeen = vi.fn().mockResolvedValue(undefined);
+    const recordIfNew = vi.fn();
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: {
+        update_id: 3003,
+        message: { message_id: 1, text: "hello @FrolliePackBot", chat: { id: -100, type: "group" } },
+      } as any,
+      deps: defaultDeps({ recordIfNew, touchLastSeen }),
+    });
+    expect(result.status).toBe(200);
+    expect(recordIfNew).not.toHaveBeenCalled();
+    expect(touchLastSeen).toHaveBeenCalledWith("-100");
+  });
+});
+
+describe("decideWebhookOutcome — /start (spec §webhook dispatch)", () => {
+  it("dispatches /start to runStart", async () => {
+    const runStart = vi.fn().mockResolvedValue(undefined);
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: {
+        update_id: 4004,
+        message: { message_id: 1, text: "/start", chat: { id: -100, type: "private" } },
+      } as any,
+      deps: defaultDeps({ runStart }),
+    });
+    expect(result.status).toBe(200);
+    expect(runStart).toHaveBeenCalledWith("-100");
+  });
+});
+
+describe("decideWebhookOutcome — unknown slash command", () => {
+  it("silently 200-acks unknown slash command without dedupe or dispatch", async () => {
+    const recordIfNew = vi.fn();
+    const runPack = vi.fn();
+    const touchLastSeen = vi.fn();
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET,
+      expectedSecret: SECRET,
+      body: {
+        update_id: 5005,
+        message: { message_id: 1, text: "/foobar", chat: { id: -100, type: "group" } },
+      } as any,
+      deps: defaultDeps({ recordIfNew, runPack, touchLastSeen }),
+    });
+    expect(result.status).toBe(200);
+    expect(recordIfNew).not.toHaveBeenCalled();
+    expect(runPack).not.toHaveBeenCalled();
+    expect(touchLastSeen).not.toHaveBeenCalled(); // unknown slash ≠ non-command; no touch
   });
 });
