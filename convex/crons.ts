@@ -11,10 +11,12 @@ crons.interval(
 );
 
 // Telegram pack list bot v1: morning post at 07:00 WIB (= 00:00 UTC).
+// Uses the resilient wrapper so a transient Convex worker-spike at firing time
+// self-reschedules instead of silently dropping the post (incident 2026-05-29).
 crons.daily(
   "telegram morning pack list",
   { hourUTC: 0, minuteUTC: 0 },
-  internal.telegram.sendPackList.sendPackList,
+  internal.telegram.sendPackList.sendPackListResilient,
   { reason: "morning" },
 );
 
@@ -22,7 +24,7 @@ crons.daily(
 crons.daily(
   "telegram midday pack list",
   { hourUTC: 6, minuteUTC: 0 },
-  internal.telegram.sendPackList.sendPackList,
+  internal.telegram.sendPackList.sendPackListResilient,
   { reason: "midday" },
 );
 
