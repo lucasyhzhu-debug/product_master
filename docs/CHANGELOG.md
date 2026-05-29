@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Hardening: all Telegram cron sends now retry on transient worker spikes — 2026-05-29
+
+**For the team:** Extends the pack-list cron fix to the three sales-summary crons (daily/weekly/monthly) so they also auto-retry on a momentary Convex capacity blip instead of dropping the post. The retry policy is now a shared, documented playbook step for any future Telegram cron.
+
+#### Added
+- `convex/telegram/cronRetry.ts` — shared transient-retry policy (`isTransientError`, `RESILIENT_MAX_ATTEMPTS`, `resilientRetryDelayMs`) with the full playbook rationale.
+
+#### Changed
+- `convex/telegram/salesSummary/sendSalesSummary.ts` — new `sendSalesSummaryResilient` wrapper; daily best-effort syncs are idempotent so re-running on retry is safe.
+- `convex/telegram/sendPackList.ts` — `sendPackListResilient` refactored to use the shared `cronRetry` helper (no behaviour change).
+- `convex/crons.ts` — `sales summary daily/weekly/monthly` now point at `sendSalesSummaryResilient`.
+- `docs/telegram/telegram-bot-integration.md` — new "Resilience: cron-triggered sends MUST be retry-wrapped" section codifying the pattern + three safety rules.
+
+#### Tests
+- telegram suite (111 tests) green; `npm run build` passes.
+
 ### Bug Fix: pack-list Telegram cron silently dropped on transient worker spike — 2026-05-29
 
 **For the team:** The 1pm "still pending" pack-list message didn't arrive on 2026-05-29. Cause was a momentary Convex capacity blip ("no available workers") at the exact firing time — the cron has no retry, so the post was dropped. The pack-list crons now automatically retry (60s, then 120s) when they hit a transient worker shortage, so a brief blip no longer means a missed post. On-demand `/pack` in Telegram was unaffected and remains the manual re-send.
