@@ -4,6 +4,11 @@ import { internalAction } from "../../_generated/server";
 import { api, internal } from "../../_generated/api";
 import { sendTelegramHtml } from "../../lib/telegramHtml";
 import { formatSalesSummary, type RefreshStatus } from "./salesSummaryFormat";
+import {
+  RESILIENT_MAX_ATTEMPTS,
+  resilientRetryDelayMs,
+  isTransientError,
+} from "../cronRetry";
 
 export const sendSalesSummary = internalAction({
   args: {
@@ -90,5 +95,51 @@ export const sendSalesSummary = internalAction({
     }
 
     return { chunkCount: chunks.length, channelCount: data.channels.length };
+  },
+});
+
+// ─── sendSalesSummaryResilient ───────────────────────────────────────────────
+
+/**
+ * Cron-resilient wrapper for sendSalesSummary. See convex/telegram/cronRetry.ts
+ * for the shared transient-retry playbook. Crons point HERE.
+ *
+ * Retry safety: a transient error can only escape before the send loop (at the
+ * getChatIdByRole / getSalesSummary runQueries — the daily best-effort syncs are
+ * already try/catch'd and are idempotent incremental syncs, so re-running them
+ * on retry is harmless). A mid-chunk Telegram failure is non-transient and is
+ * never retried.
+ */
+export const sendSalesSummaryResilient = internalAction({
+  args: {
+    cadence: v.union(
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
+    attempt: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const attempt = args.attempt ?? 0;
+    try {
+      await ctx.runAction(
+        internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+        { cadence: args.cadence },
+      );
+    } catch (err) {
+      if (isTransientError(err) && attempt + 1 < RESILIENT_MAX_ATTEMPTS) {
+        const delayMs = resilientRetryDelayMs(attempt);
+        console.warn(
+          `[sendSalesSummaryResilient] transient error on attempt ${attempt + 1}/${RESILIENT_MAX_ATTEMPTS} (cadence=${args.cadence}); retrying in ${delayMs}ms`,
+        );
+        await ctx.scheduler.runAfter(
+          delayMs,
+          internal.telegram.salesSummary.sendSalesSummary.sendSalesSummaryResilient,
+          { cadence: args.cadence, attempt: attempt + 1 },
+        );
+        return;
+      }
+      throw err;
+    }
   },
 });

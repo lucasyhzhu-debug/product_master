@@ -30,10 +30,12 @@ crons.daily(
 
 // Sales-updates bot — daily end-of-day summary at 23:00 WIB (= 16:00 UTC).
 // Best-effort refreshes GoFood/K3Mart/Internal, then posts revenue + per-SKU by channel.
+// Uses the resilient wrapper (see convex/telegram/cronRetry.ts) so a transient
+// Convex worker-spike at firing time self-reschedules instead of dropping the post.
 crons.daily(
   "sales summary daily",
   { hourUTC: 16, minuteUTC: 0 },
-  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummaryResilient,
   { cadence: "daily" },
 );
 
@@ -41,7 +43,7 @@ crons.daily(
 crons.weekly(
   "sales summary weekly",
   { dayOfWeek: "monday", hourUTC: 0, minuteUTC: 0 },
-  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummaryResilient,
   { cadence: "weekly" },
 );
 
@@ -49,7 +51,7 @@ crons.weekly(
 crons.monthly(
   "sales summary monthly",
   { day: 1, hourUTC: 1, minuteUTC: 0 },
-  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummaryResilient,
   { cadence: "monthly" },
 );
 

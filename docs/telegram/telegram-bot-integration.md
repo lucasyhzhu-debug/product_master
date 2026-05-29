@@ -332,6 +332,89 @@ That's the full one-way pattern. About 50 lines total. No webhook, no buttons, n
 
 ---
 
+## Resilience: cron-triggered sends MUST be retry-wrapped
+
+**Convex crons fire a function exactly once with NO auto-retry.** A send-action's
+first step is a `getChatIdByRole` runQuery (or, in the env-var variant, reading
+config). If a transient Convex capacity error — `There are no available workers
+to process the request` — coincides with the firing time, that runQuery throws
+*before any message is sent* and the post is **silently dropped**. There is no
+error in the chat, just a missing message.
+
+This is not hypothetical: it dropped Frollie's midday pack-list post on
+2026-05-29 at 13:00 WIB. Production log:
+
+```
+1:00:01 pm [CONVEX Q(telegram/chatRegistry:getChatIdByRole)] There are no available workers to process the request
+1:00:01 pm [CONVEX A(telegram/sendPackList:sendPackList)] Uncaught Error: There are no available workers to process the request
+```
+
+### The pattern
+
+Every **cron-triggered** send gets a thin `*Resilient` wrapper internalAction.
+The crons point at the wrapper; the raw send-action stays the on-demand
+entrypoint (`/pack` command, admin test-send), where a human can just re-issue
+it. Shared policy lives in `convex/telegram/cronRetry.ts`:
+
+```ts
+// convex/telegram/cronRetry.ts
+export const RESILIENT_MAX_ATTEMPTS = 3;                       // initial + 2 retries
+export function resilientRetryDelayMs(a: number) { return 60_000 * (a + 1); } // 60s, 120s
+const TRANSIENT_ERROR_SUBSTRINGS = ["no available workers"];
+export function isTransientError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return TRANSIENT_ERROR_SUBSTRINGS.some((s) => msg.includes(s));
+}
+```
+
+```ts
+// the wrapper — one per cron send-action
+export const sendThingResilient = internalAction({
+  args: { /* same args as sendThing */ ...baseArgs, attempt: v.optional(v.number()) },
+  handler: async (ctx, args): Promise<void> => {
+    const attempt = args.attempt ?? 0;
+    try {
+      await ctx.runAction(internal.telegram.sendThing.sendThing, baseArgs);
+    } catch (err) {
+      if (isTransientError(err) && attempt + 1 < RESILIENT_MAX_ATTEMPTS) {
+        await ctx.scheduler.runAfter(
+          resilientRetryDelayMs(attempt),
+          internal.telegram.sendThing.sendThingResilient,   // reschedules ITSELF
+          { ...baseArgs, attempt: attempt + 1 },
+        );
+        return;
+      }
+      throw err;   // non-transient → fail loudly (shows in cron dashboard)
+    }
+  },
+});
+```
+
+```ts
+// convex/crons.ts — point the cron at the wrapper, not the raw action
+crons.daily("thing", { hourUTC, minuteUTC }, internal.telegram.sendThing.sendThingResilient, baseArgs);
+```
+
+### Three rules that keep retries safe
+
+1. **Retry transient errors ONLY.** A mid-chunk Telegram `sendMessage` failure
+   is *not* transient — retrying it would re-post earlier chunks. `isTransientError`
+   matches only the Convex overload message, which can only occur *before* the
+   send loop. Everything else rethrows.
+2. **Pre-send work that re-runs on retry must be idempotent.** If the action does
+   data refreshes before sending (e.g. the sales-summary best-effort syncs), they
+   re-run on each retry — incremental syncs are fine; non-idempotent writes are not.
+3. **Per-action wrapper, not one generic action.** `scheduler.runAfter` needs a
+   concrete function reference to reschedule, and references aren't serialisable
+   as args — so each wrapper must name itself. Only the *policy* (classification +
+   backoff) is shared via `cronRetry.ts`.
+
+**Checklist when adding any new cron-triggered Telegram send:** write `sendX`, then
+`sendXResilient` wrapping it, point the cron at the wrapper, and confirm rule #2
+(idempotent pre-send work). The on-demand path keeps calling `sendX` directly.
+
+---
+
 ## Porting this to a new project
 
 To set up Telegram in another repo (e.g., Frollie Pro):
