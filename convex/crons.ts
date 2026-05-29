@@ -10,16 +10,6 @@ crons.interval(
   { triggeredBy: "cron" }
 );
 
-// Phase 79 (DA-12): Daily BigSeller re-sync at 03:00 WIB (= 20:00 UTC,
-// Indonesia UTC+7, no DST). Re-fetches the trailing 7 days so same-day
-// Shopee `--` rows auto-backfill once BigSeller catches up (within 24h).
-// Skip-if-not-idle guard lives inside nightlySync (D-12).
-crons.daily(
-  "bigseller nightly 7d resync",
-  { hourUTC: 20, minuteUTC: 0 },
-  internal.integrations.bigseller.cron.nightlySync,
-);
-
 // Telegram pack list bot v1: morning post at 07:00 WIB (= 00:00 UTC).
 crons.daily(
   "telegram morning pack list",
@@ -34,6 +24,31 @@ crons.daily(
   { hourUTC: 6, minuteUTC: 0 },
   internal.telegram.sendPackList.sendPackList,
   { reason: "midday" },
+);
+
+// Sales-updates bot — daily end-of-day summary at 23:00 WIB (= 16:00 UTC).
+// Best-effort refreshes GoFood/K3Mart/Internal, then posts revenue + per-SKU by channel.
+crons.daily(
+  "sales summary daily",
+  { hourUTC: 16, minuteUTC: 0 },
+  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+  { cadence: "daily" },
+);
+
+// Sales-updates bot — weekly round-up Monday 07:00 WIB (= Mon 00:00 UTC), prior Mon–Sun.
+crons.weekly(
+  "sales summary weekly",
+  { dayOfWeek: "monday", hourUTC: 0, minuteUTC: 0 },
+  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+  { cadence: "weekly" },
+);
+
+// Sales-updates bot — monthly round-up 1st at 08:00 WIB (= 1st 01:00 UTC), prior calendar month.
+crons.monthly(
+  "sales summary monthly",
+  { day: 1, hourUTC: 1, minuteUTC: 0 },
+  internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+  { cadence: "monthly" },
 );
 
 export default crons;
