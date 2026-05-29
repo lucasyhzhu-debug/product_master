@@ -10,7 +10,6 @@ import { resolveCadenceRange, type Cadence } from "./range";
 const TOP_N_DAILY = 3;
 const TOP_N_PERIOD = 5;
 type InScopePlatform = "GoFood" | "K3Mart" | "Direct";
-const IN_SCOPE: InScopePlatform[] = ["GoFood", "K3Mart", "Direct"];
 
 export interface ProductTally { name: string; qty: number; }
 export interface OutletSummary { name: string; gross: number; orders: number; products: ProductTally[]; }
@@ -64,7 +63,8 @@ async function fetchInScopeRevenue(
 
 function toInScope(source: Doc<"externalRevenue">["source"]): InScopePlatform | null {
   const p = resolvePlatform({ source }).platform;
-  return (IN_SCOPE as string[]).includes(p) ? (p as InScopePlatform) : null;
+  // Equality chain narrows p to InScopePlatform in the true branch — no cast needed.
+  return p === "GoFood" || p === "K3Mart" || p === "Direct" ? p : null;
 }
 
 // Gross for one row. For internal (Direct) rows, prefer the order's totalAmount
@@ -229,7 +229,10 @@ export const getSalesSummary = internalQuery({
 
     for (const [platform, ch] of channels) {
       grandGross += ch.gross;
-      grandOrders += ch.orders;
+      // K3Mart "orders" are per-product-line counts, not customer orders (the
+      // formatter hides them per-channel for the same reason) — exclude from the
+      // headline order total so it stays a genuine order count.
+      if (platform !== "K3Mart") grandOrders += ch.orders;
       result.push({
         platform,
         gross: ch.gross,

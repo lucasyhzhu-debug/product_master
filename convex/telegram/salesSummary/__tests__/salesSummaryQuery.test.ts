@@ -157,6 +157,8 @@ describe("salesSummaryQuery — K3Mart return exclusion", () => {
     expect(k3.gross).toBe(1_200_000);
     expect(k3.products).toEqual([{ name: "Jumbo", qty: 10 }]);
     expect(data.grandTotal.gross).toBe(1_200_000);
+    // K3Mart product-line counts are excluded from the headline order total.
+    expect(data.grandTotal.orders).toBe(0);
   });
 });
 

@@ -12,7 +12,8 @@ const TRUNCATE_MARKER = "\n  …[truncated — check dashboard]";
 const CHANNEL_EMOJI: Record<ChannelSummary["platform"], string> = { GoFood: "🛵", K3Mart: "🏪", Direct: "🏠" };
 
 function rupiah(n: number): string {
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(1)}M`;
+  // 999_500 (not 1_000_000) so values that would round to "1000K" render "1.0M".
+  if (n >= 999_500) return `Rp ${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `Rp ${Math.round(n / 1_000)}K`;
   return `Rp ${n}`;
 }
@@ -69,8 +70,14 @@ export function formatSalesSummary(input: FormatInput): string[] {
     return [`${header(data)}\n\nNo sales recorded ${when}.`];
   }
 
-  const sections = data.channels.map(renderChannel).map((s) =>
-    s.length > MAX_SECTION_LEN ? s.slice(0, MAX_SECTION_LEN - TRUNCATE_MARKER.length) + TRUNCATE_MARKER : s);
+  const sections = data.channels.map(renderChannel).map((s) => {
+    if (s.length <= MAX_SECTION_LEN) return s;
+    // Cut at the last newline before the cap so we drop whole lines instead of
+    // splitting an HTML entity/tag mid-token (which Telegram's HTML parser rejects).
+    const cap = MAX_SECTION_LEN - TRUNCATE_MARKER.length;
+    const nl = s.lastIndexOf("\n", cap);
+    return s.slice(0, nl > 0 ? nl : cap) + TRUNCATE_MARKER;
+  });
 
   const chunks: string[] = [];
   let current = header(data);
