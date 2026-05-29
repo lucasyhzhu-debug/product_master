@@ -67,6 +67,10 @@ function toInScope(source: Doc<"externalRevenue">["source"]): InScopePlatform | 
   return (IN_SCOPE as string[]).includes(p) ? (p as InScopePlatform) : null;
 }
 
+// Gross for one row. For internal (Direct) rows, prefer the order's totalAmount
+// (the dashboard's source) so Direct gross matches getRevenueByOutletInternal.
+// KEEP IN SYNC with the internal-order gross rule in convex/externalData/queries.ts
+// (getRevenueByOutletInternal) — if that selection changes, mirror it here.
 function rowGross(
   row: Doc<"externalRevenue">,
   orderMap: Map<string, { totalAmount: number; finalTotal: number; deliveryFee: number }>,
@@ -156,6 +160,9 @@ export const getSalesSummary = internalQuery({
     for (const row of currentRows) {
       // Skip returns & delta_inferred; we only want realized sales.
       // Canonical predicate from convex/reports/unitEconomics.ts line 216.
+      // NOTE: getRevenueByOutletInternal (the dashboard) does NOT filter returns,
+      // so K3Mart gross here reads LOWER than the dashboard for periods with
+      // returns. This is intentional — the summary reports realized sales only.
       if (row.transactionType && row.transactionType !== "sales") continue;
       const platform = toInScope(row.source);
       if (!platform) continue;

@@ -1,5 +1,6 @@
 // convex/telegram/salesSummary/salesSummaryFormat.ts
 import { escapeHtml } from "../../lib/telegramHtml";
+import { WIB_OFFSET_MS } from "../../lib/periodRange";
 import type { SalesSummaryData, ChannelSummary, ProductTally } from "./salesSummaryQuery";
 
 export interface RefreshStatus { gofood: "ok" | "fail" | "skip"; k3mart: "ok" | "fail" | "skip"; direct: "ok" | "fail" | "skip"; }
@@ -28,8 +29,9 @@ function products(list: ProductTally[]): string {
 }
 
 function renderChannel(ch: ChannelSummary): string {
-  // K3Mart rows are consignment stock-deltas (dataOrigin "stock_delta"), so the
-  // count is per-product-line, not an order count — omit it to avoid a
+  // Each K3Mart externalRevenue row is one consignment product-line entry
+  // (transactionCount: 1 per SKU), NOT one customer order — so its summed
+  // "orders" is a product-line count, not an order count. Omit it to avoid a
   // misleading "(N orders)". GoFood/Direct counts are genuine order counts.
   const count = ch.platform === "K3Mart" ? "" : ` (${ch.orders} orders)`;
   const head = `${CHANNEL_EMOJI[ch.platform]} <b>${ch.platform}</b> — ${rupiah(ch.gross)}${count}${delta(ch.deltaPct)}`;
@@ -54,7 +56,7 @@ function header(data: SalesSummaryData): string {
 
 function footer(refresh: RefreshStatus, generatedAt: number): string {
   const mark = (s: "ok" | "fail" | "skip") => (s === "ok" ? "✓" : s === "fail" ? "✗" : "–");
-  const wib = new Date(generatedAt + 7 * 3600_000);
+  const wib = new Date(generatedAt + WIB_OFFSET_MS);
   const hh = String(wib.getUTCHours()).padStart(2, "0");
   const mm = String(wib.getUTCMinutes()).padStart(2, "0");
   return `\n<i>Refreshed ${hh}:${mm} WIB · GoFood ${mark(refresh.gofood)} K3Mart ${mark(refresh.k3mart)} Direct ${mark(refresh.direct)}</i>`;

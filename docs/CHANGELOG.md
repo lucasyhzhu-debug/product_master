@@ -32,7 +32,8 @@ After merging any code change, add a new entry with:
 
 #### Migration / Operational
 - No schema change.
-- Operator step: assign a Telegram group to the `sales-updates` role via `/admin/telegram-chats`. Until assigned, the crons fire but silently no-op (no delivery destination).
+- Operator step: assign a Telegram group to the `sales-updates` role via `/admin/telegram-chats`. There is no env fallback for `sales-updates`, so until a chat is assigned each cron run throws `No Telegram chat assigned` and shows as a **failed cron** in the Convex dashboard (no message sends). Recoverable any time by assigning the role — no redeploy needed.
+- K3Mart gross in the summary excludes `return`/`delta_inferred` rows (realized sales only). This means K3Mart figures here can read **lower** than the `/financials` dashboard (`getRevenueByOutletInternal`), which does not filter returns. Intentional — the round-up reports realized sales.
 
 #### Plan / Spec / Docs
 - Spec: `docs/superpowers/specs/2026-05-28-sales-updates-telegram-bot-design.md`

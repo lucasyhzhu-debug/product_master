@@ -18,10 +18,23 @@ export const sendSalesSummary = internalAction({
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) throw new Error("Telegram env var missing (TELEGRAM_BOT_TOKEN)");
 
+    // Resolve the delivery destination first — getChatIdByRole throws when no
+    // chat is assigned to "sales-updates" (no env fallback). Failing fast here
+    // avoids wasting the 3 best-effort syncs + the O(rows) summary query on a
+    // misconfigured cron run (which surfaces as a failed cron in the dashboard).
+    const chatId = await ctx.runQuery(
+      internal.telegram.chatRegistry.getChatIdByRole,
+      { role: "sales-updates" },
+    );
+
     const refresh: RefreshStatus = { gofood: "skip", k3mart: "skip", direct: "skip" };
 
     if (args.cadence === "daily") {
       // Best-effort: one failed sync must not block the others or the summary.
+      // NB: syncK3MartSales / syncInternalOrders are public `action`s (resolve
+      // creds internally, no session token) — call them via `api.*`, matching
+      // the existing hourly "sync internal orders revenue" cron. autoSyncGoBizRevenue
+      // is an internalAction (`internal.*`). Do NOT normalize all three to one namespace.
       try {
         await ctx.runAction(internal.integrations.gobiz.adapter.autoSyncGoBizRevenue, {});
         refresh.gofood = "ok";
@@ -52,10 +65,6 @@ export const sendSalesSummary = internalAction({
     const data = await ctx.runQuery(
       internal.telegram.salesSummary.salesSummaryQuery.getSalesSummary,
       { cadence: args.cadence },
-    );
-    const chatId = await ctx.runQuery(
-      internal.telegram.chatRegistry.getChatIdByRole,
-      { role: "sales-updates" },
     );
     const chunks = formatSalesSummary({ data, refresh });
 

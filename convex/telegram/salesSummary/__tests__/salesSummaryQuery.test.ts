@@ -174,3 +174,27 @@ describe("salesSummaryQuery — weekly delta", () => {
     expect(data.grandTotal.deltaPct).toBeCloseTo(10, 1);
   });
 });
+
+describe("salesSummaryQuery — monthly", () => {
+  it("reports the prior calendar month, labels it, and excludes prior-period returns from the delta baseline", async () => {
+    const t = convexTest(schema, modules);
+    const NOW = wibMidnight(2026, 6, 1) + 8 * 3600_000; // 1st 08:00 WIB → prior month = May 2026
+    // current month (May): GoFood 5,500,000
+    await seedGoFood(t, "Crystal", 5_500_000, wibMidnight(2026, 5, 15), [{ name: "Jumbo", qty: 20 }]);
+    // previous month (April): GoFood 5,000,000 sales → +10% delta
+    await seedGoFood(t, "Crystal", 5_000_000, wibMidnight(2026, 4, 15), [{ name: "Jumbo", qty: 18 }]);
+    // previous month (April): a K3Mart RETURN — must NOT inflate the prior-period baseline.
+    // If counted, prev grand = 6,000,000 → grandTotal delta would read ~-8% instead of +10%.
+    await seedK3Mart(t, 1_000_000, wibMidnight(2026, 4, 15), "Original", 5, "return");
+
+    const data = await t.query(internal.telegram.salesSummary.salesSummaryQuery.getSalesSummary,
+      { cadence: "monthly", now: NOW });
+
+    expect(data.periodLabel).toBe("May 2026");
+    expect(data.channels.map((c) => c.platform)).toEqual(["GoFood"]); // April-only K3Mart return → no current K3Mart channel
+    expect(data.channels[0].gross).toBe(5_500_000);
+    expect(data.channels[0].deltaPct).toBeCloseTo(10, 1);
+    expect(data.grandTotal.gross).toBe(5_500_000);
+    expect(data.grandTotal.deltaPct).toBeCloseTo(10, 1);
+  });
+});
