@@ -16,6 +16,17 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Bug Fix: pack-list Telegram cron silently dropped on transient worker spike — 2026-05-29
+
+**For the team:** The 1pm "still pending" pack-list message didn't arrive on 2026-05-29. Cause was a momentary Convex capacity blip ("no available workers") at the exact firing time — the cron has no retry, so the post was dropped. The pack-list crons now automatically retry (60s, then 120s) when they hit a transient worker shortage, so a brief blip no longer means a missed post. On-demand `/pack` in Telegram was unaffected and remains the manual re-send.
+
+#### Fixed
+- `convex/telegram/sendPackList.ts` — new `sendPackListResilient` internalAction wraps `sendPackList`, re-running it and self-rescheduling a backed-off retry (60s/120s, 3 attempts max) on transient "no available workers" errors only. Non-transient errors (missing token, mid-chunk send failure) are not retried to avoid double-sending earlier chunks.
+- `convex/crons.ts` — `telegram morning pack list` and `telegram midday pack list` now invoke `sendPackListResilient`. Raw `sendPackList` stays the on-demand `/pack` webhook entrypoint.
+
+#### Tests
+- Existing telegram suite (111 tests) green; `npm run build` passes.
+
 ### Sales-updates Telegram bot (daily/weekly/monthly) — 2026-05-29
 
 **For the team:** Frollie now posts automated sales round-ups to a Telegram group. A daily snapshot fires at 23:00 WIB showing gross revenue and per-SKU breakdown by channel (GoFood per outlet, K3Mart, Direct) — end-of-day totals, no trend comparison. A weekly recap posts Monday 07:00 WIB (vs. prior week) and a monthly recap posts on the 1st at 08:00 WIB (vs. prior month) — those two include ▲/▼ delta badges. All three use the Phase 85 role-based registry — no env vars, just assign a Telegram group to the `sales-updates` role in `/admin/telegram-chats`.
