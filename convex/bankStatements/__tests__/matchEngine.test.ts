@@ -56,10 +56,11 @@ type RuleJson = {
   flags?: string[];
 };
 
-const SEED_RULES_PATH = join(
-  __dirname,
-  "../../../.planning/phases/72-bank-statement-parser-auto-match/72-SEED-RULES.json",
-);
+// Fixture lives alongside the test (NOT in .planning/) so milestone archival of
+// phase dirs can't break it — it previously read from
+// .planning/phases/72-bank-statement-parser-auto-match/ and broke when that phase
+// was archived to .planning/milestones/v2.0-phases/.
+const SEED_RULES_PATH = join(__dirname, "./fixtures/72-SEED-RULES.json");
 const seedRulesJson = JSON.parse(readFileSync(SEED_RULES_PATH, "utf-8")) as {
   rules: RuleJson[];
 };
