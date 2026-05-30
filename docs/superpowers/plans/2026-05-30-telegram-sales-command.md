@@ -12,6 +12,21 @@
 
 ---
 
+## Git Workflow
+
+**Branch:** `feature/telegram-sales-command` (off fresh `main` — no direct-to-main for code).
+**Commits:** one per task (templates in each task). **Merge:** squash PR → main after `/triple-review` passes (user's standing gate).
+
+## Rollback / Deployment ordering
+
+Pure additive backend on a branch — no schema change, no data migration. Rollback = don't merge / revert the branch.
+
+**The one real deploy risk is gating `/pack`.** `/pack` *delivery* resolves the destination via `getChatIdByRole`, which honors an env fallback (`TELEGRAM_FALLBACK_ROLE`=`pack-list` + `TELEGRAM_CHAT_ID`); per MEMORY, prod's `seedChatFromEnv({role:"pack-list"})` is still pending, so prod may have **no DB role row** for the pack-list chat. Task 2 below gives `getChatAuth` the **same env-fallback branch** so authorization stays in lockstep with delivery — making the deploy safe regardless of seed state. Belt-and-suspenders: before merge, confirm the prod pack-list chat is role-assigned (`/admin/telegram-chats`) and smoke-test `/pack` immediately post-deploy.
+
+> MEMORY split-brain lesson: the local build gate does NOT run convex tests — ensure `npm run test` is green locally before merge so a convex-test type error can't half-ship.
+
+---
+
 ## File Structure
 
 | File | Responsibility | Change |
@@ -23,6 +38,8 @@
 | `convex/telegram/__tests__/getChatAuth.test.ts` | registry auth lookup | NEW (convex-test) |
 | `convex/telegram/__tests__/webhookHandler.test.ts` | webhook decision tests | + policy matrix + sales dispatch |
 | `convex/telegram/salesSummary/__tests__/runSalesOnDemand.test.ts` | on-demand ack/breadcrumb | NEW (convex-test) |
+| `docs/CHANGELOG.md` | version history | + 2026-05-30 entry |
+| `CLAUDE.md` | project rules | + COMMAND_POLICY default-deny note |
 
 ---
 
@@ -148,6 +165,35 @@ describe("getChatAuth", () => {
     const r = await t.query(internal.telegram.chatRegistry.getChatAuth, { chatId: "-300" });
     expect(r).toEqual({ registered: true, role: undefined, archived: true });
   });
+
+  // Env-fallback parity (staffreview Critical #1): the single fallback chat must
+  // authorize for its fallback role even with NO DB row — otherwise gating /pack
+  // regresses in prod, where pack-list is delivered via TELEGRAM_FALLBACK_ROLE.
+  it("env-fallback chat (no DB row) → authorized for the fallback role", async () => {
+    process.env.TELEGRAM_FALLBACK_ROLE = "pack-list";
+    process.env.TELEGRAM_CHAT_ID = "-400";
+    try {
+      const t = convexTest(schema, modules);
+      const r = await t.query(internal.telegram.chatRegistry.getChatAuth, { chatId: "-400" });
+      expect(r).toEqual({ registered: true, role: "pack-list", archived: false });
+    } finally {
+      delete process.env.TELEGRAM_FALLBACK_ROLE;
+      delete process.env.TELEGRAM_CHAT_ID;
+    }
+  });
+
+  it("env-fallback set but DIFFERENT chatId → not authorized", async () => {
+    process.env.TELEGRAM_FALLBACK_ROLE = "pack-list";
+    process.env.TELEGRAM_CHAT_ID = "-400";
+    try {
+      const t = convexTest(schema, modules);
+      const r = await t.query(internal.telegram.chatRegistry.getChatAuth, { chatId: "-999" });
+      expect(r).toEqual({ registered: false, archived: false });
+    } finally {
+      delete process.env.TELEGRAM_FALLBACK_ROLE;
+      delete process.env.TELEGRAM_CHAT_ID;
+    }
+  });
 });
 ```
 
@@ -178,12 +224,24 @@ export const getChatAuth = internalQuery({
       .query("telegramChats")
       .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
       .unique();
-    if (!row) return { registered: false, archived: false };
-    return {
-      registered: true,
-      role: row.role,
-      archived: row.archivedAt !== undefined,
-    };
+    if (row) {
+      return {
+        registered: true,
+        role: row.role,
+        archived: row.archivedAt !== undefined,
+      };
+    }
+    // Env-fallback parity with getChatIdByRole (chatRegistry.ts:83-86): the single
+    // fallback chat is authorized for its fallback role even before it is seeded
+    // into telegramChats. Without this, gating /pack would reject the prod
+    // pack-list chat (delivered via fallback, no DB row) → /pack regression.
+    if (
+      process.env.TELEGRAM_FALLBACK_ROLE &&
+      process.env.TELEGRAM_CHAT_ID === args.chatId
+    ) {
+      return { registered: true, role: process.env.TELEGRAM_FALLBACK_ROLE, archived: false };
+    }
+    return { registered: false, archived: false };
   },
 });
 ```
@@ -237,9 +295,9 @@ beforeEach(() => {
   // Ensure getChatIdByRole has no env fallback so it throws (drives the failure path).
   delete process.env.TELEGRAM_FALLBACK_ROLE;
   delete process.env.TELEGRAM_CHAT_ID;
-  global.fetch = vi.fn(async (input: RequestInfo) => {
+  global.fetch = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
-    const body = (arguments as any)[1]?.body as string;
+    const body = init?.body as string;
     captured.push({ url, body });
     return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), { status: 200 });
   }) as unknown as typeof fetch;
@@ -269,9 +327,9 @@ describe("runSalesOnDemand", () => {
 });
 ```
 
-> Note: the stub reads the request body via `arguments` to match the existing
-> `registerChatReply.test.ts` capture style; if your lint config disallows `arguments`
-> in arrow functions, switch the mock to `vi.fn(async (input, init) => { const body = init?.body; ... })`.
+> The stub uses named `(input, init)` params (matching `registerChatReply.test.ts:14-16`).
+> Do NOT use `arguments` — arrow functions have no own `arguments` binding, so the body
+> would never be captured.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -458,6 +516,17 @@ describe("decideWebhookOutcome — command authorization policy (2026-05-30)", (
     expect(sendNudge.mock.calls[0][1]).toContain("pack-list");
   });
 
+  it("/pack from a pack-list chat → still dispatches (no regression to shipped flow)", async () => {
+    const runPack = vi.fn().mockResolvedValue(undefined);
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/pack" }),
+      deps: defaultDeps({ getChatAuth: auth({ role: "pack-list" }), runPack }),
+    });
+    expect(result.status).toBe(200);
+    expect(runPack).toHaveBeenCalledTimes(1);
+  });
+
   it("/register is open — dispatches without consulting getChatAuth", async () => {
     const getChatAuth = vi.fn();
     const runRegister = vi.fn().mockResolvedValue(undefined);
@@ -609,11 +678,59 @@ Expected: PASS — parse, getChatAuth, runSalesOnDemand, webhookHandler all gree
 Run: `npm run build`
 Expected: succeeds (tsc + vite).
 
-- [ ] **Step 4: Commit any codegen drift**
+- [ ] **Step 4: Commit any residual codegen drift (only if `git status` shows changes)**
+
+Tasks 2 and 3 already committed `api.d.ts`. If Step 1's `npx convex codegen` produced no
+further diff, skip this. Only if `git status` shows `convex/_generated/api.d.ts` modified:
 
 ```bash
 git add convex/_generated/api.d.ts
-git commit -m "chore(telegram): regen api.d.ts for /sales command" --allow-empty
+git commit -m "chore(telegram): regen api.d.ts"
+```
+
+---
+
+## Task 6: Documentation (CHANGELOG + CLAUDE.md)
+
+**Files:**
+- Modify: `docs/CHANGELOG.md`
+- Modify: `CLAUDE.md`
+
+- [ ] **Step 1: Add the CHANGELOG entry**
+
+Prepend under the latest-version heading in `docs/CHANGELOG.md`:
+
+```markdown
+## 2026-05-30 — Telegram /sales command + command authorization
+
+- **/sales**: on-demand daily sales summary (immediate ack → 3 channel syncs → report),
+  runnable from the sales-updates group.
+- **Command authorization**: bot webhook now enforces a default-deny `COMMAND_POLICY` with
+  per-command role matching (`/pack`→`pack-list`, `/sales`→`sales-updates`); `/register` and
+  `/start` stay open. `/pack` is now gated (was open) — closes the cross-group spam vector.
+```
+
+- [ ] **Step 2: Add the COMMAND_POLICY note to CLAUDE.md**
+
+Append a new Common Pitfall (sibling to #21) in `CLAUDE.md`:
+
+```markdown
+22. **New Telegram commands MUST declare a `COMMAND_POLICY` entry** — command authorization
+    is centralized in `convex/telegram/webhook.ts`'s `COMMAND_POLICY: Record<TelegramCommand,
+    "open" | {requiresRole}>`. The `Record<TelegramCommand, …>` type makes a missing entry a
+    compile error, so adding a command to `parseCommand` forces an auth decision. Default to
+    `{requiresRole: "<role>"}` (per-command role match, deny-by-default); use `"open"` ONLY for
+    bootstrap/help commands (`register`, `start`). The gate checks the SENDER's chat via
+    `getChatAuth`, which honors the same `TELEGRAM_FALLBACK_ROLE` env fallback as
+    `getChatIdByRole` — keep the two resolvers in lockstep or env-fallback chats authorize
+    inconsistently with how they're delivered to.
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/CHANGELOG.md CLAUDE.md
+git commit -m "docs(telegram): CHANGELOG + COMMAND_POLICY pitfall for /sales command"
 ```
 
 ---
@@ -640,6 +757,9 @@ Not automated — the happy path triggers real GoFood/K3Mart/Direct syncs.
 - `/pack` migration to gated → Task 4 (test + default-deps change) ✓
 - Dedupe ordering (no update_id on nudge path) → Task 4 gate placement + test assertion ✓
 - Testing matrix → Tasks 1–4 ✓
+- Env-fallback parity in `getChatAuth` (staffreview Critical #1) → Task 2 impl + 2 tests ✓
+- `/pack` no-regression explicit test → Task 4 ✓
+- CHANGELOG + CLAUDE.md COMMAND_POLICY note → Task 6 ✓
 - No schema change / no `sendSalesSummary` send-logic change → respected (Task 3 only appends) ✓
 
 **Type consistency:** `getChatAuth` return shape `{registered, role?, archived}` identical across the query (Task 2), the `WebhookDeps` member (Task 4c), and every test mock. `runSalesOnDemand({chatId})` signature matches the scheduler call (Task 4d) and test (Task 3). `CommandPolicy`/`TelegramCommand`/`TelegramRole` imported, not redefined.
