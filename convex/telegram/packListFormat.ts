@@ -130,6 +130,10 @@ function renderUnpaidOrder(card: KanbanOrderCard, now: number): string {
 }
 
 // Pack a header + ordered blocks into <=4096-char chunks, preserving block boundaries.
+// Known cosmetic limitation: section-header blocks (⚠️ OVERDUE / Due Today) are treated as
+// ordinary blocks, so a header can land as the last block of a chunk with its orders flowing
+// into the next chunk's continuation. No data is lost/duplicated; only the visual grouping
+// splits. Fixing would need block look-ahead — not worth it for the rare mid-section split.
 function chunkBlocks(header: string, blocks: string[]): string[] {
   const chunks: string[] = [];
   let current = header;
@@ -165,7 +169,9 @@ export function formatPackList(input: FormatInput): string[] {
       for (const c of input.dueToday) blocks.push(renderOrder(c, null));
     }
   } else {
-    // Nothing overdue → flat list, byte-identical to the pre-SEED-001 output.
+    // Nothing overdue → flat list, same content as the pre-SEED-001 output. (Ordering is now
+    // pinned by the query's 3-key sort incl. _creationTime, so same-dueDate/same-rush ties are
+    // deterministic rather than relying on array stability — strictly more deterministic.)
     for (const c of input.dueToday) blocks.push(renderOrder(c, null));
   }
   return chunkBlocks(header, blocks);
