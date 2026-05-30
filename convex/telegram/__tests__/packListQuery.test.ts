@@ -174,6 +174,20 @@ describe("getOrdersForPackList — sort + counts", () => {
     expect([...result.overdue, ...result.dueToday][0].orderNumber).toBe("0527-002");
   });
 
+  it("places overdue orders before due-today orders regardless of expedited flag", async () => {
+    const t = convexTest(schema, modules);
+    await seedOrder(t, { orderNumber: "0526-001", expedited: false, dueDate: YESTERDAY_START + 8 * 3600_000 }); // overdue, not rushed
+    await seedOrder(t, { orderNumber: "0527-002", expedited: true, dueDate: TODAY_START + 8 * 3600_000 });      // today, rushed
+    const result = await t.query(
+      internal.telegram.queries.packListQuery.getOrdersForPackList,
+      { now: TODAY_START + 12 * 3600_000 },
+    );
+    expect(result.overdue.map((o) => o.orderNumber)).toEqual(["0526-001"]);
+    expect(result.dueToday.map((o) => o.orderNumber)).toEqual(["0527-002"]);
+    // Section ordering dominates: an un-rushed overdue order precedes a rushed due-today order.
+    expect([...result.overdue, ...result.dueToday].map((o) => o.orderNumber)).toEqual(["0526-001", "0527-002"]);
+  });
+
   it("counts delivery vs pickup correctly", async () => {
     const t = convexTest(schema, modules);
     await seedOrder(t, { orderNumber: "0527-001", deliveryType: "Delivery" });
@@ -184,6 +198,7 @@ describe("getOrdersForPackList — sort + counts", () => {
       { now: TODAY_START + 12 * 3600_000 },
     );
     expect(result.totalCount).toBe(3);
+    expect(result.overdueCount).toBe(0); // all three due today → none overdue
     expect(result.deliveryCount).toBe(2);
     expect(result.pickupCount).toBe(1);
   });
