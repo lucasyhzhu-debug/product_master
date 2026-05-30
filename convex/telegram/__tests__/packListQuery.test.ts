@@ -212,7 +212,7 @@ describe("getOrdersForPackList — sort + counts", () => {
       { now: TODAY_START + 12 * 3600_000 },
     );
     expect(result.totalCount).toBe(3);
-    expect(result.overdueCount).toBe(0); // all three due today → none overdue
+    expect(result.overdue).toHaveLength(0); // all three due today → none overdue
     expect(result.deliveryCount).toBe(2);
     expect(result.pickupCount).toBe(1);
   });
@@ -242,7 +242,6 @@ describe("getOrdersForPackList — overdue vs dueToday buckets", () => {
       { now: TODAY_START + 12 * 3600_000 },
     );
     expect(result.totalCount).toBe(2);
-    expect(result.overdueCount).toBe(1);
     expect(result.overdue.map((o) => o.orderNumber)).toEqual(["0526-001"]);
     expect(result.dueToday.map((o) => o.orderNumber)).toEqual(["0527-001"]);
   });

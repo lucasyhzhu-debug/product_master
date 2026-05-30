@@ -71,17 +71,16 @@ export const getOrdersForPackList = internalQuery({
     paid.sort(packListComparator);
 
     // ── Unpaid past-due: AwaitingPayment, dueDate strictly before start of today WIB.
-    const unpaidRaw: Doc<"orders">[] = [];
-    const unpaidSlice = await ctx.db
-      .query("orders")
-      .withIndex("by_status_due_date", (q) =>
-        q.eq("status", "AwaitingPayment").lt("dueDate", startOfTodayMs),
-      )
-      .collect();
-    for (const o of unpaidSlice) {
-      if (o.dueDate !== undefined) unpaidRaw.push(o);
-    }
-    unpaidRaw.sort(packListComparator);
+    // Filter undefined dueDate (sorts before numbers in the index, so .lt includes it).
+    const unpaidDocs = (
+      await ctx.db
+        .query("orders")
+        .withIndex("by_status_due_date", (q) =>
+          q.eq("status", "AwaitingPayment").lt("dueDate", startOfTodayMs),
+        )
+        .collect()
+    ).filter((o) => o.dueDate !== undefined);
+    unpaidDocs.sort(packListComparator);
 
     // Build paid cards in parallel (independent reads, same Convex txn), then split into
     // overdue vs dueToday and count delivery/pickup in the original (sorted) order.
@@ -99,12 +98,11 @@ export const getOrdersForPackList = internalQuery({
       else if (order.deliveryType === "Pickup") pickupCount++;
     }
 
-    const unpaidOverdue = await Promise.all(unpaidRaw.map((order) => buildCard(ctx, order)));
+    const unpaidOverdue = await Promise.all(unpaidDocs.map((order) => buildCard(ctx, order)));
 
     return {
       generatedAt: now,
       totalCount: overdue.length + dueToday.length,
-      overdueCount: overdue.length,
       deliveryCount,
       pickupCount,
       overdue,

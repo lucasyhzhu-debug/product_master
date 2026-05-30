@@ -360,16 +360,16 @@ describe("formatUnpaidAlert", () => {
       contactWa: "0812-3456-7890",
     });
 
+  // Collapse the repeated `formatUnpaidAlert({...}).join("\n")` call shape.
+  const alertOut = (cards: KanbanOrderCard[]): string =>
+    formatUnpaidAlert({ unpaidOverdue: cards, generatedAt: baseInput.generatedAt }).join("\n");
+
   it("returns [] when there are no unpaid past-due orders", () => {
     expect(formatUnpaidAlert({ unpaidOverdue: [], generatedAt: baseInput.generatedAt })).toEqual([]);
   });
 
   it("renders header, amount, days-late, and an app-lookup contact line", () => {
-    const out = formatUnpaidAlert({
-      unpaidOverdue: [unpaidCard()],
-      generatedAt: baseInput.generatedAt,
-    });
-    const body = out.join("\n");
+    const body = alertOut([unpaidCard()]);
     expect(body).toContain("🚨 OVERDUE — Unpaid &amp; Past Due");
     expect(body).toContain("<b>0525-007</b> — Andi · Rp 150.000");
     expect(body).toContain("2 days late");
@@ -378,24 +378,19 @@ describe("formatUnpaidAlert", () => {
 
   it("never sends the customer phone number to the group (privacy)", () => {
     // Even when contactWa AND customerPhone are present, neither is rendered.
-    const out = formatUnpaidAlert({
-      unpaidOverdue: [
-        card({ orderNumber: "0525-008", status: "AwaitingPayment", finalTotal: 80000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: "0812-3456-7890", customerPhone: "0813-1111-2222" }),
-      ],
-      generatedAt: baseInput.generatedAt,
-    });
-    const body = out.join("\n");
+    const body = alertOut([
+      card({ orderNumber: "0525-008", status: "AwaitingPayment", finalTotal: 80000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: "0812-3456-7890", customerPhone: "0813-1111-2222" }),
+    ]);
     expect(body).not.toContain("0812-3456-7890");
     expect(body).not.toContain("0813-1111-2222");
     expect(body).toContain("📞 look up contact in app");
   });
 
   it("uses totalAmount when finalTotal is absent", () => {
-    const out = formatUnpaidAlert({
-      unpaidOverdue: [card({ orderNumber: "0525-010", status: "AwaitingPayment", finalTotal: undefined, totalAmount: 42000, dueDate: Date.parse("2026-05-26T01:00:00Z") })],
-      generatedAt: baseInput.generatedAt,
-    });
-    expect(out.join("\n")).toContain("Rp 42.000");
+    const body = alertOut([
+      card({ orderNumber: "0525-010", status: "AwaitingPayment", finalTotal: undefined, totalAmount: 42000, dueDate: Date.parse("2026-05-26T01:00:00Z") }),
+    ]);
+    expect(body).toContain("Rp 42.000");
   });
 
   it("chunks a large unpaid alert under the 4096 limit with each order exactly once", () => {
