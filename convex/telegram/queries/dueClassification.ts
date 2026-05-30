@@ -11,9 +11,9 @@ export type DueBucket = "overdue" | "today" | "future";
 
 /**
  * Classify a dueDate relative to `nowMs`, in WIB calendar days.
- * Mirrors the kanban board rule (src/components/orders/KanbanCard.tsx →
- * getUrgencyLevel): overdue ⟺ the dueDate's WIB day is strictly before
- * today's WIB day. No grace period.
+ * Follows the same calendar-day threshold as the kanban board rule
+ * (src/components/orders/KanbanCard.tsx → getUrgencyLevel): overdue ⟺ the
+ * dueDate's WIB day is strictly before today's WIB day. No grace period.
  */
 export function classifyDue(dueDate: number, nowMs: number): DueBucket {
   const due = wibDayIndex(dueDate);
@@ -23,7 +23,10 @@ export function classifyDue(dueDate: number, nowMs: number): DueBucket {
   return "future";
 }
 
-/** Whole WIB days the dueDate is late by. ≥1 when overdue, ≤0 otherwise. */
+/**
+ * Whole WIB days the dueDate is late by. ≥1 when overdue, 0 on same day, <0 for future.
+ * Guard with classifyDue === "overdue" before rendering.
+ */
 export function daysLate(dueDate: number, nowMs: number): number {
   return wibDayIndex(nowMs) - wibDayIndex(dueDate);
 }

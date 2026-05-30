@@ -15,6 +15,7 @@ describe("wibDayIndex", () => {
   it("is constant across a whole WIB day and increments at WIB midnight", () => {
     expect(wibDayIndex(TODAY)).toBe(wibDayIndex(TODAY + 23 * 3600_000));
     expect(wibDayIndex(TOMORROW)).toBe(wibDayIndex(TODAY) + 1);
+    expect(wibDayIndex(TODAY - 1)).toBe(wibDayIndex(TODAY) - 1);
   });
 });
 
@@ -38,5 +39,8 @@ describe("daysLate", () => {
   });
   it("returns 0 for a due date that is today", () => {
     expect(daysLate(TODAY + 23 * 3600_000, NOON_TODAY)).toBe(0);
+  });
+  it("returns a negative value for a future due date", () => {
+    expect(daysLate(TOMORROW, NOON_TODAY)).toBe(-1);
   });
 });
