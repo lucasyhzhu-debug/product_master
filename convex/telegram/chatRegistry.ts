@@ -48,15 +48,15 @@ function assertKnownRole(role: string): void {
 
 // ─── parseCommand ────────────────────────────────────────────────────────────
 
-export type TelegramCommand = "pack" | "register" | "start";
+export type TelegramCommand = "pack" | "register" | "start" | "sales";
 
 /**
- * Strict-mode command parse. Accepts /pack /register /start with optional
- * @BotName suffix and surrounding whitespace. Rejects trailing args (typo
- * protection inherited from the original /pack strict-match policy).
+ * Strict-mode command parse. Accepts /pack /register /start /sales with
+ * optional @BotName suffix and surrounding whitespace. Rejects trailing args
+ * (typo protection inherited from the original /pack strict-match policy).
  */
 export function parseCommand(text: string): TelegramCommand | null {
-  const m = /^\/(pack|register|start)(@[A-Za-z0-9_]+)?$/.exec(text.trim());
+  const m = /^\/(pack|register|start|sales)(@[A-Za-z0-9_]+)?$/.exec(text.trim());
   return m ? (m[1] as TelegramCommand) : null;
 }
 
