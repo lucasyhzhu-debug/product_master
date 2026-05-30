@@ -1,0 +1,43 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { convexTest } from "convex-test";
+import schema from "../../../schema";
+import { internal } from "../../../_generated/api";
+
+const modules = import.meta.glob("/convex/**/*.ts");
+
+let captured: Array<{ url: string; body: string }>;
+
+beforeEach(() => {
+  captured = [];
+  process.env.TELEGRAM_BOT_TOKEN = "test-token";
+  // No env fallback → getChatIdByRole throws (drives the failure path).
+  delete process.env.TELEGRAM_FALLBACK_ROLE;
+  delete process.env.TELEGRAM_CHAT_ID;
+  global.fetch = vi.fn(async (input: RequestInfo, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input.toString();
+    const body = init?.body as string;
+    captured.push({ url, body });
+    return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }), { status: 200 });
+  }) as unknown as typeof fetch;
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  delete process.env.TELEGRAM_BOT_TOKEN;
+});
+
+describe("runSalesOnDemand", () => {
+  it("sends ack first, then a failure breadcrumb when the summary throws", async () => {
+    const t = convexTest(schema, modules);
+    // No sales-updates chat assigned → getChatIdByRole throws inside sendSalesSummary.
+    await expect(
+      t.action(internal.telegram.salesSummary.sendSalesSummary.runSalesOnDemand, {
+        chatId: "-555",
+      }),
+    ).rejects.toThrow();
+
+    const texts = captured.map((c) => JSON.parse(c.body).text as string);
+    expect(texts[0]).toContain("Acknowledged");
+    expect(texts.some((x) => x.includes("Sales update failed"))).toBe(true);
+  });
+});
