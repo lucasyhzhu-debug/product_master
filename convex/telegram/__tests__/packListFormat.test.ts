@@ -287,6 +287,18 @@ describe("formatPackList — OVERDUE section", () => {
     expect(out.join("\n")).toContain("due Mon 25 May");
   });
 
+  it("omits the Due Today header when dueToday is empty but overdue is not", () => {
+    const out = formatPackList({
+      ...baseInput,
+      overdue: [overdueCard()],
+      dueToday: [],
+      counts: { total: 1, delivery: 1, pickup: 0 },
+    });
+    const body = out.join("\n");
+    expect(body).toContain("⚠️ OVERDUE (1)");
+    expect(body).not.toContain("Due Today");
+  });
+
   it("adds the overdue count to the header line", () => {
     const out = formatPackList({
       ...baseInput,

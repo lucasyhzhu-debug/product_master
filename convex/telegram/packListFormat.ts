@@ -158,8 +158,12 @@ export function formatPackList(input: FormatInput): string[] {
     // Sectioned: OVERDUE first (with days-late lines), then Due Today.
     blocks.push(`<b>⚠️ OVERDUE (${input.overdue.length})</b>`);
     for (const c of input.overdue) blocks.push(renderOrder(c, input.generatedAt));
-    blocks.push(`<b>Due Today (${input.dueToday.length})</b>`);
-    for (const c of input.dueToday) blocks.push(renderOrder(c, null));
+    // Only emit the Due Today header when there's something under it — otherwise an
+    // all-overdue day renders a dangling "Due Today (0)" label.
+    if (input.dueToday.length > 0) {
+      blocks.push(`<b>Due Today (${input.dueToday.length})</b>`);
+      for (const c of input.dueToday) blocks.push(renderOrder(c, null));
+    }
   } else {
     // Nothing overdue → flat list, byte-identical to the pre-SEED-001 output.
     for (const c of input.dueToday) blocks.push(renderOrder(c, null));
@@ -173,7 +177,7 @@ export function formatUnpaidAlert(input: UnpaidAlertInput): string[] {
   const dateStr = `${p.weekday} ${p.day} ${p.month} ${p.year}`;
   const n = input.unpaidOverdue.length;
   const header =
-    `<b>🚨 OVERDUE — ${escapeHtml("Unpaid & Past Due")} — ${dateStr}</b>\n\n` +
+    `<b>🚨 OVERDUE — Unpaid &amp; Past Due — ${dateStr}</b>\n\n` +
     `${n} ${n === 1 ? "order" : "orders"} past their delivery date with no payment — chase now.`;
   const blocks = input.unpaidOverdue.map((c) => renderUnpaidOrder(c, input.generatedAt));
   return chunkBlocks(header, blocks);
