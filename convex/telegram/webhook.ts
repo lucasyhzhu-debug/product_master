@@ -180,9 +180,14 @@ export async function decideWebhookOutcome(input: {
         title: msg.chat?.title ?? "(untitled)",
         registeredBy: msg.from?.id,
       });
-    } else {
-      // "start"
+    } else if (command === "start") {
       await input.deps.runStart(chatIdStr);
+    } else {
+      // Exhaustiveness guard: a new TelegramCommand must add a dispatch arm here,
+      // not fall through to /start. Mirrors COMMAND_POLICY's compile-enforcement so
+      // the "secure-by-default for future commands" guarantee covers dispatch too.
+      const _exhaustive: never = command;
+      void _exhaustive;
     }
   } catch (err) {
     console.warn("[telegram] command dispatch failed after recordIfNew committed", err);

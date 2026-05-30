@@ -37,7 +37,32 @@ describe("runSalesOnDemand", () => {
     ).rejects.toThrow();
 
     const texts = captured.map((c) => JSON.parse(c.body).text as string);
+    // Exactly two sends, in order: ack first, then the breadcrumb. getChatIdByRole
+    // throws before any report chunk, so nothing else is sent.
+    expect(texts).toHaveLength(2);
     expect(texts[0]).toContain("Acknowledged");
-    expect(texts.some((x) => x.includes("Sales update failed"))).toBe(true);
+    expect(texts[1]).toContain("Sales update failed");
+  });
+
+  // Triple-review I1: happy path had zero coverage. Seed a sales-updates chat so the
+  // daily summary resolves a destination and runs to completion. Proves ack-first,
+  // that a report chunk follows the ack, and that no failure breadcrumb is emitted.
+  it("happy path: sends the ack, then the summary report, with no failure breadcrumb", async () => {
+    const t = convexTest(schema, modules);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("telegramChats", {
+        chatId: "-555", chatType: "supergroup", title: "Sales",
+        role: "sales-updates", registeredAt: 0, lastSeenAt: 0,
+      });
+    });
+
+    await t.action(internal.telegram.salesSummary.sendSalesSummary.runSalesOnDemand, {
+      chatId: "-555",
+    });
+
+    const texts = captured.map((c) => JSON.parse(c.body).text as string);
+    expect(texts[0]).toContain("Acknowledged");                          // ack first
+    expect(texts.some((x) => !x.includes("Acknowledged"))).toBe(true);   // a report chunk followed
+    expect(texts.some((x) => x.includes("Sales update failed"))).toBe(false); // success → no breadcrumb
   });
 });

@@ -72,4 +72,26 @@ describe("getChatAuth", () => {
       delete process.env.TELEGRAM_CHAT_ID;
     }
   });
+
+  // Triple-review C1: a DORMANT row (registered, role unassigned) for the env-fallback
+  // chat must still authorize via the fallback — getChatIdByRole skips the roleless row
+  // and delivers via env, so the gate must match or /pack regresses for self-registered groups.
+  it("dormant row (no role) that IS the env-fallback chat → authorized for the fallback role", async () => {
+    process.env.TELEGRAM_FALLBACK_ROLE = "pack-list";
+    process.env.TELEGRAM_CHAT_ID = "-400";
+    try {
+      const t = convexTest(schema, modules);
+      await t.run(async (ctx) => {
+        await ctx.db.insert("telegramChats", {
+          chatId: "-400", chatType: "group", title: "Pack (dormant)",
+          registeredAt: 0, lastSeenAt: 0, // no role assigned
+        });
+      });
+      const r = await t.query(internal.telegram.chatRegistry.getChatAuth, { chatId: "-400" });
+      expect(r).toEqual({ registered: true, role: "pack-list", archived: false });
+    } finally {
+      delete process.env.TELEGRAM_FALLBACK_ROLE;
+      delete process.env.TELEGRAM_CHAT_ID;
+    }
+  });
 });

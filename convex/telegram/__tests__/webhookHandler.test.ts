@@ -11,6 +11,10 @@ function defaultDeps(over: Partial<WebhookDeps> = {}): WebhookDeps {
     runRegister: async () => {},
     runStart: async () => {},
     touchLastSeen: async () => {},
+    // Load-bearing: /pack and /sales are now gated (COMMAND_POLICY). Seeding the
+    // pack-list role here is what makes the pre-existing /pack dispatch tests below
+    // (which don't override getChatAuth) exercise the AUTHORIZED path. Tests that
+    // need a different sender override getChatAuth explicitly.
     getChatAuth: async () => ({ registered: true, role: "pack-list", archived: false }),
     runSales: async () => {},
     sendNudge: async () => {},
@@ -250,8 +254,9 @@ describe("decideWebhookOutcome — non-command messages (spec case #17)", () => 
 });
 
 describe("decideWebhookOutcome — /start (spec §webhook dispatch)", () => {
-  it("dispatches /start to runStart", async () => {
+  it("dispatches /start to runStart without consulting getChatAuth (open command)", async () => {
     const runStart = vi.fn().mockResolvedValue(undefined);
+    const getChatAuth = vi.fn();
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
@@ -259,9 +264,10 @@ describe("decideWebhookOutcome — /start (spec §webhook dispatch)", () => {
         update_id: 4004,
         message: { message_id: 1, text: "/start", chat: { id: -100, type: "private" } },
       } as any,
-      deps: defaultDeps({ runStart }),
+      deps: defaultDeps({ runStart, getChatAuth }),
     });
     expect(result.status).toBe(200);
+    expect(getChatAuth).not.toHaveBeenCalled();
     expect(runStart).toHaveBeenCalledWith("-100");
   });
 });
@@ -287,7 +293,7 @@ describe("decideWebhookOutcome — unknown slash command", () => {
   });
 });
 
-describe("decideWebhookOutcome — command authorization policy (2026-05-30)", () => {
+describe("decideWebhookOutcome — command authorization policy", () => {
   const SECRET2 = "a".repeat(64);
   const auth = (over: { registered?: boolean; role?: string; archived?: boolean }) =>
     async () => ({ registered: true, archived: false, ...over });

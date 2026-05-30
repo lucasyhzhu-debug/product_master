@@ -483,7 +483,7 @@ describe("sendTestMessage (spec case #18)", () => {
   });
 });
 
-describe("parseCommand — /sales (2026-05-30 sales command)", () => {
+describe("parseCommand — /sales", () => {
   it.each([
     ["/sales", "sales"],
     ["/sales@FrollieProBot", "sales"],

@@ -97,9 +97,14 @@ export const getChatIdByRole = internalQuery({
  * Returns the chat's registration + role + archived state so decideWebhookOutcome
  * can enforce COMMAND_POLICY. Never throws (unknown chat → registered:false).
  *
- * Mirrors getChatIdByRole's env fallback: the single TELEGRAM_CHAT_ID chat is
- * authorized for TELEGRAM_FALLBACK_ROLE even with NO db row — keeping the gate in
- * lockstep with delivery so gating /pack doesn't regress the env-fallback chat.
+ * Env-fallback parity with getChatIdByRole: the single TELEGRAM_CHAT_ID chat is
+ * authorized for TELEGRAM_FALLBACK_ROLE whenever it has NO *effective* role — i.e.
+ * no db row, a dormant row (registered but unassigned), or an archived row. This
+ * matches delivery, where getChatIdByRole's `by_role_archived` index skips
+ * roleless/archived rows and resolves via env fallback. Without covering the
+ * DORMANT case, a self-registered pack-list group would be denied /pack while
+ * still being delivered to (triple-review C1). Archived rows expose no effective
+ * role (gate also denies via `!archived`), making the contract explicit.
  */
 export const getChatAuth = internalQuery({
   args: { chatId: v.string() },
@@ -112,11 +117,19 @@ export const getChatAuth = internalQuery({
       .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
       .unique();
     if (row) {
-      return {
-        registered: true,
-        role: row.role,
-        archived: row.archivedAt !== undefined,
-      };
+      const archived = row.archivedAt !== undefined;
+      if (!archived && row.role !== undefined) {
+        return { registered: true, role: row.role, archived: false };
+      }
+      // Dormant or archived row → no effective role. Defer to the env fallback
+      // (parity with getChatIdByRole) before returning the roleless result.
+      if (
+        process.env.TELEGRAM_FALLBACK_ROLE &&
+        process.env.TELEGRAM_CHAT_ID === args.chatId
+      ) {
+        return { registered: true, role: process.env.TELEGRAM_FALLBACK_ROLE, archived: false };
+      }
+      return { registered: true, role: undefined, archived };
     }
     if (
       process.env.TELEGRAM_FALLBACK_ROLE &&
