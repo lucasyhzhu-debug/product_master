@@ -181,6 +181,15 @@ In `seedOrder`'s `override` type, change the `status` union to include `Awaiting
     status: "PaymentReceived" | "BeingPrepared" | "Draft" | "AwaitingDelivery" | "Complete" | "AwaitingPayment";
 ```
 
+Also derive `paymentStatus` from the status so `AwaitingPayment` seeds aren't seeded as
+`"Paid"` (staffreview I4 — avoids a contradictory fixture that would mask a future
+`paymentStatus`-guard regression). In the `ctx.db.insert("orders", { ... })` call, replace
+the hard-coded `paymentStatus: "Paid",` line with:
+
+```ts
+      paymentStatus: (override.status ?? "PaymentReceived") === "AwaitingPayment" ? "Unpaid" : "Paid",
+```
+
 Then append:
 
 ```ts
@@ -516,6 +525,33 @@ describe("formatPackList — OVERDUE section", () => {
     expect(body).not.toContain("Due Today");
     expect(out[0]).not.toContain("overdue");
   });
+
+  // staffreview I3: section headers are new chunkBlocks participants — verify they survive
+  // a 4096-char chunk split (no overflow, exactly one of each header, no orphaning).
+  it("chunks correctly across OVERDUE + Due Today sections", () => {
+    const mk = (n: string) =>
+      card({
+        orderNumber: n,
+        customerName: `Customer ${n} with a reasonably long name`,
+        deliveryAddress: `Jl. ${n}, neighbourhood and city detail to take space`,
+        dueDate: Date.parse("2026-05-25T01:00:00Z"), // past → days-late line renders for overdue
+      });
+    const out = formatPackList({
+      ...baseInput,
+      overdue: Array.from({ length: 25 }, (_, i) => mk(`OD-${i}`)),
+      dueToday: Array.from({ length: 25 }, (_, i) => mk(`DT-${i}`)),
+      counts: { total: 50, delivery: 50, pickup: 0 },
+    });
+    for (const chunk of out) expect(chunk.length).toBeLessThanOrEqual(4096);
+    const all = out.join("\n");
+    expect(all.split("⚠️ OVERDUE (25)").length - 1).toBe(1);
+    expect(all.split("Due Today (25)").length - 1).toBe(1);
+    // Every order's opening marker appears exactly once (no order dropped or duplicated).
+    for (let i = 0; i < 25; i++) {
+      expect(all.split(`<b>OD-${i}</b>`).length - 1).toBe(1);
+      expect(all.split(`<b>DT-${i}</b>`).length - 1).toBe(1);
+    }
+  });
 });
 
 describe("formatUnpaidAlert", () => {
@@ -530,12 +566,11 @@ describe("formatUnpaidAlert", () => {
     });
 
   it("returns [] when there are no unpaid past-due orders", () => {
-    expect(formatUnpaidAlert({ reason: "morning", unpaidOverdue: [], generatedAt: baseInput.generatedAt })).toEqual([]);
+    expect(formatUnpaidAlert({ unpaidOverdue: [], generatedAt: baseInput.generatedAt })).toEqual([]);
   });
 
   it("renders header, amount, days-late, and contact", () => {
     const out = formatUnpaidAlert({
-      reason: "morning",
       unpaidOverdue: [unpaidCard()],
       generatedAt: baseInput.generatedAt,
     });
@@ -548,14 +583,12 @@ describe("formatUnpaidAlert", () => {
 
   it("falls back to customerPhone, then a no-contact marker", () => {
     const withPhone = formatUnpaidAlert({
-      reason: "morning",
       unpaidOverdue: [card({ orderNumber: "0525-008", status: "AwaitingPayment", finalTotal: 80000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: undefined, customerPhone: "0813-1111-2222" })],
       generatedAt: baseInput.generatedAt,
     });
     expect(withPhone.join("\n")).toContain("📞 0813-1111-2222");
 
     const noContact = formatUnpaidAlert({
-      reason: "morning",
       unpaidOverdue: [card({ orderNumber: "0525-009", status: "AwaitingPayment", finalTotal: 90000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: undefined, customerPhone: undefined })],
       generatedAt: baseInput.generatedAt,
     });
@@ -564,7 +597,6 @@ describe("formatUnpaidAlert", () => {
 
   it("uses totalAmount when finalTotal is absent", () => {
     const out = formatUnpaidAlert({
-      reason: "morning",
       unpaidOverdue: [card({ orderNumber: "0525-010", status: "AwaitingPayment", finalTotal: undefined, totalAmount: 42000, dueDate: Date.parse("2026-05-26T01:00:00Z") })],
       generatedAt: baseInput.generatedAt,
     });
@@ -599,7 +631,8 @@ export interface FormatInput {
 }
 
 export interface UnpaidAlertInput {
-  reason: FormatReason;
+  // No `reason` field: the alert fires for every reason (morning/midday/command) with an
+  // identical header, so threading reason here would be dead input (staffreview I1).
   unpaidOverdue: KanbanOrderCard[];
   generatedAt: number;
 }
@@ -812,8 +845,8 @@ Replace the block from `const data = await ctx.runQuery(...)` through the `retur
       generatedAt: data.generatedAt,
     });
     // Unpaid past-due alert is a SEPARATE message (own header) — empty array sends nothing.
+    // Fires for every reason (morning/midday/command); no `reason` needed (staffreview I1).
     const alertChunks = formatUnpaidAlert({
-      reason: args.reason,
       unpaidOverdue: data.unpaidOverdue,
       generatedAt: data.generatedAt,
     });
@@ -918,4 +951,17 @@ gh pr create --title "feat(telegram): pack-list overdue flagging + unpaid past-d
 - **No order-surface dual-wiring:** this is backend + report formatting only. `OrderSlideOver`
   and `OrderDetail` are untouched (Pitfall #20 does not apply).
 - After merge, this feeds `/triple-review` then `/simplify` per the agreed workflow.
+
+## Staffreview adoption log (2026-05-30)
+
+Reviewed in `docs/reviews/staffreview-telegram-packlist-overdue-flagging-2026-05-30.md` —
+0 Critical, 4 Improvements. Adopted into this plan:
+
+- **I1 (`reason` unused):** dropped `reason` from `UnpaidAlertInput` and its call sites (Tasks 3, 4).
+- **I2 (midday double-send):** user confirmed the unpaid alert fires for **all** reasons (incl. midday) — kept as-is by design.
+- **I3 (mixed-section chunking):** added the cross-section chunking test (Task 3).
+- **I4 (fixture realism):** `seedOrder` now derives `paymentStatus` from status so `AwaitingPayment` seeds aren't `"Paid"` (Task 2).
+
+Refinements R1–R4 left at executor discretion (breadcrumb wording, defensive bucket assert,
+constant escape, sendPackList wiring untested — matches existing test boundary).
 ```
