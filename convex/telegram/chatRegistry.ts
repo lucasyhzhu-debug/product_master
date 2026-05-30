@@ -60,6 +60,21 @@ export function parseCommand(text: string): TelegramCommand | null {
   return m ? (m[1] as TelegramCommand) : null;
 }
 
+// ─── envFallback ─────────────────────────────────────────────────────────────
+
+/**
+ * Single source of truth for the legacy env-based chat fallback
+ * (TELEGRAM_CHAT_ID + TELEGRAM_FALLBACK_ROLE). BOTH resolvers consult this — so
+ * delivery (getChatIdByRole: role→chatId) and authorization (getChatAuth:
+ * chatId→role) can never drift on which chat the fallback grants which role.
+ * That drift is exactly what caused the triple-review C1 dormant-row gap.
+ */
+function envFallback(): { chatId: string; role: string } | null {
+  const role = process.env.TELEGRAM_FALLBACK_ROLE;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  return role && chatId ? { chatId, role } : null;
+}
+
 // ─── getChatIdByRole ─────────────────────────────────────────────────────────
 
 /**
@@ -79,12 +94,8 @@ export const getChatIdByRole = internalQuery({
       .first();
     if (row) return row.chatId;
 
-    if (
-      process.env.TELEGRAM_FALLBACK_ROLE === args.role &&
-      process.env.TELEGRAM_CHAT_ID
-    ) {
-      return process.env.TELEGRAM_CHAT_ID;
-    }
+    const fb = envFallback();
+    if (fb && fb.role === args.role) return fb.chatId;
 
     throw new Error(`No Telegram chat assigned to role '${args.role}'`);
   },
@@ -116,28 +127,24 @@ export const getChatAuth = internalQuery({
       .query("telegramChats")
       .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
       .unique();
-    if (row) {
-      const archived = row.archivedAt !== undefined;
-      if (!archived && row.role !== undefined) {
-        return { registered: true, role: row.role, archived: false };
-      }
-      // Dormant or archived row → no effective role. Defer to the env fallback
-      // (parity with getChatIdByRole) before returning the roleless result.
-      if (
-        process.env.TELEGRAM_FALLBACK_ROLE &&
-        process.env.TELEGRAM_CHAT_ID === args.chatId
-      ) {
-        return { registered: true, role: process.env.TELEGRAM_FALLBACK_ROLE, archived: false };
-      }
-      return { registered: true, role: undefined, archived };
+    const archived = row !== null && row.archivedAt !== undefined;
+
+    // Active row with an assigned role → that's the effective role.
+    if (row !== null && !archived && row.role !== undefined) {
+      return { registered: true, role: row.role, archived: false };
     }
-    if (
-      process.env.TELEGRAM_FALLBACK_ROLE &&
-      process.env.TELEGRAM_CHAT_ID === args.chatId
-    ) {
-      return { registered: true, role: process.env.TELEGRAM_FALLBACK_ROLE, archived: false };
+
+    // No effective role (no row / dormant / archived). Single env-fallback check,
+    // sharing envFallback() with getChatIdByRole so the two can't drift — delivery
+    // also skips roleless/archived rows and resolves via the same fallback.
+    const fb = envFallback();
+    if (fb && fb.chatId === args.chatId) {
+      return { registered: true, role: fb.role, archived: false };
     }
-    return { registered: false, archived: false };
+
+    return row !== null
+      ? { registered: true, role: undefined, archived }
+      : { registered: false, archived: false };
   },
 });
 
