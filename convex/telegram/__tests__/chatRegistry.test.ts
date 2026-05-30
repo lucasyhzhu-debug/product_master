@@ -483,6 +483,20 @@ describe("sendTestMessage (spec case #18)", () => {
   });
 });
 
+describe("parseCommand — /sales", () => {
+  it.each([
+    ["/sales", "sales"],
+    ["/sales@FrollieProBot", "sales"],
+    ["  /sales  ", "sales"],
+  ])("parses %j → %j", (input, expected) => {
+    expect(parseCommand(input)).toBe(expected);
+  });
+
+  it("rejects /sales with trailing args (strict match)", () => {
+    expect(parseCommand("/sales now")).toBeNull();
+  });
+});
+
 describe("seedChatFromEnv (spec cases #8, #9, #10)", () => {
   beforeEach(() => {
     process.env.TELEGRAM_BOT_TOKEN = "test-token";

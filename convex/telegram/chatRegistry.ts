@@ -48,16 +48,31 @@ function assertKnownRole(role: string): void {
 
 // ─── parseCommand ────────────────────────────────────────────────────────────
 
-export type TelegramCommand = "pack" | "register" | "start";
+export type TelegramCommand = "pack" | "register" | "start" | "sales";
 
 /**
- * Strict-mode command parse. Accepts /pack /register /start with optional
- * @BotName suffix and surrounding whitespace. Rejects trailing args (typo
- * protection inherited from the original /pack strict-match policy).
+ * Strict-mode command parse. Accepts /pack /register /start /sales with
+ * optional @BotName suffix and surrounding whitespace. Rejects trailing args
+ * (typo protection inherited from the original /pack strict-match policy).
  */
 export function parseCommand(text: string): TelegramCommand | null {
-  const m = /^\/(pack|register|start)(@[A-Za-z0-9_]+)?$/.exec(text.trim());
+  const m = /^\/(pack|register|start|sales)(@[A-Za-z0-9_]+)?$/.exec(text.trim());
   return m ? (m[1] as TelegramCommand) : null;
+}
+
+// ─── envFallback ─────────────────────────────────────────────────────────────
+
+/**
+ * Single source of truth for the legacy env-based chat fallback
+ * (TELEGRAM_CHAT_ID + TELEGRAM_FALLBACK_ROLE). BOTH resolvers consult this — so
+ * delivery (getChatIdByRole: role→chatId) and authorization (getChatAuth:
+ * chatId→role) can never drift on which chat the fallback grants which role.
+ * That drift is exactly what caused the triple-review C1 dormant-row gap.
+ */
+function envFallback(): { chatId: string; role: string } | null {
+  const role = process.env.TELEGRAM_FALLBACK_ROLE;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  return role && chatId ? { chatId, role } : null;
 }
 
 // ─── getChatIdByRole ─────────────────────────────────────────────────────────
@@ -79,14 +94,57 @@ export const getChatIdByRole = internalQuery({
       .first();
     if (row) return row.chatId;
 
-    if (
-      process.env.TELEGRAM_FALLBACK_ROLE === args.role &&
-      process.env.TELEGRAM_CHAT_ID
-    ) {
-      return process.env.TELEGRAM_CHAT_ID;
-    }
+    const fb = envFallback();
+    if (fb && fb.role === args.role) return fb.chatId;
 
     throw new Error(`No Telegram chat assigned to role '${args.role}'`);
+  },
+});
+
+// ─── getChatAuth ─────────────────────────────────────────────────────────────
+
+/**
+ * Authorization lookup for the webhook command gate. One point read on by_chatId.
+ * Returns the chat's registration + role + archived state so decideWebhookOutcome
+ * can enforce COMMAND_POLICY. Never throws (unknown chat → registered:false).
+ *
+ * Env-fallback parity with getChatIdByRole: the single TELEGRAM_CHAT_ID chat is
+ * authorized for TELEGRAM_FALLBACK_ROLE whenever it has NO *effective* role — i.e.
+ * no db row, a dormant row (registered but unassigned), or an archived row. This
+ * matches delivery, where getChatIdByRole's `by_role_archived` index skips
+ * roleless/archived rows and resolves via env fallback. Without covering the
+ * DORMANT case, a self-registered pack-list group would be denied /pack while
+ * still being delivered to (triple-review C1). Archived rows expose no effective
+ * role (gate also denies via `!archived`), making the contract explicit.
+ */
+export const getChatAuth = internalQuery({
+  args: { chatId: v.string() },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ registered: boolean; role?: string; archived: boolean }> => {
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    const archived = row !== null && row.archivedAt !== undefined;
+
+    // Active row with an assigned role → that's the effective role.
+    if (row !== null && !archived && row.role !== undefined) {
+      return { registered: true, role: row.role, archived: false };
+    }
+
+    // No effective role (no row / dormant / archived). Single env-fallback check,
+    // sharing envFallback() with getChatIdByRole so the two can't drift — delivery
+    // also skips roleless/archived rows and resolves via the same fallback.
+    const fb = envFallback();
+    if (fb && fb.chatId === args.chatId) {
+      return { registered: true, role: fb.role, archived: false };
+    }
+
+    return row !== null
+      ? { registered: true, role: undefined, archived }
+      : { registered: false, archived: false };
   },
 });
 

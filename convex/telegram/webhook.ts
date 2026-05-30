@@ -1,12 +1,30 @@
 import { v } from "convex/values";
 import { httpAction, internalMutation } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { parseCommand } from "./chatRegistry";
+import { parseCommand, type TelegramCommand } from "./chatRegistry";
+import { sendTelegramHtml } from "../lib/telegramHtml";
+import { TELEGRAM_ADMIN_URL, TELEGRAM_BOT_USERNAME, type TelegramRole } from "./config";
 
 interface WebhookResult {
   status: number;
   body: string;
 }
+
+/**
+ * Per-command authorization policy. Exhaustive over TelegramCommand: adding a new
+ * command to the union forces a policy entry here (compile error otherwise) — so
+ * new commands are secure-by-default, not accidentally open.
+ *   "open"          → no role required (bootstrap/help commands)
+ *   {requiresRole}  → sender's chat must hold exactly this role (active, non-archived)
+ */
+type CommandPolicy = "open" | { requiresRole: TelegramRole };
+
+const COMMAND_POLICY: Record<TelegramCommand, CommandPolicy> = {
+  register: "open",
+  start: "open",
+  pack: { requiresRole: "pack-list" },
+  sales: { requiresRole: "sales-updates" },
+};
 
 export interface WebhookDeps {
   /**
@@ -28,6 +46,12 @@ export interface WebhookDeps {
   runStart: (chatId: string) => Promise<void>;
   /** Dispatch non-command messages — fire-and-forget touchChatLastSeen. */
   touchLastSeen: (chatId: string) => Promise<void>;
+  /** Authorization lookup for role-gated commands. */
+  getChatAuth: (chatId: string) => Promise<{ registered: boolean; role?: string; archived: boolean }>;
+  /** Dispatch /sales — schedule runSalesOnDemand for the requesting chat. */
+  runSales: (chatId: string) => Promise<void>;
+  /** Send a one-line reject nudge to the requesting chat (best-effort). */
+  sendNudge: (chatId: string, html: string) => Promise<void>;
 }
 
 interface TelegramUpdate {
@@ -108,6 +132,27 @@ export async function decideWebhookOutcome(input: {
     return { status: 200, body: "ok" };
   }
 
+  // Authorization gate (deny-by-default for role-gated commands). Runs before
+  // recordIfNew so a rejected command never burns an update_id slot.
+  const policy = COMMAND_POLICY[command];
+  if (policy !== "open") {
+    const chatAuth = await input.deps.getChatAuth(chatIdStr);
+    const authorized =
+      chatAuth.registered && !chatAuth.archived && chatAuth.role === policy.requiresRole;
+    if (!authorized) {
+      const nudge =
+        `⚠️ This chat isn't authorized for /${command}. ` +
+        `Register with /register@${TELEGRAM_BOT_USERNAME} and ask an admin to assign the ` +
+        `'${policy.requiresRole}' role at ${TELEGRAM_ADMIN_URL}`;
+      try {
+        await input.deps.sendNudge(chatIdStr, nudge);
+      } catch {
+        /* best-effort — nudge delivery is non-critical */
+      }
+      return { status: 200, body: "ok" };
+    }
+  }
+
   // Known command path — atomic R5 dedupe, then dispatch.
   const isNew = await input.deps.recordIfNew(updateId);
   if (!isNew) {
@@ -121,6 +166,8 @@ export async function decideWebhookOutcome(input: {
   try {
     if (command === "pack") {
       await input.deps.runPack();
+    } else if (command === "sales") {
+      await input.deps.runSales(chatIdStr);
     } else if (command === "register") {
       const rawType = msg.chat?.type;
       const chatType: "private" | "group" | "supergroup" =
@@ -133,9 +180,14 @@ export async function decideWebhookOutcome(input: {
         title: msg.chat?.title ?? "(untitled)",
         registeredBy: msg.from?.id,
       });
-    } else {
-      // "start"
+    } else if (command === "start") {
       await input.deps.runStart(chatIdStr);
+    } else {
+      // Exhaustiveness guard: a new TelegramCommand must add a dispatch arm here,
+      // not fall through to /start. Mirrors COMMAND_POLICY's compile-enforcement so
+      // the "secure-by-default for future commands" guarantee covers dispatch too.
+      const _exhaustive: never = command;
+      void _exhaustive;
     }
   } catch (err) {
     console.warn("[telegram] command dispatch failed after recordIfNew committed", err);
@@ -196,6 +248,20 @@ export const handleTelegramWebhook = httpAction(async (ctx, request) => {
       touchLastSeen: async (chatId) => {
         // NOT scheduled — direct mutation (no dedupe necessary).
         await ctx.runMutation(internal.telegram.chatRegistry.touchChatLastSeen, { chatId });
+      },
+      getChatAuth: (chatId) =>
+        ctx.runQuery(internal.telegram.chatRegistry.getChatAuth, { chatId }),
+      runSales: async (chatId) => {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.telegram.salesSummary.sendSalesSummary.runSalesOnDemand,
+          { chatId },
+        );
+      },
+      sendNudge: async (chatId, html) => {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        if (!token) return; // best-effort; nothing to send without a token
+        await sendTelegramHtml(token, chatId, html);
       },
     },
   });

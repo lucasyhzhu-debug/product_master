@@ -199,6 +199,8 @@ Full per-route permission table: `docs/FILE_MAP.md` (Full Role → Route Permiss
    4. Operator assigns role in `/admin/telegram-chats`.
    No code change needed for the chatId lookup, no new env var, no `seedChatFromEnv` call (those are for the legacy pack-list migration only).
 
+22. **New Telegram commands MUST declare a `COMMAND_POLICY` entry** — command authorization is centralized in `convex/telegram/webhook.ts`'s `COMMAND_POLICY: Record<TelegramCommand, "open" | {requiresRole}>`. The `Record<TelegramCommand, …>` type makes a missing entry a compile error, so adding a command to `parseCommand` (`chatRegistry.ts`) forces an auth decision. Default to `{requiresRole: "<role>"}` (per-command role match, deny-by-default); use `"open"` ONLY for bootstrap/help commands (`register`, `start`). The gate checks the SENDER's chat via `getChatAuth`, which honors the same `TELEGRAM_FALLBACK_ROLE` env fallback as `getChatIdByRole` — keep the two resolvers in lockstep, or env-fallback chats will authorize inconsistently with how they're delivered to. Unauthorized senders get a one-line nudge (no dispatch, no `update_id` burned). Shipped 2026-05-30 with the `/sales` command (`docs/superpowers/plans/2026-05-30-telegram-sales-command.md`).
+
 ---
 
 ## Documentation Index

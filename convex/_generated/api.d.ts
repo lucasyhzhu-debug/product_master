@@ -263,6 +263,7 @@ import type * as storageLocations_queries from "../storageLocations/queries.js";
 import type * as telegram___tests___testHelpers from "../telegram/__tests__/testHelpers.js";
 import type * as telegram_chatRegistry from "../telegram/chatRegistry.js";
 import type * as telegram_config from "../telegram/config.js";
+import type * as telegram_cronRetry from "../telegram/cronRetry.js";
 import type * as telegram_packListFormat from "../telegram/packListFormat.js";
 import type * as telegram_queries_packListQuery from "../telegram/queries/packListQuery.js";
 import type * as telegram_salesSummary_range from "../telegram/salesSummary/range.js";
@@ -538,6 +539,7 @@ declare const fullApi: ApiFromModules<{
   "telegram/__tests__/testHelpers": typeof telegram___tests___testHelpers;
   "telegram/chatRegistry": typeof telegram_chatRegistry;
   "telegram/config": typeof telegram_config;
+  "telegram/cronRetry": typeof telegram_cronRetry;
   "telegram/packListFormat": typeof telegram_packListFormat;
   "telegram/queries/packListQuery": typeof telegram_queries_packListQuery;
   "telegram/salesSummary/range": typeof telegram_salesSummary_range;

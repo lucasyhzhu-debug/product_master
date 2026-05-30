@@ -11,6 +11,13 @@ function defaultDeps(over: Partial<WebhookDeps> = {}): WebhookDeps {
     runRegister: async () => {},
     runStart: async () => {},
     touchLastSeen: async () => {},
+    // Load-bearing: /pack and /sales are now gated (COMMAND_POLICY). Seeding the
+    // pack-list role here is what makes the pre-existing /pack dispatch tests below
+    // (which don't override getChatAuth) exercise the AUTHORIZED path. Tests that
+    // need a different sender override getChatAuth explicitly.
+    getChatAuth: async () => ({ registered: true, role: "pack-list", archived: false }),
+    runSales: async () => {},
+    sendNudge: async () => {},
     ...over,
   };
 }
@@ -247,8 +254,9 @@ describe("decideWebhookOutcome — non-command messages (spec case #17)", () => 
 });
 
 describe("decideWebhookOutcome — /start (spec §webhook dispatch)", () => {
-  it("dispatches /start to runStart", async () => {
+  it("dispatches /start to runStart without consulting getChatAuth (open command)", async () => {
     const runStart = vi.fn().mockResolvedValue(undefined);
+    const getChatAuth = vi.fn();
     const result = await decideWebhookOutcome({
       providedSecret: SECRET,
       expectedSecret: SECRET,
@@ -256,9 +264,10 @@ describe("decideWebhookOutcome — /start (spec §webhook dispatch)", () => {
         update_id: 4004,
         message: { message_id: 1, text: "/start", chat: { id: -100, type: "private" } },
       } as any,
-      deps: defaultDeps({ runStart }),
+      deps: defaultDeps({ runStart, getChatAuth }),
     });
     expect(result.status).toBe(200);
+    expect(getChatAuth).not.toHaveBeenCalled();
     expect(runStart).toHaveBeenCalledWith("-100");
   });
 });
@@ -281,5 +290,110 @@ describe("decideWebhookOutcome — unknown slash command", () => {
     expect(recordIfNew).not.toHaveBeenCalled();
     expect(runPack).not.toHaveBeenCalled();
     expect(touchLastSeen).not.toHaveBeenCalled(); // unknown slash ≠ non-command; no touch
+  });
+});
+
+describe("decideWebhookOutcome — command authorization policy", () => {
+  const SECRET2 = "a".repeat(64);
+  const auth = (over: { registered?: boolean; role?: string; archived?: boolean }) =>
+    async () => ({ registered: true, archived: false, ...over });
+
+  it("/sales from a sales-updates chat → dispatches runSales with chatId", async () => {
+    const runSales = vi.fn().mockResolvedValue(undefined);
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/sales" }),
+      deps: defaultDeps({ getChatAuth: auth({ role: "sales-updates" }), runSales }),
+    });
+    expect(result.status).toBe(200);
+    expect(runSales).toHaveBeenCalledWith("-1001234567890");
+  });
+
+  it("/sales from a pack-list chat → nudge, no dispatch (per-command match)", async () => {
+    const runSales = vi.fn();
+    const sendNudge = vi.fn().mockResolvedValue(undefined);
+    const recordIfNew = vi.fn();
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/sales" }),
+      deps: defaultDeps({ getChatAuth: auth({ role: "pack-list" }), runSales, sendNudge, recordIfNew }),
+    });
+    expect(result.status).toBe(200);
+    expect(runSales).not.toHaveBeenCalled();
+    expect(recordIfNew).not.toHaveBeenCalled();
+    expect(sendNudge).toHaveBeenCalledTimes(1);
+    expect(sendNudge.mock.calls[0][1]).toContain("sales-updates");
+  });
+
+  it("/sales from a registered chat with no role → nudge", async () => {
+    const runSales = vi.fn();
+    const sendNudge = vi.fn().mockResolvedValue(undefined);
+    await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/sales" }),
+      deps: defaultDeps({ getChatAuth: auth({ role: undefined }), runSales, sendNudge }),
+    });
+    expect(runSales).not.toHaveBeenCalled();
+    expect(sendNudge).toHaveBeenCalledTimes(1);
+  });
+
+  it("/sales from an archived sales-updates chat → nudge", async () => {
+    const runSales = vi.fn();
+    const sendNudge = vi.fn().mockResolvedValue(undefined);
+    await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/sales" }),
+      deps: defaultDeps({ getChatAuth: auth({ role: "sales-updates", archived: true }), runSales, sendNudge }),
+    });
+    expect(runSales).not.toHaveBeenCalled();
+    expect(sendNudge).toHaveBeenCalledTimes(1);
+  });
+
+  it("/sales from an unregistered chat → nudge", async () => {
+    const runSales = vi.fn();
+    const sendNudge = vi.fn().mockResolvedValue(undefined);
+    await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/sales" }),
+      deps: defaultDeps({ getChatAuth: async () => ({ registered: false, archived: false }), runSales, sendNudge }),
+    });
+    expect(runSales).not.toHaveBeenCalled();
+    expect(sendNudge).toHaveBeenCalledTimes(1);
+  });
+
+  it("/pack from a sales-updates chat → nudge (pack now gated, was open)", async () => {
+    const runPack = vi.fn();
+    const sendNudge = vi.fn().mockResolvedValue(undefined);
+    await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/pack" }),
+      deps: defaultDeps({ getChatAuth: auth({ role: "sales-updates" }), runPack, sendNudge }),
+    });
+    expect(runPack).not.toHaveBeenCalled();
+    expect(sendNudge).toHaveBeenCalledTimes(1);
+    expect(sendNudge.mock.calls[0][1]).toContain("pack-list");
+  });
+
+  it("/pack from a pack-list chat → still dispatches (no regression to shipped flow)", async () => {
+    const runPack = vi.fn().mockResolvedValue(undefined);
+    const result = await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: makeUpdate({ text: "/pack" }),
+      deps: defaultDeps({ getChatAuth: auth({ role: "pack-list" }), runPack }),
+    });
+    expect(result.status).toBe(200);
+    expect(runPack).toHaveBeenCalledTimes(1);
+  });
+
+  it("/register is open — dispatches without consulting getChatAuth", async () => {
+    const getChatAuth = vi.fn();
+    const runRegister = vi.fn().mockResolvedValue(undefined);
+    await decideWebhookOutcome({
+      providedSecret: SECRET2, expectedSecret: SECRET2,
+      body: { update_id: 9, message: { message_id: 1, text: "/register", chat: { id: -7, type: "group", title: "X" } } } as any,
+      deps: defaultDeps({ getChatAuth, runRegister }),
+    });
+    expect(getChatAuth).not.toHaveBeenCalled();
+    expect(runRegister).toHaveBeenCalledTimes(1);
   });
 });

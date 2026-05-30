@@ -98,6 +98,50 @@ export const sendSalesSummary = internalAction({
   },
 });
 
+// ─── runSalesOnDemand ────────────────────────────────────────────────────────
+
+/**
+ * On-demand entrypoint for the /sales command. Sends an immediate ack to the
+ * requesting chat (so the operator sees it working), then reuses the EXACT daily
+ * process (3 best-effort syncs + summary → sales-updates group). On failure after
+ * the ack, sends a breadcrumb so the operator is never left hanging, then rethrows
+ * so the failure surfaces in the Convex dashboard.
+ *
+ * Direct (non-resilient) call: on-demand favors fast failure + retry-by-re-typing
+ * over multi-minute silent retry loops. Crons keep using sendSalesSummaryResilient.
+ */
+export const runSalesOnDemand = internalAction({
+  args: { chatId: v.string() },
+  handler: async (ctx, args): Promise<void> => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) throw new Error("Telegram env var missing (TELEGRAM_BOT_TOKEN)");
+
+    await sendTelegramHtml(
+      token,
+      args.chatId,
+      "✅ Acknowledged — updating sales channels, then coming back with your report…",
+    );
+
+    try {
+      await ctx.runAction(
+        internal.telegram.salesSummary.sendSalesSummary.sendSalesSummary,
+        { cadence: "daily" },
+      );
+    } catch (err) {
+      try {
+        await sendTelegramHtml(
+          token,
+          args.chatId,
+          "⚠️ Sales update failed — check Convex logs.",
+        );
+      } catch {
+        /* best-effort breadcrumb — ignore secondary failure */
+      }
+      throw err;
+    }
+  },
+});
+
 // ─── sendSalesSummaryResilient ───────────────────────────────────────────────
 
 /**
