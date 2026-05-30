@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Telegram pack-list overdue flagging (SEED-001) — 2026-05-30
+
+**For the team:** The daily Telegram pack list now calls out late orders instead of burying them in a flat list. Genuinely-overdue orders (delivery date already passed) get their own `⚠️ OVERDUE` section at the top with a "N days late" count, and a separate `🚨 Unpaid & Past Due` alert lists orders that are both unpaid AND past their delivery date — so payment chasing doesn't get lost.
+
+#### Added
+- **`⚠️ OVERDUE` section** in the pack list: paid orders (`PaymentReceived`/`BeingPrepared`) whose delivery date has passed render above the `Due Today` orders, each with a `due {date} · N days late` line. The header gains a `· N overdue` segment. When nothing is overdue the message is byte-identical to before.
+- **`🚨 OVERDUE — Unpaid & Past Due` alert**: a separate Telegram message (same `pack-list` group) listing `AwaitingPayment` orders past their delivery date, with amount owed + days-late + contact number for follow-up. Sent for every reason (morning/midday/on-demand `/pack`); nothing sent when there are none.
+- **`convex/telegram/queries/dueClassification.ts`** — pure WIB date helpers (`wibDayIndex`, `classifyDue`, `daysLate`); single source of truth for the overdue threshold, mirroring the kanban board's rule (overdue ⟺ dueDate's WIB day strictly before today's).
+
+#### Changed
+- `convex/telegram/queries/packListQuery.ts` — `getOrdersForPackList` now returns three buckets (`overdue`, `dueToday`, `unpaidOverdue`) + `overdueCount` + `generatedAt`, instead of one flat `orders` list. Adds an `AwaitingPayment` past-due scan on the existing `by_status_due_date` index.
+- `convex/telegram/packListFormat.ts` — sectioned `formatPackList` + new `formatUnpaidAlert`; extracted shared `chunkBlocks`/`truncate` helpers.
+- `convex/telegram/sendPackList.ts` — threads the query's `generatedAt` into both formatters (no `Date.now()` drift) and appends the unpaid alert as a separate message.
+
+**No schema/index changes.** Backend + report-format only.
+
 ### Telegram /sales command + command authorization — 2026-05-30
 
 **For you:** Type `/sales` in the sales-updates Telegram group and the bot acks immediately ("Acknowledged — updating sales channels…"), runs the same daily channel sync the 11pm cron does, and posts the report on demand — no waiting for the nightly run.
