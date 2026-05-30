@@ -90,6 +90,44 @@ export const getChatIdByRole = internalQuery({
   },
 });
 
+// ─── getChatAuth ─────────────────────────────────────────────────────────────
+
+/**
+ * Authorization lookup for the webhook command gate. One point read on by_chatId.
+ * Returns the chat's registration + role + archived state so decideWebhookOutcome
+ * can enforce COMMAND_POLICY. Never throws (unknown chat → registered:false).
+ *
+ * Mirrors getChatIdByRole's env fallback: the single TELEGRAM_CHAT_ID chat is
+ * authorized for TELEGRAM_FALLBACK_ROLE even with NO db row — keeping the gate in
+ * lockstep with delivery so gating /pack doesn't regress the env-fallback chat.
+ */
+export const getChatAuth = internalQuery({
+  args: { chatId: v.string() },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ registered: boolean; role?: string; archived: boolean }> => {
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_chatId", (q) => q.eq("chatId", args.chatId))
+      .unique();
+    if (row) {
+      return {
+        registered: true,
+        role: row.role,
+        archived: row.archivedAt !== undefined,
+      };
+    }
+    if (
+      process.env.TELEGRAM_FALLBACK_ROLE &&
+      process.env.TELEGRAM_CHAT_ID === args.chatId
+    ) {
+      return { registered: true, role: process.env.TELEGRAM_FALLBACK_ROLE, archived: false };
+    }
+    return { registered: false, archived: false };
+  },
+});
+
 // ─── touchChatLastSeen ───────────────────────────────────────────────────────
 
 /**
