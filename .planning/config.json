@@ -18,7 +18,9 @@
     "triple_review": true,
     "simplify": true,
     "auto_advance": false,
-    "_auto_chain_active": false
+    "_auto_chain_active": false,
+    "nyquist_validation": true,
+    "ai_integration_phase": true
   },
   "git": {
     "branching_strategy": "phase"
