@@ -73,7 +73,7 @@ export const sendPackList = internalAction({
           await sendTelegramHtml(
             token,
             chatId,
-            `<i>⚠️ Pack list send failed after ${sentCount}/${chunks.length} chunks. Check Convex logs.</i>`,
+            `<i>⚠️ Pack list + alert send failed after ${sentCount}/${chunks.length} chunks. Check Convex logs.</i>`,
           );
         } catch {
           // best-effort — primary throw is what matters
