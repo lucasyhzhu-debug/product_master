@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { sendTelegramHtml } from "../lib/telegramHtml";
-import { formatPackList } from "./packListFormat";
+import { formatPackList, formatUnpaidAlert } from "./packListFormat";
 import {
   RESILIENT_MAX_ATTEMPTS,
   resilientRetryDelayMs,
@@ -36,22 +36,31 @@ export const sendPackList = internalAction({
       internal.telegram.queries.packListQuery.getOrdersForPackList,
       {},
     );
-    const chunks = formatPackList({
+    // Use the SAME instant the query bucketed against — avoids a Date.now() drift
+    // where an order buckets as overdue but renders "0 days late" near WIB midnight.
+    const packChunks = formatPackList({
       reason: args.reason,
-      cards: data.orders,
+      overdue: data.overdue,
+      dueToday: data.dueToday,
       counts: {
         total: data.totalCount,
         delivery: data.deliveryCount,
         pickup: data.pickupCount,
       },
-      generatedAt: Date.now(),
+      generatedAt: data.generatedAt,
     });
+    // Unpaid past-due alert is a SEPARATE message (own header) — empty array sends nothing.
+    // Fires for every reason (morning/midday/command); no `reason` needed.
+    const alertChunks = formatUnpaidAlert({
+      unpaidOverdue: data.unpaidOverdue,
+      generatedAt: data.generatedAt,
+    });
+    const chunks = [...packChunks, ...alertChunks];
 
     // Sequential send to preserve order — chunks reference each other ("continued (2)" etc).
     // I2 (triple-review): if chunk N+1 fails after chunk N already sent, staff
-    // see a truncated message and `/pack` retry is dedupe-blocked. Send a
-    // best-effort breadcrumb so staff know to re-run /pack later (after dedupe
-    // row eventually expires, or to check the dashboard for the failed cron).
+    // see a truncated message and /pack retry is dedupe-blocked. Send a best-effort
+    // breadcrumb so staff know to re-run /pack later.
     let sentCount = 0;
     try {
       for (const chunk of chunks) {
@@ -64,7 +73,7 @@ export const sendPackList = internalAction({
           await sendTelegramHtml(
             token,
             chatId,
-            `<i>⚠️ Pack list send failed after ${sentCount}/${chunks.length} chunks. Check Convex logs.</i>`,
+            `<i>⚠️ Pack list + alert send failed after ${sentCount}/${chunks.length} chunks. Check Convex logs.</i>`,
           );
         } catch {
           // best-effort — primary throw is what matters
