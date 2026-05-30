@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatPackList, type FormatInput } from "../packListFormat";
+import { formatPackList, formatUnpaidAlert, type FormatInput } from "../packListFormat";
 import type { KanbanOrderCard } from "../../orders/helpers/kanbanBuilders";
 
 // Helper: build a minimal valid KanbanOrderCard for fixtures.
@@ -34,7 +34,8 @@ function card(over: Partial<KanbanOrderCard> = {}): KanbanOrderCard {
 
 const baseInput: FormatInput = {
   reason: "morning",
-  cards: [],
+  overdue: [],
+  dueToday: [],
   counts: { total: 0, delivery: 0, pickup: 0 },
   generatedAt: Date.parse("2026-05-27T00:00:00Z"), // 07:00 WIB
 };
@@ -50,7 +51,7 @@ describe("formatPackList — empty day", () => {
 
 describe("formatPackList — header per reason", () => {
   it("morning header uses date-only format", () => {
-    const out = formatPackList({ ...baseInput, cards: [card()], counts: { total: 1, delivery: 1, pickup: 0 } });
+    const out = formatPackList({ ...baseInput, dueToday: [card()], counts: { total: 1, delivery: 1, pickup: 0 } });
     expect(out[0]).toMatch(/^<b>Pack List — \w+ \d{1,2} \w+ \d{4}<\/b>/);
   });
 
@@ -59,7 +60,7 @@ describe("formatPackList — header per reason", () => {
       ...baseInput,
       reason: "midday",
       generatedAt: Date.parse("2026-05-27T06:00:00Z"), // 13:00 WIB
-      cards: [card()],
+      dueToday: [card()],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     expect(out[0]).toContain("Still Pending");
@@ -71,7 +72,7 @@ describe("formatPackList — header per reason", () => {
       ...baseInput,
       reason: "command",
       generatedAt: Date.parse("2026-05-27T07:35:00Z"), // 14:35 WIB
-      cards: [card()],
+      dueToday: [card()],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     expect(out[0]).toContain("on-demand");
@@ -83,7 +84,7 @@ describe("formatPackList — counts line", () => {
   it("shows total/delivery/pickup split", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card(), card({ deliveryType: "Pickup", pickupLocation: "Office" } as Partial<KanbanOrderCard>)],
+      dueToday: [card(), card({ deliveryType: "Pickup", pickupLocation: "Office" } as Partial<KanbanOrderCard>)],
       counts: { total: 2, delivery: 1, pickup: 1 },
     });
     expect(out[0]).toContain("2 orders");
@@ -96,7 +97,7 @@ describe("formatPackList — order rendering", () => {
   it("renders order number, customer, items, delivery + address", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({
+      dueToday: [card({
         orderNumber: "0526-003",
         customerName: "Sarah K.",
         deliveryType: "Delivery",
@@ -119,7 +120,7 @@ describe("formatPackList — order rendering", () => {
   it("renders [rush] badge for expedited orders", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({ expedited: true })],
+      dueToday: [card({ expedited: true })],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     expect(out.join("\n")).toContain("[rush]");
@@ -128,7 +129,7 @@ describe("formatPackList — order rendering", () => {
   it("omits address line for Pickup orders (no address)", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({ deliveryType: "Pickup", deliveryAddress: undefined })],
+      dueToday: [card({ deliveryType: "Pickup", deliveryAddress: undefined })],
       counts: { total: 1, delivery: 0, pickup: 1 },
     });
     expect(out.join("\n")).toContain("Pickup");
@@ -138,7 +139,7 @@ describe("formatPackList — order rendering", () => {
   it("R1: Delivery order with missing address surfaces the data gap visibly", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({ deliveryType: "Delivery", deliveryAddress: undefined })],
+      dueToday: [card({ deliveryType: "Delivery", deliveryAddress: undefined })],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     expect(out.join("\n")).toContain("Delivery → (no address — check order)");
@@ -147,7 +148,7 @@ describe("formatPackList — order rendering", () => {
   it("R1: Delivery order with whitespace-only address treated as missing", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({ deliveryType: "Delivery", deliveryAddress: "   " })],
+      dueToday: [card({ deliveryType: "Delivery", deliveryAddress: "   " })],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     expect(out.join("\n")).toContain("(no address — check order)");
@@ -156,7 +157,7 @@ describe("formatPackList — order rendering", () => {
   it("renders notes line with 📝 prefix when notes present", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({ notes: "leave at lobby" })],
+      dueToday: [card({ notes: "leave at lobby" })],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     expect(out.join("\n")).toContain("📝 leave at lobby");
@@ -165,7 +166,7 @@ describe("formatPackList — order rendering", () => {
   it("omits notes line when notes absent or empty string", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({ notes: "" })],
+      dueToday: [card({ notes: "" })],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     expect(out.join("\n")).not.toContain("📝");
@@ -176,7 +177,7 @@ describe("formatPackList — HTML escape", () => {
   it("escapes < > & in customer name, address, notes, item names", () => {
     const out = formatPackList({
       ...baseInput,
-      cards: [card({
+      dueToday: [card({
         customerName: "Tom & Jerry <boss>",
         deliveryAddress: "Jl. <Kemang> & Raya",
         notes: "if &lt; please <ring>",
@@ -210,7 +211,7 @@ describe("formatPackList — chunking for 4096 char limit", () => {
     );
     const out = formatPackList({
       ...baseInput,
-      cards: many,
+      dueToday: many,
       counts: { total: 40, delivery: 40, pickup: 0 },
     });
     expect(out.length).toBeGreaterThan(1);
@@ -228,7 +229,7 @@ describe("formatPackList — chunking for 4096 char limit", () => {
     );
     const out = formatPackList({
       ...baseInput,
-      cards: many,
+      dueToday: many,
       counts: { total: 40, delivery: 40, pickup: 0 },
     });
     // Each order's opening line "<b>0526-XXX</b>" must appear exactly once across all chunks.
@@ -247,7 +248,7 @@ describe("formatPackList — chunking for 4096 char limit", () => {
     // and Telegram would reject it with HTTP 400.
     const out = formatPackList({
       ...baseInput,
-      cards: [card({ orderNumber: "0526-BIG", notes: "x".repeat(5000) })],
+      dueToday: [card({ orderNumber: "0526-BIG", notes: "x".repeat(5000) })],
       counts: { total: 1, delivery: 1, pickup: 0 },
     });
     for (const chunk of out) {
@@ -255,5 +256,133 @@ describe("formatPackList — chunking for 4096 char limit", () => {
     }
     // Marker shows staff the order was truncated and they need to check the app.
     expect(out.join("\n")).toContain("truncated");
+  });
+});
+
+describe("formatPackList — OVERDUE section", () => {
+  // now = 2026-05-27 07:00 WIB (baseInput.generatedAt); a dueDate two WIB days earlier.
+  const overdueCard = () =>
+    card({ orderNumber: "0525-001", dueDate: Date.parse("2026-05-25T01:00:00Z") }); // 08:00 WIB May 25
+
+  it("renders an ⚠️ OVERDUE section header with the count", () => {
+    const out = formatPackList({
+      ...baseInput,
+      overdue: [overdueCard()],
+      dueToday: [card({ orderNumber: "0527-001" })],
+      counts: { total: 2, delivery: 2, pickup: 0 },
+    });
+    const body = out.join("\n");
+    expect(body).toContain("⚠️ OVERDUE (1)");
+    expect(body).toContain("Due Today (1)");
+  });
+
+  it("renders a days-late line for overdue orders", () => {
+    const out = formatPackList({
+      ...baseInput,
+      overdue: [overdueCard()],
+      dueToday: [],
+      counts: { total: 1, delivery: 1, pickup: 0 },
+    });
+    expect(out.join("\n")).toContain("2 days late");
+    expect(out.join("\n")).toContain("due Mon 25 May");
+  });
+
+  it("adds the overdue count to the header line", () => {
+    const out = formatPackList({
+      ...baseInput,
+      overdue: [overdueCard()],
+      dueToday: [card({ orderNumber: "0527-001" })],
+      counts: { total: 2, delivery: 2, pickup: 0 },
+    });
+    expect(out[0]).toContain("2 orders to pack today · 1 overdue · 2 delivery · 0 pickup");
+  });
+
+  it("omits the OVERDUE section and header segment when nothing is overdue", () => {
+    const out = formatPackList({
+      ...baseInput,
+      overdue: [],
+      dueToday: [card({ orderNumber: "0527-001" })],
+      counts: { total: 1, delivery: 1, pickup: 0 },
+    });
+    const body = out.join("\n");
+    expect(body).not.toContain("OVERDUE");
+    expect(body).not.toContain("Due Today");
+    expect(out[0]).not.toContain("overdue");
+  });
+
+  // Section headers are new chunkBlocks participants — verify they survive a 4096-char
+  // chunk split (no overflow, exactly one of each header, no orphaning/dropping).
+  it("chunks correctly across OVERDUE + Due Today sections", () => {
+    const mk = (n: string) =>
+      card({
+        orderNumber: n,
+        customerName: `Customer ${n} with a reasonably long name`,
+        deliveryAddress: `Jl. ${n}, neighbourhood and city detail to take space`,
+        dueDate: Date.parse("2026-05-25T01:00:00Z"), // past → days-late line renders for overdue
+      });
+    const out = formatPackList({
+      ...baseInput,
+      overdue: Array.from({ length: 25 }, (_, i) => mk(`OD-${i}`)),
+      dueToday: Array.from({ length: 25 }, (_, i) => mk(`DT-${i}`)),
+      counts: { total: 50, delivery: 50, pickup: 0 },
+    });
+    for (const chunk of out) expect(chunk.length).toBeLessThanOrEqual(4096);
+    const all = out.join("\n");
+    expect(all.split("⚠️ OVERDUE (25)").length - 1).toBe(1);
+    expect(all.split("Due Today (25)").length - 1).toBe(1);
+    for (let i = 0; i < 25; i++) {
+      expect(all.split(`<b>OD-${i}</b>`).length - 1).toBe(1);
+      expect(all.split(`<b>DT-${i}</b>`).length - 1).toBe(1);
+    }
+  });
+});
+
+describe("formatUnpaidAlert", () => {
+  const unpaidCard = () =>
+    card({
+      orderNumber: "0525-007",
+      customerName: "Andi",
+      status: "AwaitingPayment",
+      finalTotal: 150000,
+      dueDate: Date.parse("2026-05-25T01:00:00Z"), // 08:00 WIB May 25
+      contactWa: "0812-3456-7890",
+    });
+
+  it("returns [] when there are no unpaid past-due orders", () => {
+    expect(formatUnpaidAlert({ unpaidOverdue: [], generatedAt: baseInput.generatedAt })).toEqual([]);
+  });
+
+  it("renders header, amount, days-late, and contact", () => {
+    const out = formatUnpaidAlert({
+      unpaidOverdue: [unpaidCard()],
+      generatedAt: baseInput.generatedAt,
+    });
+    const body = out.join("\n");
+    expect(body).toContain("🚨 OVERDUE — Unpaid &amp; Past Due");
+    expect(body).toContain("<b>0525-007</b> — Andi · Rp 150.000");
+    expect(body).toContain("2 days late");
+    expect(body).toContain("📞 0812-3456-7890");
+  });
+
+  it("falls back to customerPhone, then a no-contact marker", () => {
+    const withPhone = formatUnpaidAlert({
+      unpaidOverdue: [card({ orderNumber: "0525-008", status: "AwaitingPayment", finalTotal: 80000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: undefined, customerPhone: "0813-1111-2222" })],
+      generatedAt: baseInput.generatedAt,
+    });
+    expect(withPhone.join("\n")).toContain("📞 0813-1111-2222");
+
+    const noContact = formatUnpaidAlert({
+      unpaidOverdue: [card({ orderNumber: "0525-009", status: "AwaitingPayment", finalTotal: 90000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: undefined, customerPhone: undefined })],
+      generatedAt: baseInput.generatedAt,
+    });
+    expect(noContact.join("\n")).toContain("(no contact — check order)");
+  });
+
+  it("uses totalAmount when finalTotal is absent", () => {
+    const out = formatUnpaidAlert({
+      unpaidOverdue: [card({ orderNumber: "0525-010", status: "AwaitingPayment", finalTotal: undefined, totalAmount: 42000, dueDate: Date.parse("2026-05-26T01:00:00Z") })],
+      generatedAt: baseInput.generatedAt,
+    });
+    expect(out.join("\n")).toContain("Rp 42.000");
   });
 });
