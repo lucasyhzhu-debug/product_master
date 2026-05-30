@@ -22,7 +22,7 @@ After merging any code change, add a new entry with:
 
 #### Added
 - **`⚠️ OVERDUE` section** in the pack list: paid orders (`PaymentReceived`/`BeingPrepared`) whose delivery date has passed render above the `Due Today` orders, each with a `due {date} · N days late` line. The header gains a `· N overdue` segment. When nothing is overdue the message is byte-identical to before.
-- **`🚨 OVERDUE — Unpaid & Past Due` alert**: a separate Telegram message (same `pack-list` group) listing `AwaitingPayment` orders past their delivery date, with amount owed + days-late + contact number for follow-up. Sent for every reason (morning/midday/on-demand `/pack`); nothing sent when there are none.
+- **`🚨 OVERDUE — Unpaid & Past Due` alert**: a separate Telegram message (same `pack-list` group) listing `AwaitingPayment` orders past their delivery date, with amount owed + days-late. The phone number is **not** sent in-channel (privacy — packers see this group); staff look up contact details in the app to chase payment. Sent for every reason (morning/midday/on-demand `/pack`); nothing sent when there are none.
 - **`convex/telegram/queries/dueClassification.ts`** — pure WIB date helpers (`wibDayIndex`, `classifyDue`, `daysLate`); single source of truth for the overdue threshold, mirroring the kanban board's rule (overdue ⟺ dueDate's WIB day strictly before today's).
 
 #### Changed

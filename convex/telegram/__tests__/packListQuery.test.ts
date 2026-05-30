@@ -30,7 +30,7 @@ async function seedOrder(
   t: TestContext,
   override: Partial<{
     orderNumber: string;
-    status: "PaymentReceived" | "BeingPrepared" | "Draft" | "AwaitingDelivery" | "Complete" | "AwaitingPayment";
+    status: "PaymentReceived" | "BeingPrepared" | "Draft" | "AwaitingDelivery" | "Complete" | "AwaitingPayment" | "Confirmed" | "InProduction";
     dueDate: number | undefined;
     expedited: boolean;
     deliveryType: "Delivery" | "Pickup";
@@ -117,6 +117,20 @@ describe("getOrdersForPackList — status filter", () => {
     );
     expect(result.totalCount).toBe(1);
     expect(result.dueToday[0].orderNumber).toBe("0527-001");
+  });
+
+  it("excludes legacy in-progress statuses (Confirmed, InProduction) — I3 scope guard", async () => {
+    const t = convexTest(schema, modules);
+    await seedOrder(t, { orderNumber: "0527-005", status: "Confirmed", dueDate: TODAY_START + 8 * 3600_000 });
+    await seedOrder(t, { orderNumber: "0527-006", status: "InProduction", dueDate: YESTERDAY_START + 8 * 3600_000 });
+    const result = await t.query(
+      internal.telegram.queries.packListQuery.getOrdersForPackList,
+      { now: TODAY_START + 12 * 3600_000 },
+    );
+    expect(result.totalCount).toBe(0);
+    expect(result.overdue).toHaveLength(0);
+    expect(result.dueToday).toHaveLength(0);
+    expect(result.unpaidOverdue).toHaveLength(0);
   });
 });
 

@@ -83,24 +83,23 @@ export const getOrdersForPackList = internalQuery({
     }
     unpaidRaw.sort(packListComparator);
 
-    // Build paid cards, split into overdue vs dueToday, count delivery/pickup.
+    // Build paid cards in parallel (independent reads, same Convex txn), then split into
+    // overdue vs dueToday and count delivery/pickup in the original (sorted) order.
+    const paidCards = await Promise.all(paid.map((order) => buildCard(ctx, order)));
     const overdue: KanbanOrderCard[] = [];
     const dueToday: KanbanOrderCard[] = [];
     let deliveryCount = 0;
     let pickupCount = 0;
-    for (const order of paid) {
-      const card = await buildCard(ctx, order);
+    for (let i = 0; i < paid.length; i++) {
+      const order = paid[i];
       // dueDate is guaranteed defined here (filtered above); classifyDue → "overdue" | "today".
-      if (classifyDue(order.dueDate as number, now) === "overdue") overdue.push(card);
-      else dueToday.push(card);
+      if (classifyDue(order.dueDate!, now) === "overdue") overdue.push(paidCards[i]);
+      else dueToday.push(paidCards[i]);
       if (order.deliveryType === "Delivery") deliveryCount++;
       else if (order.deliveryType === "Pickup") pickupCount++;
     }
 
-    const unpaidOverdue: KanbanOrderCard[] = [];
-    for (const order of unpaidRaw) {
-      unpaidOverdue.push(await buildCard(ctx, order));
-    }
+    const unpaidOverdue = await Promise.all(unpaidRaw.map((order) => buildCard(ctx, order)));
 
     return {
       generatedAt: now,

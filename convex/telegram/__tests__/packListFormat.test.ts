@@ -364,7 +364,7 @@ describe("formatUnpaidAlert", () => {
     expect(formatUnpaidAlert({ unpaidOverdue: [], generatedAt: baseInput.generatedAt })).toEqual([]);
   });
 
-  it("renders header, amount, days-late, and contact", () => {
+  it("renders header, amount, days-late, and an app-lookup contact line", () => {
     const out = formatUnpaidAlert({
       unpaidOverdue: [unpaidCard()],
       generatedAt: baseInput.generatedAt,
@@ -373,21 +373,21 @@ describe("formatUnpaidAlert", () => {
     expect(body).toContain("🚨 OVERDUE — Unpaid &amp; Past Due");
     expect(body).toContain("<b>0525-007</b> — Andi · Rp 150.000");
     expect(body).toContain("2 days late");
-    expect(body).toContain("📞 0812-3456-7890");
+    expect(body).toContain("📞 look up contact in app");
   });
 
-  it("falls back to customerPhone, then a no-contact marker", () => {
-    const withPhone = formatUnpaidAlert({
-      unpaidOverdue: [card({ orderNumber: "0525-008", status: "AwaitingPayment", finalTotal: 80000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: undefined, customerPhone: "0813-1111-2222" })],
+  it("never sends the customer phone number to the group (privacy)", () => {
+    // Even when contactWa AND customerPhone are present, neither is rendered.
+    const out = formatUnpaidAlert({
+      unpaidOverdue: [
+        card({ orderNumber: "0525-008", status: "AwaitingPayment", finalTotal: 80000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: "0812-3456-7890", customerPhone: "0813-1111-2222" }),
+      ],
       generatedAt: baseInput.generatedAt,
     });
-    expect(withPhone.join("\n")).toContain("📞 0813-1111-2222");
-
-    const noContact = formatUnpaidAlert({
-      unpaidOverdue: [card({ orderNumber: "0525-009", status: "AwaitingPayment", finalTotal: 90000, dueDate: Date.parse("2026-05-26T01:00:00Z"), contactWa: undefined, customerPhone: undefined })],
-      generatedAt: baseInput.generatedAt,
-    });
-    expect(noContact.join("\n")).toContain("(no contact — check order)");
+    const body = out.join("\n");
+    expect(body).not.toContain("0812-3456-7890");
+    expect(body).not.toContain("0813-1111-2222");
+    expect(body).toContain("📞 look up contact in app");
   });
 
   it("uses totalAmount when finalTotal is absent", () => {
@@ -396,5 +396,50 @@ describe("formatUnpaidAlert", () => {
       generatedAt: baseInput.generatedAt,
     });
     expect(out.join("\n")).toContain("Rp 42.000");
+  });
+
+  it("chunks a large unpaid alert under the 4096 limit with each order exactly once", () => {
+    const out = formatUnpaidAlert({
+      unpaidOverdue: Array.from({ length: 60 }, (_, i) =>
+        card({
+          orderNumber: `UP-${i}`,
+          customerName: `Customer ${i} with a reasonably long name for padding`,
+          status: "AwaitingPayment",
+          finalTotal: 100000 + i,
+          dueDate: Date.parse("2026-05-25T01:00:00Z"),
+        }),
+      ),
+      generatedAt: baseInput.generatedAt,
+    });
+    expect(out.length).toBeGreaterThan(1); // forced a split
+    for (const chunk of out) expect(chunk.length).toBeLessThanOrEqual(4096);
+    const all = out.join("\n");
+    expect(all.split("🚨 OVERDUE — Unpaid &amp; Past Due").length - 1).toBe(1); // header once
+    for (let i = 0; i < 60; i++) {
+      expect(all.split(`<b>UP-${i}</b>`).length - 1).toBe(1);
+    }
+  });
+});
+
+describe("formatPackList + formatUnpaidAlert — empty pack list with a non-empty unpaid alert", () => {
+  // Real scenario: nothing to pack today, but a days-old unpaid order is overdue. The two
+  // formatters are independent — sendPackList concatenates [...packChunks, ...alertChunks].
+  it("emits 'Nothing to pack' AND a non-empty unpaid alert", () => {
+    const pack = formatPackList({
+      ...baseInput,
+      overdue: [],
+      dueToday: [],
+      counts: { total: 0, delivery: 0, pickup: 0 },
+    });
+    const alert = formatUnpaidAlert({
+      unpaidOverdue: [card({ orderNumber: "0525-099", status: "AwaitingPayment", finalTotal: 50000, dueDate: Date.parse("2026-05-25T01:00:00Z") })],
+      generatedAt: baseInput.generatedAt,
+    });
+    expect(pack).toHaveLength(1);
+    expect(pack[0]).toContain("Nothing to pack today");
+    expect(alert.length).toBeGreaterThan(0);
+    expect(alert.join("\n")).toContain("<b>0525-099</b>");
+    // The combined stream sendPackList would send:
+    expect([...pack, ...alert].length).toBe(1 + alert.length);
   });
 });

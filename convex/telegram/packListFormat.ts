@@ -122,10 +122,10 @@ function renderUnpaidOrder(card: KanbanOrderCard, now: number): string {
   if (card.dueDate !== undefined) {
     lines.push(`  due ${formatDueDate(card.dueDate)} · ${formatDaysLate(daysLate(card.dueDate, now))}`);
   }
-  const wa = card.contactWa && card.contactWa.trim().length > 0 ? card.contactWa.trim() : undefined;
-  const phone = card.customerPhone && card.customerPhone.trim().length > 0 ? card.customerPhone.trim() : undefined;
-  const contact = wa ?? phone;
-  lines.push(`  📞 ${contact ? escapeHtml(contact) : "(no contact — check order)"}`);
+  // Privacy: do NOT send the customer's phone number to the pack-list group (packers see this
+  // channel). Order number + name + amount are enough to find the order; staff look up contact
+  // details in the app to chase payment.
+  lines.push(`  📞 look up contact in app`);
   return truncate(lines.join("\n"));
 }
 
