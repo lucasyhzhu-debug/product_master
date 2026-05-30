@@ -16,6 +16,14 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Telegram /sales command + command authorization — 2026-05-30
+
+**For you:** Type `/sales` in the sales-updates Telegram group and the bot acks immediately ("Acknowledged — updating sales channels…"), runs the same daily channel sync the 11pm cron does, and posts the report on demand — no waiting for the nightly run.
+
+- **/sales**: on-demand daily sales summary (immediate ack → 3 channel syncs → report), runnable from the sales-updates group.
+- **Command authorization**: the bot webhook now enforces a default-deny `COMMAND_POLICY` with per-command role matching (`/pack`→`pack-list`, `/sales`→`sales-updates`); `/register` and `/start` stay open. **`/pack` is now gated** (was open) — closes a cross-group spam vector where any chat could trigger pack-list sends. Unauthorized chats get a one-line nudge.
+- **Files:** `convex/telegram/webhook.ts` (COMMAND_POLICY + gate), `chatRegistry.ts` (`parseCommand` +sales, `getChatAuth`), `salesSummary/sendSalesSummary.ts` (`runSalesOnDemand`). No schema change, no new env var, no new role.
+
 ### Hardening: all Telegram cron sends now retry on transient worker spikes — 2026-05-29
 
 **For the team:** Extends the pack-list cron fix to the three sales-summary crons (daily/weekly/monthly) so they also auto-retry on a momentary Convex capacity blip instead of dropping the post. The retry policy is now a shared, documented playbook step for any future Telegram cron.
