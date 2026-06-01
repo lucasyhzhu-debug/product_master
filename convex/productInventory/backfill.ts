@@ -3,15 +3,23 @@
  *
  * Admin clicks a per-source button on /admin/unlinked-products-backfill; that dispatches
  * `runChannelBackfill({ source, token })`, which schedules the internalAction
- * `backfillChannelDeductions({ source })`. The action paginates via the
- * `by_source_deductedAt` index (rows with `inventoryDeductedAt === undefined`),
- * invoking `backfillOnePage` until the query returns zero rows.
+ * `backfillChannelDeductions({ source })`. The action cursor-paginates the STABLE
+ * `by_source` index (a key it never mutates), invoking `backfillOnePage` and threading
+ * `continueCursor` until a page reports `isDone === true`. See #177 for why the prior
+ * `by_source_deductedAt` + `take()` loop aborted on one un-routable row and stalled on
+ * un-patched rows.
+ *
+ * Re-scan cost (#177): walking `by_source` means every run reads ALL rows for the source
+ * (deducted + not), skipping already-deducted rows in-loop, NOT just the pending tail.
+ * `MAX_ITERATIONS` therefore bounds TOTAL scan, not pending work. Acceptable at current
+ * prod scale; a >100K-row source could `hitCap` before reaching un-deducted rows at the
+ * tail — revisit with cursor-resume if counts grow. Preflight still uses the narrow
+ * `by_source_deductedAt` index for an efficient pending-only count.
  *
  * Idempotency guarantee (D-19): `inventoryDeductedAt` is set-once on successful
- * deduction. Re-running after completion returns zero work (the index narrows to
- * un-deducted rows; completed rows no longer match). Pitfall 3 (RESEARCH): NEVER
- * patch `inventoryDeductedAt` on skip-reason paths; only patch when
- * `result.deducted === true`.
+ * deduction. Already-deducted rows are walked past in-loop (the `inventoryDeductedAt
+ * !== undefined` guard) and never re-deducted. Pitfall 3 (RESEARCH): NEVER patch
+ * `inventoryDeductedAt` on skip-reason paths; only patch when `result.deducted === true`.
  *
  * Flag-independence (D74.5.2-L13): This action does NOT read
  * `channelDeductionEnabled`. It is a data-repair operation separate from live-sync
@@ -33,16 +41,22 @@ import { buildEventFromRow, processChannelSaleInternal, type ChannelSaleResult }
 import { CHANNEL_ROUTING_NOT_CONFIGURED } from "./channelRouting";
 
 const BATCH_SIZE = 200; // D-16: 200-item chunks per page
-const MAX_ITERATIONS = 500; // 500 × 200 = 100K items hard cap — safety against runaway loops
+// 500 × 200 = 100K items hard cap — safety against runaway loops. Exported so the
+// test harness asserts termination against the SAME ceiling (no drift, #177 review M1).
+export const MAX_ITERATIONS = 500;
 
 /**
  * Result of processing a single backfill page.
  *
- * `itemsProcessed` counts items we *evaluated* this page (unmapped, unroutable,
- * no-revenue, or deducted) — it does NOT count items skipped because they were
- * already deducted (those are walked past silently by the cursor). So a re-run
- * over a fully-backfilled source reports `itemsProcessed: 0` even though it pages
- * through every row.
+ * `itemsProcessed` counts items we *evaluated* this page — those NOT already
+ * deducted: i.e. newly-deducted, unmapped (no linkedMenuProductId), missing-parent,
+ * zero-revenue, or unroutable rows. It deliberately EXCLUDES rows skipped because
+ * they were already deducted (walked past silently by the cursor), so a re-run over
+ * a fully-backfilled source reports `itemsProcessed: 0` even while paging every row.
+ * NB: this field is diagnostic only — no caller branches on it (termination is `isDone`).
+ *
+ * NOTE: the frontend mirrors this shape in `src/hooks/convex/useChannelBackfill.ts`
+ * (`ChannelBackfillPageResult`) — keep the two in sync when adding fields.
  *
  * `continueCursor`/`isDone`: pagination over the stable `by_source` index. The
  * caller loops while `!isDone`, passing `continueCursor` back in. We paginate a
@@ -166,14 +180,22 @@ export const backfillOnePage = internalMutation({
 /**
  * Scheduler-triggered backfill loop. This action is the ceremonial wrapper invoked
  * via `ctx.scheduler.runAfter` from `runChannelBackfill`. It loops internally via
- * `ctx.runMutation(backfillOnePage)` until pages are empty or MAX_ITERATIONS hits.
+ * `ctx.runMutation(backfillOnePage)`, threading `continueCursor`, until a page reports
+ * `isDone` or MAX_ITERATIONS hits.
  *
  * `hitCap` observability: `hitCap: true` means the 500-iteration safety ceiling was
- * reached — inspect the Convex dashboard for the remaining backlog. This field is a
- * dashboard/logs diagnostic; the admin UI (Plan 06) does NOT consume `hitCap`. The UI
- * uses `runOneChannelBackfillPage` directly in a client-loop and observes completion
- * via `itemsProcessed === 0`. Keep `backfillChannelDeductions` as a scheduler-only
- * ceremonial wrapper.
+ * reached before `isDone` — inspect the Convex dashboard for the remaining backlog.
+ * This field is a dashboard/logs diagnostic; the admin UI (Plan 06) does NOT consume
+ * `hitCap`. The UI uses `runOneChannelBackfillPage` directly in a client-loop and
+ * observes completion via `isDone === true`. Keep `backfillChannelDeductions` as a
+ * scheduler-only ceremonial wrapper.
+ *
+ * Hard-stop (#177 review I1): a PERSISTENT non-routing error (corrupt menuProduct,
+ * getStock failure, substitution invariant) re-throws, rolls the page back, and on
+ * re-run the cursor restarts and hits the same row again — blocking the source past
+ * that row. This is intentional fail-loud for UNKNOWN errors (a per-item catch would
+ * re-introduce partial-write risk); it requires operator remediation of the bad row,
+ * not a code workaround. Only CHANNEL_ROUTING_NOT_CONFIGURED is caught-and-skipped.
  */
 export const backfillChannelDeductions = internalAction({
   args: { source: externalSource, triggeredBy: v.string() },
@@ -234,16 +256,16 @@ export const runChannelBackfill = mutation({
 /**
  * Admin-facing public wrapper for UI-driven iteration (client-loop).
  * Pairs with `useRunChannelBackfill` (Plan 06). The UI calls this in a loop,
- * advancing until `itemsProcessed === 0`, matching the existing
- * `useDirectBackfillPage` pattern on /admin/unlinked-products-backfill.
+ * threading `continueCursor` and stopping when `isDone === true`, matching the
+ * existing `useDirectBackfillPage` pattern on /admin/unlinked-products-backfill.
  *
  * Idempotent; admin-only; flag-independent (D74.5.2-L13). Shares the exact
  * same body as `backfillOnePage` via the `backfillOnePageImpl` helper —
  * no `ctx.runMutation` indirection.
  *
- * GrabFood: returns `{ itemsProcessed: 0, deducted: 0, skipped: 0 }` because
- * the source has no ingested items to backfill (D74.5.2-L15). UI disables the
- * button via `isEmpty` based on the preflight query.
+ * GrabFood: returns `{ itemsProcessed: 0, deducted: 0, skipped: 0, unroutable: 0,
+ * isDone: true, continueCursor: null }` because the source has no ingested items to
+ * backfill (D74.5.2-L15). UI disables the button via `isEmpty` from the preflight query.
  */
 export const runOneChannelBackfillPage = mutation({
   args: {

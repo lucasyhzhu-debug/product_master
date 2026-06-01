@@ -40,6 +40,7 @@ import {
   _backfillOnePageForTest,
   _runChannelBackfillForTest,
   _getChannelBackfillPreflightForTest,
+  MAX_ITERATIONS,
 } from "../backfill";
 
 const modules = import.meta.glob("../../**/*.ts");
@@ -266,8 +267,8 @@ async function runBackfillToCompletion(t: TestT, source: string) {
   let totalSkipped = 0;
   let totalUnroutable = 0;
   let pages = 0;
-  // Safety ceiling mirrors MAX_ITERATIONS — a runaway here is a test failure.
-  while (pages++ < 600) {
+  // Safety ceiling = production cap + 1 (imported, no drift) — a runaway is a test failure.
+  while (pages++ < MAX_ITERATIONS + 1) {
     const page = await runBackfillPage(t, source, cursor);
     totalDeducted += page.deducted;
     totalSkipped += page.skipped;
@@ -717,11 +718,11 @@ describe("backfillChannelDeductions", () => {
     }
 
     const totals = await runBackfillToCompletion(t, "gobiz");
-    // Terminated (well under the 600-page safety ceiling) and reached the routable
-    // rows behind the un-routable block.
+    // 300 rows / BATCH_SIZE 200 = exactly 2 pages; reached the 50 routable rows
+    // behind the 250 un-routable block at the front of the index.
     expect(totals.totalDeducted).toBe(50);
     expect(totals.totalUnroutable).toBe(250);
-    expect(totals.pages).toBeLessThan(10);
+    expect(totals.pages).toBe(2);
 
     // Re-running is a clean no-op for the deducted rows (idempotent) but still
     // re-reports the un-routable backlog.

@@ -33,6 +33,12 @@ export interface ChannelBackfillPreflight {
   blockingAuditIssues: number;
 }
 
+/**
+ * Mirror of the backend `ChannelBackfillPageResult` in
+ * `convex/productInventory/backfill.ts` (Convex backend types can't be imported into
+ * the browser bundle). KEEP IN SYNC — add fields in both places. The `useRunChannelBackfill`
+ * cast below validates against THIS interface, so drift won't be caught by the compiler.
+ */
 export interface ChannelBackfillPageResult {
   itemsProcessed: number;
   deducted: number;
