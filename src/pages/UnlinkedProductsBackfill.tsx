@@ -115,6 +115,7 @@ interface ChannelBackfillLoopState {
   iterations: number;
   totalDeducted: number;
   totalSkipped: number;
+  totalUnroutable: number;
   error?: string;
 }
 
@@ -124,6 +125,7 @@ const CHANNEL_INITIAL_STATE: ChannelBackfillLoopState = {
   iterations: 0,
   totalDeducted: 0,
   totalSkipped: 0,
+  totalUnroutable: 0,
 };
 
 /**
@@ -181,34 +183,43 @@ function ChannelBackfillCard({
     let iterations = 0;
     let totalDeducted = 0;
     let totalSkipped = 0;
+    let totalUnroutable = 0;
+    let cursor: string | null = null;
 
     try {
       while (iterations < CHANNEL_MAX_ITERATIONS) {
         if (!mountedRef.current) return;
         iterations++;
-        const page = await runPage({ source: source.value, token });
+        const page = await runPage({ source: source.value, token, cursor });
         if (!mountedRef.current) return;
         totalDeducted += page.deducted;
         totalSkipped += page.skipped;
+        totalUnroutable += page.unroutable;
+        cursor = page.continueCursor;
         setState({
           running: true,
           isDone: false,
           iterations,
           totalDeducted,
           totalSkipped,
+          totalUnroutable,
         });
-        if (page.itemsProcessed === 0) break;
+        // Terminate when the cursor has walked the whole source (isDone) — NOT
+        // on itemsProcessed===0, which un-routable/unmapped rows never reach.
+        if (page.isDone) break;
       }
 
       if (!mountedRef.current) return;
 
       setState((s) => ({ ...s, running: false, isDone: true }));
+      const unroutableSuffix =
+        totalUnroutable > 0 ? `, ${totalUnroutable} unroutable (need a routing rule)` : "";
       toast.success(
-        `${source.label} backfill complete: ${totalDeducted} deducted, ${totalSkipped} skipped`,
+        `${source.label} backfill complete: ${totalDeducted} deducted, ${totalSkipped} skipped${unroutableSuffix}`,
       );
       appendLog(
         `${source.label} Backfill`,
-        `Complete (${iterations} iteration(s), ${totalDeducted} deducted, ${totalSkipped} skipped)`,
+        `Complete (${iterations} iteration(s), ${totalDeducted} deducted, ${totalSkipped} skipped${unroutableSuffix})`,
       );
     } catch (error) {
       if (!mountedRef.current) return;
@@ -284,6 +295,12 @@ function ChannelBackfillCard({
               Skipped:{" "}
               <span className="font-semibold tabular-nums">{state.totalSkipped}</span>
             </span>
+            {state.totalUnroutable > 0 && (
+              <span className="col-span-2 text-amber-600 dark:text-amber-500">
+                Unroutable (need a routing rule):{" "}
+                <span className="font-semibold tabular-nums">{state.totalUnroutable}</span>
+              </span>
+            )}
           </div>
         </div>
       )}
