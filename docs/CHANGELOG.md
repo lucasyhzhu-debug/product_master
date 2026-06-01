@@ -16,6 +16,22 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Telegram sales sync now retries Convex transient errors — 2026-06-01
+
+**For the team:** The nightly sales summary occasionally showed `GoFood ✗` (sync failed) even though GoFood was fine — it was a momentary Convex hiccup that the bot gave up on too early. It now automatically retries those blips, so the daily report should stop sporadically dropping a channel.
+
+#### Fixed
+- The 2026-05-31 23:00 WIB daily summary rendered `GoFood ✗` due to a Convex platform transient (`InternalServerError` — *"Your request couldn't be completed. Try again later."*) hitting the GoBiz sync mid-run. The retry path didn't recognise this error class, so it never recovered (the same transient also escaped the resilient cron wrapper on 2026-06-01). Data self-healed on the next sync (GoBiz re-fetches a rolling 7-day window).
+
+#### Changed
+- **`convex/lib/transientError.ts`** (new) — single source of truth for `isTransientError`, now matching `internalservererror` / `try again later` in addition to `no available workers`. Lives in `lib/` so non-telegram callers (the GoBiz adapter) can use it without depending on the telegram module.
+- `convex/telegram/cronRetry.ts` — re-exports `isTransientError` from the new lib; existing imports unchanged.
+- `convex/telegram/salesSummary/sendSalesSummary.ts` — daily best-effort syncs now **rethrow transient** errors (via `runBestEffortSync`) so `sendSalesSummaryResilient` retries the whole idempotent run; non-transient failures still degrade to `✗` and ship the report.
+- `convex/integrations/gobiz/adapter.ts` — `autoSyncGoBizRevenue` logs the original error first, guards the error-log mutation, and rethrows transients so the caller can retry instead of returning a misleading stale `✓`/`✗`.
+- **Tests:** +6 unit tests for the transient classifier (`convex/lib/__tests__/transientError.test.ts`).
+
+PR #175 (squash `6dfd051a`).
+
 ### Telegram pack-list overdue flagging (SEED-001) — 2026-05-30
 
 **For the team:** The daily Telegram pack list now calls out late orders instead of burying them in a flat list. Genuinely-overdue orders (delivery date already passed) get their own `⚠️ OVERDUE` section at the top with a "N days late" count, and a separate `🚨 Unpaid & Past Due` alert lists orders that are both unpaid AND past their delivery date — so payment chasing doesn't get lost.
