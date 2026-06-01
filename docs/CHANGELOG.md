@@ -16,6 +16,18 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Channel Routing admin page now reachable from the nav — 2026-06-01
+
+**For the team:** GoFood inventory wasn't being deducted because the channel-routing table was never set up — and the page that sets it up was hidden (no menu link). Admins can now find it under **Config → Channel Routing** and click **Seed from outlets** to wire each outlet to its storage location.
+
+#### Added
+- **Header Config menu → "Channel Routing"** link (`/admin/channel-routing`, admin-only). The page + its working "Seed from outlets" button shipped in Phase 74.5.1 Plan 09 but had no nav entry, so the routing seed was never run in prod — GoFood orders failed route resolution (`CHANNEL_ROUTING_NOT_CONFIGURED`) and their detail saves rolled back (`itemsDeducted: 0`). Matches the `/admin/unlinked-products-backfill` precedent (desktop config menu, `rolesAllowed: ['admin']`).
+
+#### Operator action required
+- Admin → **Config → Channel Routing → "Seed from outlets"** to create the Tier-2 rules from `externalOutlets.linkedStorageLocationId` (gobiz+Legato Tamtem→Tamtem Depot, gobiz+GoFood Crystal→Office, gobiz+Legato Goldfinch→Legato Goldfinch). Idempotent. Fixes routing for all future syncs. Historical orders whose details rolled back won't auto-heal (separate decision).
+
+PR #176 (squash `7a592d05`).
+
 ### Fix: Telegram sales sync now retries Convex transient errors — 2026-06-01
 
 **For the team:** The nightly sales summary occasionally showed `GoFood ✗` (sync failed) even though GoFood was fine — it was a momentary Convex hiccup that the bot gave up on too early. It now automatically retries those blips, so the daily report should stop sporadically dropping a channel.
