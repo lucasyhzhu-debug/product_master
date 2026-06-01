@@ -16,6 +16,15 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Channel Routing validation errors now show real messages (not "Server Error") — 2026-06-01
+
+**For the team:** Adding a routing rule that already exists (or an invalid default) showed a useless "Save failed: Server Error". It now shows the real reason ("a rule already exists for this combination", etc.).
+
+#### Fixed
+- `createRoutingRule` / `updateRoutingRule` / `deleteRoutingRule` threw plain `Error` for validation (duplicate combo, isDefault constraint, rule-not-found). Convex **redacts plain-`Error` messages to "Server Error" in production** — only `ConvexError` data reaches the client — so the UI's message-prefix handling only worked in dev. Switched to `ConvexError`; `ChannelRoutingManager` now reads `err.data` (matching the `StatusActionButtons`/`TargetConfigPopover` convention). `CHANNEL_ROUTING_NOT_CONFIGURED` (Tier-5) stays a plain Error — it's caught server-side in the backfill (see issue #177).
+
+PR #178 (squash `b66a1fe6`).
+
 ### Channel Routing admin page now reachable from the nav — 2026-06-01
 
 **For the team:** GoFood inventory wasn't being deducted because the channel-routing table was never set up — and the page that sets it up was hidden (no menu link). Admins can now find it under **Config → Channel Routing** and click **Seed from outlets** to wire each outlet to its storage location.
