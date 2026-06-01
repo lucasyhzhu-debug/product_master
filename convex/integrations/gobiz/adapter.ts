@@ -21,6 +21,7 @@ import {
 } from "./helpers";
 import type { ChannelAdapter } from "../_shared/channelAdapter";
 import type { ChannelSaleEvent } from "../_shared/channelSaleEvent";
+import { isTransientError } from "../../lib/transientError";
 
 // ─── ChannelAdapter: normalize() + adapter export (Phase 74.5.1 Plan 06) ─────
 //
@@ -905,15 +906,28 @@ export const autoSyncGoBizRevenue = internalAction({
       return { success: true, totalTransactions, newRecords: allNewRecords.length };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-
-      await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
-        logId: syncLogId,
-        status: "error",
-        errorMessage: errorMsg,
-        durationMs: Date.now() - startTime,
-      });
-
+      // Log the ORIGINAL sync error first — the error-log mutation below can itself
+      // hit a transient (on 2026-05-31 updateSyncLog threw before this line ran, so
+      // the real cause was never recorded). Logging first guarantees diagnostics.
       console.log("GoBiz auto-sync failed:", errorMsg);
+
+      try {
+        await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
+          logId: syncLogId,
+          status: "error",
+          errorMessage: errorMsg,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (logErr) {
+        console.warn("GoBiz auto-sync: failed to write error sync-log", logErr);
+      }
+
+      // A transient Convex error (capacity / InternalServerError) must PROPAGATE so
+      // the caller's resilient wrapper retries the whole idempotent sync — swallowing
+      // it into a returned {success:false} would let the daily summary render a
+      // misleading GoFood ✓/✗ on stale data with no retry (see telegram/cronRetry.ts).
+      if (isTransientError(error)) throw error;
+
       return { success: false, error: errorMsg };
     }
   },

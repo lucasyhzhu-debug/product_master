@@ -10,6 +10,28 @@ import {
   isTransientError,
 } from "../cronRetry";
 
+/**
+ * Run one idempotent best-effort channel sync for the daily summary.
+ * - Success → "ok".
+ * - Non-transient failure → swallow + warn, return "fail" (channel renders ✗;
+ *   the summary still ships with the other channels).
+ * - TRANSIENT failure → rethrow so sendSalesSummaryResilient retries the whole
+ *   run rather than stranding the channel's data for the day (see cronRetry.ts).
+ */
+async function runBestEffortSync(
+  label: string,
+  run: () => Promise<unknown>,
+): Promise<"ok" | "fail"> {
+  try {
+    await run();
+    return "ok";
+  } catch (e) {
+    if (isTransientError(e)) throw e;
+    console.warn(`sales-summary: ${label} sync failed`, e);
+    return "fail";
+  }
+}
+
 export const sendSalesSummary = internalAction({
   args: {
     cadence: v.union(
@@ -35,36 +57,27 @@ export const sendSalesSummary = internalAction({
     const refresh: RefreshStatus = { gofood: "skip", k3mart: "skip", direct: "skip" };
 
     if (args.cadence === "daily") {
-      // Best-effort: one failed sync must not block the others or the summary.
+      // Best-effort: a NON-transient sync failure must not block the others or the
+      // summary — it surfaces as a ✗ and the report still ships. A TRANSIENT Convex
+      // error (capacity / InternalServerError) is the exception: swallowing it into a
+      // ✗ permanently strands that channel's data for the day (bit GoFood 2026-05-31),
+      // so we rethrow it and let sendSalesSummaryResilient retry the WHOLE run. These
+      // syncs are idempotent incremental syncs, so re-running them is safe (and the
+      // send loop hasn't run yet, so nothing double-posts) — see cronRetry.ts.
+      //
       // NB: syncK3MartSales / syncInternalOrders are public `action`s (resolve
       // creds internally, no session token) — call them via `api.*`, matching
       // the existing hourly "sync internal orders revenue" cron. autoSyncGoBizRevenue
       // is an internalAction (`internal.*`). Do NOT normalize all three to one namespace.
-      try {
-        await ctx.runAction(internal.integrations.gobiz.adapter.autoSyncGoBizRevenue, {});
-        refresh.gofood = "ok";
-      } catch (e) {
-        refresh.gofood = "fail";
-        console.warn("sales-summary: GoFood sync failed", e);
-      }
-      try {
-        await ctx.runAction(api.integrations.k3mart.adapter.syncK3MartSales, {
-          triggeredBy: "cron",
-        });
-        refresh.k3mart = "ok";
-      } catch (e) {
-        refresh.k3mart = "fail";
-        console.warn("sales-summary: K3Mart sync failed", e);
-      }
-      try {
-        await ctx.runAction(api.integrations.internal.adapter.syncInternalOrders, {
-          triggeredBy: "cron",
-        });
-        refresh.direct = "ok";
-      } catch (e) {
-        refresh.direct = "fail";
-        console.warn("sales-summary: Internal sync failed", e);
-      }
+      refresh.gofood = await runBestEffortSync("GoFood", () =>
+        ctx.runAction(internal.integrations.gobiz.adapter.autoSyncGoBizRevenue, {}),
+      );
+      refresh.k3mart = await runBestEffortSync("K3Mart", () =>
+        ctx.runAction(api.integrations.k3mart.adapter.syncK3MartSales, { triggeredBy: "cron" }),
+      );
+      refresh.direct = await runBestEffortSync("Internal", () =>
+        ctx.runAction(api.integrations.internal.adapter.syncInternalOrders, { triggeredBy: "cron" }),
+      );
     }
 
     const data = await ctx.runQuery(
