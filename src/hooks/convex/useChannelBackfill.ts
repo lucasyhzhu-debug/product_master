@@ -33,10 +33,22 @@ export interface ChannelBackfillPreflight {
   blockingAuditIssues: number;
 }
 
+/**
+ * Mirror of the backend `ChannelBackfillPageResult` in
+ * `convex/productInventory/backfill.ts` (Convex backend types can't be imported into
+ * the browser bundle). KEEP IN SYNC — add fields in both places. The `useRunChannelBackfill`
+ * cast below validates against THIS interface, so drift won't be caught by the compiler.
+ */
 export interface ChannelBackfillPageResult {
   itemsProcessed: number;
   deducted: number;
   skipped: number;
+  /** Items whose route could not be resolved (CHANNEL_ROUTING_NOT_CONFIGURED) — need a routing rule. */
+  unroutable: number;
+  /** Pagination cursor to pass to the next page; null when the walk is complete. */
+  continueCursor: string | null;
+  /** True when the cursor has walked the entire source — caller stops looping. */
+  isDone: boolean;
 }
 
 // ============================================
@@ -70,9 +82,10 @@ export function useChannelBackfillPreflight(source: ExternalSource): {
 // ============================================
 
 /**
- * Client-loop backfill page runner. Caller invokes in a loop and stops when
- * `itemsProcessed === 0`. Server shares the same `backfillOnePageImpl` body
- * as the scheduler path — identical per-row semantics.
+ * Client-loop backfill page runner. Caller invokes in a loop, threading
+ * `continueCursor` forward, and stops when `isDone === true`. Server shares the
+ * same `backfillOnePageImpl` body as the scheduler path — identical per-row
+ * semantics.
  *
  * Admin-only (backend enforces via requireRole).
  */
@@ -83,5 +96,6 @@ export function useRunChannelBackfill() {
   return runPage as (args: {
     source: ExternalSource;
     token: string;
+    cursor?: string | null;
   }) => Promise<ChannelBackfillPageResult>;
 }

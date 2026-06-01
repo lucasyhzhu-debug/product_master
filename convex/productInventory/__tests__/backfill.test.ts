@@ -40,6 +40,7 @@ import {
   _backfillOnePageForTest,
   _runChannelBackfillForTest,
   _getChannelBackfillPreflightForTest,
+  MAX_ITERATIONS,
 } from "../backfill";
 
 const modules = import.meta.glob("../../**/*.ts");
@@ -119,6 +120,43 @@ async function seedRoutingDefault(
   });
 }
 
+async function seedOutlet(
+  t: TestT,
+  source: string,
+  externalId: string,
+): Promise<Id<"externalOutlets">> {
+  return await t.run(async (ctx) =>
+    ctx.db.insert("externalOutlets", {
+      source: source as never,
+      externalId,
+      name: `Outlet ${externalId}`,
+      isActive: true,
+      createdBy: "system:test",
+      createdAt: Date.now(),
+    }),
+  );
+}
+
+/** Seed a Tier-2 (source + outlet) routing rule, mirroring the seed migration's output. */
+async function seedOutletRoute(
+  t: TestT,
+  source: string,
+  outletId: Id<"externalOutlets">,
+  storageLocationId: Id<"storageLocations">,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("channelRouting", {
+      source: source as never,
+      outletId,
+      menuProductId: undefined,
+      storageLocationId,
+      isDefault: false,
+      updatedBy: "system:test",
+      updatedAt: Date.now(),
+    });
+  });
+}
+
 async function seedRevenueParent(
   t: TestT,
   overrides: Partial<{
@@ -127,6 +165,7 @@ async function seedRevenueParent(
     transactionDate: number;
     periodStart: number;
     periodEnd: number;
+    outletId: Id<"externalOutlets">;
   }> = {},
 ): Promise<Id<"externalRevenue">> {
   const FIXED = overrides.transactionDate ?? 1_700_000_000_000;
@@ -137,6 +176,7 @@ async function seedRevenueParent(
       transactionDate: FIXED,
       periodStart: overrides.periodStart ?? FIXED,
       periodEnd: overrides.periodEnd ?? FIXED,
+      outletId: overrides.outletId,
       dataOrigin: "api_revenue",
       confidence: "exact",
       revenueGross: 100000,
@@ -206,10 +246,37 @@ async function seedUserSession(
  * Avoids the `t.mutation(internal.*)` convex-test module-resolution bug for
  * this subtree (D74.5.2-L1 / Plan 01).
  */
-async function runBackfillPage(t: TestT, source: string) {
+async function runBackfillPage(
+  t: TestT,
+  source: string,
+  cursor: string | null = null,
+) {
   return await t.run(async (ctx) =>
-    _backfillOnePageForTest(ctx, { source: source as never }),
+    _backfillOnePageForTest(ctx, { source: source as never, cursor }),
   );
+}
+
+/**
+ * Drive the full client-loop: thread continueCursor across pages until isDone,
+ * accumulating totals. Mirrors UnlinkedProductsBackfill.tsx's loop so the test
+ * exercises the real termination contract (NOT itemsProcessed===0).
+ */
+async function runBackfillToCompletion(t: TestT, source: string) {
+  let cursor: string | null = null;
+  let totalDeducted = 0;
+  let totalSkipped = 0;
+  let totalUnroutable = 0;
+  let pages = 0;
+  // Safety ceiling = production cap + 1 (imported, no drift) — a runaway is a test failure.
+  while (pages++ < MAX_ITERATIONS + 1) {
+    const page = await runBackfillPage(t, source, cursor);
+    totalDeducted += page.deducted;
+    totalSkipped += page.skipped;
+    totalUnroutable += page.unroutable;
+    cursor = page.continueCursor;
+    if (page.isDone) break;
+  }
+  return { totalDeducted, totalSkipped, totalUnroutable, pages };
 }
 
 // ---------------------------------------------------------------------------
@@ -524,19 +591,18 @@ describe("backfillChannelDeductions", () => {
       itemIds.push(itemId);
     }
 
-    // First page: BATCH_SIZE=200, so expect 200 processed.
-    const page1 = await runBackfillPage(t, "k3mart");
+    // First page: BATCH_SIZE=200, so expect 200 processed; not done yet.
+    const page1 = await runBackfillPage(t, "k3mart", null);
     expect(page1.itemsProcessed).toBe(200);
     expect(page1.deducted).toBe(200);
+    expect(page1.isDone).toBe(false);
+    expect(page1.continueCursor).not.toBeNull();
 
-    // Second page: remaining 50.
-    const page2 = await runBackfillPage(t, "k3mart");
+    // Second page: remaining 50, threaded via the cursor; walk complete.
+    const page2 = await runBackfillPage(t, "k3mart", page1.continueCursor);
     expect(page2.itemsProcessed).toBe(50);
     expect(page2.deducted).toBe(50);
-
-    // Third page: empty.
-    const page3 = await runBackfillPage(t, "k3mart");
-    expect(page3.itemsProcessed).toBe(0);
+    expect(page2.isDone).toBe(true);
 
     // All items are deducted, exactly TOTAL ledger rows.
     await t.run(async (ctx) => {
@@ -551,6 +617,118 @@ describe("backfillChannelDeductions", () => {
         expect(item?.inventoryDeductedAt).toBeTypeOf("number");
       }
     });
+  });
+
+  test("#177: an un-routable item is counted + skipped, does NOT abort routable siblings in the same page", async () => {
+    const t = convexTest(schema, modules);
+    const locationId = await seedLocation(t);
+    const product = await seedProduct(t, "TEST-MIX");
+    await seedStock(t, product, locationId, 100);
+
+    // Outlet A has a Tier-2 routing rule; outlet B has none → its item is un-routable.
+    const outletA = await seedOutlet(t, "gobiz", "G-A");
+    const outletB = await seedOutlet(t, "gobiz", "G-B");
+    await seedOutletRoute(t, "gobiz", outletA, locationId);
+
+    // Routable item (outlet A).
+    const revA = await seedRevenueParent(t, {
+      source: "gobiz",
+      externalTransactionId: "g-routable",
+      outletId: outletA,
+    });
+    const itemA = await seedRevenueItem(t, revA, {
+      source: "gobiz",
+      externalItemId: "g-i-A",
+      linkedMenuProductId: product,
+      quantity: 2,
+    });
+
+    // Un-routable item (outlet B, no rule).
+    const revB = await seedRevenueParent(t, {
+      source: "gobiz",
+      externalTransactionId: "g-unroutable",
+      outletId: outletB,
+    });
+    const itemB = await seedRevenueItem(t, revB, {
+      source: "gobiz",
+      externalItemId: "g-i-B",
+      linkedMenuProductId: product,
+      quantity: 3,
+    });
+
+    // Single page contains BOTH — must not throw; routable one deducts, unroutable counted.
+    const page = await runBackfillPage(t, "gobiz");
+    expect(page.deducted).toBe(1);
+    expect(page.unroutable).toBe(1);
+    expect(page.skipped).toBe(0);
+    expect(page.isDone).toBe(true);
+
+    await t.run(async (ctx) => {
+      // Routable item deducted + patched; exactly one ledger row.
+      const a = await ctx.db.get(itemA);
+      expect(a?.inventoryDeductedAt).toBeTypeOf("number");
+      // Un-routable item left un-patched so it heals once a routing rule is added.
+      const b = await ctx.db.get(itemB);
+      expect(b?.inventoryDeductedAt).toBeUndefined();
+      const txRows = (await ctx.db.query("productInventoryTransactions").collect())
+        .filter((tx) => tx.transactionType === "channel_sale" && tx.source === "gobiz");
+      expect(txRows.length).toBe(1);
+      expect(txRows[0].quantity).toBe(-2);
+    });
+  });
+
+  test("#177: full loop TERMINATES even when un-routable rows block the front of the index", async () => {
+    const t = convexTest(schema, modules);
+    const locationId = await seedLocation(t);
+    const product = await seedProduct(t, "TEST-TERM");
+    await seedStock(t, product, locationId, 1000);
+
+    const outletRoutable = await seedOutlet(t, "gobiz", "G-OK");
+    await seedOutletRoute(t, "gobiz", outletRoutable, locationId);
+    const outletBad = await seedOutlet(t, "gobiz", "G-BAD"); // no rule
+
+    // Seed 250 un-routable items FIRST (front of by_source index), then 50 routable.
+    // With the old take()-based loop this would stall forever (the 250 un-patched
+    // un-routable rows re-fill every page); the cursor walk must still finish.
+    for (let i = 0; i < 250; i++) {
+      const rev = await seedRevenueParent(t, {
+        source: "gobiz",
+        externalTransactionId: `bad-${i}`,
+        outletId: outletBad,
+      });
+      await seedRevenueItem(t, rev, {
+        source: "gobiz",
+        externalItemId: `bad-i-${i}`,
+        linkedMenuProductId: product,
+        quantity: 1,
+      });
+    }
+    for (let i = 0; i < 50; i++) {
+      const rev = await seedRevenueParent(t, {
+        source: "gobiz",
+        externalTransactionId: `ok-${i}`,
+        outletId: outletRoutable,
+      });
+      await seedRevenueItem(t, rev, {
+        source: "gobiz",
+        externalItemId: `ok-i-${i}`,
+        linkedMenuProductId: product,
+        quantity: 1,
+      });
+    }
+
+    const totals = await runBackfillToCompletion(t, "gobiz");
+    // 300 rows / BATCH_SIZE 200 = exactly 2 pages; reached the 50 routable rows
+    // behind the 250 un-routable block at the front of the index.
+    expect(totals.totalDeducted).toBe(50);
+    expect(totals.totalUnroutable).toBe(250);
+    expect(totals.pages).toBe(2);
+
+    // Re-running is a clean no-op for the deducted rows (idempotent) but still
+    // re-reports the un-routable backlog.
+    const rerun = await runBackfillToCompletion(t, "gobiz");
+    expect(rerun.totalDeducted).toBe(0);
+    expect(rerun.totalUnroutable).toBe(250);
   });
 
   test("preflight query: admin-only, reports pendingItems + per-source blockingAuditIssues (D-17)", async () => {
