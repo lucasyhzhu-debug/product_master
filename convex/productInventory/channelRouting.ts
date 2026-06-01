@@ -26,7 +26,7 @@
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { mutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { externalSource } from "../schema";
 import type { ExternalSource } from "../lib/externalSource";
 import { requireRole } from "../lib/auth";
@@ -166,7 +166,9 @@ export const createRoutingRule = mutation({
       args.isDefault &&
       (args.outletId !== undefined || args.menuProductId !== undefined)
     ) {
-      throw new Error(
+      // ConvexError, not Error: plain Error messages are redacted to "Server Error"
+      // in production, so the UI's message-prefix matching only worked in dev.
+      throw new ConvexError(
         "isDefault=true requires outletId AND menuProductId to be unset (source-level default only).",
       );
     }
@@ -183,7 +185,7 @@ export const createRoutingRule = mutation({
       )
       .first();
     if (dupe) {
-      throw new Error(
+      throw new ConvexError(
         `Duplicate routing rule: source=${args.source}, outlet=${
           args.outletId ?? "any"
         }, product=${args.menuProductId ?? "any"}`,
@@ -226,7 +228,7 @@ export const updateRoutingRule = mutation({
     const user = await requireRole(ctx, args.token, ["admin"]);
 
     const rule = await ctx.db.get(args.ruleId);
-    if (!rule) throw new Error("Routing rule not found");
+    if (!rule) throw new ConvexError("Routing rule not found");
 
     const patch: Record<string, unknown> = {
       updatedBy: user.name,
@@ -240,7 +242,7 @@ export const updateRoutingRule = mutation({
         args.isDefault &&
         (rule.outletId !== undefined || rule.menuProductId !== undefined)
       ) {
-        throw new Error(
+        throw new ConvexError(
           "Cannot set isDefault=true on an outlet- or product-scoped rule.",
         );
       }
@@ -270,7 +272,7 @@ export const deleteRoutingRule = mutation({
     await requireRole(ctx, args.token, ["admin"]);
 
     const rule = await ctx.db.get(args.ruleId);
-    if (!rule) throw new Error("Routing rule not found");
+    if (!rule) throw new ConvexError("Routing rule not found");
 
     await ctx.db.delete(args.ruleId);
 

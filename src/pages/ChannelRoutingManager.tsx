@@ -17,6 +17,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { toast } from "sonner";
 import { Loader2, Pencil, Plus, Trash2, Database } from "lucide-react";
 
@@ -205,7 +206,14 @@ export function ChannelRoutingManager() {
       setDialogOpen(false);
       setForm(EMPTY_FORM);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      // Backend throws ConvexError for validation — its message survives in prod
+      // via `.data` (plain Error messages are redacted to "Server Error").
+      const msg =
+        err instanceof ConvexError
+          ? String(err.data)
+          : err instanceof Error
+            ? err.message
+            : String(err);
       if (msg.startsWith("Duplicate routing rule")) {
         setFieldErrors({
           combo: "A rule already exists for this combination.",
@@ -230,7 +238,12 @@ export function ChannelRoutingManager() {
       await deleteRule({ token, ruleId: pendingDelete._id });
       toast.success("Routing rule deleted");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg =
+        err instanceof ConvexError
+          ? String(err.data)
+          : err instanceof Error
+            ? err.message
+            : String(err);
       toast.error(`Delete failed: ${msg}`);
     } finally {
       setDeleting(null);
