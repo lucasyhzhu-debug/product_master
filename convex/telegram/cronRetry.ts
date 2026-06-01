@@ -41,13 +41,7 @@ export function resilientRetryDelayMs(attempt: number): number {
   return 60_000 * (attempt + 1);
 }
 
-/**
- * Substrings that identify a transient Convex system/overload error — the only
- * class of failure safe to retry from a cron wrapper. Match is case-insensitive.
- */
-const TRANSIENT_ERROR_SUBSTRINGS = ["no available workers"];
-
-export function isTransientError(err: unknown): boolean {
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return TRANSIENT_ERROR_SUBSTRINGS.some((s) => msg.includes(s));
-}
+// Transient classification lives in lib/ now (single source of truth, usable by
+// non-telegram callers like the GoBiz sync adapter). Re-exported here so the
+// resilient cron wrappers keep importing it from the policy module.
+export { isTransientError } from "../lib/transientError";
