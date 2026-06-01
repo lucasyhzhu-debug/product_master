@@ -16,6 +16,21 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Channel inventory backfill is now resilient + terminating — 2026-06-01
+
+**For the team:** The "Backfill" buttons on `/admin/unlinked-products-backfill` failed with "Server Error" and made no progress whenever any order couldn't be routed to a storage location. The backfill now skips un-routable orders (counting them, so you can see how many need a routing rule), deducts everything it can, and finishes cleanly.
+
+#### Fixed (#177, PR #179)
+- `backfillOnePageImpl` aborted the entire 200-item page on the first `CHANNEL_ROUTING_NOT_CONFIGURED` throw (→ "Server Error", zero progress), and the `take()`-based loop couldn't skip-and-continue without stalling (un-patched rows re-filled the `inventoryDeductedAt === undefined` window forever).
+- Now **cursor-paginates the stable `by_source` index** (a key never mutated), skips already-deducted rows in-loop, **catches `CHANNEL_ROUTING_NOT_CONFIGURED` per item** (counts as `unroutable`, leaves the row un-patched so it heals once a routing rule is added), and terminates on `isDone`. Any other error still re-throws → whole-page rollback (no partial deduction). Mirrors `backfillInternalRevenueItemsPageImpl` (PATTERNS.md §3).
+- UI surfaces an amber "N unroutable (need a routing rule)" line; `unroutable` threaded through the action loop, `runOneChannelBackfillPage`, and `useChannelBackfill`.
+
+#### Tests / review
+- +2 regression tests (mixed routable/un-routable page must not abort siblings; full loop must terminate with 250 un-routable rows blocking the index front). 10 backfill / 48 productInventory pass.
+- Triple-reviewed (`docs/reviews/staffreview-fix-channel-backfill-resilient-pagination-2026-06-01.md`): core algorithm verified correct by all 3; a `hitCap` "dead code" finding was traced and dismissed as a false positive; stale JSDoc + a test-ceiling drift were fixed.
+
+PR #179 (squash `09bbfe4c`).
+
 ### Fix: Channel Routing validation errors now show real messages (not "Server Error") — 2026-06-01
 
 **For the team:** Adding a routing rule that already exists (or an invalid default) showed a useless "Save failed: Server Error". It now shows the real reason ("a rule already exists for this combination", etc.).
