@@ -8,6 +8,7 @@ import {
   resilientRetryDelayMs,
   isTransientError,
 } from "./cronRetry";
+import { packSlotKey } from "./deliveryReceipts";
 
 export const sendPackList = internalAction({
   args: {
@@ -82,6 +83,22 @@ export const sendPackList = internalAction({
       throw err;
     }
 
+    // Record a delivery receipt so the watchdog cron knows this slot was sent.
+    // Only the scheduled morning/midday slots are watchdog'd; the on-demand
+    // `/pack` command (reason="command") has a human in the loop and needs no
+    // receipt. Best-effort: a recording failure must NOT cause the resilient
+    // wrapper to retry (the message already went out — a retry would double-post).
+    // Worst case the watchdog resends once; that's the rarer, more tolerable miss.
+    if (args.reason !== "command") {
+      try {
+        await ctx.runMutation(internal.telegram.deliveryReceipts.recordDelivery, {
+          slotKey: packSlotKey(args.reason, data.generatedAt),
+        });
+      } catch (e) {
+        console.warn("sendPackList: failed to record delivery receipt", e);
+      }
+    }
+
     return { chunkCount: chunks.length, orderCount: data.totalCount };
   },
 });
@@ -119,5 +136,36 @@ export const sendPackListResilient = internalAction({
       }
       throw err;
     }
+  },
+});
+
+// ─── watchdogPackList ────────────────────────────────────────────────────────
+
+/**
+ * Verification cron. Fires ~15min after each pack-list slot. If no delivery
+ * receipt exists for today's slot, re-fires the resilient sender. Covers the
+ * gap where the primary run AND its scheduled retry both die to a platform-level
+ * transient (incident 2026-06-02) — a fresh launch at a later time isn't coupled
+ * to the dead retry chain.
+ *
+ * If the receipt check itself throws (deep platform outage), we rethrow rather
+ * than blind-resend — a double-post erodes trust in the bot, and manual `/pack`
+ * remains the human fallback. The throw surfaces in the Convex dashboard.
+ */
+export const watchdogPackList = internalAction({
+  args: { reason: v.union(v.literal("morning"), v.literal("midday")) },
+  handler: async (ctx, args): Promise<void> => {
+    const slotKey = packSlotKey(args.reason, Date.now());
+    const delivered = await ctx.runQuery(
+      internal.telegram.deliveryReceipts.wasDelivered,
+      { slotKey },
+    );
+    if (delivered) return;
+    console.warn(
+      `[watchdogPackList] no receipt for ${slotKey}; re-firing resilient sender`,
+    );
+    await ctx.runAction(internal.telegram.sendPackList.sendPackListResilient, {
+      reason: args.reason,
+    });
   },
 });

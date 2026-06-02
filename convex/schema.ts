@@ -478,6 +478,22 @@ export default defineSchema({
     .index("by_chatId", ["chatId"])
     .index("by_role_archived", ["role", "archivedAt"]),
 
+  // Delivery receipts for cron-triggered Telegram sends (watchdog support).
+  // One row per successfully-delivered cron SLOT, keyed by a deterministic
+  // WIB-based slotKey (e.g. "pack:morning:2026-06-02", "sales:monthly:2026-06").
+  // A watchdog cron fires ~15min after each slot and re-sends only when no
+  // receipt exists — covering the case where the primary run AND its scheduled
+  // retry both die to a transient platform error ("Transient error while
+  // executing action"), which the in-handler retry wrapper cannot catch.
+  // See convex/telegram/deliveryReceipts.ts and the 2026-06-02 incident
+  // (.planning/debug/telegram-cron-retry-launch-drop.md).
+  // Low volume (a handful of rows/day); prune via a future cron if it grows.
+  telegramDeliveries: defineTable({
+    slotKey: v.string(),     // deterministic per cron occurrence (WIB-based)
+    completedAt: v.number(), // Date.now() of successful send
+  })
+    .index("by_slotKey", ["slotKey"]),
+
   // ============================================
   // PRD-4: AUTHENTICATION TABLES
   // ============================================
