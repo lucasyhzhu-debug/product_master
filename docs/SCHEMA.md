@@ -1933,3 +1933,22 @@ Registry of Telegram chats the bot delivers to. Replaces the single hardcoded `T
 - `role` is validated against `KNOWN_TELEGRAM_ROLES` (`convex/telegram/config.ts`) in `assignRole` and `seedChatFromEnv` — arbitrary strings are rejected with `ConvexError`.
 - Archive clears `role` atomically; archived rows are inert (excluded from lookups, ignored by `touchChatLastSeen`).
 - Role assignment is gated to manager+admin (`canAccessTelegramChats`); `/register` itself is open (inert until a role is assigned).
+
+### `telegramDeliveries` — Cron Delivery Receipts (Watchdog Support)
+
+One row per successfully-delivered cron **slot**, written on a successful send. A watchdog cron fires ~15min after each Telegram cron slot and re-sends only when no receipt exists — covering the case where the primary run AND its scheduled retry both die to a platform-level transient (`Transient error while executing action`), which the in-handler `*Resilient` retry wrapper cannot catch. See `convex/telegram/deliveryReceipts.ts` and `.planning/debug/telegram-cron-retry-launch-drop.md` (incident 2026-06-02).
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `_id` | `Id<"telegramDeliveries">` | Auto-generated. |
+| `_creationTime` | `number` | Insertion time. |
+| `slotKey` | `string` | Deterministic per cron occurrence, derived from the WIB wall-clock at fire time (e.g. `pack:morning:2026-06-02`, `sales:weekly:2026-06-01` (firing-Monday date), `sales:monthly:2026-06`). Sender and watchdog run within the same WIB day/month → same key. |
+| `completedAt` | `number` | `Date.now()` of the successful send. |
+
+**Indexes:**
+- `by_slotKey` (`slotKey`) — existence check in `wasDelivered` + idempotent dedupe in `recordDelivery`.
+
+**Business rules:**
+- `recordDelivery` is idempotent (first receipt wins); recording is best-effort at the call site so a recording failure never triggers a retry-driven double-post.
+- The on-demand `/pack` command (reason `"command"`) records no receipt — it has a human in the loop.
+- Low volume (a handful of rows/day); prune via a future cron if it grows.

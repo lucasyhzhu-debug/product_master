@@ -16,6 +16,23 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: Telegram bot now self-heals when a scheduled post gets dropped — 2026-06-02
+
+**For the team:** The morning "what to ship today" pack-list post (and the sales-summary posts) can silently fail to arrive when Convex has a brief platform hiccup at the exact moment the cron fires. A watchdog now double-checks ~15 minutes after each scheduled post and re-sends it if it didn't go out — so a one-off platform blip no longer means a missing report. (If a post is ever still missing, typing `/pack` in the group always pulls it on demand.)
+
+#### Root cause (PR #180)
+- Convex crons fire once with no auto-retry. The `*Resilient` wrappers (added 2026-05-29) retry transient errors thrown *inside* the handler, but on 2026-06-02 the **scheduled retry action itself failed to launch** (`Transient error while executing action`, `environment:"invalid"`, `willRetry:false`) — outside the handler's `try/catch`, so no further retry was scheduled and the 13:00 WIB pack-list was silently dropped. 2nd occurrence of this failure class. Full writeup: `.planning/debug/telegram-cron-retry-launch-drop.md`.
+
+#### Fixed
+- New `telegramDeliveries` table (`by_slotKey`) + `convex/telegram/deliveryReceipts.ts` (WIB-keyed slotKey builders, `recordDelivery`, `wasDelivered`).
+- `sendPackList` and `sendSalesSummary` record a per-slot delivery receipt on success (best-effort — a recording failure can't trigger a double-post via retry).
+- New `watchdogPackList` / `watchdogSalesSummary` internalActions + **5 watchdog crons** firing 15min after each slot (morning/midday pack; daily/weekly/monthly sales). They re-fire the resilient sender **only when no receipt exists** — a fresh cron launch isn't coupled to the dead retry chain, and the receipt prevents double-posting a healthy run. A failed receipt check rethrows (no blind resend) to avoid double-posts.
+
+#### Tests
+- +6 slotKey unit tests (`convex/telegram/__tests__/deliveryReceipts.test.ts`) covering the sender↔watchdog same-key invariant. 165 telegram tests pass; `npm run build` clean; eslint clean.
+
+PR #180 (squash `0510f9cc`).
+
 ### Fix: Channel inventory backfill is now resilient + terminating — 2026-06-01
 
 **For the team:** The "Backfill" buttons on `/admin/unlinked-products-backfill` failed with "Server Error" and made no progress whenever any order couldn't be routed to a storage location. The backfill now skips un-routable orders (counting them, so you can see how many need a routing rule), deducts everything it can, and finishes cleanly.
