@@ -151,6 +151,7 @@ import type * as lib_periodRange from "../lib/periodRange.js";
 import type * as lib_queryHelpers from "../lib/queryHelpers.js";
 import type * as lib_stockDelta from "../lib/stockDelta.js";
 import type * as lib_telegramHtml from "../lib/telegramHtml.js";
+import type * as lib_transientError from "../lib/transientError.js";
 import type * as lib_validation from "../lib/validation.js";
 import type * as manualJournal_mutations from "../manualJournal/mutations.js";
 import type * as manualJournal_queries from "../manualJournal/queries.js";
@@ -264,7 +265,9 @@ import type * as telegram___tests___testHelpers from "../telegram/__tests__/test
 import type * as telegram_chatRegistry from "../telegram/chatRegistry.js";
 import type * as telegram_config from "../telegram/config.js";
 import type * as telegram_cronRetry from "../telegram/cronRetry.js";
+import type * as telegram_deliveryReceipts from "../telegram/deliveryReceipts.js";
 import type * as telegram_packListFormat from "../telegram/packListFormat.js";
+import type * as telegram_queries_dueClassification from "../telegram/queries/dueClassification.js";
 import type * as telegram_queries_packListQuery from "../telegram/queries/packListQuery.js";
 import type * as telegram_salesSummary_range from "../telegram/salesSummary/range.js";
 import type * as telegram_salesSummary_salesSummaryFormat from "../telegram/salesSummary/salesSummaryFormat.js";
@@ -427,6 +430,7 @@ declare const fullApi: ApiFromModules<{
   "lib/queryHelpers": typeof lib_queryHelpers;
   "lib/stockDelta": typeof lib_stockDelta;
   "lib/telegramHtml": typeof lib_telegramHtml;
+  "lib/transientError": typeof lib_transientError;
   "lib/validation": typeof lib_validation;
   "manualJournal/mutations": typeof manualJournal_mutations;
   "manualJournal/queries": typeof manualJournal_queries;
@@ -540,7 +544,9 @@ declare const fullApi: ApiFromModules<{
   "telegram/chatRegistry": typeof telegram_chatRegistry;
   "telegram/config": typeof telegram_config;
   "telegram/cronRetry": typeof telegram_cronRetry;
+  "telegram/deliveryReceipts": typeof telegram_deliveryReceipts;
   "telegram/packListFormat": typeof telegram_packListFormat;
+  "telegram/queries/dueClassification": typeof telegram_queries_dueClassification;
   "telegram/queries/packListQuery": typeof telegram_queries_packListQuery;
   "telegram/salesSummary/range": typeof telegram_salesSummary_range;
   "telegram/salesSummary/salesSummaryFormat": typeof telegram_salesSummary_salesSummaryFormat;

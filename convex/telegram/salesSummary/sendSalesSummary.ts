@@ -9,6 +9,7 @@ import {
   resilientRetryDelayMs,
   isTransientError,
 } from "../cronRetry";
+import { salesSlotKey } from "../deliveryReceipts";
 
 /**
  * Run one idempotent best-effort channel sync for the daily summary.
@@ -107,6 +108,19 @@ export const sendSalesSummary = internalAction({
       throw err;
     }
 
+    // Record a delivery receipt so watchdogSalesSummary knows this slot shipped.
+    // Best-effort: a recording failure must NOT cause sendSalesSummaryResilient
+    // to retry (the summary already went out — a retry would double-post). Worst
+    // case the watchdog resends once. runSalesOnDemand also lands here and
+    // records the daily slot, which harmlessly satisfies the daily watchdog.
+    try {
+      await ctx.runMutation(internal.telegram.deliveryReceipts.recordDelivery, {
+        slotKey: salesSlotKey(args.cadence, Date.now()),
+      });
+    } catch (e) {
+      console.warn("sendSalesSummary: failed to record delivery receipt", e);
+    }
+
     return { chunkCount: chunks.length, channelCount: data.channels.length };
   },
 });
@@ -198,5 +212,39 @@ export const sendSalesSummaryResilient = internalAction({
       }
       throw err;
     }
+  },
+});
+
+// ─── watchdogSalesSummary ────────────────────────────────────────────────────
+
+/**
+ * Verification cron. Fires ~15min after each sales-summary slot. If no delivery
+ * receipt exists for the slot, re-fires the resilient sender. Covers the gap
+ * where the primary run AND its scheduled retry both die to a platform-level
+ * transient (incident 2026-06-02). See watchdogPackList for the same rationale,
+ * including why a failed receipt check rethrows rather than blind-resends.
+ */
+export const watchdogSalesSummary = internalAction({
+  args: {
+    cadence: v.union(
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("monthly"),
+    ),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    const slotKey = salesSlotKey(args.cadence, Date.now());
+    const delivered = await ctx.runQuery(
+      internal.telegram.deliveryReceipts.wasDelivered,
+      { slotKey },
+    );
+    if (delivered) return;
+    console.warn(
+      `[watchdogSalesSummary] no receipt for ${slotKey}; re-firing resilient sender`,
+    );
+    await ctx.runAction(
+      internal.telegram.salesSummary.sendSalesSummary.sendSalesSummaryResilient,
+      { cadence: args.cadence },
+    );
   },
 });

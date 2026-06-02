@@ -28,6 +28,24 @@ crons.daily(
   { reason: "midday" },
 );
 
+// Watchdogs: fire 15min after each pack-list slot and re-send ONLY if no
+// delivery receipt exists. Covers the gap where the primary run AND its
+// scheduled retry both die to a platform-level transient (the in-handler retry
+// wrapper can't catch a failed retry LAUNCH — incident 2026-06-02). A fresh
+// cron launch at a later time isn't coupled to the dead retry chain.
+crons.daily(
+  "telegram morning pack list watchdog",
+  { hourUTC: 0, minuteUTC: 15 },
+  internal.telegram.sendPackList.watchdogPackList,
+  { reason: "morning" },
+);
+crons.daily(
+  "telegram midday pack list watchdog",
+  { hourUTC: 6, minuteUTC: 15 },
+  internal.telegram.sendPackList.watchdogPackList,
+  { reason: "midday" },
+);
+
 // Sales-updates bot — daily end-of-day summary at 23:00 WIB (= 16:00 UTC).
 // Best-effort refreshes GoFood/K3Mart/Internal, then posts revenue + per-SKU by channel.
 // Uses the resilient wrapper (see convex/telegram/cronRetry.ts) so a transient
@@ -52,6 +70,27 @@ crons.monthly(
   "sales summary monthly",
   { day: 1, hourUTC: 1, minuteUTC: 0 },
   internal.telegram.salesSummary.sendSalesSummary.sendSalesSummaryResilient,
+  { cadence: "monthly" },
+);
+
+// Sales-summary watchdogs — fire 15min after each slot; re-send only if no
+// receipt. Same rationale as the pack-list watchdogs above (incident 2026-06-02).
+crons.daily(
+  "sales summary daily watchdog",
+  { hourUTC: 16, minuteUTC: 15 },
+  internal.telegram.salesSummary.sendSalesSummary.watchdogSalesSummary,
+  { cadence: "daily" },
+);
+crons.weekly(
+  "sales summary weekly watchdog",
+  { dayOfWeek: "monday", hourUTC: 0, minuteUTC: 15 },
+  internal.telegram.salesSummary.sendSalesSummary.watchdogSalesSummary,
+  { cadence: "weekly" },
+);
+crons.monthly(
+  "sales summary monthly watchdog",
+  { day: 1, hourUTC: 1, minuteUTC: 15 },
+  internal.telegram.salesSummary.sendSalesSummary.watchdogSalesSummary,
   { cadence: "monthly" },
 );
 
