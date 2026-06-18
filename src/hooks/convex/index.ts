@@ -208,6 +208,7 @@ export {
   useSyncK3MartStock,
   useSyncGoBiz,
   useSyncInternalOrders,
+  useTriggerPosSync,
   // Restock planner hooks
   useRestockOverview,
   useChannelSellThrough,
