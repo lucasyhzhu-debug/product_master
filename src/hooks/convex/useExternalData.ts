@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { ExternalSource } from "../../../convex/lib/externalSource";
 
 /** Return shape of getDashboardSummaryByPeriodInternal / fetchDashboardSummaryByPeriod. */
 export type ChannelBreakdown = { source: string; displayName: string; gross: number; net: number; transactions: number; commission: number; promoBurn: number; deliveryFees: number };
@@ -324,7 +325,7 @@ export function useUpdateManualStock() {
  * Get count of revenue items that would be affected by a mapping change.
  */
 export function useCountMappingImpact(
-  source?: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "shopee" | "tiktok",
+  source?: ExternalSource,
   externalProductName?: string
 ) {
   const data = useQuery(

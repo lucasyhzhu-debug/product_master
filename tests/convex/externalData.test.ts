@@ -842,6 +842,7 @@ describe("getRevenueItems", () => {
           k3mart: false,
           shopee: false,
           tiktok: false,
+          pos: false,
         },
         updatedBy: "test",
         updatedAt: Date.now(),

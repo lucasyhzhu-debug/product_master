@@ -16,10 +16,11 @@ import {
   useUpdateProductMapping,
 } from "@/hooks/convex";
 import type { Id } from "../../../convex/_generated/dataModel";
+import type { ExternalSource } from "../../../convex/lib/externalSource";
 
 interface ProductMapping {
   _id: Id<"externalProductMappings">;
-  source: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "shopee" | "tiktok";
+  source: ExternalSource;
   externalProductCode: string;
   externalProductName: string;
   menuProductId?: Id<"menuProducts">;

@@ -10,6 +10,13 @@ crons.interval(
   { triggeredBy: "cron" }
 );
 
+crons.interval(
+  "sync pos revenue",
+  { hours: 1 },
+  internal.integrations.pos.sync.syncPosRevenue,
+  { triggeredBy: "cron" },
+);
+
 // Telegram pack list bot v1: morning post at 07:00 WIB (= 00:00 UTC).
 // Uses the resilient wrapper so a transient Convex worker-spike at firing time
 // self-reschedules instead of silently dropping the post (incident 2026-05-29).

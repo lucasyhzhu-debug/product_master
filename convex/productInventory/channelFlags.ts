@@ -3,9 +3,9 @@
  *
  * Provides:
  * - `getChannelDeductionFlags(token)`: admin-gated read that returns the full
- *   8-key flag map. Missing object / absent row → all false (per schema comment).
+ *   9-key flag map. Missing object / absent row → all false (per schema comment).
  * - `setChannelDeductionFlag(token, source, enabled)`: admin-gated mutation that
- *   patches a single key in the 8-key object; creates the single-row settings
+ *   patches a single key in the 9-key object; creates the single-row settings
  *   record on first use with sensible defaults if absent.
  *
  * Domain separation: kept in its own file (not `channelRouting.ts`) because the
@@ -28,7 +28,7 @@ import { requireRole } from "../lib/auth";
 import type { ExternalSource } from "../lib/externalSource";
 
 /**
- * Full 8-key default map.
+ * Full 9-key default map.
  *
  * - All channels default OFF (ship-dark per D74.5.1-L1) EXCEPT:
  * - `gobiz` defaults ON as of Phase 74.5.2.1. Rationale — 74.5.2 retired
@@ -46,12 +46,13 @@ const DEFAULT_FLAGS: Record<ExternalSource, boolean> = {
   grabfood: false,
   internal: false,
   k3mart: false,
+  pos: false,
   shopee: false,
   tiktok: false,
 };
 
 /**
- * Read the 8-key flag map. Returns all-false defaults if the settings row
+ * Read the 9-key flag map. Returns all-false defaults if the settings row
  * doesn't exist yet OR if `channelDeductionEnabled` is absent on the row.
  *
  * Admin-only — per threat register T-74.5.1-21.

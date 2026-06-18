@@ -104,6 +104,13 @@ import type * as integrations_k3mart_adapter from "../integrations/k3mart/adapte
 import type * as integrations_k3mart_config from "../integrations/k3mart/config.js";
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
 import type * as integrations_k3mart_queries from "../integrations/k3mart/queries.js";
+import type * as integrations_pos___tests___fixtures from "../integrations/pos/__tests__/fixtures.js";
+import type * as integrations_pos_adapter from "../integrations/pos/adapter.js";
+import type * as integrations_pos_checkpoint from "../integrations/pos/checkpoint.js";
+import type * as integrations_pos_contractSchema from "../integrations/pos/contractSchema.js";
+import type * as integrations_pos_recordBuilders from "../integrations/pos/recordBuilders.js";
+import type * as integrations_pos_sync from "../integrations/pos/sync.js";
+import type * as integrations_pos_types from "../integrations/pos/types.js";
 import type * as integrations_qris_provider from "../integrations/qris/provider.js";
 import type * as integrations_qris_webhooks from "../integrations/qris/webhooks.js";
 import type * as integrations_qris_xendit from "../integrations/qris/xendit.js";
@@ -383,6 +390,13 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/config": typeof integrations_k3mart_config;
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
   "integrations/k3mart/queries": typeof integrations_k3mart_queries;
+  "integrations/pos/__tests__/fixtures": typeof integrations_pos___tests___fixtures;
+  "integrations/pos/adapter": typeof integrations_pos_adapter;
+  "integrations/pos/checkpoint": typeof integrations_pos_checkpoint;
+  "integrations/pos/contractSchema": typeof integrations_pos_contractSchema;
+  "integrations/pos/recordBuilders": typeof integrations_pos_recordBuilders;
+  "integrations/pos/sync": typeof integrations_pos_sync;
+  "integrations/pos/types": typeof integrations_pos_types;
   "integrations/qris/provider": typeof integrations_qris_provider;
   "integrations/qris/webhooks": typeof integrations_qris_webhooks;
   "integrations/qris/xendit": typeof integrations_qris_xendit;

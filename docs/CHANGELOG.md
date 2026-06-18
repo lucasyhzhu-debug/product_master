@@ -16,6 +16,27 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feature: POS sales now flow into the ERP automatically (source #9) — 2026-06-18
+
+**For the team:** In-store POS sales and refunds now sync into Frollie Pro on their own, every hour, landing alongside GoFood/Shopee/TikTok/K3Mart as a new "POS" revenue channel. Sales show up as revenue with per-item lines; refunds subtract correctly. Map the handful of POS product codes to menu products via `/admin/unlinked-products` so they roll into analytics. (This ships "dark" for inventory — POS sales do NOT deduct packaging stock yet; that's a later, deliberate cutover.)
+
+#### What changed
+- **POS becomes the 9th external revenue source** (`source: "pos"`, platform `POS`). New `convex/integrations/pos/` module mirrors the K3Mart adapter: pure `normalize()`/record-builders → existing `saveRevenue` upsert + `saveRevenueItemsWithCounts`, behind an opaque-cursor checkpoint persisted per page.
+- **Hourly pull-sync** (`syncPosRevenue` cron): paid transactions land as `externalRevenue` parents + per-line `externalRevenueItems`; refunds land as parent-only `transactionType:"return"` rows with **negative** `revenueGross` (so they subtract in the income statement). Idempotent — re-running a window inserts zero duplicates.
+- **New `posSyncCheckpoint` table** (singleton opaque-cursor watermarks for sales + refunds). Cursor persists after each page only when non-null; a mid-drain failure leaves the cursor at the last good page and self-heals next run. Per-run budget `MAX_PAGES_PER_RUN=50`, `limit=500`.
+- **Admin manual trigger** `triggerPosSync` (admin-gated via an internal `assertAdmin` query — there is no `protectedAction` in this repo).
+- **Ship-dark:** `channelDeductionEnabled.pos` defaults `false` — no inventory behavior change in v1.
+- Contract frozen with a bidirectional zod fixture lock (rejects both extra and missing POS-API keys). No live POS calls in tests.
+
+#### Files
+- New: `convex/integrations/pos/{types,fixtures,contractSchema,adapter,recordBuilders,checkpoint,sync}.ts` + `__tests__/`.
+- Cascade: `convex/schema.ts` (`externalSource` union, `channelDeductionEnabled.pos`, `posSyncCheckpoint` table), `convex/lib/externalSource.ts`, `convex/reports/platform.ts`, `convex/reports/incomeStatement.ts`, `convex/productInventory/channelFlags.ts`, `convex/integrations/registry.ts`, `convex/crons.ts`, `src/lib/platformColors.ts`, `src/pages/UnlinkedProductsBackfill.tsx`, `src/components/salesAnalytics/ProductMappingCard.tsx`, `src/hooks/convex/useExternalData.ts`.
+
+#### Post-merge ops (ship-dark cutover)
+1. Set `POS_API_BASE_URL` + `platformCredentials(pos).currentToken` on dev → run a dev↔dev drain + reconcile against the POS day-summary, then prod.
+2. Map ~4 POS SKUs via `/admin/unlinked-products`.
+3. Flip `channelDeductionEnabled.pos` later via the standard per-source inventory cutover.
+
 ### Fix: Telegram bot now self-heals when a scheduled post gets dropped — 2026-06-02
 
 **For the team:** The morning "what to ship today" pack-list post (and the sales-summary posts) can silently fail to arrive when Convex has a brief platform hiccup at the exact moment the cron fires. A watchdog now double-checks ~15 minutes after each scheduled post and re-sends it if it didn't go out — so a one-off platform blip no longer means a missing report. (If a post is ever still missing, typing `/pack` in the group always pulls it on demand.)

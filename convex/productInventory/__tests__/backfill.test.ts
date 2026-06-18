@@ -479,6 +479,7 @@ describe("backfillChannelDeductions", () => {
           k3mart: false,
           shopee: false,
           tiktok: false,
+          pos: false,
         },
         updatedBy: "system:test",
         updatedAt: Date.now(),

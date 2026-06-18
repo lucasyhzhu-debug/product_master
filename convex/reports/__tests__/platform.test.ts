@@ -18,6 +18,7 @@ describe("resolvePlatform — D-05 source→Platform map", () => {
     ["tiktok", "TikTok"], // D-02: NOT "Tokopedia"
     ["k3mart", "K3Mart"], // D-02: no space
     ["consignment", "Consignment"],
+    ["pos", "POS"],
   ] as const)("%s → %s", (source, expected) => {
     const result = resolvePlatform({ source });
     expect(result).toEqual({ platform: expected, confidence: "exact" });

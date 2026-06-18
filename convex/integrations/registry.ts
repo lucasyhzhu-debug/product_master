@@ -10,7 +10,7 @@
  * 3. Create convex/integrations/newplatform/adapter.ts + config.ts
  */
 
-export type PlatformId = "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment";
+export type PlatformId = "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "pos";
 
 export type AuthStrategy = "password_grant" | "paste_token" | "client_credentials" | "pos_login" | "session_auth";
 export type PlatformCategory = "delivery" | "marketplace" | "pos" | "internal";
@@ -159,6 +159,27 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
       yellowThresholdDays: 0,
       redThresholdDays: 0,
       healthCheckType: "always_green",
+    },
+  },
+  pos: {
+    id: "pos",
+    name: "POS",
+    description: "In-store POS sales and refund tracking",
+    envVarName: "POS_API_BASE_URL",
+    dataTypes: ["revenue"],
+    tokenLifespan: "Revocable bearer token, manually pasted; rotate via overlapping 7-day window (CONTRACT §2)",
+    reconnectSteps: [
+      "Obtain a new bearer token from the POS admin panel",
+      "Paste the new token into the 'Configure' dialog and click 'Save Token'",
+      "Old token stays valid for 7 days — paste new token before revoking old one",
+    ],
+    authStrategy: "paste_token",
+    category: "pos",
+    healthConfig: {
+      hasExpiry: false,
+      yellowThresholdDays: 0,
+      redThresholdDays: 0,
+      healthCheckType: "last_sync",
     },
   },
 };

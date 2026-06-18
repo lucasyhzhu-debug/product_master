@@ -14,6 +14,26 @@
 
 ---
 
+## POS sales sync (2026-06-18) — source #9 schema additions
+
+Adds POS as the 9th external revenue source. Three schema changes (see `docs/CHANGELOG.md` for the full feature entry):
+
+- **`externalSource` union** — added `v.literal("pos")` (now 9 literals: `k3mart`, `gobiz`, `internal`, `grabfood`, `bigseller`, `consignment`, `shopee`, `tiktok`, `pos`). Defined in `convex/schema.ts` and mirrored as the `EXTERNAL_SOURCES` array in `convex/lib/externalSource.ts`. Platform mapping: `pos → "POS"` (`convex/reports/platform.ts`), confidence `"exact"` (POS is system-of-record).
+- **`productInventorySettings.channelDeductionEnabled`** — added `pos: v.boolean()` to the closed flag object. **Defaults `false` (ship-dark)** — POS sales do not deduct packaging inventory in v1. (Because this is a closed `v.object`, every doc/test constructing the literal must include `pos`.)
+- **New table `posSyncCheckpoint`** — singleton row holding the opaque-cursor watermarks for the hourly pull-sync:
+  ```ts
+  posSyncCheckpoint: defineTable({
+    salesCursor: v.optional(v.string()),    // last persisted non-null sales page cursor
+    refundsCursor: v.optional(v.string()),  // last persisted non-null refunds page cursor
+    updatedAt: v.number(),
+  })
+  ```
+  No index (read via `.first()`; only the POS sync writes it). Cursor is persisted after each page **only when non-null**; a mid-drain failure leaves the cursor at the last good page so the next run self-heals. Accessors: `convex/integrations/pos/checkpoint.ts`.
+
+Reuses existing tables unchanged: `externalRevenue` (sales parents + negative-gross `transactionType:"return"` refunds), `externalRevenueItems` (per-line, sales only), `externalSyncLogs`, `platformCredentials` (`platformId:"pos"`).
+
+---
+
 ## Phase 81 (2026-05-11) — Vocabulary Consolidation (no schema changes)
 
 Phase 81 was a code-organization phase. **No schema fields were added, removed, or renamed.** Recorded here for reference because Phase 81 deleted 3 source-to-display mappers + 4 WIB date-string helpers + 5 hand-rolled production-component filters that operated on schema fields. Future readers grepping "Phase 81" in this file will land here.

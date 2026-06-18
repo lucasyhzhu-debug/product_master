@@ -105,7 +105,7 @@ async function seedRoutingDefault(
 async function seedSettings(
   t: TestContext,
   channelDeductionEnabled: Partial<Record<
-    "gobiz" | "bigseller" | "internal" | "k3mart" | "grabfood" | "consignment" | "shopee" | "tiktok",
+    "gobiz" | "bigseller" | "internal" | "k3mart" | "grabfood" | "consignment" | "shopee" | "tiktok" | "pos",
     boolean
   >>,
 ) {
@@ -125,6 +125,7 @@ async function seedSettings(
         consignment: channelDeductionEnabled.consignment ?? false,
         shopee: channelDeductionEnabled.shopee ?? false,
         tiktok: channelDeductionEnabled.tiktok ?? false,
+        pos: channelDeductionEnabled.pos ?? false,
       },
     });
   });

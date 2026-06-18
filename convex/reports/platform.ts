@@ -23,6 +23,7 @@ export const PLATFORMS = [
   "K3Mart",
   "Consignment",
   "BigSeller",
+  "POS",
 ] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
@@ -53,6 +54,7 @@ const SOURCE_TO_PLATFORM: Record<Exclude<ExternalSource, "bigseller">, Platform>
   tiktok: "TikTok",
   k3mart: "K3Mart",
   consignment: "Consignment",
+  pos: "POS",
 };
 
 /**

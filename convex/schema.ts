@@ -24,6 +24,7 @@ export const externalSource = v.union(
   v.literal("consignment"),
   v.literal("shopee"),
   v.literal("tiktok"),
+  v.literal("pos"),
 );
 
 /**
@@ -1139,6 +1140,7 @@ export default defineSchema({
       grabfood: v.boolean(),
       internal: v.boolean(),
       k3mart: v.boolean(),
+      pos: v.boolean(),
       shopee: v.boolean(),
       tiktok: v.boolean(),
     })),
@@ -1150,6 +1152,12 @@ export default defineSchema({
   // EXTERNAL INTEGRATION TABLES
   // Multi-platform sales data (K3 Mart, GoBiz, etc.)
   // ============================================
+
+  posSyncCheckpoint: defineTable({
+    salesCursor: v.optional(v.string()),
+    refundsCursor: v.optional(v.string()),
+    updatedAt: v.number(),
+  }),
 
   externalOutlets: defineTable({
     source: externalSource,
