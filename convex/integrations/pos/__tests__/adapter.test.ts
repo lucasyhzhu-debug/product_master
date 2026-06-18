@@ -3,8 +3,8 @@ import { posAdapter, normalizeRefunds } from "../adapter";
 import { salesPageFixture, refundsPageFixture } from "../fixtures";
 
 describe("posAdapter.normalize", () => {
-  it("emits one ChannelSaleEvent per line with correct refs", () => {
-    const events = posAdapter.normalize(salesPageFixture);
+  it("emits one ChannelSaleEvent per line with correct refs", async () => {
+    const events = await posAdapter.normalize(salesPageFixture);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       source: "pos",

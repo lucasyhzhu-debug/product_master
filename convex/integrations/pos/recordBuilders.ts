@@ -8,7 +8,9 @@ export interface SaveRevenueRecord {
   dataOrigin: "api_revenue"; confidence: "exact";
   transactionType: "sales" | "return"; externalTransactionId: string;
   syncLogId?: Id<"externalSyncLogs">;
-  // revenueNet / commission / fees intentionally omitted → undefined (spec §10 #3)
+  // revenueNet / commission intentionally not set by builders → undefined at runtime (spec §10 #3)
+  revenueNet?: number;
+  commission?: number;
 }
 export interface SaveRevenueItem {
   externalItemId: string; productName: string; unitPrice: number;
