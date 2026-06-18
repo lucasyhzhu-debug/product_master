@@ -16,10 +16,8 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe("syncPosRevenue — write path", () => {
   it("sales: one parent + one item, idempotent across two runs", async () => {
     const t = convexTest(schema); await seed(t);
-    let salesCall = 0;
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.includes("/transactions")) {
-        salesCall++;
         // Each run makes exactly one page fetch: fixture data + terminal null cursor → loop breaks after page 1
         return new Response(JSON.stringify({ ...salesPageFixture, nextCursor: null }), { status: 200 });
       }

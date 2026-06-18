@@ -19,7 +19,7 @@ import type { Id } from "../../../convex/_generated/dataModel";
 
 interface ProductMapping {
   _id: Id<"externalProductMappings">;
-  source: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "shopee" | "tiktok";
+  source: "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "shopee" | "tiktok" | "pos";
   externalProductCode: string;
   externalProductName: string;
   menuProductId?: Id<"menuProducts">;
