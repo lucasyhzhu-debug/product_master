@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import { EXTERNAL_SOURCES, isExternalSource } from "../externalSource";
 
 describe("EXTERNAL_SOURCES", () => {
-  it("should contain exactly 8 known platform sources", () => {
-    expect(EXTERNAL_SOURCES).toHaveLength(8);
+  it("should contain exactly 9 known platform sources", () => {
+    expect(EXTERNAL_SOURCES).toHaveLength(9);
     // If this fails, a platform was added to schema.ts but not externalSource.ts (or vice versa)
     expect([...EXTERNAL_SOURCES].sort()).toEqual([
       "bigseller", "consignment", "gobiz", "grabfood",
-      "internal", "k3mart", "shopee", "tiktok",
+      "internal", "k3mart", "pos", "shopee", "tiktok",
     ]);
   });
 });

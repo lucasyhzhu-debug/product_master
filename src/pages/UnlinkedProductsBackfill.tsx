@@ -104,6 +104,7 @@ const CHANNEL_SOURCES: ReadonlyArray<{
     label: "GrabFood",
     description: "Permanent-OFF until OAuth scope granted",
   },
+  { value: "pos", label: "POS" },
 ] as const;
 
 // Safety cap for the client-loop (same as the server MAX_ITERATIONS).

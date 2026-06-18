@@ -46,6 +46,7 @@ const DEFAULT_FLAGS: Record<ExternalSource, boolean> = {
   grabfood: false,
   internal: false,
   k3mart: false,
+  pos: false,
   shopee: false,
   tiktok: false,
 };

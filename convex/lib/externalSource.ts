@@ -16,6 +16,7 @@ export const EXTERNAL_SOURCES = [
   "consignment",
   "shopee",
   "tiktok",
+  "pos",
 ] as const;
 
 export type ExternalSource = (typeof EXTERNAL_SOURCES)[number];

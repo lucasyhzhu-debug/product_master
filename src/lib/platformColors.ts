@@ -25,6 +25,7 @@ const PALETTE: Record<string, PlatformPalette> = {
   tiktok:      { hex: "#8b5cf6", borderTop: "border-t-violet-500", borderLeft: "border-l-violet-500", dot: "bg-violet-500", hoverBg: "hover:bg-violet-50 dark:hover:bg-violet-950/20", badgeBorder: "border-violet-500 dark:border-violet-600", badgeText: "text-violet-700 dark:text-violet-400" },
   consignment: { hex: "#a855f7", borderTop: "border-t-purple-500", borderLeft: "border-l-purple-500", dot: "bg-purple-500", hoverBg: "hover:bg-purple-50 dark:hover:bg-purple-950/20", badgeBorder: "border-purple-500 dark:border-purple-600", badgeText: "text-purple-700 dark:text-purple-400" },
   bigseller:   { hex: "#6b7280", borderTop: "border-t-gray-500",   borderLeft: "border-l-gray-500",   dot: "bg-gray-500",   hoverBg: "hover:bg-gray-50 dark:hover:bg-gray-950/20",   badgeBorder: "border-gray-500 dark:border-gray-600",   badgeText: "text-gray-700 dark:text-gray-400" },
+  pos:         { hex: "#06b6d4", borderTop: "border-t-cyan-500",   borderLeft: "border-l-cyan-500",   dot: "bg-cyan-500",   hoverBg: "hover:bg-cyan-50 dark:hover:bg-cyan-950/20",   badgeBorder: "border-cyan-500 dark:border-cyan-600",   badgeText: "text-cyan-700 dark:text-cyan-400" },
   // --- Display-channel aggregates used by AnalyticsDashboard ---
   Shopee:      { hex: "#f97316", borderTop: "border-t-orange-500", borderLeft: "border-l-orange-500", dot: "bg-orange-500", hoverBg: "hover:bg-orange-50 dark:hover:bg-orange-950/20", badgeBorder: "border-orange-500 dark:border-orange-600", badgeText: "text-orange-700 dark:text-orange-400" },
   GoFood:      { hex: "#22c55e", borderTop: "border-t-green-500",  borderLeft: "border-l-green-500",  dot: "bg-green-500",  hoverBg: "hover:bg-green-50 dark:hover:bg-green-950/20", badgeBorder: "border-green-500 dark:border-green-600", badgeText: "text-green-700 dark:text-green-400" },
@@ -34,6 +35,7 @@ const PALETTE: Record<string, PlatformPalette> = {
   Consignment: { hex: "#a855f7", borderTop: "border-t-purple-500", borderLeft: "border-l-purple-500", dot: "bg-purple-500", hoverBg: "hover:bg-purple-50 dark:hover:bg-purple-950/20", badgeBorder: "border-purple-500 dark:border-purple-600", badgeText: "text-purple-700 dark:text-purple-400" },
   TikTok:      { hex: "#8b5cf6", borderTop: "border-t-violet-500", borderLeft: "border-l-violet-500", dot: "bg-violet-500", hoverBg: "hover:bg-violet-50 dark:hover:bg-violet-950/20", badgeBorder: "border-violet-500 dark:border-violet-600", badgeText: "text-violet-700 dark:text-violet-400" },
   BigSeller:   { hex: "#6b7280", borderTop: "border-t-gray-500",   borderLeft: "border-l-gray-500",   dot: "bg-gray-500",   hoverBg: "hover:bg-gray-50 dark:hover:bg-gray-950/20",   badgeBorder: "border-gray-500 dark:border-gray-600",   badgeText: "text-gray-700 dark:text-gray-400" },
+  POS:         { hex: "#06b6d4", borderTop: "border-t-cyan-500",   borderLeft: "border-l-cyan-500",   dot: "bg-cyan-500",   hoverBg: "hover:bg-cyan-50 dark:hover:bg-cyan-950/20",   badgeBorder: "border-cyan-500 dark:border-cyan-600",   badgeText: "text-cyan-700 dark:text-cyan-400" },
 };
 
 const FALLBACK: PlatformPalette = {

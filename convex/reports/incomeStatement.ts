@@ -131,6 +131,7 @@ function getChannelRevenueConfidence(source: string): Confidence {
     case "tiktok":
     case "grabfood":
     case "consignment":
+    case "pos":
       return "exact";
     case "k3mart":
       return "inferred";

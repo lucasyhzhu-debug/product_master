@@ -10,7 +10,7 @@
  * 3. Create convex/integrations/newplatform/adapter.ts + config.ts
  */
 
-export type PlatformId = "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment";
+export type PlatformId = "k3mart" | "gobiz" | "internal" | "grabfood" | "bigseller" | "consignment" | "pos";
 
 export type AuthStrategy = "password_grant" | "paste_token" | "client_credentials" | "pos_login" | "session_auth";
 export type PlatformCategory = "delivery" | "marketplace" | "pos" | "internal";
@@ -159,6 +159,26 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
       yellowThresholdDays: 0,
       redThresholdDays: 0,
       healthCheckType: "always_green",
+    },
+  },
+  pos: {
+    id: "pos",
+    name: "POS",
+    description: "In-store POS sales and refund tracking",
+    envVarName: "POS_API_TOKEN",
+    dataTypes: ["revenue"],
+    tokenLifespan: "N/A (credential-based, auto-refreshed)",
+    reconnectSteps: [
+      "Click 'Configure' and enter POS credentials",
+      "Credentials are used to authenticate on-demand (no manual refresh needed)",
+    ],
+    authStrategy: "pos_login",
+    category: "pos",
+    healthConfig: {
+      hasExpiry: false,
+      yellowThresholdDays: 0,
+      redThresholdDays: 0,
+      healthCheckType: "last_sync",
     },
   },
 };
