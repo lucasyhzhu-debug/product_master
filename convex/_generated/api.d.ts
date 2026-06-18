@@ -109,6 +109,7 @@ import type * as integrations_pos_checkpoint from "../integrations/pos/checkpoin
 import type * as integrations_pos_contractSchema from "../integrations/pos/contractSchema.js";
 import type * as integrations_pos_fixtures from "../integrations/pos/fixtures.js";
 import type * as integrations_pos_recordBuilders from "../integrations/pos/recordBuilders.js";
+import type * as integrations_pos_sync from "../integrations/pos/sync.js";
 import type * as integrations_pos_types from "../integrations/pos/types.js";
 import type * as integrations_qris_provider from "../integrations/qris/provider.js";
 import type * as integrations_qris_webhooks from "../integrations/qris/webhooks.js";
@@ -394,6 +395,7 @@ declare const fullApi: ApiFromModules<{
   "integrations/pos/contractSchema": typeof integrations_pos_contractSchema;
   "integrations/pos/fixtures": typeof integrations_pos_fixtures;
   "integrations/pos/recordBuilders": typeof integrations_pos_recordBuilders;
+  "integrations/pos/sync": typeof integrations_pos_sync;
   "integrations/pos/types": typeof integrations_pos_types;
   "integrations/qris/provider": typeof integrations_qris_provider;
   "integrations/qris/webhooks": typeof integrations_qris_webhooks;
