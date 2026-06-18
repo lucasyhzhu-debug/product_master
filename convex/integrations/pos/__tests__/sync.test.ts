@@ -16,10 +16,15 @@ afterEach(() => { vi.unstubAllGlobals(); });
 describe("syncPosRevenue — write path", () => {
   it("sales: one parent + one item, idempotent across two runs", async () => {
     const t = convexTest(schema); await seed(t);
-    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
-      url.includes("/transactions")
-        ? new Response(JSON.stringify(salesPageFixture), { status: 200 })   // nextCursor null
-        : new Response(JSON.stringify({ data: [], nextCursor: null }), { status: 200 })));
+    let salesCall = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.includes("/transactions")) {
+        salesCall++;
+        // Each run makes exactly one page fetch: fixture data + terminal null cursor → loop breaks after page 1
+        return new Response(JSON.stringify({ ...salesPageFixture, nextCursor: null }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: [], nextCursor: null }), { status: 200 });
+    }));
     await t.action(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "test" });
     await t.action(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "test" });
     const parents = await posRows(t, "externalRevenue");
