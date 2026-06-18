@@ -30,6 +30,7 @@ Quick lookup for which backend (`convex/`) and frontend (`src/`) files to modify
 | **Financial data export (Phase 76)** | `convex/reports/financialExport.ts`, `convex/lib/periodBuckets.ts` | `src/pages/FinancialExportPage.tsx`, `src/components/financialExport/PreflightPanel.tsx`, `src/hooks/useDebouncedValue.ts`, `src/lib/financialExportHelpers.ts` |
 | **K3Mart cockpit** | `convex/k3martCockpit/`, `convex/k3martKitchen/` | `src/pages/K3MartCockpit.tsx`, `src/hooks/convex/useK3MartCockpit.ts` |
 | **External data (GoFood)** | `convex/externalData/`, `convex/gofoodDepot/`, `convex/integrations/` | `src/hooks/convex/useExternalData.ts` |
+| **POS sales sync (source #9)** | `convex/integrations/pos/` (types, fixtures, contractSchema, adapter, recordBuilders, checkpoint, sync), `posSyncCheckpoint` table in `convex/schema.ts`, hourly cron in `convex/crons.ts` | `src/lib/platformColors.ts` (`pos`/`POS`), `src/pages/UnlinkedProductsBackfill.tsx` (SKU mapping), `src/components/salesAnalytics/ProductMappingCard.tsx` |
 | **Production targets** | `convex/productionTargets/`, `convex/productionLog/` | -- |
 | **Restock planning** | `convex/restock/` | `src/pages/RestockPlanner.tsx` |
 | **Tags** | `convex/tags/` | `src/pages/TagsManager.tsx`, `src/hooks/convex/useTags.ts` |
