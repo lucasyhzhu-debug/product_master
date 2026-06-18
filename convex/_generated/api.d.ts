@@ -104,6 +104,12 @@ import type * as integrations_k3mart_adapter from "../integrations/k3mart/adapte
 import type * as integrations_k3mart_config from "../integrations/k3mart/config.js";
 import type * as integrations_k3mart_helpers from "../integrations/k3mart/helpers.js";
 import type * as integrations_k3mart_queries from "../integrations/k3mart/queries.js";
+import type * as integrations_pos_adapter from "../integrations/pos/adapter.js";
+import type * as integrations_pos_checkpoint from "../integrations/pos/checkpoint.js";
+import type * as integrations_pos_contractSchema from "../integrations/pos/contractSchema.js";
+import type * as integrations_pos_fixtures from "../integrations/pos/fixtures.js";
+import type * as integrations_pos_recordBuilders from "../integrations/pos/recordBuilders.js";
+import type * as integrations_pos_types from "../integrations/pos/types.js";
 import type * as integrations_qris_provider from "../integrations/qris/provider.js";
 import type * as integrations_qris_webhooks from "../integrations/qris/webhooks.js";
 import type * as integrations_qris_xendit from "../integrations/qris/xendit.js";
@@ -383,6 +389,12 @@ declare const fullApi: ApiFromModules<{
   "integrations/k3mart/config": typeof integrations_k3mart_config;
   "integrations/k3mart/helpers": typeof integrations_k3mart_helpers;
   "integrations/k3mart/queries": typeof integrations_k3mart_queries;
+  "integrations/pos/adapter": typeof integrations_pos_adapter;
+  "integrations/pos/checkpoint": typeof integrations_pos_checkpoint;
+  "integrations/pos/contractSchema": typeof integrations_pos_contractSchema;
+  "integrations/pos/fixtures": typeof integrations_pos_fixtures;
+  "integrations/pos/recordBuilders": typeof integrations_pos_recordBuilders;
+  "integrations/pos/types": typeof integrations_pos_types;
   "integrations/qris/provider": typeof integrations_qris_provider;
   "integrations/qris/webhooks": typeof integrations_qris_webhooks;
   "integrations/qris/xendit": typeof integrations_qris_xendit;
