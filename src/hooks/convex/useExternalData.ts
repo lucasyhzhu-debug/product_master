@@ -229,6 +229,13 @@ export function useSyncInternalOrders() {
   return useAction(api.integrations.internal.adapter.syncInternalOrders);
 }
 
+/**
+ * Trigger an on-demand POS revenue sync (admin-only — the action gates via requireRole).
+ */
+export function useTriggerPosSync() {
+  return useAction(api.integrations.pos.sync.triggerPosSync);
+}
+
 
 // ============================================
 // Restock Planner Hooks

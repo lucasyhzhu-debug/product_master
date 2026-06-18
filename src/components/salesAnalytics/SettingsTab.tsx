@@ -16,6 +16,7 @@ import {
   useSyncK3MartSales,
   useSyncGoBiz,
   useSyncInternalOrders,
+  useTriggerPosSync,
   useBigSellerUnmappedSkus,
 } from "@/hooks/convex";
 import { K3MartCredentialsDialog } from "./K3MartCredentialsDialog";
@@ -29,7 +30,7 @@ import { PlatformSyncPanel } from "./PlatformSyncPanel";
 import type { PlatformHealthStatus } from "../../../convex/platformCredentials/queries";
 import type { Id } from "../../../convex/_generated/dataModel";
 
-const EXPANDABLE_PLATFORMS = new Set(["bigseller", "k3mart", "gobiz", "internal"]);
+const EXPANDABLE_PLATFORMS = new Set(["bigseller", "k3mart", "gobiz", "internal", "pos"]);
 
 /** Inline sync history log for expanded platform sections */
 function SyncHistoryLog({ syncHistory }: { syncHistory: PlatformHealthStatus["syncHistory"] }) {
@@ -79,6 +80,7 @@ export function SettingsTab() {
   const [syncingK3MartSales, setSyncingK3MartSales] = useState(false);
   const [syncingGoBiz, setSyncingGoBiz] = useState(false);
   const [syncingInternal, setSyncingInternal] = useState(false);
+  const [syncingPos, setSyncingPos] = useState(false);
   const [credDialogOpen, setCredDialogOpen] = useState(false);
   const [gobizDialogOpen, setGobizDialogOpen] = useState(false);
   const [bigsellerDialogOpen, setBigsellerDialogOpen] = useState(false);
@@ -113,6 +115,7 @@ export function SettingsTab() {
   const syncK3MartSales = useSyncK3MartSales();
   const syncGoBiz = useSyncGoBiz();
   const syncInternal = useSyncInternalOrders();
+  const triggerPosSync = useTriggerPosSync();
 
   // Handle sync actions
   const handleDiscoverK3MartOutlets = async () => {
@@ -213,6 +216,25 @@ export function SettingsTab() {
       );
     } finally {
       setSyncingInternal(false);
+    }
+  };
+
+  const handleSyncPos = async () => {
+    if (!user?.token) {
+      toast.error("Authentication required");
+      return;
+    }
+    setSyncingPos(true);
+    try {
+      await triggerPosSync({ token: user.token });
+      toast.success("POS sync triggered");
+    } catch (error) {
+      console.error("POS sync failed:", error);
+      toast.error(
+        error instanceof Error ? error.message : "POS sync failed"
+      );
+    } finally {
+      setSyncingPos(false);
     }
   };
 
@@ -397,6 +419,30 @@ export function SettingsTab() {
                           Re-sync all historical orders. Safe to run multiple times.
                         </span>
                       </div>
+                    </div>
+                  )}
+
+                  {/* POS expanded section */}
+                  {health.platformId === "pos" && isCurrentExpanded && (
+                    <div className="border-t px-4 py-3 space-y-4 bg-muted/20">
+                      {isAdmin ? (
+                        <>
+                          <PlatformSyncPanel
+                            showDateRange={false}
+                            onSync={() => handleSyncPos()}
+                            isSyncing={syncingPos}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Drains the POS sales &amp; refund queue on demand. The hourly cron
+                            runs this automatically; use this during rollout or after a gap.
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          Manual POS sync is admin-only.
+                        </p>
+                      )}
+                      <SyncHistoryLog syncHistory={health.syncHistory} />
                     </div>
                   )}
                 </div>
