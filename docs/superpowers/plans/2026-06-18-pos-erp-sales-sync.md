@@ -499,7 +499,7 @@ git commit -m "feat(pos): pure record builders (negative refund gross, parent-on
 - Test: `convex/integrations/pos/__tests__/checkpoint.test.ts`
 
 **Interfaces:**
-- Produces: `getCheckpoint` (internalQuery → `{ salesCursor?, refundsCursor? } | null`); `persistSalesCursor`/`persistRefundsCursor` (internalMutations, args `{ cursor: string }`, upsert the singleton + bump `updatedAt`).
+- Produces: `getCheckpoint` (internalQuery → `{ salesCursor?, refundsCursor? } | null`); `persistSalesCursor`/`persistRefundsCursor` (internalMutations, args `{ cursor: string }`, upsert the singleton + bump `updatedAt`); `assertAdmin` (internalQuery, args `{ token: string }`, runs `requireRole(ctx, token, ["admin"])`, returns null — the action-auth seam, since `requireRole` needs `QueryCtx`/`MutationCtx` not `ActionCtx`, and queries can't live in the `"use node"` `sync.ts`).
 
 - [ ] **Step 1: Write the failing convex-test** (`__tests__/checkpoint.test.ts`):
 ```ts
@@ -533,12 +533,23 @@ describe("posSyncCheckpoint accessors", () => {
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../../_generated/server";
 import type { MutationCtx } from "../../_generated/server";
+import { requireRole } from "../../lib/auth";
 
 export const getCheckpoint = internalQuery({
   args: {},
   handler: async (ctx) => {
     const row = await ctx.db.query("posSyncCheckpoint").first();
     return row ? { salesCursor: row.salesCursor, refundsCursor: row.refundsCursor } : null;
+  },
+});
+
+// Action-auth seam: requireRole needs QueryCtx/MutationCtx, and queries can't
+// live in the "use node" sync.ts. triggerPosSync calls this via ctx.runQuery.
+export const assertAdmin = internalQuery({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    await requireRole(ctx, token, ["admin"]);
+    return null;
   },
 });
 
@@ -557,6 +568,7 @@ export const persistRefundsCursor = internalMutation({
   handler: (ctx, { cursor }) => upsert(ctx, { refundsCursor: cursor }),
 });
 ```
+> `assertAdmin` adds an `assertion`-style test: `await expect(t.query(assertAdmin, { token: "bad" })).rejects.toThrow()`. Add it to the checkpoint test.
 
 - [ ] **Step 4: Codegen + run — verify PASS.**
 
@@ -572,7 +584,9 @@ git commit -m "feat(pos): posSyncCheckpoint accessors (singleton upsert)"
 
 ## Task 6: Sync action — fetch loop, write path, cursor discipline, manual trigger
 
-The page-application logic is extracted into internal mutations so it's convex-test-able without HTTP; the action injects a `fetchPage` so the drain loop + cursor rules are tested with fixtures.
+**⚠ Convex constraint (plan-staffreview C2):** a mutation **cannot** call `runMutation`/`runQuery`.
+The parent→child orchestration therefore lives in the **action** (mirroring K3Mart
+`adapter.ts:617-688`), not in page-apply mutations. Tests drive the action with a stubbed `fetch`.
 
 **Files:**
 - Create: `convex/integrations/pos/sync.ts` (`"use node"`)
@@ -580,143 +594,131 @@ The page-application logic is extracted into internal mutations so it's convex-t
 - Test: `convex/integrations/pos/__tests__/sync.test.ts`
 
 **Interfaces:**
-- Consumes: `saveRevenue` (`internal.externalData.mutations.saveRevenue`), `saveRevenueItemsWithCounts` (`…mutations.saveRevenueItemsWithCounts`), `hasExternalRevenueItemsQuery` (`internal.externalData.queries.hasExternalRevenueItemsQuery`), `createSyncLog`/`updateSyncLog`, `getCredentialsInternal` (`internal.platformCredentials.queries.getCredentialsInternal`), checkpoint accessors, builders, `requireRole` (`convex/lib/auth.ts`).
-- Produces: `applyPosSalesPage`/`applyPosRefundsPage` (internalMutations, args `{ page, syncLogId }`, return `{ inserted, skipped }`); `syncPosRevenue` (internalAction, args `{ triggeredBy?: string }`); `triggerPosSync` (public action, args `{ token: string }`, admin-gated).
+- Consumes: `saveRevenue` (`internal.externalData.mutations.saveRevenue`), `saveRevenueItemsWithCounts` (`…mutations.saveRevenueItemsWithCounts`), `hasExternalRevenueItemsQuery` (`internal.externalData.queries.hasExternalRevenueItemsQuery`), `createSyncLog`/`updateSyncLog`, `getCredentialsInternal` (`internal.platformCredentials.queries.getCredentialsInternal`), checkpoint accessors + `assertAdmin`, builders.
+- Produces: `syncPosRevenue` (internalAction, args `{ triggeredBy?: string }`); `triggerPosSync` (public action, args `{ token: string }`, admin-gated via `ctx.runQuery(assertAdmin)`).
 
-- [ ] **Step 1: Write the failing convex-test** (`__tests__/sync.test.ts`) — drives the page-apply mutations directly (dedup + refund-sign end-to-end) and the drain loop with an injected fetch:
+- [ ] **Step 1: Write the failing convex-test** (`__tests__/sync.test.ts`) — drives the **action** with a stubbed `fetch`; covers dedup + refund-sign + parent-only + cursor-resume end-to-end. Set `process.env.POS_API_BASE_URL` and seed the token credential.
 ```ts
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "../../../schema";
 import { internal } from "../../../_generated/api";
 import { salesPageFixture, refundsPageFixture } from "../fixtures";
 
-const LOG = async (t: any) =>
-  t.mutation(internal.externalData.mutations.createSyncLog, {
-    source: "pos", syncType: "manual", status: "started",
-    triggeredBy: "test", timestamp: 0,
-  });
+const seed = async (t: any) =>
+  t.run((ctx: any) => ctx.db.insert("platformCredentials", {
+    platformId: "pos", currentToken: "frpos_test_x", updatedBy: "test", updatedAt: 0 }));
+const posRows = (t: any, table: string) =>
+  t.run((ctx: any) => ctx.db.query(table).withIndex("by_source", (q: any) => q.eq("source", "pos")).collect());
 
-describe("applyPosSalesPage", () => {
-  it("writes one parent + one item, and is idempotent on re-apply", async () => {
-    const t = convexTest(schema);
-    const syncLogId = await LOG(t);
-    await t.mutation(internal.integrations.pos.sync.applyPosSalesPage, { page: salesPageFixture, syncLogId });
-    await t.mutation(internal.integrations.pos.sync.applyPosSalesPage, { page: salesPageFixture, syncLogId });
-    const parents = await t.run((ctx: any) =>
-      ctx.db.query("externalRevenue").withIndex("by_source", (q: any) => q.eq("source", "pos")).collect());
-    const items = await t.run((ctx: any) =>
-      ctx.db.query("externalRevenueItems").withIndex("by_source", (q: any) => q.eq("source", "pos")).collect());
-    expect(parents).toHaveLength(1);          // upsert, no dup
-    expect(items).toHaveLength(1);            // set-once, no dup
+beforeEach(() => { process.env.POS_API_BASE_URL = "https://pos.test"; });
+afterEach(() => { vi.unstubAllGlobals(); });
+
+describe("syncPosRevenue — write path", () => {
+  it("sales: one parent + one item, idempotent across two runs", async () => {
+    const t = convexTest(schema); await seed(t);
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.includes("/transactions")
+        ? new Response(JSON.stringify(salesPageFixture), { status: 200 })   // nextCursor null
+        : new Response(JSON.stringify({ data: [], nextCursor: null }), { status: 200 })));
+    await t.action(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "test" });
+    await t.action(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "test" });
+    const parents = await posRows(t, "externalRevenue");
+    const items = await posRows(t, "externalRevenueItems");
+    expect(parents.filter((p: any) => p.transactionType === "sales")).toHaveLength(1); // upsert, no dup
+    expect(items).toHaveLength(1);                                                      // set-once, no dup
     expect(parents[0].revenueGross).toBe(81000);
-    expect(parents[0].transactionType).toBe("sales");
+  });
+
+  it("refund: NEGATIVE-gross parent, NO child items", async () => {
+    const t = convexTest(schema); await seed(t);
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.includes("/refunds")
+        ? new Response(JSON.stringify(refundsPageFixture), { status: 200 })  // nextCursor null
+        : new Response(JSON.stringify({ data: [], nextCursor: null }), { status: 200 })));
+    await t.action(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "test" });
+    const parents = await posRows(t, "externalRevenue");
+    const items = await posRows(t, "externalRevenueItems");
+    const ret = parents.find((p: any) => p.transactionType === "return");
+    expect(ret.revenueGross).toBe(-45000);      // ← subtracts in financials
+    expect(ret.externalTransactionId).toBe("R-2026-0042|R|1718700000000");
+    expect(items).toHaveLength(0);              // parent-only
   });
 });
 
-describe("applyPosRefundsPage", () => {
-  it("writes a NEGATIVE-gross parent and NO child items", async () => {
-    const t = convexTest(schema);
-    const syncLogId = await LOG(t);
-    await t.mutation(internal.integrations.pos.sync.applyPosRefundsPage, { page: refundsPageFixture, syncLogId });
-    const parents = await t.run((ctx: any) =>
-      ctx.db.query("externalRevenue").withIndex("by_source", (q: any) => q.eq("source", "pos")).collect());
-    const items = await t.run((ctx: any) =>
-      ctx.db.query("externalRevenueItems").withIndex("by_source", (q: any) => q.eq("source", "pos")).collect());
-    expect(parents).toHaveLength(1);
-    expect(parents[0].revenueGross).toBe(-45000);     // ← subtracts in financials
-    expect(parents[0].transactionType).toBe("return");
-    expect(items).toHaveLength(0);                     // parent-only
-  });
-});
-
-describe("syncPosRevenue drain + cursor discipline", () => {
+describe("syncPosRevenue — cursor discipline", () => {
   it("persists the last NON-NULL cursor mid-drain and resumes after a thrown page", async () => {
-    const t = convexTest(schema);
-    // seed token
-    await t.run((ctx: any) => ctx.db.insert("platformCredentials", {
-      platformId: "pos", currentToken: "frpos_test_x", updatedBy: "test", updatedAt: 0 }));
-    // fetch: sales page1(next=c1) ok, page2 throws; refunds: single null page
+    const t = convexTest(schema); await seed(t);
     let call = 0;
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url.includes("/transactions")) {
         call++;
         if (call === 1) return new Response(JSON.stringify({ ...salesPageFixture, nextCursor: "c1" }), { status: 200 });
-        return new Response("boom", { status: 500 });
+        return new Response("boom", { status: 500 });   // page 2 throws
       }
-      return new Response(JSON.stringify(refundsPageFixture), { status: 200 });
+      return new Response(JSON.stringify({ data: [], nextCursor: null }), { status: 200 });
     }));
     await t.action(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "test" });
     const cp = await t.query(internal.integrations.pos.checkpoint.getCheckpoint, {});
-    expect(cp?.salesCursor).toBe("c1");   // advanced past page 1, NOT reset to ∅
-    vi.unstubAllGlobals();
+    expect(cp?.salesCursor).toBe("c1");   // advanced past page 1, NOT reset to ∅; status logged error
   });
 });
 ```
 
 - [ ] **Step 2: Run — verify FAIL.** `npx vitest run convex/integrations/pos/__tests__/sync.test.ts`
 
-- [ ] **Step 3: Write `sync.ts`.** Page-apply mutations mirror K3Mart's existence-guard + `*WithCounts` call (`k3mart/adapter.ts:632-688`); the action drains with `limit=500`, `MAX_PAGES_PER_RUN=50`, persists non-null cursor per page, leaves it on throw.
+- [ ] **Step 3: Write `sync.ts`.** All orchestration is in the action (mirrors K3Mart `adapter.ts:617-688`): per page, one batched `saveRevenue`, then per new parent the existence-guard + `saveRevenueItemsWithCounts`. `limit=500`, `MAX_PAGES_PER_RUN=50`, persist non-null cursor per page, leave it on throw.
 ```ts
 "use node";
 import { v } from "convex/values";
-import { action, internalAction, internalMutation } from "../../_generated/server";
+import { action, internalAction } from "../../_generated/server";
 import { internal } from "../../_generated/api";
+import type { ActionCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
-import { requireRole } from "../../lib/auth";
 import { buildPosSalesRecords, buildPosRefundRecords } from "./recordBuilders";
 import { posTransactionsPageSchema, posRefundsPageSchema } from "./contractSchema";
 import type { PosTransactionsPage, PosRefundsPage } from "./types";
 
 const LIMIT = 500;
 const MAX_PAGES_PER_RUN = 50;
-const pageValidator = v.any(); // validated by zod at the action boundary; mutation trusts builders
 
-export const applyPosSalesPage = internalMutation({
-  args: { page: pageValidator, syncLogId: v.id("externalSyncLogs") },
-  handler: async (ctx, { page, syncLogId }) => {
-    const built = buildPosSalesRecords(page as PosTransactionsPage, syncLogId);
-    if (built.length === 0) return { inserted: 0, skipped: 0 };
-    const saved = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
-      records: built.map((b) => b.record),
-    });
-    let inserted = 0, skipped = 0;
-    for (let i = 0; i < built.length; i++) {
-      const { id, isNew } = saved[i];
-      if (!isNew) {
-        const has = await ctx.runQuery(internal.externalData.queries.hasExternalRevenueItemsQuery, {
-          revenueId: id as Id<"externalRevenue">,
-        });
-        if (has) { skipped++; continue; }
-      }
-      await ctx.runMutation(internal.externalData.mutations.saveRevenueItemsWithCounts, {
-        revenueId: id as Id<"externalRevenue">, items: built[i].items,
-      });
-      inserted++;
-    }
-    return { inserted, skipped };
-  },
-});
-
-export const applyPosRefundsPage = internalMutation({
-  args: { page: pageValidator, syncLogId: v.id("externalSyncLogs") },
-  handler: async (ctx, { page, syncLogId }) => {
-    const built = buildPosRefundRecords(page as PosRefundsPage, syncLogId);
-    if (built.length === 0) return { inserted: 0 };
-    await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
-      records: built.map((b) => b.record),
-    });
-    return { inserted: built.length };  // parent-only, no children
-  },
-});
-
-async function fetchPage(baseUrl: string, token: string, path: string, cursor?: string) {
+async function fetchJson(baseUrl: string, token: string, path: string, cursor?: string) {
   const res = await fetch(
     `${baseUrl}${path}?cursor=${encodeURIComponent(cursor ?? "")}&limit=${LIMIT}`,
     { method: "GET", headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) throw new Error(`POS ${res.status} on ${path}`);
   return res.json();
+}
+
+/** Write one normalized sales page: batched parent upsert + per-new-parent children. */
+async function applySalesPage(ctx: ActionCtx, page: PosTransactionsPage, syncLogId: Id<"externalSyncLogs">) {
+  const built = buildPosSalesRecords(page, syncLogId);
+  if (built.length === 0) return;
+  const saved = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
+    records: built.map((b) => b.record),
+  });
+  for (let i = 0; i < built.length; i++) {
+    const { id, isNew } = saved[i];
+    if (!isNew) {
+      const has = await ctx.runQuery(internal.externalData.queries.hasExternalRevenueItemsQuery, {
+        revenueId: id as Id<"externalRevenue">,
+      });
+      if (has) continue;   // existence guard — re-pulled parent already has children
+    }
+    await ctx.runMutation(internal.externalData.mutations.saveRevenueItemsWithCounts, {
+      revenueId: id as Id<"externalRevenue">, items: built[i].items,
+    });
+  }
+}
+
+/** Write one normalized refunds page: parent-only (negative gross), no children. */
+async function applyRefundsPage(ctx: ActionCtx, page: PosRefundsPage, syncLogId: Id<"externalSyncLogs">) {
+  const built = buildPosRefundRecords(page, syncLogId);
+  if (built.length === 0) return;
+  await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
+    records: built.map((b) => b.record),
+  });
 }
 
 export const syncPosRevenue = internalAction({
@@ -738,20 +740,20 @@ export const syncPosRevenue = internalAction({
       // Phase A — sales
       let cursor = cp?.salesCursor; let pages = 0;
       while (pages < MAX_PAGES_PER_RUN) {
-        const raw = await fetchPage(baseUrl, token, "/api/v1/transactions", cursor);
-        const page = posTransactionsPageSchema.parse(raw) as PosTransactionsPage;
-        await ctx.runMutation(internal.integrations.pos.sync.applyPosSalesPage, { page, syncLogId });
+        const page = posTransactionsPageSchema.parse(
+          await fetchJson(baseUrl, token, "/api/v1/transactions", cursor)) as PosTransactionsPage;
+        await applySalesPage(ctx, page, syncLogId);
         pages++;
-        if (page.nextCursor === null) break;
+        if (page.nextCursor === null) break;             // caught up — leave cursor at last non-null
         cursor = page.nextCursor;
         await ctx.runMutation(internal.integrations.pos.checkpoint.persistSalesCursor, { cursor });
       }
       // Phase B — refunds
       cursor = cp?.refundsCursor; pages = 0;
       while (pages < MAX_PAGES_PER_RUN) {
-        const raw = await fetchPage(baseUrl, token, "/api/v1/refunds", cursor);
-        const page = posRefundsPageSchema.parse(raw) as PosRefundsPage;
-        await ctx.runMutation(internal.integrations.pos.sync.applyPosRefundsPage, { page, syncLogId });
+        const page = posRefundsPageSchema.parse(
+          await fetchJson(baseUrl, token, "/api/v1/refunds", cursor)) as PosRefundsPage;
+        await applyRefundsPage(ctx, page, syncLogId);
         pages++;
         if (page.nextCursor === null) break;
         cursor = page.nextCursor;
@@ -769,15 +771,17 @@ export const syncPosRevenue = internalAction({
   },
 });
 
+// Public admin trigger. NO protectedAction in this project — gate via an internal
+// query that runs requireRole (mirror qrisPayments/actions.ts:29-31).
 export const triggerPosSync = action({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
-    await requireRole(ctx, token, ["admin"]);
+    await ctx.runQuery(internal.integrations.pos.checkpoint.assertAdmin, { token });
     await ctx.runAction(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "manual" });
   },
 });
 ```
-> Note the cursor rule: `persistSalesCursor` runs **only when `nextCursor` is non-null** (inside the loop, after the break check) — terminal null leaves the checkpoint at the last non-null cursor (spec §6.4). Confirm `requireRole`'s exact signature at `convex/lib/auth.ts` during implementation; if it takes `(ctx, token, roles)` returning the user, this matches — adjust if the real signature differs.
+> Cursor rule: `persistSalesCursor` runs **only when `nextCursor` is non-null** (after the break check) — terminal null leaves the checkpoint at the last non-null cursor (spec §6.4).
 
 - [ ] **Step 4: Register the cron** (`convex/crons.ts`, after the internal-orders entry):
 ```ts
