@@ -18,11 +18,4 @@ describe("posSyncCheckpoint accessors", () => {
     expect(all[0].salesCursor).toBe("c-sales-2");
     expect(all[0].refundsCursor).toBe("c-ref-1");
   });
-
-  it("assertAdmin rejects a bad token", async () => {
-    const t = convexTest(schema);
-    await expect(
-      t.query(internal.integrations.pos.checkpoint.assertAdmin, { token: "bad" })
-    ).rejects.toThrow();
-  });
 });

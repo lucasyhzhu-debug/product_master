@@ -28,21 +28,24 @@ async function applySalesPage(
   syncLogId: Id<"externalSyncLogs">,
 ): Promise<{ inserted: number; deducted: number; skipped: number }> {
   const built = buildPosSalesRecords(page, syncLogId);
-  let inserted = 0; let deducted = 0; let skipped = 0;
+  let inserted = 0;
+  let deducted = 0;
+  let skipped = 0;
   if (built.length === 0) return { inserted, deducted, skipped };
   const saved = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
     records: built.map((b) => b.record),
   });
   for (let i = 0; i < built.length; i++) {
     const { id, isNew } = saved[i];
+    const revId = id as Id<"externalRevenue">;
     if (!isNew) {
       const has = await ctx.runQuery(internal.externalData.queries.hasExternalRevenueItemsQuery, {
-        revenueId: id as Id<"externalRevenue">,
+        revenueId: revId,
       });
       if (has) continue;   // existence guard — re-pulled parent already has children
     }
     const result = await ctx.runMutation(internal.externalData.mutations.saveRevenueItemsWithCounts, {
-      revenueId: id as Id<"externalRevenue">, items: built[i].items,
+      revenueId: revId, items: built[i].items,
     });
     inserted += result.inserted;
     deducted += result.deducted;
@@ -77,8 +80,11 @@ export const syncPosRevenue = internalAction({
     try {
       const cp = await ctx.runQuery(internal.integrations.pos.checkpoint.getCheckpoint, {});
       // Phase A — sales
-      let cursor = cp?.salesCursor; let pages = 0;
-      let totalInserted = 0; let totalDeducted = 0; let totalSkipped = 0;
+      let cursor = cp?.salesCursor;
+      let pages = 0;
+      let totalInserted = 0;
+      let totalDeducted = 0;
+      let totalSkipped = 0;
       while (pages < MAX_PAGES_PER_RUN) {
         const page = posTransactionsPageRuntimeSchema.parse(
           await fetchJson(baseUrl, token, "/api/v1/transactions", cursor)) as PosTransactionsPage;
@@ -92,7 +98,8 @@ export const syncPosRevenue = internalAction({
         await ctx.runMutation(internal.integrations.pos.checkpoint.persistSalesCursor, { cursor });
       }
       // Phase B — refunds
-      cursor = cp?.refundsCursor; pages = 0;
+      cursor = cp?.refundsCursor;
+      pages = 0;
       while (pages < MAX_PAGES_PER_RUN) {
         const page = posRefundsPageRuntimeSchema.parse(
           await fetchJson(baseUrl, token, "/api/v1/refunds", cursor)) as PosRefundsPage;
@@ -120,7 +127,7 @@ export const syncPosRevenue = internalAction({
 export const triggerPosSync = action({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
-    await ctx.runQuery(internal.integrations.pos.checkpoint.assertAdmin, { token });
+    await ctx.runQuery(internal.platformCredentials.queries.validateAdminToken, { token });
     await ctx.runAction(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "manual" });
   },
 });

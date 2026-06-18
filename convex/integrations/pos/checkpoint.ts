@@ -1,23 +1,12 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../../_generated/server";
 import type { MutationCtx } from "../../_generated/server";
-import { requireRole } from "../../lib/auth";
 
 export const getCheckpoint = internalQuery({
   args: {},
   handler: async (ctx) => {
     const row = await ctx.db.query("posSyncCheckpoint").first();
     return row ? { salesCursor: row.salesCursor, refundsCursor: row.refundsCursor } : null;
-  },
-});
-
-// Action-auth seam: requireRole needs QueryCtx/MutationCtx, and queries can't
-// live in the "use node" sync.ts. triggerPosSync calls this via ctx.runQuery.
-export const assertAdmin = internalQuery({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
-    await requireRole(ctx, token, ["admin"]);
-    return null;
   },
 });
 
