@@ -52,12 +52,12 @@ crons.interval (hourly) → syncPosRevenue (internalAction, "use node")
   │     posAdapter.normalize(page) → ChannelSaleEvent[] (one per line)
   │     per txn: saveRevenue([parent]) → {id,isNew}; if new (or no children yet)
   │              → saveRevenueItemsWithCounts({revenueId, items: lines})
-  │     after full drain → persist salesCursor
+  │     persist salesCursor AFTER EACH PAGE (page budget per run; §6.4)
   ├─ Phase B — drain GET /api/v1/refunds?cursor=refundsCursor to nextCursor===null
   │     per refund: saveRevenue([parent]) with revenueGross = -totalRefund (NEGATIVE),
   │              transactionType:"return", externalTransactionId="{rcpt}|R|{createdAt}"
   │              (parent-only — no child items, mirroring K3Mart returns)
-  │     after full drain → persist refundsCursor
+  │     persist refundsCursor AFTER EACH PAGE
   └─ updateSyncLog(status:"success", counts, durationMs)
 ```
 
@@ -241,7 +241,8 @@ existing `"sync internal orders revenue"` entry (`crons.ts:6-11`).
 Plain native `fetch` (no extra deps — same as `gobiz/adapter.ts:324-328`), bearer header on every request:
 
 ```ts
-const res = await fetch(`${baseUrl}/api/v1/transactions?cursor=${encodeURIComponent(cursor ?? "")}&limit=100`, {
+// limit=500 (CONTRACT §3 max) — cuts initial-backfill round-trips 5× vs default 100.
+const res = await fetch(`${baseUrl}/api/v1/transactions?cursor=${encodeURIComponent(cursor ?? "")}&limit=500`, {
   method: "GET",
   headers: { Authorization: `Bearer ${token}` },
 });
@@ -340,17 +341,43 @@ saveRevenue([{
 
 ### 6.4 Cursor discipline & resume (open item #5 — RESOLVED)
 
-- **Persist a cursor only after its phase fully drains to `nextCursor === null`.** Phase A persists
-  `salesCursor`; Phase B persists `refundsCursor`. The two watermarks are **independent** — if A
-  drains but B throws, `salesCursor` advances and `refundsCursor` stays.
-- **A mid-drain throw leaves the cursor unmoved.** Next run resumes from the last fully-persisted
-  cursor and re-pulls the partially-processed pages. This is safe because **every write is
-  idempotent**: parents upsert on `by_source_txn`, items set-once on `(revenueId, externalItemId)`.
-  Re-pulling a page inserts zero duplicates. (Self-healing, mirrors the #177 resilient backfill.)
-- On any thrown error: `updateSyncLog(status:"error", errorMessage)` and return. Do **not** advance
-  the cursor for the failed phase. The watermark is the primary mechanism; the dedup keys are the
+> **⚠ CORRECTION — persist per page, NOT only after full drain (staffreview Critical #1).** An
+> earlier version of this spec said "persist the cursor only after a full drain to `nextCursor ===
+> null`." **That is a liveness bug on the initial backfill.** The first run starts with an absent
+> cursor → the feed returns *from the beginning of time* (CONTRACT §3), which a single time-bounded
+> Convex action cannot drain in one invocation. If the cursor is persisted only at the (never-reached)
+> end, every hourly run restarts from ∅, re-pulls the same first pages, and **the sync never
+> advances**. Dedup keys prevent duplicate rows but do not create progress — only a persisted cursor
+> does. Persist **after each successfully-processed page** instead.
+
+- **Persist each cursor after every successfully-processed page.** `page.nextCursor` *is* the
+  per-page watermark — persist it verbatim to `posSyncCheckpoint` immediately after that page's
+  parents+children are written. Progress is monotonic; the initial backfill catches up over as many
+  hourly runs as it takes. Phase A persists `salesCursor`; Phase B persists `refundsCursor`; the two
+  watermarks are **independent** (if A drains but B throws, `salesCursor` is current and `refundsCursor`
+  is at its last good page).
+- **A mid-page throw leaves the cursor at the PREVIOUS page's `nextCursor`** (the post-page persist
+  for the failed page never ran). Next run re-pulls that page; **every write is idempotent** — parents
+  upsert on `by_source_txn`, items set-once on `(revenueId, externalItemId)` — so the partial work is
+  absorbed with zero duplicates. (Self-healing, mirrors the #177 resilient backfill.)
+- **Per-invocation page budget.** Stop after `MAX_PAGES_PER_RUN` (e.g. 50) even if `nextCursor` is
+  non-null: persist the last good cursor and exit cleanly (not an error). The next hourly run resumes.
+  This bounds a single invocation and lets a huge initial backfill drain across runs without any
+  single action approaching its time limit.
+- On any thrown error: `updateSyncLog(status:"error", errorMessage)` and return. The cursor sits at
+  the last successfully-persisted page. The watermark is the primary mechanism; the dedup keys are the
   overlap safety net.
-- **429 RATE_LIMITED:** honor `Retry-After`, abort the run (cursor unmoved); the hourly cron retries.
+- **429 RATE_LIMITED:** honor `Retry-After`, persist the last good cursor, abort the run; the hourly
+  cron resumes from there.
+
+### 6.5 Manual-trigger surface (staffreview Improvement #1)
+
+`syncPosRevenue` is an `internalAction`, so it cannot be called from a UI button directly. Ship a thin
+public wrapper `triggerPosSync` — an `action` that `requireRole(ctx, args.token, ["admin"])` then
+`ctx.runAction(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "manual" })`. This gives
+the operator a drain-on-demand button during rollout (matches the project's "admin UI for DB ops"
+preference, `feedback_ui_for_db_ops`) before the hourly cron is trusted. (Alternative: run the
+`internalAction` from the Convex dashboard Functions tab — no code, but no UI affordance.)
 
 ---
 
@@ -400,8 +427,10 @@ rows — the retroactive cascade is the proof.)*
    **negative** `revenueGross`, keyed to the original `receiptNumber`; assert it **subtracts** in an
    income-statement aggregation (the §6.3 correction, end-to-end).
 6. **`collapseRevenuePeriod`** — assert POS parents have `periodStart === periodEnd === transactionDate === paidAt` (sales) / `=== createdAt` (refund).
-7. **Cursor resume** — simulate a throw mid-drain (page 2 of 3); assert `salesCursor` unmoved, then a
-   second run completes with no gaps and no dupes.
+7. **Cursor resume (monotonic progress)** — simulate a throw on page 2 of 3; assert `salesCursor` sits
+   at **page 1's `nextCursor`** (advanced past page 1, NOT reset to ∅ — the liveness guarantee), then a
+   second run resumes from page 2 and completes with no gaps and no dupes. Also assert the per-run page
+   budget: a >budget drain persists a non-null cursor and exits cleanly (status `success`, not `error`).
 8. **Source-cascade gate** — `npm run type-check` && `npm run test` && `npm run build` green after
    the §3 cascade (the type errors from #6/#9 are the enumerator).
 
@@ -415,8 +444,8 @@ the frozen fixture.
 
 1. POS ships its `code`-required prerequisite + the two endpoints, and issues a `frpos_test_` token on dev (CONTRACT §1-2; POS spec §4, §7).
 2. **ERP land:** the §3 cascade + `posSyncCheckpoint` table + `pos/adapter.ts` + `pos/sync.ts` +
-   the hourly cron + the `registry.ts` POS card. Set `POS_API_BASE_URL` (dev). Land behind a
-   **manual-trigger** internal mutation first (so the operator can drain on demand before the cron is trusted).
+   the hourly cron + the `registry.ts` POS card. Set `POS_API_BASE_URL` (dev). Expose the admin-gated
+   `triggerPosSync` wrapper (§6.5) so the operator can drain on demand before the cron is trusted.
 3. Set `platformCredentials(pos).currentToken` = the `frpos_test_` token (via the credentials admin UI).
 4. **Dev↔dev drain + reconcile** against the POS dashboard day-summary (gross sales total + refund total). Confirm parent/item counts and that a saved mapping back-patches.
 5. **Prod:** POS issues a `frpos_live_` token; set the prod credential + `POS_API_BASE_URL` (prod); let the hourly cron run; soak ≥24h; reconcile.
@@ -434,7 +463,7 @@ the frozen fixture.
 | 2 | Store `staffCode`? | **Drop in v1** | Attribution-only; no ERP consumer/field/report for it; `externalRevenue` has no staff field; adding one is scope creep. POS still sends it; the runtime parse ignores it. Add later if staff-level POS reporting is wanted. |
 | 3 | `revenueNet` / `commission` / fees for POS | **Leave `undefined`** | Direct booth sale — no platform MDR/commission/delivery fee. `incomeStatement.ts:300` does `+= rec.commission ?? 0` → 0; net = gross for POS, which is correct. |
 | 4 | Return sign convention | **Store `revenueGross` NEGATIVE; negate at the adapter** | **Corrected from the draft.** Aggregation sums raw (`incomeStatement.ts:299`); K3Mart precedent stores returns negative (`k3mart/adapter.ts:601`). A positive refund gross would inflate revenue. (§6.3) |
-| 5 | Cursor discipline / resume | **Persist per-phase only after full drain to `null`; mid-drain throw leaves cursor unmoved; dedup keys are the overlap safety net** | Self-healing resume; idempotent writes make re-pull free. (§6.4) |
+| 5 | Cursor discipline / resume | **Persist after EACH page (+ per-run page budget); mid-page throw leaves cursor at the previous page; dedup keys are the overlap safety net** | **Corrected** — persist-only-after-full-drain stalls the initial backfill forever (only a persisted cursor makes progress). Per-page persist is monotonic + self-healing; idempotent writes make re-pull free. (§6.4) |
 
 ---
 
@@ -455,11 +484,16 @@ writes. (b) Token missing → no-op run, logged. (c) 401/429/500 → throw, curs
 key (CONTRACT §6). (e) Re-pull after a mid-drain crash → dedup makes it a no-op. (f) A POS line with
 `qty:0` → produces a `ChannelSaleEvent` with `quantity:0`, flagged `malformed_item` by the spine but
 deduction is OFF, so it lands as a child with zero qty; acceptable (informational) and rare.
+(g) **Initial backfill exceeds one action invocation** → per-page cursor persistence + the per-run
+page budget (§6.4) make each run advance the watermark and the next resume; the backfill drains across
+however many hourly runs it takes, no single invocation nearing its time limit.
 
 **Performance (N+1).** Per page (≤500 rows): one batched `saveRevenue` call for all parents, then
-one `saveRevenueItemsWithCounts` per *new* parent (the existence guard skips re-pulled parents). The
-existence-guard query (`hasExternalRevenueItemsQuery`) is one indexed lookup per parent — same shape
-as K3Mart's proven path. Drain loop is bounded by `limit` pages; hourly cadence keeps page counts
+one `saveRevenueItemsWithCounts` per *new* parent (the existence guard skips re-pulled parents). That
+per-parent child-write fan-out (up to `limit` `runMutation` calls/page) is **not** an N+1 regression —
+it is exactly K3Mart's accepted pattern (`adapter.ts:632-688`); stated here so a future reader doesn't
+mistake it. The existence-guard query (`hasExternalRevenueItemsQuery`) is one indexed lookup per
+parent. The drain loop is bounded by the per-run page budget (§6.4); hourly cadence keeps page counts
 small after the initial backfill. No unbounded `.collect()` over `externalRevenue`.
 
 **Rollback.** Pure-additive: revert the branch → the `externalSource` union narrows back (no POS rows
