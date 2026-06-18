@@ -350,10 +350,16 @@ saveRevenue([{
 > advances**. Dedup keys prevent duplicate rows but do not create progress — only a persisted cursor
 > does. Persist **after each successfully-processed page** instead.
 
-- **Persist each cursor after every successfully-processed page.** `page.nextCursor` *is* the
-  per-page watermark — persist it verbatim to `posSyncCheckpoint` immediately after that page's
-  parents+children are written. Progress is monotonic; the initial backfill catches up over as many
-  hourly runs as it takes. Phase A persists `salesCursor`; Phase B persists `refundsCursor`; the two
+- **Persist each cursor after every successfully-processed page — but only when `nextCursor` is
+  non-null.** `page.nextCursor` *is* the per-page watermark — persist it verbatim to
+  `posSyncCheckpoint` immediately after that page's parents+children are written. **When
+  `nextCursor === null` (caught up), leave the checkpoint unchanged** — null is terminal and not a
+  resumable cursor (CONTRACT §3), so the checkpoint keeps the last non-null cursor. The next run
+  re-pulls only the tail page from that cursor (idempotent, dedup'd) and gets a fresh `nextCursor`
+  once new rows arrive. (Corollary: when the entire feed fits in one page — `nextCursor` null on the
+  first response — the checkpoint stays unset and each run re-pulls the whole ≤500-row page; negligible
+  and fully dedup'd.) Progress is monotonic; the initial backfill catches up over as many hourly runs
+  as it takes. Phase A persists `salesCursor`; Phase B persists `refundsCursor`; the two
   watermarks are **independent** (if A drains but B throws, `salesCursor` is current and `refundsCursor`
   is at its last good page).
 - **A mid-page throw leaves the cursor at the PREVIOUS page's `nextCursor`** (the post-page persist
