@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildPosSalesRecords, buildPosRefundRecords } from "../recordBuilders";
-import { salesPageFixture, refundsPageFixture } from "../fixtures";
+import { salesPageFixture, refundsPageFixture } from "./fixtures";
 
 const LOG = "log123" as any;
 

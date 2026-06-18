@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { posAdapter, normalizeRefunds } from "../adapter";
-import { salesPageFixture, refundsPageFixture } from "../fixtures";
+import { salesPageFixture, refundsPageFixture } from "./fixtures";
 
 describe("posAdapter.normalize", () => {
   it("emits one ChannelSaleEvent per line with correct refs", async () => {

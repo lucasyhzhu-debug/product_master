@@ -1,4 +1,4 @@
-import type { PosTransactionsPage, PosRefundsPage } from "./types";
+import type { PosTransactionsPage, PosRefundsPage } from "../types";
 export const salesPageFixture: PosTransactionsPage = {
   data: [{
     receiptNumber: "R-2026-0042", paidAt: 1718600000000, subtotal: 90000,

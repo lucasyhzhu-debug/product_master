@@ -5,7 +5,7 @@ import { internal } from "../../_generated/api";
 import type { ActionCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import { buildPosSalesRecords, buildPosRefundRecords } from "./recordBuilders";
-import { posTransactionsPageSchema, posRefundsPageSchema } from "./contractSchema";
+import { posTransactionsPageRuntimeSchema, posRefundsPageRuntimeSchema } from "./contractSchema";
 import type { PosTransactionsPage, PosRefundsPage } from "./types";
 
 const LIMIT = 500;
@@ -20,10 +20,16 @@ async function fetchJson(baseUrl: string, token: string, path: string, cursor?: 
   return res.json();
 }
 
-/** Write one normalized sales page: batched parent upsert + per-new-parent children. */
-async function applySalesPage(ctx: ActionCtx, page: PosTransactionsPage, syncLogId: Id<"externalSyncLogs">) {
+/** Write one normalized sales page: batched parent upsert + per-new-parent children.
+ *  Returns accumulated inserted/deducted/skipped counts for the success log (§9.4). */
+async function applySalesPage(
+  ctx: ActionCtx,
+  page: PosTransactionsPage,
+  syncLogId: Id<"externalSyncLogs">,
+): Promise<{ inserted: number; deducted: number; skipped: number }> {
   const built = buildPosSalesRecords(page, syncLogId);
-  if (built.length === 0) return;
+  let inserted = 0; let deducted = 0; let skipped = 0;
+  if (built.length === 0) return { inserted, deducted, skipped };
   const saved = await ctx.runMutation(internal.externalData.mutations.saveRevenue, {
     records: built.map((b) => b.record),
   });
@@ -35,10 +41,14 @@ async function applySalesPage(ctx: ActionCtx, page: PosTransactionsPage, syncLog
       });
       if (has) continue;   // existence guard — re-pulled parent already has children
     }
-    await ctx.runMutation(internal.externalData.mutations.saveRevenueItemsWithCounts, {
+    const result = await ctx.runMutation(internal.externalData.mutations.saveRevenueItemsWithCounts, {
       revenueId: id as Id<"externalRevenue">, items: built[i].items,
     });
+    inserted += result.inserted;
+    deducted += result.deducted;
+    skipped += result.skipped;
   }
+  return { inserted, deducted, skipped };
 }
 
 /** Write one normalized refunds page: parent-only (negative gross), no children. */
@@ -68,10 +78,14 @@ export const syncPosRevenue = internalAction({
       const cp = await ctx.runQuery(internal.integrations.pos.checkpoint.getCheckpoint, {});
       // Phase A — sales
       let cursor = cp?.salesCursor; let pages = 0;
+      let totalInserted = 0; let totalDeducted = 0; let totalSkipped = 0;
       while (pages < MAX_PAGES_PER_RUN) {
-        const page = posTransactionsPageSchema.parse(
+        const page = posTransactionsPageRuntimeSchema.parse(
           await fetchJson(baseUrl, token, "/api/v1/transactions", cursor)) as PosTransactionsPage;
-        await applySalesPage(ctx, page, syncLogId);
+        const counts = await applySalesPage(ctx, page, syncLogId);
+        totalInserted += counts.inserted;
+        totalDeducted += counts.deducted;
+        totalSkipped += counts.skipped;
         pages++;
         if (page.nextCursor === null) break;             // caught up — leave cursor at last non-null
         cursor = page.nextCursor;
@@ -80,7 +94,7 @@ export const syncPosRevenue = internalAction({
       // Phase B — refunds
       cursor = cp?.refundsCursor; pages = 0;
       while (pages < MAX_PAGES_PER_RUN) {
-        const page = posRefundsPageSchema.parse(
+        const page = posRefundsPageRuntimeSchema.parse(
           await fetchJson(baseUrl, token, "/api/v1/refunds", cursor)) as PosRefundsPage;
         await applyRefundsPage(ctx, page, syncLogId);
         pages++;
@@ -90,6 +104,7 @@ export const syncPosRevenue = internalAction({
       }
       await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {
         logId: syncLogId, status: "success", durationMs: Date.now() - startTime,
+        productsCount: totalInserted, itemsDeducted: totalDeducted, itemsSkipped: totalSkipped,
       });
     } catch (e) {
       await ctx.runMutation(internal.externalData.mutations.updateSyncLog, {

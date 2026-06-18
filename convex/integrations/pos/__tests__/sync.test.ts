@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "../../../schema";
 import { internal } from "../../../_generated/api";
-import { salesPageFixture, refundsPageFixture } from "../fixtures";
+import { salesPageFixture, refundsPageFixture } from "./fixtures";
 
 const seed = async (t: any) =>
   t.run((ctx: any) => ctx.db.insert("platformCredentials", {
