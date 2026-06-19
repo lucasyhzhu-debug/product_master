@@ -51,7 +51,7 @@ crons.daily(
 );
 
 // Sales-updates bot — daily end-of-day summary at 23:00 WIB (= 16:00 UTC).
-// Best-effort refreshes GoFood/K3Mart/Internal, then posts revenue + per-SKU by channel.
+// Best-effort refreshes GoFood/K3Mart/Internal/POS(Block M), then posts revenue + per-SKU by channel.
 // Uses the resilient wrapper (see convex/telegram/cronRetry.ts) so a transient
 // Convex worker-spike at firing time self-reschedules instead of dropping the post.
 crons.daily(

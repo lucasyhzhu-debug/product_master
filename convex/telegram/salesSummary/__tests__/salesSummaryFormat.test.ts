@@ -51,6 +51,7 @@ describe("formatSalesSummary — daily", () => {
     expect(text).toContain("Block M</b> — Rp 900K (14 orders)"); // labelled Block M, not "POS"
     expect(text).not.toContain("POS</b>");
     expect(text).toContain("22× Dubai 8pcs");
+    expect(text).not.toContain("• —"); // flat channel render — no per-outlet drill-down (POS has no outletId)
     expect(text).toContain("Block M ✗"); // footer reflects the pos refresh status
   });
 

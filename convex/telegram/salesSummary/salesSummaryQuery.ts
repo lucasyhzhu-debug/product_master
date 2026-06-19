@@ -35,7 +35,7 @@ function pctDelta(cur: number, prev: number): number | null {
 
 const IN_SCOPE_SOURCES = ["gobiz", "k3mart", "internal", "pos"] as const;
 
-// Pull in-range externalRevenue for the 3 in-scope sources via the compound
+// Pull in-range externalRevenue for the 4 in-scope sources via the compound
 // by_source_period index — reads ONLY these sources, not the
 // whole period across bigseller/shopee/tiktok/grabfood/consignment.
 //
