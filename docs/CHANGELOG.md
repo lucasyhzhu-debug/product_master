@@ -16,9 +16,15 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feature: Block M POS sales in the daily Telegram report (+ retire the hourly POS cron) — 2026-06-19
+
+**For the team:** The daily sales summary (and the on-demand `/sales` command) now refreshes and includes **Block M** (the in-store POS) alongside GoFood / K3Mart / Direct — gross, order count, and top products, with a "Block M" mark in the refresh footer. POS no longer syncs on its own hourly schedule; it's pulled as part of the daily report, the only moment it needs to be current. Returns are excluded (realized sales only, same as K3Mart).
+
+**Technical:** Removed the standalone `sync pos revenue` cron; `sendSalesSummary` (daily) adds POS as a 4th best-effort sync. `salesSummaryQuery` scope widened to `source:"pos"` → platform `POS`; `salesSummaryFormat` labels it "Block M" (no `outletId`), with `CHANNEL_EMOJI`/`CHANNEL_LABEL`/`RefreshStatus` extended. +2 tests (format Block M render, query POS channel incl. return-exclusion + order count).
+
 ### Feature: POS sales now flow into the ERP automatically (source #9) — 2026-06-18
 
-**For the team:** In-store POS sales and refunds now sync into Frollie Pro on their own, every hour, landing alongside GoFood/Shopee/TikTok/K3Mart as a new "POS" revenue channel. Sales show up as revenue with per-item lines; refunds subtract correctly. Map the handful of POS product codes to menu products via `/admin/unlinked-products` so they roll into analytics. (This ships "dark" for inventory — POS sales do NOT deduct packaging stock yet; that's a later, deliberate cutover.)
+**For the team:** In-store POS sales and refunds now sync into Frollie Pro on their own (refreshed with the daily sales report — see the 2026-06-19 entry), landing alongside GoFood/Shopee/TikTok/K3Mart as a new "POS" revenue channel. Sales show up as revenue with per-item lines; refunds subtract correctly. Map the handful of POS product codes to menu products via `/admin/unlinked-products` so they roll into analytics. (This ships "dark" for inventory — POS sales do NOT deduct packaging stock yet; that's a later, deliberate cutover.)
 
 #### What changed
 - **POS becomes the 9th external revenue source** (`source: "pos"`, platform `POS`). New `convex/integrations/pos/` module mirrors the K3Mart adapter: pure `normalize()`/record-builders → existing `saveRevenue` upsert + `saveRevenueItemsWithCounts`, behind an opaque-cursor checkpoint persisted per page.

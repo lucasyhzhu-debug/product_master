@@ -10,12 +10,9 @@ crons.interval(
   { triggeredBy: "cron" }
 );
 
-crons.interval(
-  "sync pos revenue",
-  { hours: 1 },
-  internal.integrations.pos.sync.syncPosRevenue,
-  { triggeredBy: "cron" },
-);
+// POS (Block M) revenue is NOT on its own cron — it is pulled as a best-effort
+// step inside the daily sales summary (and the on-demand /sales command), the
+// only moments POS data needs to be fresh. See telegram/salesSummary/sendSalesSummary.ts.
 
 // Telegram pack list bot v1: morning post at 07:00 WIB (= 00:00 UTC).
 // Uses the resilient wrapper so a transient Convex worker-spike at firing time
@@ -54,7 +51,7 @@ crons.daily(
 );
 
 // Sales-updates bot — daily end-of-day summary at 23:00 WIB (= 16:00 UTC).
-// Best-effort refreshes GoFood/K3Mart/Internal, then posts revenue + per-SKU by channel.
+// Best-effort refreshes GoFood/K3Mart/Internal/POS(Block M), then posts revenue + per-SKU by channel.
 // Uses the resilient wrapper (see convex/telegram/cronRetry.ts) so a transient
 // Convex worker-spike at firing time self-reschedules instead of dropping the post.
 crons.daily(

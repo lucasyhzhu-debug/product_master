@@ -55,7 +55,7 @@ export const sendSalesSummary = internalAction({
       { role: "sales-updates" },
     );
 
-    const refresh: RefreshStatus = { gofood: "skip", k3mart: "skip", direct: "skip" };
+    const refresh: RefreshStatus = { gofood: "skip", k3mart: "skip", direct: "skip", pos: "skip" };
 
     if (args.cadence === "daily") {
       // Best-effort: a NON-transient sync failure must not block the others or the
@@ -78,6 +78,17 @@ export const sendSalesSummary = internalAction({
       );
       refresh.direct = await runBestEffortSync("Internal", () =>
         ctx.runAction(api.integrations.internal.adapter.syncInternalOrders, { triggeredBy: "cron" }),
+      );
+      // POS (Block M) — internalAction; no-ops when creds/base URL are unset. This
+      // is the ONLY scheduled POS pull (the standalone hourly cron was retired): the
+      // daily report + the /sales command are the moments POS data needs to be fresh.
+      // NB: syncPosRevenue self-handles its own errors (logs status:"error" to
+      // externalSyncLogs and returns — it never throws, by design, so its cursor
+      // self-heals). So "Block M ✓" here means "pull launched", not "pull succeeded";
+      // a failed POS pull surfaces in externalSyncLogs, not the footer mark. (On
+      // weekly/monthly runs POS is not refreshed, so the footer shows "Block M –".)
+      refresh.pos = await runBestEffortSync("POS", () =>
+        ctx.runAction(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "cron" }),
       );
     }
 
