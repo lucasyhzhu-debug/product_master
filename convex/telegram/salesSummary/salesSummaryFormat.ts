@@ -3,13 +3,16 @@ import { escapeHtml } from "../../lib/telegramHtml";
 import { WIB_OFFSET_MS } from "../../lib/periodRange";
 import type { SalesSummaryData, ChannelSummary, ProductTally } from "./salesSummaryQuery";
 
-export interface RefreshStatus { gofood: "ok" | "fail" | "skip"; k3mart: "ok" | "fail" | "skip"; direct: "ok" | "fail" | "skip"; }
+export interface RefreshStatus { gofood: "ok" | "fail" | "skip"; k3mart: "ok" | "fail" | "skip"; direct: "ok" | "fail" | "skip"; pos: "ok" | "fail" | "skip"; }
 export interface FormatInput { data: SalesSummaryData; refresh: RefreshStatus; }
 
 const CHUNK_BUDGET = 4000;
 const MAX_SECTION_LEN = 3800;
 const TRUNCATE_MARKER = "\n  …[truncated — check dashboard]";
-const CHANNEL_EMOJI: Record<ChannelSummary["platform"], string> = { GoFood: "🛵", K3Mart: "🏪", Direct: "🏠" };
+const CHANNEL_EMOJI: Record<ChannelSummary["platform"], string> = { GoFood: "🛵", K3Mart: "🏪", Direct: "🏠", POS: "🛒" };
+// Display label per channel. POS is the single in-store till — surfaced as its
+// location ("Block M") since it carries no outletId.
+const CHANNEL_LABEL: Record<ChannelSummary["platform"], string> = { GoFood: "GoFood", K3Mart: "K3Mart", Direct: "Direct", POS: "Block M" };
 
 function rupiah(n: number): string {
   // 999_500 (not 1_000_000) so values that would round to "1000K" render "1.0M".
@@ -35,7 +38,7 @@ function renderChannel(ch: ChannelSummary): string {
   // "orders" is a product-line count, not an order count. Omit it to avoid a
   // misleading "(N orders)". GoFood/Direct counts are genuine order counts.
   const count = ch.platform === "K3Mart" ? "" : ` (${ch.orders} orders)`;
-  const head = `${CHANNEL_EMOJI[ch.platform]} <b>${ch.platform}</b> — ${rupiah(ch.gross)}${count}${delta(ch.deltaPct)}`;
+  const head = `${CHANNEL_EMOJI[ch.platform]} <b>${CHANNEL_LABEL[ch.platform]}</b> — ${rupiah(ch.gross)}${count}${delta(ch.deltaPct)}`;
   if (ch.platform === "GoFood") {
     const lines = ch.outlets.map((o) =>
       `  • ${escapeHtml(o.name)} — ${rupiah(o.gross)}${products(o.products)}`);
@@ -60,7 +63,7 @@ function footer(refresh: RefreshStatus, generatedAt: number): string {
   const wib = new Date(generatedAt + WIB_OFFSET_MS);
   const hh = String(wib.getUTCHours()).padStart(2, "0");
   const mm = String(wib.getUTCMinutes()).padStart(2, "0");
-  return `\n<i>Refreshed ${hh}:${mm} WIB · GoFood ${mark(refresh.gofood)} K3Mart ${mark(refresh.k3mart)} Direct ${mark(refresh.direct)}</i>`;
+  return `\n<i>Refreshed ${hh}:${mm} WIB · GoFood ${mark(refresh.gofood)} K3Mart ${mark(refresh.k3mart)} Direct ${mark(refresh.direct)} Block M ${mark(refresh.pos)}</i>`;
 }
 
 export function formatSalesSummary(input: FormatInput): string[] {

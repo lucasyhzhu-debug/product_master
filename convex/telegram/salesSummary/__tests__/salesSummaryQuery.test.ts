@@ -200,3 +200,56 @@ describe("salesSummaryQuery — monthly", () => {
     expect(data.grandTotal.deltaPct).toBeCloseTo(10, 1);
   });
 });
+
+// Seed a POS (Block M) sale: parent + per-line item children (the adapter shape),
+// optionally a return parent (no items) to prove returns are excluded.
+async function seedPos(
+  t: Ctx,
+  receiptNumber: string,
+  gross: number,
+  periodStart: number,
+  items: { name: string; qty: number }[],
+  transactionType: "sales" | "return" = "sales",
+) {
+  await t.run(async (ctx) => {
+    const revId = await ctx.db.insert("externalRevenue", {
+      source: "pos", revenueGross: gross, transactionType,
+      externalTransactionId: receiptNumber,
+      periodStart, periodEnd: periodStart, transactionDate: periodStart,
+      transactionCount: 1, dataOrigin: "api_revenue", confidence: "exact",
+    });
+    if (transactionType === "sales") {
+      for (const it of items) {
+        await ctx.db.insert("externalRevenueItems", {
+          revenueId: revId, source: "pos",
+          externalItemId: `${receiptNumber}|${it.name}`,
+          productName: it.name, unitPrice: 0, quantity: it.qty, totalPrice: 0,
+          isAutoMatched: false, createdAt: periodStart,
+        });
+      }
+    }
+  });
+}
+
+describe("salesSummaryQuery — POS (Block M)", () => {
+  it("includes POS as its own channel (platform 'POS'), excludes returns, counts orders", async () => {
+    const t = convexTest(schema, modules);
+    await seedPos(t, "R-2026-0042", 81_000, DAY_START + 3600_000,
+      [{ name: "Dubai 8pcs", qty: 2 }, { name: "Original", qty: 1 }]);
+    await seedPos(t, "R-2026-0043", 90_000, DAY_START + 7200_000, [{ name: "Dubai 8pcs", qty: 2 }]);
+    // a refund parent (negative gross, no items) — must be excluded from the summary
+    await seedPos(t, "R-2026-0042|R|1718700000000", -45_000, DAY_START + 7200_000, [], "return");
+
+    const data = await t.query(internal.telegram.salesSummary.salesSummaryQuery.getSalesSummary,
+      { cadence: "daily", now: DAY_NOW });
+
+    const pos = data.channels.find((c) => c.platform === "POS");
+    expect(pos).toBeDefined();
+    expect(pos!.gross).toBe(171_000); // 81k + 90k; the −45k return excluded
+    expect(pos!.orders).toBe(2); // two sales transactions; return not counted
+    expect(pos!.products.find((p) => p.name === "Dubai 8pcs")!.qty).toBe(4);
+    // POS orders count toward the headline total (unlike K3Mart)
+    expect(data.grandTotal.gross).toBe(171_000);
+    expect(data.grandTotal.orders).toBe(2);
+  });
+});

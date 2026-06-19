@@ -55,7 +55,7 @@ export const sendSalesSummary = internalAction({
       { role: "sales-updates" },
     );
 
-    const refresh: RefreshStatus = { gofood: "skip", k3mart: "skip", direct: "skip" };
+    const refresh: RefreshStatus = { gofood: "skip", k3mart: "skip", direct: "skip", pos: "skip" };
 
     if (args.cadence === "daily") {
       // Best-effort: a NON-transient sync failure must not block the others or the
@@ -78,6 +78,12 @@ export const sendSalesSummary = internalAction({
       );
       refresh.direct = await runBestEffortSync("Internal", () =>
         ctx.runAction(api.integrations.internal.adapter.syncInternalOrders, { triggeredBy: "cron" }),
+      );
+      // POS (Block M) — internalAction; no-ops when creds/base URL are unset. This
+      // is the ONLY scheduled POS pull (the standalone hourly cron was retired): the
+      // daily report + the /sales command are the moments POS data needs to be fresh.
+      refresh.pos = await runBestEffortSync("POS", () =>
+        ctx.runAction(internal.integrations.pos.sync.syncPosRevenue, { triggeredBy: "cron" }),
       );
     }
 

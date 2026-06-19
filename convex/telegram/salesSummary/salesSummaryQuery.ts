@@ -9,7 +9,7 @@ import { resolveCadenceRange, type Cadence } from "./range";
 
 const TOP_N_DAILY = 3;
 const TOP_N_PERIOD = 5;
-type InScopePlatform = "GoFood" | "K3Mart" | "Direct";
+type InScopePlatform = "GoFood" | "K3Mart" | "Direct" | "POS";
 
 export interface ProductTally { name: string; qty: number; }
 export interface OutletSummary { name: string; gross: number; orders: number; products: ProductTally[]; }
@@ -33,7 +33,7 @@ function pctDelta(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
-const IN_SCOPE_SOURCES = ["gobiz", "k3mart", "internal"] as const;
+const IN_SCOPE_SOURCES = ["gobiz", "k3mart", "internal", "pos"] as const;
 
 // Pull in-range externalRevenue for the 3 in-scope sources via the compound
 // by_source_period index — reads ONLY these sources, not the
@@ -64,7 +64,7 @@ async function fetchInScopeRevenue(
 function toInScope(source: Doc<"externalRevenue">["source"]): InScopePlatform | null {
   const p = resolvePlatform({ source }).platform;
   // Equality chain narrows p to InScopePlatform in the true branch — no cast needed.
-  return p === "GoFood" || p === "K3Mart" || p === "Direct" ? p : null;
+  return p === "GoFood" || p === "K3Mart" || p === "Direct" || p === "POS" ? p : null;
 }
 
 // Gross for one row. For internal (Direct) rows, prefer the order's totalAmount
