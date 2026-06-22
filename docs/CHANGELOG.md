@@ -16,6 +16,12 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Fix: clearer error when assigning a product to a POS slot fails — 2026-06-22
+
+**For the team:** Assigning a product to a POS slot (in the product editor) could fail with a useless "Server Error" popup. It now (a) shows the real reason, and (b) won't even try when the slot is invalid — it saves the product and tells you the slot was skipped. Surfaced while putting "Dubai - Cafe" on the POS.
+
+**Technical:** `assignToSlot` / `assignToPackagingSlot` now throw `ConvexError` (was plain `Error`, which Convex masks as "Server Error" in prod). `ProductForm` treats only positive-integer stored slots as real on init (slots are 1-based; the old `!= null` "preserve slot 0" logic contradicted the backend `slot >= 1` guard) and validates `parseInt(posSlot)` before calling the mutation, toasting instead of firing a doomed call. New `tests/convex/menuProductSlots.test.ts` (slot 0 / negative / non-integer rejected, slot 1 ok). PR #187.
+
 ### Feature: 1:1 alternative fulfilment (substitute one product for another at the same ratio) — 2026-06-22
 
 **For the team:** You can now configure a product to be fulfilled **1-for-1** from another product when its own stock runs out. This is for products that are physically identical but sold under different SKUs/price points — e.g. **Dubai - Cafe** and **Dubai - Amsterdam special** are just **Dubai - Single (45g)**, so set them to fulfill from Dubai-Single with **Units per product = 1**. Previously the minimum was 2, which only fit "1 Triple = 3 Singles"-style cases.
