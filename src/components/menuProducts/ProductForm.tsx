@@ -129,12 +129,16 @@ export function ProductForm({
         : 'food';
       setProductType(existingProductType);
 
-      // Read correct slot based on product type
-      // Use != null to handle both undefined and null, while preserving slot 0 as valid
+      // Read correct slot based on product type.
+      // Slots are 1-based everywhere (assignToSlot rejects < 1); treat any
+      // non-positive / non-integer stored value as "none" so it can't be
+      // round-tripped back into a slot mutation that the backend would reject.
+      const isValidSlot = (s: unknown): s is number =>
+        typeof s === 'number' && Number.isInteger(s) && s > 0;
       if (existingProductType === 'packaging' && 'packagingPosSlot' in product) {
-        setPosSlot(product.packagingPosSlot != null ? product.packagingPosSlot.toString() : 'none');
+        setPosSlot(isValidSlot(product.packagingPosSlot) ? product.packagingPosSlot.toString() : 'none');
       } else {
-        setPosSlot('posSlot' in product && product.posSlot != null ? product.posSlot.toString() : 'none');
+        setPosSlot('posSlot' in product && isValidSlot(product.posSlot) ? product.posSlot.toString() : 'none');
       }
 
       // Determine active state (check for isActive on the raw product data)
@@ -357,23 +361,30 @@ export function ProductForm({
           : ('posSlot' in product ? product.posSlot?.toString() : 'none');
         if (posSlot !== currentSlot) {
           if (posSlot !== 'none') {
-            const targetSlot = parseInt(posSlot);
-            const occupyingProduct = findOccupant(targetSlot);
+            const targetSlot = parseInt(posSlot, 10);
+            // Guard: slots are 1-based. A non-positive / NaN value here would be
+            // rejected by the backend as a generic "Server Error". The product
+            // itself already saved above, so just skip the slot assignment.
+            if (!Number.isInteger(targetSlot) || targetSlot < 1) {
+              toast.error('Invalid POS slot — product saved without changing its slot');
+            } else {
+              const occupyingProduct = findOccupant(targetSlot);
 
-            if (occupyingProduct && onSlotSwapRequested) {
-              onSlotSwapRequested({
-                productId: product._id,
+              if (occupyingProduct && onSlotSwapRequested) {
+                onSlotSwapRequested({
+                  productId: product._id,
+                  slot: targetSlot,
+                  currentProduct: occupyingProduct as PosProduct,
+                });
+                handleClose();
+                return;
+              }
+
+              await slotMutation.mutateAsync({
+                id: product._id as Id<"menuProducts">,
                 slot: targetSlot,
-                currentProduct: occupyingProduct as PosProduct,
               });
-              handleClose();
-              return;
             }
-
-            await slotMutation.mutateAsync({
-              id: product._id as Id<"menuProducts">,
-              slot: targetSlot,
-            });
           }
         }
       } else {
@@ -382,23 +393,29 @@ export function ProductForm({
 
         // Assign to slot if selected
         if (posSlot !== 'none') {
-          const targetSlot = parseInt(posSlot);
-          const occupyingProduct = findOccupant(targetSlot);
+          const targetSlot = parseInt(posSlot, 10);
+          // Guard: slots are 1-based; a non-positive / NaN value would be rejected
+          // by the backend as a generic "Server Error". Product already created.
+          if (!Number.isInteger(targetSlot) || targetSlot < 1) {
+            toast.error('Invalid POS slot — product created without a slot');
+          } else {
+            const occupyingProduct = findOccupant(targetSlot);
 
-          if (occupyingProduct && onSlotSwapRequested) {
-            onSlotSwapRequested({
-              productId: newId as string,
+            if (occupyingProduct && onSlotSwapRequested) {
+              onSlotSwapRequested({
+                productId: newId as string,
+                slot: targetSlot,
+                currentProduct: occupyingProduct as PosProduct,
+              });
+              handleClose();
+              return;
+            }
+
+            await slotMutation.mutateAsync({
+              id: newId as Id<"menuProducts">,
               slot: targetSlot,
-              currentProduct: occupyingProduct as PosProduct,
             });
-            handleClose();
-            return;
           }
-
-          await slotMutation.mutateAsync({
-            id: newId as Id<"menuProducts">,
-            slot: targetSlot,
-          });
         }
       }
 
