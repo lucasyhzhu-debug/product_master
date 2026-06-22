@@ -330,7 +330,7 @@ describe("menuProducts update validation", () => {
     ).rejects.toThrow("Source product must be active");
   });
 
-  test("multiplier < 2 rejected", async () => {
+  test("multiplier < 1 rejected", async () => {
     const t = convexTest(schema, modules);
     const token = await createTestUser(t);
     const source = await createMenuProduct(t, { name: "Source" });
@@ -341,9 +341,29 @@ describe("menuProducts update validation", () => {
         token,
         id: productA,
         fulfillFromProductId: source,
-        fulfillMultiplier: 1,
+        fulfillMultiplier: -1,
       })
-    ).rejects.toThrow("fulfillMultiplier must be an integer >= 2");
+    ).rejects.toThrow("fulfillMultiplier must be an integer >= 1");
+  });
+
+  test("multiplier of 1 accepted (1:1 substitution — same product, different SKU/price)", async () => {
+    const t = convexTest(schema, modules);
+    const token = await createTestUser(t);
+    const source = await createMenuProduct(t, { name: "Dubai Single" });
+    const cafe = await createMenuProduct(t, { name: "Dubai Cafe" });
+
+    const result = await t.mutation(api.menuProducts.mutations.update, {
+      token,
+      id: cafe,
+      fulfillFromProductId: source,
+      fulfillMultiplier: 1,
+    });
+
+    expect(result).toBe(cafe);
+
+    const updated = await t.run(async (ctx) => ctx.db.get(cafe));
+    expect(updated?.fulfillFromProductId).toBe(source);
+    expect(updated?.fulfillMultiplier).toBe(1);
   });
 
   test("non-integer multiplier rejected", async () => {
@@ -359,7 +379,7 @@ describe("menuProducts update validation", () => {
         fulfillFromProductId: source,
         fulfillMultiplier: 2.5,
       })
-    ).rejects.toThrow("fulfillMultiplier must be an integer >= 2");
+    ).rejects.toThrow("fulfillMultiplier must be an integer >= 1");
   });
 
   test("valid substitution accepted", async () => {
