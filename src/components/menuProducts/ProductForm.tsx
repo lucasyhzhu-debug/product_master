@@ -290,11 +290,11 @@ export function ProductForm({
       return;
     }
 
-    // Phase 78: Validate substitution multiplier is a valid integer >= 2
+    // Phase 78: Validate substitution multiplier is a valid integer >= 1
     if (fulfillFromProductId !== 'none') {
       const multiplierInt = parseInt(fulfillMultiplier);
-      if (isNaN(multiplierInt) || multiplierInt < 2 || !Number.isInteger(multiplierInt)) {
-        toast.error('Substitution multiplier must be an integer of 2 or more');
+      if (isNaN(multiplierInt) || multiplierInt < 1 || !Number.isInteger(multiplierInt)) {
+        toast.error('Substitution multiplier must be an integer of 1 or more');
         return;
       }
     }
@@ -718,7 +718,7 @@ export function ProductForm({
                         <Input
                           id="fulfillMultiplier"
                           type="number"
-                          min="2"
+                          min="1"
                           step="1"
                           value={fulfillMultiplier}
                           onChange={(e) => setFulfillMultiplier(e.target.value)}
@@ -728,7 +728,7 @@ export function ProductForm({
                       </div>
                     </div>
 
-                    {fulfillFromProductId !== 'none' && fulfillMultiplier && parseInt(fulfillMultiplier) >= 2 && (
+                    {fulfillFromProductId !== 'none' && fulfillMultiplier && parseInt(fulfillMultiplier) >= 1 && (
                       <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-3">
                         <p className="text-xs text-blue-600 dark:text-blue-400">
                           1 {name || 'this product'} will draw {fulfillMultiplier}x{' '}

@@ -311,9 +311,9 @@ export const update = mutation({
       if (!args.fulfillMultiplier) {
         throw new Error("fulfillMultiplier is required when fulfillFromProductId is set");
       }
-      // Multiplier must be integer >= 2
-      if (!Number.isInteger(args.fulfillMultiplier) || args.fulfillMultiplier < 2) {
-        throw new Error("fulfillMultiplier must be an integer >= 2");
+      // Multiplier must be integer >= 1 (1 = same product at a different SKU/price point)
+      if (!Number.isInteger(args.fulfillMultiplier) || args.fulfillMultiplier < 1) {
+        throw new Error("fulfillMultiplier must be an integer >= 1");
       }
       // No self-reference
       if (args.fulfillFromProductId === id) {
