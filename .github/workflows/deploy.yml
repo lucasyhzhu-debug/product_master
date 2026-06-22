@@ -157,6 +157,10 @@ jobs:
       - name: Check that the previous Convex deploy on main succeeded
         env:
           GH_TOKEN: ${{ github.token }}
+          # This job has no checkout, so `gh` can't infer the repo from a local
+          # git remote ("failed to determine base repo"). GH_REPO gives it the
+          # repo context directly — a pure GitHub-API job needs no working tree.
+          GH_REPO: ${{ github.repository }}
         run: |
           # Find the most recent completed Deploy run on main BEFORE this one and
           # inspect its deploy-convex job conclusion. If it was a failure, block
