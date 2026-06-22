@@ -16,6 +16,12 @@ After merging any code change, add a new entry with:
 
 ## [Unreleased]
 
+### Feature: 1:1 alternative fulfilment (substitute one product for another at the same ratio) — 2026-06-22
+
+**For the team:** You can now configure a product to be fulfilled **1-for-1** from another product when its own stock runs out. This is for products that are physically identical but sold under different SKUs/price points — e.g. **Dubai - Cafe** and **Dubai - Amsterdam special** are just **Dubai - Single (45g)**, so set them to fulfill from Dubai-Single with **Units per product = 1**. Previously the minimum was 2, which only fit "1 Triple = 3 Singles"-style cases.
+
+**Technical:** Lowered the `fulfillMultiplier` floor from `>= 2` to `>= 1` (integer-only; negatives/fractions still rejected) in `convex/menuProducts/mutations.ts` (guard + error text) and `src/components/menuProducts/ProductForm.tsx` (validation, error toast, input `min="1"`, preview gate). Chain / self-reference / deactivate / delete guards unchanged. Tests: flipped `< 2 rejected` → `< 1 rejected` (negative int boundary), added a 1:1-accepted case, fixed the non-integer expected message (24/24 pass). PR #186.
+
 ### Feature: Block M POS sales in the daily Telegram report (+ retire the hourly POS cron) — 2026-06-19
 
 **For the team:** The daily sales summary (and the on-demand `/sales` command) now refreshes and includes **Block M** (the in-store POS) alongside GoFood / K3Mart / Direct — gross, order count, and top products, with a "Block M" mark in the refresh footer. POS no longer syncs on its own hourly schedule; it's pulled as part of the daily report, the only moment it needs to be current. Returns are excluded (realized sales only, same as K3Mart).
