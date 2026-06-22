@@ -1,5 +1,6 @@
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
+import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { requireRole } from "../lib/auth";
 import { calculateMenuProductCOGS } from "../lib/costCalculator";
@@ -644,14 +645,16 @@ export const assignToSlot = mutation({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
 
-    // Runtime validation: slot must be a positive integer
+    // Runtime validation: slot must be a positive integer.
+    // ConvexError (not plain Error) so the message reaches the client instead of
+    // being masked as a generic "Server Error" in production.
     if (!Number.isInteger(args.slot) || args.slot < 1) {
-      throw new Error("Slot must be a positive integer (1, 2, 3, ...)");
+      throw new ConvexError("Slot must be a positive integer (1, 2, 3, ...)");
     }
 
     const product = await ctx.db.get(args.id);
     if (!product) {
-      throw new Error("Menu product not found");
+      throw new ConvexError("Menu product not found");
     }
 
     // Check if target slot is occupied by a different product
@@ -706,19 +709,19 @@ export const assignToPackagingSlot = mutation({
   handler: async (ctx, args) => {
     await requireRole(ctx, args.token, ["admin"]);
 
-    // Runtime validation: slot must be a positive integer
+    // Runtime validation: slot must be a positive integer (ConvexError → surfaces to client)
     if (!Number.isInteger(args.slot) || args.slot < 1) {
-      throw new Error("Slot must be a positive integer (1, 2, 3, ...)");
+      throw new ConvexError("Slot must be a positive integer (1, 2, 3, ...)");
     }
 
     const product = await ctx.db.get(args.id);
     if (!product) {
-      throw new Error("Menu product not found");
+      throw new ConvexError("Menu product not found");
     }
 
     // Validate product is packaging type
     if (product.productType !== "packaging") {
-      throw new Error("Only packaging products can be assigned to packaging POS slots");
+      throw new ConvexError("Only packaging products can be assigned to packaging POS slots");
     }
 
     // Check if target slot is occupied by a different product
