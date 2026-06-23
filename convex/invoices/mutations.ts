@@ -392,8 +392,8 @@ export const finalize = protectedMutation({
       generatedAt: Date.now(),
     });
 
-    // 4. Customer write-back
-    const order = await ctx.db.get(invoice.orderId);
+    // 4. Customer write-back (standard order invoices only — subscription invoices have no order)
+    const order = invoice.orderId ? await ctx.db.get(invoice.orderId) : null;
     if (order) {
       const customer = await ctx.db.get(order.customerId);
       if (customer) {

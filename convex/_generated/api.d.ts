@@ -181,6 +181,7 @@ import type * as migrations_fixDispatchPlanOutlets from "../migrations/fixDispat
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
 import type * as migrations_gofoodSaleToChannelSale from "../migrations/gofoodSaleToChannelSale.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
+import type * as migrations_posPurgeTestRows from "../migrations/posPurgeTestRows.js";
 import type * as migrations_restoreCapexReimbursements from "../migrations/restoreCapexReimbursements.js";
 import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
 import type * as migrations_seedFinishedGoodsLocations from "../migrations/seedFinishedGoodsLocations.js";
@@ -268,6 +269,13 @@ import type * as staffAttendance_mutations from "../staffAttendance/mutations.js
 import type * as staffAttendance_queries from "../staffAttendance/queries.js";
 import type * as storageLocations_mutations from "../storageLocations/mutations.js";
 import type * as storageLocations_queries from "../storageLocations/queries.js";
+import type * as subscriptions_creditMath from "../subscriptions/creditMath.js";
+import type * as subscriptions_ledger from "../subscriptions/ledger.js";
+import type * as subscriptions_mutations from "../subscriptions/mutations.js";
+import type * as subscriptions_queries from "../subscriptions/queries.js";
+import type * as subscriptions_rollover from "../subscriptions/rollover.js";
+import type * as subscriptions_types from "../subscriptions/types.js";
+import type * as subscriptions_weeks from "../subscriptions/weeks.js";
 import type * as telegram___tests___testHelpers from "../telegram/__tests__/testHelpers.js";
 import type * as telegram_chatRegistry from "../telegram/chatRegistry.js";
 import type * as telegram_config from "../telegram/config.js";
@@ -467,6 +475,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
   "migrations/gofoodSaleToChannelSale": typeof migrations_gofoodSaleToChannelSale;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
+  "migrations/posPurgeTestRows": typeof migrations_posPurgeTestRows;
   "migrations/restoreCapexReimbursements": typeof migrations_restoreCapexReimbursements;
   "migrations/schemaCleanup": typeof migrations_schemaCleanup;
   "migrations/seedFinishedGoodsLocations": typeof migrations_seedFinishedGoodsLocations;
@@ -554,6 +563,13 @@ declare const fullApi: ApiFromModules<{
   "staffAttendance/queries": typeof staffAttendance_queries;
   "storageLocations/mutations": typeof storageLocations_mutations;
   "storageLocations/queries": typeof storageLocations_queries;
+  "subscriptions/creditMath": typeof subscriptions_creditMath;
+  "subscriptions/ledger": typeof subscriptions_ledger;
+  "subscriptions/mutations": typeof subscriptions_mutations;
+  "subscriptions/queries": typeof subscriptions_queries;
+  "subscriptions/rollover": typeof subscriptions_rollover;
+  "subscriptions/types": typeof subscriptions_types;
+  "subscriptions/weeks": typeof subscriptions_weeks;
   "telegram/__tests__/testHelpers": typeof telegram___tests___testHelpers;
   "telegram/chatRegistry": typeof telegram_chatRegistry;
   "telegram/config": typeof telegram_config;

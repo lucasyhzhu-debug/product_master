@@ -14,6 +14,218 @@
 
 ---
 
+## Subscription & Credit System (Phase A, 2026-06-23) — 4 new tables + additive fields
+
+All additions are additive (no breaking changes). New tables: `subscriptions`, `subscriptionWeeks`, `creditLedger`, `supplyAgreements`. Additive optional fields on `orders`, `invoices`, `customers`.
+
+### New table: `subscriptions`
+
+Represents a standing B2B supply agreement with weekly credit mechanics.
+
+```typescript
+subscriptions: defineTable({
+  customerId: v.id("customers"),
+  label: v.string(),
+  status: v.union(
+    v.literal("draft"),
+    v.literal("active"),
+    v.literal("terminating"),
+    v.literal("ended"),
+  ),
+  billingModel: v.union(v.literal("prepaid_weekly_credit")),
+  unitPrice: v.number(),               // confidential partner price (IDR)
+  confidentialPrice: v.boolean(),
+  baselineDailyQty: v.number(),
+  weeklyQty: v.number(),
+  deliverByTime: v.string(),           // "09:00" WIB
+  creditRolloverPolicy: v.union(v.literal("expire"), v.literal("rollover")),
+  rolloverExpiryWeeks: v.optional(v.union(v.number(), v.null())), // default 4; null = never
+  changeCutoffHour: v.number(),        // e.g. 13
+  changeCutoffDayOffset: v.number(),   // e.g. -1 (day before)
+  permanentChangeNoticeDays: v.number(), // e.g. 14
+  terminationNoticeDays: v.number(),   // e.g. 30
+  cogsBasis: v.number(),
+  startDate: v.number(),
+  terminationNoticeDate: v.optional(v.number()),
+  endDate: v.optional(v.number()),
+  agreementId: v.optional(v.id("supplyAgreements")),
+  scheduleTemplate: v.array(v.object({
+    dayOfWeek: v.number(),             // 0–6 (Mon=1 per JS Date)
+    items: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      qty: v.number(),
+    })),
+  })),
+  createdBy: v.id("users"),
+  notes: v.optional(v.string()),
+})
+  .index("by_customer", ["customerId"])
+  .index("by_status", ["status"])
+```
+
+### New table: `subscriptionWeeks`
+
+One row per subscription per calendar week. Tracks planned deliveries, credit math, and week lifecycle.
+
+```typescript
+subscriptionWeeks: defineTable({
+  subscriptionId: v.id("subscriptions"),
+  weekStart: v.number(),               // Monday 00:00 WIB (epoch ms)
+  weekEnd: v.number(),                 // Sunday 23:59 WIB (epoch ms)
+  status: v.union(
+    v.literal("planned"),
+    v.literal("confirmed"),
+    v.literal("invoiced"),
+    v.literal("paid"),
+    v.literal("delivering"),
+    v.literal("reconciled"),
+    v.literal("closed"),
+  ),
+  plannedDays: v.array(v.object({
+    date: v.number(),
+    deliverByTime: v.string(),
+    items: v.array(v.object({
+      menuProductId: v.id("menuProducts"),
+      productName: v.string(),         // snapshot
+      qty: v.number(),
+      unitPrice: v.number(),
+      lineTotal: v.number(),
+    })),
+    locked: v.boolean(),
+  })),
+  creditIssued: v.number(),
+  creditConsumed: v.number(),
+  creditRemaining: v.number(),
+  creditExpired: v.number(),
+  shortfall: v.number(),
+  shortfallFault: v.union(v.literal("none"), v.literal("cafe"), v.literal("frollie")),
+  refundDue: v.number(),
+  refundStatus: v.optional(v.string()),
+  confirmedAt: v.optional(v.number()),
+  confirmedBy: v.optional(v.id("users")),
+  weeklyInvoiceId: v.optional(v.id("invoices")),
+  paymentReceivedAt: v.optional(v.number()),
+})
+  .index("by_subscription_weekStart", ["subscriptionId", "weekStart"])
+  .index("by_status", ["status"])
+```
+
+### New table: `creditLedger`
+
+Append-only ledger of all credit movements (top-ups, drawdowns, expiries, refunds, adjustments). Source of truth for credit balance.
+
+```typescript
+creditLedger: defineTable({
+  subscriptionId: v.id("subscriptions"),
+  subscriptionWeekId: v.id("subscriptionWeeks"),
+  type: v.union(
+    v.literal("topup"),
+    v.literal("drawdown"),
+    v.literal("expiry"),
+    v.literal("refund"),
+    v.literal("adjustment"),
+  ),
+  amount: v.number(),                  // signed (positive = credit in, negative = out)
+  balanceAfter: v.number(),
+  orderId: v.optional(v.id("orders")),
+  invoiceId: v.optional(v.id("invoices")),
+  rolloverFromWeekId: v.optional(v.id("subscriptionWeeks")),
+  createdBy: v.id("users"),
+  note: v.optional(v.string()),
+})
+  .index("by_subscriptionWeek", ["subscriptionWeekId"])
+  .index("by_subscription", ["subscriptionId"])
+  .index("by_order", ["orderId"])
+```
+
+### New table: `supplyAgreements`
+
+Uploaded PDF supply agreements linked to a customer and optionally to a subscription.
+
+```typescript
+supplyAgreements: defineTable({
+  customerId: v.id("customers"),
+  subscriptionId: v.optional(v.id("subscriptions")),
+  fileStorageId: v.id("_storage"),
+  fileName: v.string(),
+  fileSize: v.number(),
+  uploadedBy: v.id("users"),
+  uploadedAt: v.number(),
+  status: v.union(
+    v.literal("draft"),
+    v.literal("signed"),
+    v.literal("expired"),
+    v.literal("terminated"),
+  ),
+  signedDate: v.optional(v.number()),
+  governingLaw: v.optional(v.string()),
+  signatories: v.optional(v.string()),
+  keyTerms: v.optional(v.object({
+    weeklyQty: v.number(),
+    unitPrice: v.number(),
+    weeklyCreditAmount: v.number(),
+    baselineDailyQty: v.number(),
+    deliverByTime: v.string(),
+    permanentChangeNoticeDays: v.number(),
+    terminationNoticeDays: v.number(),
+    creditRolloverPolicy: v.union(v.literal("expire"), v.literal("rollover")),
+    termType: v.string(),
+  })),
+  versions: v.optional(v.array(v.object({
+    fileStorageId: v.id("_storage"),
+    fileName: v.string(),
+    uploadedAt: v.number(),
+    lang: v.union(v.literal("id"), v.literal("en")),
+  }))),
+})
+  .index("by_customer", ["customerId"])
+  .index("by_subscription", ["subscriptionId"])
+```
+
+### Additive fields on existing tables
+
+**`orders`** (Phase A subscription linkage):
+```typescript
+subscriptionId: v.optional(v.id("subscriptions")),
+subscriptionWeekId: v.optional(v.id("subscriptionWeeks")),
+deliveryDate: v.optional(v.number()),
+fundingSource: v.optional(v.union(
+  v.literal("subscription_credit"),
+  v.literal("deposit"),
+  v.literal("normal"),
+)),
+// New index:
+.index("by_subscriptionWeek", ["subscriptionWeekId"])
+```
+
+**`invoices`** (Phase A subscription invoice support):
+- `orderId` is now **optional** (`v.optional(v.id("orders"))`). Subscription weekly and top-up invoices have no single owning order.
+- `subscriptionWeekId: v.optional(v.id("subscriptionWeeks"))` — links invoice to a subscription week.
+- `invoiceKind: v.optional(v.union(v.literal("standard"), v.literal("subscription_weekly"), v.literal("subscription_topup")))` — discriminates invoice type.
+- `items[].date: v.optional(v.number())` — per-line delivery date for weekly invoices.
+
+**`customers`** (Phase A CRM contact fields):
+```typescript
+keyContactName: v.optional(v.string()),
+keyContactRole: v.optional(v.string()),
+whatsapp: v.optional(v.string()),
+email: v.optional(v.string()),
+instagram: v.optional(v.string()),
+otherSocials: v.optional(v.array(v.object({
+  platform: v.string(),
+  handle: v.string(),
+  url: v.optional(v.string()),
+}))),
+deliveryAddress: v.optional(v.string()),
+storeAddress: v.optional(v.string()),
+otherAddresses: v.optional(v.array(v.string())),
+altPhone: v.optional(v.string()),
+```
+
+Implementation: `convex/subscriptions/` module (creditMath, ledger, CRUD, weekSeed). Access: manager + admin.
+
+---
+
 ## POS sales sync (2026-06-18) — source #9 schema additions
 
 Adds POS as the 9th external revenue source. Three schema changes (see `docs/CHANGELOG.md` for the full feature entry):

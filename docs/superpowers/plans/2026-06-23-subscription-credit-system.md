@@ -1002,6 +1002,17 @@ git commit -m "docs(subscriptions): Phase A schema + changelog"
 
 ---
 
+## Phase A triple-review — forward-carried findings (feed into B/C re-plan)
+
+The Phase A triple-review (2026-06-23, `docs/reviews/staffreview-feature-subscription-credit-system-phase-a-2026-06-23.md`) found **0 Critical**. The one Phase-A code defect (`updateSubscription` `weeklyQty` drift) was fixed in-branch; `/simplify` cleanups applied. The following are **forward-carried** (not Phase-A defects) — each phase below must address its item:
+
+- **Phase B — `seedWeek`/`weekStart` alignment + template validation:** `seedWeek` accepts any `weekStart: number` with no Monday-00:00-WIB alignment guard, and `createSubscription` accepts an unvalidated `scheduleTemplate` (no `dayOfWeek ∈ 0..6`, non-empty, `qty>0`). Phase B owns week-boundary computation — compute `weekStart` via `convex/lib/periodRange.ts` (`calculateWeekRange`; consider deriving `weekEnd` from it instead of the hand-rolled `+7*DAY-1`), and add a shared, tested `validateScheduleTemplate` pure fn (reused by create + order-gen). Also decide the deleted-product policy (today `buildPlannedDays` silently seeds `productName:"Unknown"` — fail-loud vs. skip).
+- **Phase B — ledger atomicity:** `postLedgerEntry` is per-call/non-transactional. The "confirm generates orders + drawdowns + weekly invoice atomically" requirement (spec §11) must call all writes inside one mutation, or a partial failure orphans orders vs. an un-drawn pool.
+- **Phase C — FIFO rollover tranches:** `computeRolloverExpiry` collapses a week's leftover to one `weeksCarried`; it cannot split a mixed-age pool (credit carried from multiple prior weeks with different ages). §13.1 deterministic-FIFO needs a per-tranche loop over `rolloverFromWeekId`-tagged ledger entries (or a denormalised `rollGeneration`). Make this an explicit Phase-C TDD target with a multi-week + mid-stream-`unitPrice`-change fixture. Also: `creditLedger.balanceAfter` is **week-scoped** (seeds from the last entry of the same week) — document/confirm this is intended before rollover wires cross-week topups; add a closed-week posting guard in `reconcileWeek`.
+- **Phase C — `getWeekPool` read-replay:** intentionally re-derives the pool from the ledger (denorm-drift self-check) and returns it alongside the denormalised `week.*` fields. Kept as-is; if Phase D consumes it, document that the derived `pool` is authoritative.
+- **Phase B/C — `makeScheduleLine` factory:** `ScheduleLine.lineTotal` is hand-keyable; when a 2nd construction site appears (order-gen / invoice builder), add `makeScheduleLine(menuProductId, productName, qty, unitPrice)` in `creditMath.ts` and route all construction through it so the `schedule = invoice = credit` invariant is enforced at construction, not just by shape.
+- **Phase B — index:** add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` when the weekly-invoice lookup lands (reverse pointer `subscriptionWeeks.weeklyInvoiceId` exists, so not strictly required).
+
 ## Documentation Updates (per phase)
 - [ ] CHANGELOG.md (every phase)
 - [ ] SCHEMA.md (Phase A — new tables/fields)

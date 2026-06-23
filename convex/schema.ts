@@ -186,6 +186,19 @@ export default defineSchema({
     companyName: v.optional(v.string()),
     npwp: v.optional(v.string()),
     billingAddress: v.optional(v.string()),
+    // Phase A: Subscription CRM fields
+    keyContactName: v.optional(v.string()),
+    keyContactRole: v.optional(v.string()),
+    whatsapp: v.optional(v.string()),
+    email: v.optional(v.string()),
+    instagram: v.optional(v.string()),
+    otherSocials: v.optional(
+      v.array(v.object({ platform: v.string(), handle: v.string(), url: v.optional(v.string()) })),
+    ),
+    deliveryAddress: v.optional(v.string()),
+    storeAddress: v.optional(v.string()),
+    otherAddresses: v.optional(v.array(v.string())),
+    altPhone: v.optional(v.string()),
   })
     // OI-03: removed by_name -- zero withIndex references
     .index("by_phone", ["phone"]),
@@ -316,6 +329,17 @@ export default defineSchema({
     isKitchenVisible: v.optional(v.boolean()),
     // DERIVED: Set when order reaches terminal status (Complete/Cancelled). Cleared on revert.
     completedAt: v.optional(v.number()),
+    // Phase A: Subscription linkage
+    subscriptionId: v.optional(v.id("subscriptions")),
+    subscriptionWeekId: v.optional(v.id("subscriptionWeeks")),
+    deliveryDate: v.optional(v.number()),
+    fundingSource: v.optional(
+      v.union(
+        v.literal("subscription_credit"),
+        v.literal("deposit"),
+        v.literal("normal"),
+      ),
+    ),
   })
     .index("by_order_number", ["orderNumber"])
     .index("by_customer", ["customerId"])
@@ -325,7 +349,8 @@ export default defineSchema({
     .index("by_status_due_date", ["status", "dueDate"])
     .index("by_kitchen_visible", ["isKitchenVisible", "dueDate"])
     .index("by_completed_at", ["completedAt"])
-    .index("by_order_date", ["orderDate"]),
+    .index("by_order_date", ["orderDate"])
+    .index("by_subscriptionWeek", ["subscriptionWeekId"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),
@@ -2262,7 +2287,16 @@ export default defineSchema({
   invoices: defineTable({
     status: v.union(v.literal("draft"), v.literal("final")),
     invoiceNumber: v.optional(v.string()),
-    orderId: v.id("orders"),
+    orderId: v.optional(v.id("orders")),
+    // Phase A: Subscription invoice linkage
+    subscriptionWeekId: v.optional(v.id("subscriptionWeeks")),
+    invoiceKind: v.optional(
+      v.union(
+        v.literal("standard"),
+        v.literal("subscription_weekly"),
+        v.literal("subscription_topup"),
+      ),
+    ),
     generatedAt: v.optional(v.number()),
     generatedBy: v.id("users"),
     updatedAt: v.number(),
@@ -2290,6 +2324,7 @@ export default defineSchema({
       qty: v.number(),
       unitPrice: v.number(),
       lineTotal: v.number(),
+      date: v.optional(v.number()),
     })),
     subtotal: v.number(),
     discountAmount: v.optional(v.number()),
@@ -2445,4 +2480,158 @@ export default defineSchema({
     .index("by_source_open", ["source", "resolvedAt"])
     .index("by_type_open", ["issueType", "resolvedAt"])
     .index("by_item", ["itemId"]),
+
+  // ============================================
+  // PHASE A: SUBSCRIPTION & CREDIT SYSTEM
+  // All tables additive, all fields optional on existing tables.
+  // ============================================
+
+  subscriptions: defineTable({
+    customerId: v.id("customers"),
+    label: v.string(),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("active"),
+      v.literal("terminating"),
+      v.literal("ended"),
+    ),
+    billingModel: v.union(v.literal("prepaid_weekly_credit")),
+    unitPrice: v.number(), // confidential partner price (IDR)
+    confidentialPrice: v.boolean(),
+    baselineDailyQty: v.number(),
+    weeklyQty: v.number(),
+    deliverByTime: v.string(), // "09:00" WIB
+    creditRolloverPolicy: v.union(v.literal("expire"), v.literal("rollover")),
+    rolloverExpiryWeeks: v.optional(v.union(v.number(), v.null())), // default 4; null = never
+    changeCutoffHour: v.number(), // 13
+    changeCutoffDayOffset: v.number(), // -1
+    permanentChangeNoticeDays: v.number(), // 14
+    terminationNoticeDays: v.number(), // 30
+    cogsBasis: v.number(),
+    startDate: v.number(),
+    terminationNoticeDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    agreementId: v.optional(v.id("supplyAgreements")),
+    scheduleTemplate: v.array(
+      v.object({
+        dayOfWeek: v.number(), // 0-6
+        items: v.array(v.object({ menuProductId: v.id("menuProducts"), qty: v.number() })),
+      }),
+    ),
+    createdBy: v.id("users"),
+    notes: v.optional(v.string()),
+  })
+    .index("by_customer", ["customerId"])
+    .index("by_status", ["status"]),
+
+  subscriptionWeeks: defineTable({
+    subscriptionId: v.id("subscriptions"),
+    weekStart: v.number(), // Monday 00:00 WIB
+    weekEnd: v.number(), // Sunday 23:59 WIB
+    status: v.union(
+      v.literal("planned"),
+      v.literal("confirmed"),
+      v.literal("invoiced"),
+      v.literal("paid"),
+      v.literal("delivering"),
+      v.literal("reconciled"),
+      v.literal("closed"),
+    ),
+    plannedDays: v.array(
+      v.object({
+        date: v.number(),
+        deliverByTime: v.string(),
+        items: v.array(
+          v.object({
+            menuProductId: v.id("menuProducts"),
+            productName: v.string(),
+            qty: v.number(),
+            unitPrice: v.number(),
+            lineTotal: v.number(),
+          }),
+        ),
+        locked: v.boolean(),
+      }),
+    ),
+    creditIssued: v.number(),
+    creditConsumed: v.number(),
+    creditRemaining: v.number(),
+    creditExpired: v.number(),
+    shortfall: v.number(),
+    shortfallFault: v.union(v.literal("none"), v.literal("cafe"), v.literal("frollie")),
+    refundDue: v.number(),
+    refundStatus: v.optional(v.string()),
+    confirmedAt: v.optional(v.number()),
+    confirmedBy: v.optional(v.id("users")),
+    weeklyInvoiceId: v.optional(v.id("invoices")),
+    paymentReceivedAt: v.optional(v.number()),
+  })
+    .index("by_subscription_weekStart", ["subscriptionId", "weekStart"])
+    .index("by_status", ["status"]),
+
+  creditLedger: defineTable({
+    subscriptionId: v.id("subscriptions"),
+    subscriptionWeekId: v.id("subscriptionWeeks"),
+    type: v.union(
+      v.literal("topup"),
+      v.literal("drawdown"),
+      v.literal("expiry"),
+      v.literal("refund"),
+      v.literal("adjustment"),
+    ),
+    amount: v.number(), // signed
+    balanceAfter: v.number(),
+    orderId: v.optional(v.id("orders")),
+    invoiceId: v.optional(v.id("invoices")),
+    rolloverFromWeekId: v.optional(v.id("subscriptionWeeks")),
+    createdBy: v.id("users"),
+    note: v.optional(v.string()),
+  })
+    .index("by_subscriptionWeek", ["subscriptionWeekId"])
+    .index("by_subscription", ["subscriptionId"])
+    .index("by_order", ["orderId"]),
+
+  supplyAgreements: defineTable({
+    customerId: v.id("customers"),
+    subscriptionId: v.optional(v.id("subscriptions")),
+    fileStorageId: v.id("_storage"),
+    fileName: v.string(),
+    fileSize: v.number(),
+    uploadedBy: v.id("users"),
+    uploadedAt: v.number(),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("signed"),
+      v.literal("expired"),
+      v.literal("terminated"),
+    ),
+    signedDate: v.optional(v.number()),
+    governingLaw: v.optional(v.string()),
+    signatories: v.optional(v.string()),
+    keyTerms: v.optional(
+      v.object({
+        weeklyQty: v.number(),
+        unitPrice: v.number(),
+        weeklyCreditAmount: v.number(),
+        baselineDailyQty: v.number(),
+        deliverByTime: v.string(),
+        permanentChangeNoticeDays: v.number(),
+        terminationNoticeDays: v.number(),
+        creditRolloverPolicy: v.union(v.literal("expire"), v.literal("rollover")),
+        termType: v.string(),
+      }),
+    ),
+    versions: v.optional(
+      v.array(
+        v.object({
+          fileStorageId: v.id("_storage"),
+          fileName: v.string(),
+          uploadedAt: v.number(),
+          lang: v.union(v.literal("id"), v.literal("en")),
+        }),
+      ),
+    ),
+  })
+    .index("by_customer", ["customerId"])
+    .index("by_subscription", ["subscriptionId"]),
 });
