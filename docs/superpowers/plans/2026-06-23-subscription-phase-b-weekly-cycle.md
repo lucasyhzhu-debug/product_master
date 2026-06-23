@@ -40,15 +40,19 @@
 - `convex/subscriptions/outOfCredit.ts` — split / apply-partial helpers.
 - `convex/subscriptions/revenueGate.ts` — `isSubscriptionOrder` predicate (C1 single source).
 - `convex/orders/helpers/insertOrder.ts` — extracted `insertOrderWithItems` helper (I1).
-- Tests: `convex/subscriptions/__tests__/scheduleLine.test.ts`, `weekBounds.test.ts`, `reconcileMath.test.ts`, `revenueGate.test.ts`.
+- `convex/orders/helpers/stripSubscriptionPricing.ts` — server-side confidential-price strip for non-managers (gap #2, B16).
+- Tests: `convex/subscriptions/__tests__/scheduleLine.test.ts`, `weekBounds.test.ts`, `reconcileMath.test.ts`, `revenueGate.test.ts`; `convex/orders/helpers/__tests__/stripSubscriptionPricing.test.ts`; `convex/bankStatements/__tests__/matchEngine.test.ts` (extend, gap #1).
 
 **Backend — modify:**
 - `convex/subscriptions/weeks.ts` — add `source` arg to `seedWeek` (template/previousWeek/blank).
 - `convex/subscriptions/creditMath.ts` — re-export `makeScheduleLine` (so all line construction routes through one module is optional; factory lives in `scheduleLine.ts`).
 - `convex/orders/mutations/orderCrud.ts` — `create` calls the extracted `insertOrderWithItems`.
+- `convex/orders/queries.ts` + `convex/orders/kitchenQueries.ts` — convert kanban order-read queries (`get`/`getKitchenOrders`/`getByOrderNumber`/`getKitchenPackingOrders`) to `protectedQuery` + apply `stripSubscriptionPricing` (gap #2, B16).
+- `convex/bankStatements/matchEngine.ts` — match incoming credit lines to subscription weekly invoices by `invoiceNumber` reference (gap #1, B9).
 - `convex/integrations/internal/queries.ts:36` — exclude subscription orders (C1).
 - `convex/reports/dailySales.ts:13` — exclude subscription orders (C1).
 - `convex/schema.ts` — add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` (Refinement).
+- `src/hooks/convex/useOrders.ts` (+ kitchen hooks) — session-aware hooks for the converted `protectedQuery`s (gap #2, B16).
 
 **Frontend — create:**
 - `src/pages/crm/SubscriptionSchedulePage.tsx` — the schedule calendar.
@@ -723,6 +727,11 @@ git commit -m "fix(reports): exclude subscription orders from channel revenue (C
   - `createSubscriptionWeeklyInvoice` (`protectedMutation`, manager+admin) `args: { subscriptionWeekId }` → builds a `final` invoice with `items` from `plannedDays` (each line carries `date`), `invoiceKind: "subscription_weekly"`, `orderId` undefined, `subscriptionWeekId` set, number via `getNextInvoiceNumber`; patches `subscriptionWeeks.weeklyInvoiceId` + status → `invoiced`.
   - `markWeeklyInvoicePaid` (`protectedMutation`) `args: { subscriptionWeekId }` → posts a `topup` ledger entry (amount = invoice total) via `postLedgerEntry`, flips the week's generated orders to `paymentStatus:"Paid"` + `paymentMethod:"subscription_credit"`, posts a `drawdown` ledger entry per order (`qty×unitPrice`), sets week status → `paid` then `delivering`, stamps `paymentReceivedAt`.
 
+> **▶ AMENDMENT (spec-review gap #1 — invoice# as transfer reference + financials match).** Raised by the Phase D/E spec reconciliation (c1, 2026-06-23). The weekly invoice's **`invoiceNumber` (`INV-YYMM-NNN`) is the customer-facing bank-transfer reference** — mirror the existing order-number `MMDD-NNN` bank-reference convention so an incoming transfer can be matched to a week. Required:
+> 1. In `createSubscriptionWeeklyInvoice` keep `invoiceNumber` as the canonical reference (it already is); surface it as the transfer reference on the visual invoice (Task B15 — label "Transfer reference: INV-YYMM-NNN").
+> 2. In `markWeeklyInvoicePaid`, persist who confirmed (the `topup` entry's `createdBy` already does this — keep it; Phase D's timeline reads it for accountability).
+> 3. **`/financials` matching:** confirm whether bank-transfer reconciliation can match on the invoice reference; if not, add it (or file a follow-up). This is the part Phase D explicitly does NOT own — D only displays the reference once it exists.
+
 - [ ] **Step 1: Export `getNextInvoiceNumber`** from `convex/invoices/mutations.ts` (change `async function getNextInvoiceNumber` → `export async function getNextInvoiceNumber`). Type-check.
 
 - [ ] **Step 2: Implement `createSubscriptionWeeklyInvoice`**
@@ -841,6 +850,49 @@ Manual: invoice a confirmed week, mark paid, verify pool `creditIssued` = week t
 ```bash
 git add convex/subscriptions/invoicing.ts convex/invoices/mutations.ts convex/schema.ts convex/_generated/
 git commit -m "feat(subscriptions): weekly invoice + mark-paid→fund + drawdown-on-funded"
+```
+
+---
+
+#### ▶ AMENDMENT gap #1 — `invoiceNumber` is the customer's bank-transfer reference + `/financials` reconciliation
+
+**Why this lands here (not in D):** B owns the weekly-invoice builder and the funding flow; D only *displays* the number. For a normal order the bank-transfer reference is the order number (`MMDD-NNN`, CLAUDE.md rule #7). A subscription weekly invoice has **no single order**, so its **`invoiceNumber` (`INV-YYMM-NNN`, from `getNextInvoiceNumber`) is the reference the customer puts on the Monday transfer.** Grounded gap: the bank-reconciliation engine (`convex/bankStatements/matchEngine.ts` — `findLinkedRecord:258–377`) matches incoming **credit** lines to `externalRevenue` by fuzzy amount+date and has **no `invoiceNumber`/reference matching at all**; subscription invoices are not in that flow (and subscription orders are deliberately excluded from `externalRevenue` per C1). So an incoming weekly transfer currently matches **nothing** → it sits unreconciled. This amendment closes that.
+
+**Files:**
+- Modify: `convex/subscriptions/invoicing.ts` (B9) — surface the reference; ensure `invoiceNumber` is set (already is via `getNextInvoiceNumber`).
+- Modify: `convex/bankStatements/matchEngine.ts` — add subscription weekly invoices as a credit-line match candidate.
+- Test: `convex/bankStatements/__tests__/matchEngine.test.ts` (extend, pure-fn).
+
+- [ ] **Step A1: Add unpaid subscription weekly invoices as a credit-line match candidate.** In `findLinkedRecord` (`matchEngine.ts:258–377`), extend the credit-line scan (today: `externalRevenue` only) to ALSO consider `invoices` where `invoiceKind === "subscription_weekly"` and `paymentStatus !== "Paid"`, matched first by **`invoiceNumber` appearing in the bank line description** (exact reference match — highest confidence), then by amount+date fuzzy fallback (same ±3-day window as the existing scan). Surface the matched `invoiceNumber` + `subscriptionWeekId` on the link candidate so the operator sees *which week's credit* the transfer funds.
+
+```ts
+// inside findLinkedRecord, credit-line branch — BEFORE the externalRevenue fuzzy scan:
+// 1. Reference match: bank line description contains the invoiceNumber → exact link.
+const weeklyInvoices = await ctx.db
+  .query("invoices")
+  .withIndex("by_status_number", (q) => q.eq("status", "final")) // invoiceNumber index
+  .collect();
+const byRef = weeklyInvoices.find(
+  (inv) =>
+    inv.invoiceKind === "subscription_weekly" &&
+    inv.paymentStatus !== "Paid" &&
+    inv.invoiceNumber &&
+    line.description.includes(inv.invoiceNumber),
+);
+if (byRef) return { kind: "subscriptionWeeklyInvoice", id: byRef._id, invoiceNumber: byRef.invoiceNumber, confidence: "exact" };
+// 2. else fall through to amount+date fuzzy over unpaid subscription_weekly invoices, then the existing externalRevenue scan.
+```
+
+- [ ] **Step A2: On confirm-link, fund the week.** When the operator confirms a bank line ↔ subscription-weekly-invoice link in `/financials`, call the existing `markWeeklyInvoicePaid({ subscriptionWeekId })` (Task B9) — that posts the `topup` and flips the week's orders to Paid. Wire the reconcile-confirm action (wherever bank-line links are confirmed today) to dispatch `markWeeklyInvoicePaid` when `kind === "subscriptionWeeklyInvoice"`. Do NOT double-recognise: subscription credit lives in the ledger, not `externalRevenue`.
+  > **FLAG for the user (revenue recognition):** because subscription orders are excluded from `externalRevenue`/channel P&L (C1), the weekly transfer is real cash that otherwise has no P&L revenue line. Decide before execution: (a) v1 = the credit ledger is the system of record and the cash is recognised manually in accounting (no journal line — simplest, matches C1), or (b) `markWeeklyInvoicePaid` also posts a **revenue journal line** bucketed "Subscription (B2B)" so total P&L income is complete while staying out of per-channel/margin analytics. Recommend (a) for v1; (b) is a clean follow-up. This is the one open decision in this amendment.
+
+- [ ] **Step A3: Surface the reference on the visual invoice (display spec for B15).** The visual weekly invoice (Task B15) MUST show `invoiceNumber` prominently labelled **"Bank transfer reference"** (the customer copies it into the transfer memo), exactly as a normal invoice surfaces the order number. D (`/crm`) only *reads/links* this number — no logic.
+
+- [ ] **Step A4: Test + commit.** Extend the pure match-engine test: a bank credit line whose description contains an unpaid `subscription_weekly` invoiceNumber links to that invoice with `confidence:"exact"`; an amount-only match falls to fuzzy; a `Paid` weekly invoice is never re-matched.
+
+```bash
+git add convex/bankStatements/matchEngine.ts convex/bankStatements/__tests__/matchEngine.test.ts convex/subscriptions/invoicing.ts
+git commit -m "feat(subscriptions): subscription weekly invoiceNumber as transfer reference + /financials reconciliation (gap #1)"
 ```
 
 ---
@@ -1002,13 +1054,75 @@ git commit -m "feat(crm): visual weekly invoice + 1-click send + funding dashboa
 - Consumes: `order.subscriptionId` / `order.fundingSource`.
 - Produces: when an order is a subscription order, BOTH surfaces render a distinct "🔒 Subscription" badge, hide/disable the Actions (edit/status/delete) section, and show an "↗ Open in scheduler" link to `/crm/customers/:id/subscriptions/:subId/week`. Staff still see the order for production; they cannot edit it.
 
-- [ ] **Step 1: Add the read-only branch to `OrderSlideOver.tsx`** — at the Actions section (grounded ~lines 557–570), if `order.subscriptionId` render the locked variant instead of `<StatusActionButtons/>`.
-- [ ] **Step 2: Mirror the exact same branch into `OrderDetail.tsx`** (Actions section ~lines 314–330). They do NOT share a component — mirror by hand (Pitfall #20).
-- [ ] **Step 3: `npm run build` + manual (open a subscription order in BOTH surfaces) + commit**
+#### ▶ AMENDMENT gap #2 — strip the confidential partner price SERVER-SIDE for non-managers
+
+The kanban (`OrderSlideOver`/`OrderDetail`/kitchen board) is reachable by **order_staff and kitchen**, and a subscription order's `orderItems` carry the **confidential partner `unitPrice`** (Task B7). Hiding the Actions section is NOT enough — the line-item price + order total are still rendered. **Required: strip `unitPrice`/`lineTotal` (orderItems) and `totalAmount`/`finalTotal`/`totalMargin`/`totalCost` (order) SERVER-SIDE on subscription orders unless the caller's role ∈ {manager, admin}.** NOT a client-side hide (leaks over the network); NOT a manager-only query (crashes the board for staff on mount — Pitfall #19). Kitchen keeps **qty + product** (BOM/production needs them), just not money. (Phase E's spec AC11/Q11 defers here.)
+
+**Grounded gap:** the order-read queries the kanban consumes are plain `query()` with **no `ctx.user`** — `convex/orders/queries.ts` `get` (`:230`), `getKitchenOrders` (`:296+`), `getByOrderNumber` (`:262`), and `convex/orders/kitchenQueries.ts` `getKitchenPackingOrders` (`:13`). To strip by role they must become `protectedQuery` (roles include `kitchen`/`order_staff`/`manager`/`admin`) so `ctx.user.role` is available. Role literals: `kitchen | order_staff | manager | admin` (`convex/lib/auth.ts:21`).
+
+**Files:**
+- Create: `convex/orders/helpers/stripSubscriptionPricing.ts` + test.
+- Modify: `convex/orders/queries.ts` (convert `get`/`getKitchenOrders`/`getByOrderNumber` → `protectedQuery` + apply strip), `convex/orders/kitchenQueries.ts` (`getKitchenPackingOrders`).
+- Modify: `src/hooks/convex/useOrders.ts` (+ kitchen hooks) — switch the affected `useQuery` calls to the session-aware variant the project uses for `protectedQuery` (e.g. `useSessionQuery`).
+- Modify: `src/components/orders/OrderSlideOver.tsx` AND `src/pages/OrderDetail.tsx` (the read-only rendering).
+
+- [ ] **Step 1: TDD the pure strip helper.** `convex/orders/helpers/__tests__/stripSubscriptionPricing.test.ts`:
+
+```ts
+import { describe, it, expect } from "vitest";
+import { stripSubscriptionPricing } from "../stripSubscriptionPricing";
+
+const order = (extra = {}) => ({ fundingSource: "subscription_credit", totalAmount: 4350000, finalTotal: 4350000, totalMargin: 4350000, totalCost: 0, ...extra });
+const items = [{ productName: "Dubai", quantity: 150, unitPrice: 29000, lineTotal: 4350000, menuProductId: "p1" }];
+
+describe("stripSubscriptionPricing", () => {
+  it("strips price fields for a non-manager on a subscription order", () => {
+    const r = stripSubscriptionPricing(order(), items, "kitchen");
+    expect(r.order.totalAmount).toBeUndefined();
+    expect(r.order.finalTotal).toBeUndefined();
+    expect(r.items[0].unitPrice).toBeUndefined();
+    expect(r.items[0].lineTotal).toBeUndefined();
+    expect(r.items[0].quantity).toBe(150);          // qty + product KEPT
+    expect(r.items[0].productName).toBe("Dubai");
+  });
+  it("keeps prices for a manager", () => {
+    expect(stripSubscriptionPricing(order(), items, "manager").items[0].unitPrice).toBe(29000);
+  });
+  it("keeps prices for a non-manager on a NON-subscription order", () => {
+    const r = stripSubscriptionPricing(order({ fundingSource: "normal", subscriptionId: undefined }), items, "order_staff");
+    expect(r.items[0].unitPrice).toBe(29000);
+  });
+});
+```
+
+```ts
+// stripSubscriptionPricing.ts
+import { isSubscriptionOrder } from "../../subscriptions/revenueGate";
+const MANAGERIAL = new Set(["manager", "admin"]);
+export function stripSubscriptionPricing<O extends Record<string, any>, I extends Record<string, any>>(
+  order: O, items: I[], role: string,
+): { order: O; items: I[] } {
+  if (MANAGERIAL.has(role) || !isSubscriptionOrder(order)) return { order, items };
+  return {
+    order: { ...order, totalAmount: undefined, finalTotal: undefined, totalMargin: undefined, totalCost: undefined },
+    items: items.map((it) => ({ ...it, unitPrice: undefined, lineTotal: undefined })),
+  };
+}
+```
+
+Run `npx vitest run convex/orders/helpers/__tests__/stripSubscriptionPricing.test.ts` → PASS. Reuses `isSubscriptionOrder` (Task B4) so "what counts as a subscription order" stays single-sourced.
+
+- [ ] **Step 2: Convert the kanban order-read queries to `protectedQuery` + apply the strip.** In `convex/orders/queries.ts`, change `get`/`getKitchenOrders`/`getByOrderNumber` from `query(...)` to `protectedQuery({ roles: ["kitchen","order_staff","manager","admin"], ... })` and, before returning, run the result through `stripSubscriptionPricing(order, items, ctx.user.role)`. Mirror in `kitchenQueries.ts` `getKitchenPackingOrders`. **Strip at EVERY query a non-manager uses to see subscription line data** — a single missed query re-leaks the price.
+
+- [ ] **Step 3: Update the frontend hooks.** In `src/hooks/convex/useOrders.ts` (and any kitchen hook), switch the converted queries' `useQuery(api.orders.queries.get, ...)` to the project's session-aware hook (`useSessionQuery`, as used by other `protectedQuery` consumers) so the sessionId is supplied. Type-check — stripped fields are now `T | undefined`; the order-detail/kanban UI must already guard money rendering (render "—" when undefined).
+
+- [ ] **Step 4: Read-only rendering, BOTH surfaces.** Add the read-only branch to `OrderSlideOver.tsx` (Actions ~557–570) and mirror EXACTLY into `OrderDetail.tsx` (Actions ~314–330): on `order.subscriptionId`, render the "🔒 Subscription" locked variant + "↗ Open in scheduler" link instead of `<StatusActionButtons/>`; render money fields as "—" when undefined (stripped for staff). Do NOT share a component — mirror by hand (Pitfall #20).
+
+- [ ] **Step 5: `npm run build` + manual + commit.** Manual: open a subscription order as **kitchen** (no price anywhere, qty+product visible) AND as **manager** (price visible) in BOTH surfaces; confirm a normal order is unaffected.
 
 ```bash
-git add src/components/orders/OrderSlideOver.tsx src/pages/OrderDetail.tsx
-git commit -m "feat(crm): read-only subscription rendering on kanban (both surfaces, Pitfall #20)"
+git add convex/orders/helpers/stripSubscriptionPricing.ts convex/orders/helpers/__tests__/ convex/orders/queries.ts convex/orders/kitchenQueries.ts src/hooks/convex/useOrders.ts src/components/orders/OrderSlideOver.tsx src/pages/OrderDetail.tsx convex/_generated/
+git commit -m "feat(crm): strip confidential subscription pricing server-side for non-managers + read-only kanban (gap #2, Pitfall #20)"
 ```
 
 ---
@@ -1053,9 +1167,11 @@ git commit -m "docs(subscriptions): Phase B weekly-cycle changelog + API + file 
 - [ ] **I4:** Frollie-fault shortfall flags `refundDue` only (no payout mutation).
 - [ ] Subscription orders read-only on BOTH kanban surfaces (Pitfall #20); editable only in scheduler.
 - [ ] All subscription/credit/invoice/CRM surfaces manager+admin only (Pitfall #19).
+- [ ] **Gap #1:** subscription weekly `invoiceNumber` (`INV-YYMM-NNN`) shown as the bank-transfer reference on the visual invoice; `/financials` reconciliation links an incoming transfer to the weekly invoice by that reference and `markWeeklyInvoicePaid` funds the week (match-engine test green). Revenue-recognition decision (a/b) confirmed with user.
+- [ ] **Gap #2:** subscription order `unitPrice`/`lineTotal`/`totalAmount` stripped SERVER-SIDE for kitchen/order_staff across ALL kanban order-read queries (strip-helper test green); kitchen still sees qty + product; managers see price.
 
 ## Self-Review (writing-plans)
 
-- **Spec coverage:** §6 schedule → B6/B7/B13/B14; §7 billing/credit/weekly cycle → B9/B10/B11/B15; §7 reconcile + §13.1 FIFO → B3/B11; §8 out-of-credit → B12; §4.4 analytics isolation (C1) → B4/B8; §4.5 invoices → B9; r1.c1 seed sources → B6/B14; kanban read-only → B16. All merged-phase sections mapped.
+- **Spec coverage:** §6 schedule → B6/B7/B13/B14; §7 billing/credit/weekly cycle → B9/B10/B11/B15; §7 reconcile + §13.1 FIFO → B3/B11; §8 out-of-credit → B12; §4.4 analytics isolation (C1) → B4/B8; §4.5 invoices → B9; r1.c1 seed sources → B6/B14; kanban read-only → B16; **gap #1 (transfer ref + /financials match) → B9 amendment; gap #2 (server-side price strip) → B16 amendment.** All merged-phase sections mapped.
 - **Placeholder scan:** pure cores (B1–B4) carry full TDD code; ctx-dependent mutations (B5–B13) carry real signatures + grounded code shape + the exact reuse points (per project convention that defers their runtime tests); UI tasks (B14–B16) carry component structure + wiring. The two "mirror createDraft's non-order fields" notes (B9) and "verify status literals" (B7) are explicit read-the-file instructions, not placeholders.
 - **Type consistency:** `ScheduleLine`/`PlannedDay`/`CreditPool`/`LedgerType` from Phase-A `types.ts`; `makeScheduleLine`, `validateScheduleTemplate`, `computeWeekBounds`, `reconcileTranches`, `isSubscriptionOrder`, `insertOrderWithItems` signatures consistent across their consumers (B6/B7/B8/B9/B11).
