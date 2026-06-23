@@ -1,7 +1,7 @@
 # Subscription & Credit System — Design Spec
 
 **Date:** 2026-06-23
-**Status:** Design (brainstorming output) — pending user approval before writing-plans
+**Status:** Greenlit (2026-06-23) — §13 open questions resolved; planning in progress (spec→plan pipeline)
 **Companion mockup:** `docs/superpowers/specs/2026-06-23-subscription-credit-mockups.html` (open in browser; has a proofing room for inline comments)
 **Driving contract:** `Frollie × Amsterdamn Cafe Supply Agreement` (vFinal ID) — first real instance
 
@@ -64,6 +64,7 @@ The standing agreement / config per customer.
 - `confidentialPrice: boolean`
 - `deliverByTime: string` (e.g. "09:00", WIB)
 - `creditRolloverPolicy: "expire" | "rollover"` (default `expire` per clause 7)
+- `rolloverExpiryWeeks?: number` (default `4`; only meaningful when `creditRolloverPolicy = "rollover"`; `null`/`undefined` ⇒ never expires — explicit opt-out, see §13.1). Rolled-over credit is consumed **FIFO (oldest week first)** so expiry is deterministic.
 - `changeCutoff: { hour: 13, dayOffset: -1 }` (13:00 day-before)
 - `permanentChangeNoticeDays: number` (14)
 - `terminationNoticeDays: number` (30)
@@ -95,6 +96,7 @@ Every credit movement is one immutable entry. Pool fields above are derived from
 - `amount: number` (signed: + topup/refund-in, − drawdown/expiry)
 - `balanceAfter: number`
 - `orderId?: Id<"orders">` (drawdown), `invoiceId?: Id<"invoices">` (topup)
+- `rolloverFromWeekId?: Id<"subscriptionWeeks">` (set on the carry-forward `topup` entry when `creditRolloverPolicy = "rollover"`; lets reconcile trace + FIFO-expire carried credit within `rolloverExpiryWeeks`)
 - `createdAt`, `createdBy`, `note?`
 - **Indexes:** `by_subscriptionWeek`, `by_subscription`, `by_order`
 
@@ -191,7 +193,7 @@ Every order linked to the customer that week consumes the pool (`qty × unitPric
 
 ### Reconciliation (clause 7)
 At week end: `shortfall = issued − consumed`. Manager attributes fault:
-- **Cafe under-ordered** → unused credit `expiry` entry (non-transferable, no refund) unless `creditRolloverPolicy = rollover` (then carry forward).
+- **Cafe under-ordered** → unused credit `expiry` entry (non-transferable, no refund) unless `creditRolloverPolicy = rollover` (then carry forward as a `rolloverFromWeekId`-tagged `topup` on the next week, FIFO-consumed, itself expiring after `rolloverExpiryWeeks` — §13.1).
 - **Frollie supply failure** → `refundDue` flagged, `refund` entry on payout.
 
 ---
@@ -201,7 +203,7 @@ At week end: `shortfall = issued − consumed`. Manager attributes fault:
 Two paths, shortfall always **flagged** first:
 
 - **Path A — scheduled order short on credit** (editable only in scheduler): flag partial fulfilment on that day → **split the order** so only the credit-covered portion bills against remaining credit → the **remainder + rest-of-week plan becomes a new invoice** sent to the customer (same top-up journey). Split happens in the scheduler, never on the kanban.
-- **Path B — ad-hoc order** (normal flow): apply whatever credit is left + **collect the remainder as a deposit/payment**; or issue a schedule top-up; full exhaustion falls back to normal billing (AwaitingPayment). Auto-resumes next week.
+- **Path B — ad-hoc order** (normal flow): apply whatever credit is left + **collect the remainder via the existing normal/QRIS payment flow** (no new deposit record — see §13.2). The applied-credit portion posts a `drawdown` ledger entry; the uncovered remainder falls back to normal billing (`AwaitingPayment`) and is collected through the existing payment infrastructure (Phase 84 `qrisPayments` / bank transfer). `fundingSource: "deposit"` labels such a part-credit/part-cash order. Or issue a schedule top-up. Auto-resumes next week.
 
 ---
 
@@ -244,10 +246,10 @@ Each uses the resilient + watchdog send pattern (`*Resilient` + 15-min watchdog)
 
 ## 13. Open questions / assumptions to confirm
 
-1. **Rollover semantics:** when `rollover`, does carried credit expire after N weeks, or never? (Assumed: carries indefinitely until consumed; revisit.)
-2. **Deposit mechanism (Path B):** does "deposit" reuse the existing QRIS/normal payment flow, or a new deposit record? (Assumed: reuse normal payment.)
+1. ~~Rollover semantics~~ **RESOLVED (2026-06-23): bounded rollover horizon.** When `creditRolloverPolicy = "rollover"`, carried credit expires after `rolloverExpiryWeeks` (default **4**), consumed **FIFO (oldest week's credit drawn down first)** so expiry is deterministic. Setting `rolloverExpiryWeeks = null` is an explicit opt-out ⇒ never expires (use sparingly — unbounded credit is an untracked liability). Default subscription policy remains `expire` (clause 7 spirit: in-week consumption); rollover is opt-in per subscription. Mechanism: on week-end reconcile, unconsumed credit either posts an `expiry` entry (policy `expire`, or rolled credit past its horizon) or carries forward as a fresh `topup`-typed entry tagged `rolloverFromWeekId` against the next open `subscriptionWeek` (policy `rollover`, within horizon).
+2. ~~Deposit mechanism (Path B)~~ **RESOLVED (2026-06-23): reuse the existing normal/QRIS payment flow — no new deposit table.** The ad-hoc order's applied-credit portion posts a `drawdown` ledger entry; the uncovered remainder falls to normal billing (`AwaitingPayment`) and is collected through the existing payment infrastructure (Phase 84 `qrisPayments` action + webhook / bank transfer). `orders.fundingSource: "deposit"` is just the order-level label distinguishing a part-credit/part-cash order; it adds no new money-tracking subsystem. Rationale: the credit ledger stays the single source of truth for *credit*, and existing payment reconciliation stays the single source of truth for *cash* — no parallel deposit ledger to keep in sync.
 3. ~~Pool scoping~~ **RESOLVED (2026-06-23): per subscription-week pools.** Each subscription has its own ring-fenced weekly credit pool (`subscriptionWeeks` + `creditLedger` keyed by `subscriptionId`); refunds/rollover/expiry are per-agreement. The customer-dashboard drawdown chart (c24) **sums the customer's subscription pools for display only** — it is not a shared balance. An order draws from the pool of the subscription it belongs to.
-4. **Refund payout mechanism** (clause 7 Frollie-fault) — manual expense/transfer vs. tracked obligation only.
+4. **Refund payout mechanism** (clause 7 Frollie-fault) — manual expense/transfer vs. tracked obligation only. *(Still open — deferred to Phase C reconciliation; default: track `refundDue` as an obligation flag only, actual payout handled manually outside the system for v1.)*
 
 ---
 
