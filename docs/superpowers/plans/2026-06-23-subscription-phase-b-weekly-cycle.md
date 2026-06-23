@@ -51,7 +51,8 @@
 - `convex/bankStatements/matchEngine.ts` — match incoming credit lines to subscription weekly invoices by `invoiceNumber` reference (gap #1, B9).
 - `convex/integrations/internal/queries.ts:36` — exclude subscription orders (C1).
 - `convex/reports/dailySales.ts:13` — exclude subscription orders (C1).
-- `convex/schema.ts` — add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` (Refinement).
+- `convex/schema.ts` — add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` (Refinement); add `customers.customerType: "direct_b2c" | "b2b_wholesale"` (optional, revenue-category seam — spec §7.x).
+- `convex/subscriptions/mutations.ts` — `createSubscription` sets the customer's `customerType = "b2b_wholesale"`.
 - `src/hooks/convex/useOrders.ts` (+ kitchen hooks) — session-aware hooks for the converted `protectedQuery`s (gap #2, B16).
 
 **Frontend — create:**
@@ -701,7 +702,7 @@ const validOrders = allOrders.filter(
 
 `convex/subscriptions/__tests__/revenueGate.test.ts` — extend with a guard that both call sites use the predicate (grep-style assertion is brittle; instead assert the predicate's behaviour is the contract). Add a doc-comment in each gated file: `// C1: subscription orders excluded from channel revenue — see isSubscriptionOrder`. The pure predicate test (B4) is the mechanical proof; the manual UAT (below) confirms wiring.
 
-- [ ] **Step 4: Manual UAT (refined for deferred-revenue model)** — seed + confirm a subscription week, fund it, mark one order **delivered**; then for that period: (a) `getDailySalesSummary` and per-channel `externalRevenue` breakdowns **EXCLUDE** the subscription order (no qty/Rp, confidential price absent); (b) the **income-statement total INCLUDES** the delivered order's revenue under a **Subscription (B2B)** bucket (via the at-delivery journal line, B9 Step 3b) — NOT via `externalRevenue`; (c) kitchen production volume (BOM ball-count) still includes it. Record in PR. (These two gates here cover the channel-exclusion half; the income-statement inclusion is driven by B9's at-delivery journal line.)
+- [ ] **Step 4: Manual UAT (refined for deferred-revenue model)** — seed + confirm a subscription week, fund it, mark one order **delivered**; then for that period: (a) `getDailySalesSummary` and per-channel `externalRevenue` breakdowns **EXCLUDE** the subscription order (no qty/Rp, confidential price absent); (b) the **income-statement total INCLUDES** the delivered order's revenue under a **B2B Wholesale** bucket (via the at-delivery journal line, B9 Step 3b, keyed on `customerType`) — NOT via `externalRevenue`; (c) kitchen production volume (BOM ball-count) still includes it. Record in PR. (These two gates here cover the channel-exclusion half; the income-statement inclusion is driven by B9's at-delivery journal line.)
 
 - [ ] **Step 5: Type-check + commit**
 
@@ -726,7 +727,7 @@ git commit -m "fix(reports): exclude subscription orders from channel revenue (C
 - Produces:
   - `createSubscriptionWeeklyInvoice` (`protectedMutation`, manager+admin) `args: { subscriptionWeekId }` → builds a `final` invoice with `items` from `plannedDays` (each line carries `date`), `invoiceKind: "subscription_weekly"`, `orderId` undefined, `subscriptionWeekId` set, number via `getNextInvoiceNumber`; patches `subscriptionWeeks.weeklyInvoiceId` + status → `invoiced`.
   - `markWeeklyInvoicePaid` (`protectedMutation`) `args: { subscriptionWeekId }` → **cash event only:** posts a `topup` ledger entry (amount = invoice total, = deferred revenue) via `postLedgerEntry`, marks the week's generated orders `paymentStatus:"Paid"` + `paymentMethod:"subscription_credit"`, sets week status → `delivering`, stamps `paymentReceivedAt`. **Posts NO drawdown** (see below).
-  - `recognizeSubscriptionDelivery(ctx, orderId)` (internal helper) → **sales event:** posts the per-order `drawdown` + recognizes Subscription (B2B) revenue when the order is SENT/delivered; idempotent (once per `orderId`). Wired into the order status-change path.
+  - `recognizeSubscriptionDelivery(ctx, orderId)` (internal helper) → **sales event:** posts the per-order `drawdown` + recognizes B2B Wholesale revenue when the order is SENT/delivered; idempotent (once per `orderId`). Wired into the order status-change path.
 
 > **Gap #1 + revenue model:** the `invoiceNumber`-as-transfer-reference + `/financials` matching is fully specified in the **▶ AMENDMENT gap #1** block after Step 5 (don't duplicate here). The deferred-revenue split (cash at funding, sales at delivery) is in the **Revenue-recognition model** note before the `markWeeklyInvoicePaid` code.
 
@@ -838,7 +839,7 @@ export const markWeeklyInvoicePaid = protectedMutation({
 });
 ```
 
-- [ ] **Step 3b: Recognize the sale at delivery — drawdown when a subscription order is SENT.** Add `recognizeSubscriptionDelivery(ctx, orderId)` (internal helper) that, when a subscription order transitions to its **sent/dispatched** status, posts the `drawdown` (`-order.totalAmount`, the revenue-recognition event) and records subscription **sales revenue** for the P&L (bucket "Subscription (B2B)"). Wire it into the order status-change path so it fires once, idempotently (guard: skip if a `drawdown` for this `orderId` already exists — `creditLedger.by_order`).
+- [ ] **Step 3b: Recognize the sale at delivery — drawdown when a subscription order is SENT.** Add `recognizeSubscriptionDelivery(ctx, orderId)` (internal helper) that, when a subscription order transitions to its **sent/dispatched** status, posts the `drawdown` (`-order.totalAmount`, the revenue-recognition event) and records subscription **sales revenue** for the P&L (bucket "B2B Wholesale"). Wire it into the order status-change path so it fires once, idempotently (guard: skip if a `drawdown` for this `orderId` already exists — `creditLedger.by_order`).
 
 ```ts
 // Fires once when a subscription order is marked sent/delivered.
@@ -853,21 +854,26 @@ export async function recognizeSubscriptionDelivery(ctx: MutationCtx, orderId: I
     type: "drawdown", amount: -order.totalAmount, createdBy: ctx.user._id,
     orderId, note: `Sale recognized on delivery ${order.orderNumber}`,
   });
-  // P&L: recognize Subscription (B2B) sales revenue at delivery — post the revenue journal
-  // line via the project's GL/journal API (ground it: the same posting the income statement's
-  // `fetchAndAggregate` journal-line scan reads). Keep it OUT of `externalRevenue` so per-channel
-  // analytics stay clean (C1); it lands in the P&L total via the journal line, bucketed B2B.
+  // P&L: recognize B2B Wholesale sales revenue at delivery — post the revenue journal line via
+  // the project's GL/journal API (ground it: the same posting the income statement's
+  // `fetchAndAggregate` journal-line scan reads). Bucket on the CUSTOMER'S `customerType`
+  // ("b2b_wholesale"), NOT a subscription-specific tag — so future non-subscription wholesale
+  // recognizes under the same line (§7.x). Keep it OUT of `externalRevenue` so per-channel
+  // analytics stay clean (C1); it lands in the P&L total via the journal line.
 }
 ```
 
 > **Define "sent":** wire `recognizeSubscriptionDelivery` to the status transition that means *dispatched/delivered* (confirm the literal — `AwaitingDelivery` = out for delivery, or `Complete`). Pick the one ops sets when the order physically goes out by `deliverByTime`. The drawdown/revenue must NOT fire at funding (Monday) — only at delivery.
-> **Reconciles C1:** subscription orders stay excluded from `externalRevenue` + per-channel sales dashboards (confidential price, distinct channel); subscription *revenue* still reaches the income-statement TOTAL via the at-delivery journal line, bucketed "Subscription (B2B)". Cash-vs-earned: credit pool balance = deferred-revenue liability on the balance sheet.
+> **Reconciles C1 + categorization (§7.x):** subscription orders stay excluded from `externalRevenue` + per-channel sales dashboards (confidential price, B2B not a retail channel); the *revenue* reaches the income-statement TOTAL via the at-delivery journal line under a **B2B Wholesale** line keyed on `customers.customerType`. Cash-vs-earned: credit pool balance = deferred-revenue liability. The B2B Wholesale bucket is the umbrella — subscription cafe sales are its first occupant; future non-subscription wholesale slots in via the same `customerType` key.
 
-- [ ] **Step 4: Add the `invoices.by_subscriptionWeek` index** in `convex/schema.ts` and `npx convex codegen && npm run type-check`. (Used if you later look up an invoice by week; the reverse pointer already exists, so this is the Refinement.)
+- [ ] **Step 4: Schema additions** in `convex/schema.ts` + `npx convex codegen && npm run type-check`:
+  - Add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` (the Refinement).
+  - Add `customerType: v.optional(v.union(v.literal("direct_b2c"), v.literal("b2b_wholesale")))` to `customers` (additive, default treated as `direct_b2c`) — the durable revenue-category seam (spec §4.7/§7.x). The at-delivery journal line (Step 3b) buckets B2B Wholesale on this field.
+  - In `createSubscription` (Task A5, already shipped — patch it here): when a subscription is created/activated for a customer, set that `customers.customerType = "b2b_wholesale"` if not already set (a subscription customer is, by definition, B2B wholesale). Durable — survives if the subscription later ends.
 
 - [ ] **Step 5: Manual smoke + commit**
 
-Manual (deferred-revenue model): invoice a confirmed week, mark paid → verify `creditIssued` = week total (deferred revenue funded), each order cash-`Paid`, and **`creditConsumed` = 0 / `creditRemaining` = full** (nothing recognized yet — no deliveries). Then mark one order **sent/delivered** → verify exactly one `drawdown` posts for it (`creditConsumed` rises by that order's total, idempotent on repeat) and a Subscription (B2B) revenue line is recognized.
+Manual (deferred-revenue model): invoice a confirmed week, mark paid → verify `creditIssued` = week total (deferred revenue funded), each order cash-`Paid`, and **`creditConsumed` = 0 / `creditRemaining` = full** (nothing recognized yet — no deliveries). Then mark one order **sent/delivered** → verify exactly one `drawdown` posts for it (`creditConsumed` rises by that order's total, idempotent on repeat) and a B2B Wholesale revenue line is recognized.
 
 ```bash
 git add convex/subscriptions/invoicing.ts convex/subscriptions/recognition.ts convex/invoices/mutations.ts convex/orders/ convex/schema.ts convex/_generated/
@@ -906,7 +912,7 @@ if (byRef) return { kind: "subscriptionWeeklyInvoice", id: byRef._id, invoiceNum
 ```
 
 - [ ] **Step A2: On confirm-link, fund the week (cash event = deferred revenue).** When the operator confirms a bank line ↔ subscription-weekly-invoice link in `/financials`, call `markWeeklyInvoicePaid({ subscriptionWeekId })` (Task B9) — that posts the `topup` (funds the **deferred-revenue** pool) and marks the week's orders cash-Paid. It does **NOT** recognize sales (that happens per order at delivery — B9 Step 3b). Wire the reconcile-confirm action (wherever bank-line links are confirmed today) to dispatch `markWeeklyInvoicePaid` when `kind === "subscriptionWeeklyInvoice"`.
-  > **Revenue recognition (RESOLVED 2026-06-23, user directive):** the weekly credit is a **prepaid voucher** — cash and sales are separate events. **Cash in (this transfer) = deferred revenue (liability), recognized when received.** **Sales = recognized when each order is SENT/delivered** (per-order `drawdown`, B9 Step 3b), bucketed "Subscription (B2B)" in the P&L via an at-delivery journal line, kept out of `externalRevenue`/per-channel analytics (C1). The credit-pool balance = the deferred-revenue liability. So this `/financials` match records the **cash/deferred** side only; revenue follows at delivery.
+  > **Revenue recognition (RESOLVED 2026-06-23, user directive):** the weekly credit is a **prepaid voucher** — cash and sales are separate events. **Cash in (this transfer) = deferred revenue (liability), recognized when received.** **Sales = recognized when each order is SENT/delivered** (per-order `drawdown`, B9 Step 3b), bucketed "B2B Wholesale" in the P&L via an at-delivery journal line, kept out of `externalRevenue`/per-channel analytics (C1). The credit-pool balance = the deferred-revenue liability. So this `/financials` match records the **cash/deferred** side only; revenue follows at delivery.
 
 - [ ] **Step A3: Surface the reference on the visual invoice (display spec for B15).** The visual weekly invoice (Task B15) MUST show `invoiceNumber` prominently labelled **"Bank transfer reference"** (the customer copies it into the transfer memo), exactly as a normal invoice surfaces the order number. D (`/crm`) only *reads/links* this number — no logic.
 
@@ -949,7 +955,7 @@ git commit -m "feat(subscriptions): schedule-driven top-up delta invoice"
 - Produces: `reconcileWeek` (`protectedMutation`) `args: { subscriptionWeekId, shortfallFault: v.union("none","cafe","frollie") }` → at week end computes `shortfall = creditRemaining` (= **undelivered, still-deferred** credit, since drawdowns now fire at delivery — B9 Step 3b), builds the tranche list from `rolloverFromWeekId`-tagged + base topup entries (each tagged with its `weeksCarried`), calls `reconcileTranches`, posts an `expiry` entry for each expired tranche and a carry-forward `topup` (tagged `rolloverFromWeekId`, against the next open week) for each carried tranche; on `shortfallFault:"frollie"` sets `refundDue = shortfall` + `refundStatus:"pending"` (flag only, no payout — I4); sets week status → `reconciled`. **Refuses if week status is `closed`** (closed-week guard, C2).
 
 > **Deferred-revenue accounting at reconcile (user directive 2026-06-23):** `shortfall` is leftover **deferred revenue** (cash held for products never delivered). Its fate maps to the fault:
-> - **`cafe` under-ordered → `expiry`:** the cafe forfeits the credit (non-transferable, no refund). This is **breakage** — recognize the expired amount as Subscription (B2B) revenue at expiry (Frollie keeps the cash, earns it on forfeiture). Mirror the at-delivery journal-line treatment (B9 Step 3b), bucketed B2B.
+> - **`cafe` under-ordered → `expiry`:** the cafe forfeits the credit (non-transferable, no refund). This is **breakage** — recognize the expired amount as B2B Wholesale revenue at expiry (Frollie keeps the cash, earns it on forfeiture). Mirror the at-delivery journal-line treatment (B9 Step 3b), bucketed B2B Wholesale.
 > - **`rollover` → `carry`:** deferred revenue stays a liability, carried to next week (no recognition).
 > - **`frollie` fault → `refund`:** cash is owed back → deferred revenue is reversed, **no** revenue recognized; `refundDue` flags the obligation (payout manual, I4).
 
@@ -1186,10 +1192,11 @@ git commit -m "docs(subscriptions): Phase B weekly-cycle changelog + API + file 
 - [ ] `npm run build` succeeds (vendor cap respected).
 - [ ] Schedule total = weekly invoice total = credit granted (enforced via `makeScheduleLine`; proven on a confirmed week).
 - [ ] `confirmWeek` generates one order per planned day at partner `unitPrice`; production records created (kanban shows units).
-- [ ] **Deferred-revenue model:** `markWeeklyInvoicePaid` funds the pool (`topup` = deferred revenue) + marks orders cash-Paid but posts **NO** drawdown; the `drawdown` (sale recognition, Subscription B2B P&L) fires **per order at delivery** (idempotent), not at funding. Pool balance = deferred-revenue liability; pool replay matches.
+- [ ] **Deferred-revenue model:** `markWeeklyInvoicePaid` funds the pool (`topup` = deferred revenue) + marks orders cash-Paid but posts **NO** drawdown; the `drawdown` (sale recognition, B2B Wholesale P&L) fires **per order at delivery** (idempotent), not at funding. Pool balance = deferred-revenue liability; pool replay matches.
 - [ ] Top-up = schedule-driven delta invoice only; no standalone form.
 - [ ] Out-of-credit: scheduled split (Path A) + ad-hoc apply-partial (Path B, no new deposit table).
-- [ ] **C1 (refined):** subscription order absent from `getDailySalesSummary` + per-channel `externalRevenue` breakdowns, **but** its at-delivery revenue PRESENT in the income-statement total under a Subscription (B2B) bucket; BOM ball-count still resolves (sentinel predicate test + manual UAT).
+- [ ] **C1 (refined):** subscription order absent from `getDailySalesSummary` + per-channel `externalRevenue` breakdowns, **but** its at-delivery revenue PRESENT in the income-statement total under a **B2B Wholesale** bucket (keyed on `customers.customerType`); BOM ball-count still resolves (sentinel predicate test + manual UAT).
+- [ ] **Revenue categorization (§7.x):** `customers.customerType` seam added; subscription create sets `b2b_wholesale`; B2B Wholesale recognized separately from B2C Direct in the P&L (subscription is the first B2B occupant; future non-subscription wholesale uses the same key).
 - [ ] **C2:** per-tranche FIFO reconcile proven by multi-week unit fixture; `reconcileWeek` rejects a `closed` week.
 - [ ] **I4:** Frollie-fault shortfall flags `refundDue` only (no payout mutation).
 - [ ] Subscription orders read-only on BOTH kanban surfaces (Pitfall #20); editable only in scheduler.

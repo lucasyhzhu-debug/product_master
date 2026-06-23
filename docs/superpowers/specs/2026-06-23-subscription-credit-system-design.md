@@ -109,12 +109,12 @@ Daily deliveries reuse the existing `orders`/`orderItems`/production pipeline. A
 - `subscriptionWeekId?: Id<"subscriptionWeeks">`
 - `deliveryDate?: number`
 - `fundingSource?: "subscription_credit" | "deposit" | "normal"` (how it was paid)
-- **Behaviour (deferred-revenue / voucher model — 2026-06-23):** the weekly credit is a **prepaid voucher** — cash and sales are SEPARATE events. **Funding** (weekly invoice paid) sets the order `paymentStatus: "Paid"`, `paymentMethod: "subscription_credit"` (cash settled from prepaid credit) and funds the pool as **deferred revenue** — it does NOT draw down. The **`drawdown` (= sale recognition, `qty × unitPrice`) is written when the order is SENT/delivered**, recognizing Subscription (B2B) revenue at delivery. The credit-pool balance = the deferred-revenue liability.
+- **Behaviour (deferred-revenue / voucher model — 2026-06-23):** the weekly credit is a **prepaid voucher** — cash and sales are SEPARATE events. **Funding** (weekly invoice paid) sets the order `paymentStatus: "Paid"`, `paymentMethod: "subscription_credit"` (cash settled from prepaid credit) and funds the pool as **deferred revenue** — it does NOT draw down. The **`drawdown` (= sale recognition, `qty × unitPrice`) is written when the order is SENT/delivered**, recognizing B2B Wholesale revenue at delivery (§7.x). The credit-pool balance = the deferred-revenue liability.
 - **Partner price on `orderItems` (staffreview I3):** the generated order's `orderItems` carry the subscription **partner `unitPrice`** so `orders.totalAmount` (DERIVED sum of `orderItems.lineTotal`) equals the credit drawdown — otherwise the order total and the drawdown diverge.
 - **Analytics isolation (staffreview I3 → C1, refined 2026-06-23 for the deferred-revenue model):** 1,050 pcs/wk at a confidential B2B price must NOT pollute the **per-channel/platform sales & margin** reports — but subscription B2B *is* real revenue and MUST appear in the **income-statement total** (recognized at delivery). Two layers:
   - **Exclude from channel/platform analytics:** gate subscription orders out of `externalRevenue` sync (on `fundingSource !== "subscription_credit"` / no `subscriptionId`) and out of `getDailySalesSummary` (`convex/reports/dailySales.ts:8`) — so per-platform breakdowns + margin-by-channel + the sales dashboards stay clean and the confidential per-unit price never lands in channel data.
-  - **Include in the P&L total as a distinct bucket:** subscription revenue is recognized **at delivery** via a Subscription (B2B) **journal line** (NOT via `externalRevenue`). The income statement (`fetchAndAggregate`, `convex/reports/incomeStatement.ts:581`, which already scans journal lines) therefore reflects it in total revenue, bucketed B2B, without contaminating channel analytics.
-  - **Sentinel test (mandatory):** a subscription order is **absent** from `getDailySalesSummary` and from per-channel `externalRevenue` breakdowns, **but** its at-delivery revenue **is present** in the income-statement total under the Subscription (B2B) bucket. **BOM ball-counting (Pitfall #11/#13) MUST still resolve** for subscription products (kitchen/production volume stays correct).
+  - **Include in the P&L total as a distinct bucket:** subscription revenue is recognized **at delivery** via a **B2B Wholesale** **journal line** keyed on `customerType` (§7.x; NOT via `externalRevenue`). The income statement (`fetchAndAggregate`, `convex/reports/incomeStatement.ts:581`, which already scans journal lines) therefore reflects it in total revenue under the B2B Wholesale line, without contaminating per-channel analytics.
+  - **Sentinel test (mandatory):** a subscription order is **absent** from `getDailySalesSummary` and from per-channel `externalRevenue` breakdowns, **but** its at-delivery revenue **is present** in the income-statement total under the **B2B Wholesale** bucket. **BOM ball-counting (Pitfall #11/#13) MUST still resolve** for subscription products (kitchen/production volume stays correct).
 - **Index:** `by_subscriptionWeek`
 
 ### 4.5 `invoices` (changes)
@@ -143,6 +143,7 @@ Crisp CRM contact data (additive to existing fields):
 
 - existing: `name`, `phone`, `companyName`, `npwp`, `billingAddress`, `defaultAddress`, `notes`
 - add: `keyContactName`, `keyContactRole`, `whatsapp`, `email`, `instagram`, `otherSocials` (array of `{platform, handle, url}`), `deliveryAddress`, `storeAddress`, `otherAddresses` (array), `altPhone`
+- add: **`customerType?: "direct_b2c" | "b2b_wholesale"`** (optional, default `direct_b2c`) — the durable **revenue-category** dimension (§7.x). A subscription cafe is `b2b_wholesale`; this stays true even if the cafe later buys wholesale *without* a subscription. Keying the P&L B2B bucket on `customerType` (not on "is a subscription order") is what makes the categorization survive future non-subscription wholesale.
 - All contact/social fields render as **clickable links** (wa.me / mailto / IG / TikTok).
 
 ---
@@ -194,7 +195,18 @@ New **CRM** area (`/crm`). Manager & admin only.
 - **Manager & admin only.**
 
 ### Drawdown = sale recognition at delivery (deferred-revenue model, 2026-06-23)
-The weekly credit is a **prepaid voucher**. Funding the weekly invoice is the **cash** event (→ deferred-revenue pool; orders marked cash-`Paid`). The **`drawdown` is the SALES event and fires when each order is SENT/delivered** (`qty × unitPrice` per line), drawing the pool down and recognizing Subscription (B2B) revenue at delivery. The pool balance at any moment = cash received but not yet delivered = the **deferred-revenue liability**. (Recognize sales when the order ships; recognize cash when the transfer arrives.)
+The weekly credit is a **prepaid voucher**. Funding the weekly invoice is the **cash** event (→ deferred-revenue pool; orders marked cash-`Paid`). The **`drawdown` is the SALES event and fires when each order is SENT/delivered** (`qty × unitPrice` per line), drawing the pool down and recognizing **B2B Wholesale** revenue at delivery (see §7.x for the category). The pool balance at any moment = cash received but not yet delivered = the **deferred-revenue liability**. (Recognize sales when the order ships; recognize cash when the transfer arrives.)
+
+### 7.x Revenue categorization — keep B2B Wholesale separate from B2C Direct (2026-06-23)
+Revenue is categorized by **customer type** (`customers.customerType`, §4.7), a durable dimension orthogonal to billing mechanism:
+
+- **B2C Direct** — direct-to-consumer / retail (existing channels: GoFood, Shopee, TikTok, K3Mart, DM/direct). Unchanged; this is the existing per-channel sales & margin analytics.
+- **B2B Wholesale** — wholesale/cafe sales. **Subscription cafe sales are the FIRST B2B Wholesale revenue, but the category is the umbrella:** when a cafe later buys wholesale *without* a subscription, or a new wholesale buyer lands, it recognizes under the same B2B Wholesale line — no re-architecture. Subscription is a *billing mechanism* within B2B, not the category itself.
+
+Reporting consequence:
+- **Per-channel/platform sales dashboards + margin-by-channel** show **B2C Direct only** (subscription/B2B excluded — confidential pricing, not a retail channel). See §4.4.
+- **Income-statement total** carries a distinct **B2B Wholesale** revenue line (recognized at delivery via a journal line bucketed on `customerType`), alongside B2C Direct. Total P&L income = B2C + B2B.
+- **Phase B scope:** only subscription cafe sales populate B2B Wholesale now; the `customerType` seam + the B2B P&L line are built so future non-subscription wholesale slots in. A full retail-vs-wholesale dashboard split is a natural follow-up, not required for Phase B.
 
 ### Credit drawdown chart (note c24)
 - On the **customer dashboard**, **summing the customer's per-subscription pools for display** (each pool stays ring-fenced; this is a visual roll-up, not a shared balance).
