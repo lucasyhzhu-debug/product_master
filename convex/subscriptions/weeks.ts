@@ -1,5 +1,4 @@
-import { v } from "convex/values";
-import { ConvexError } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { protectedMutation } from "../lib/functions";
 import { computeLineTotal } from "./creditMath";
@@ -12,7 +11,7 @@ export function buildPlannedDays(args: {
   template: { dayOfWeek: number; items: { menuProductId: Id<"menuProducts">; qty: number }[] }[];
   unitPrice: number;
   deliverByTime: string;
-  productNames: Record<string, string>;
+  productNames: Record<Id<"menuProducts">, string>;
 }): PlannedDay[] {
   return [...args.template]
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
@@ -22,7 +21,7 @@ export function buildPlannedDays(args: {
       locked: false,
       items: t.items.map((it) => ({
         menuProductId: it.menuProductId,
-        productName: args.productNames[it.menuProductId as unknown as string] ?? "Unknown",
+        productName: args.productNames[it.menuProductId] ?? "Unknown",
         qty: it.qty,
         unitPrice: args.unitPrice,
         lineTotal: computeLineTotal(it.qty, args.unitPrice),
@@ -47,11 +46,11 @@ export const seedWeek = protectedMutation({
     if (existing) return existing._id;
 
     const productIds = [...new Set(sub.scheduleTemplate.flatMap((t) => t.items.map((i) => i.menuProductId)))];
-    const productNames: Record<string, string> = {};
-    for (const pid of productIds) {
-      const p = await ctx.db.get(pid);
-      if (p) productNames[pid as unknown as string] = p.name;
-    }
+    const productNames: Record<Id<"menuProducts">, string> = {};
+    const products = await Promise.all(productIds.map((pid) => ctx.db.get(pid)));
+    products.forEach((p, i) => {
+      if (p) productNames[productIds[i]] = p.name;
+    });
 
     const plannedDays = buildPlannedDays({
       weekStart: args.weekStart,

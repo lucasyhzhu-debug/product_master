@@ -15,6 +15,17 @@ export function nextBalanceAfter(prevBalance: number, amount: number): number {
   return prevBalance + amount;
 }
 
+// weeklyQty is always DERIVED from the schedule template (staffreview I2 — avoid
+// drift), never re-keyed by a caller. Single derivation path for create + update.
+export function deriveWeeklyQty(
+  template: { items: { qty: number }[] }[],
+): number {
+  return template.reduce(
+    (sum, day) => sum + day.items.reduce((s, it) => s + it.qty, 0),
+    0,
+  );
+}
+
 export function deriveCreditPool(entries: { type: LedgerType; amount: number }[]): CreditPool {
   let creditIssued = 0;
   let creditConsumed = 0;

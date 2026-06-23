@@ -1,5 +1,6 @@
 import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
+import { deriveWeeklyQty } from "./creditMath";
 
 const scheduleTemplateArg = v.array(
   v.object({
@@ -7,17 +8,6 @@ const scheduleTemplateArg = v.array(
     items: v.array(v.object({ menuProductId: v.id("menuProducts"), qty: v.number() })),
   }),
 );
-
-type ScheduleTemplate = { dayOfWeek: number; items: { qty: number }[] }[];
-
-// weeklyQty is always DERIVED from the schedule template (staffreview I2 — avoid drift),
-// never re-keyed by a caller. Single derivation path for both create and update.
-function deriveWeeklyQty(template: ScheduleTemplate): number {
-  return template.reduce(
-    (sum, day) => sum + day.items.reduce((s, it) => s + it.qty, 0),
-    0,
-  );
-}
 
 export const createSubscription = protectedMutation({
   roles: ["manager", "admin"],
