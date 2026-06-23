@@ -427,29 +427,22 @@ git commit -m "feat(subscriptions): isSubscriptionOrder revenue-gate predicate (
 
 ```ts
 import type { MutationCtx } from "../../_generated/server";
-import type { Id } from "../../_generated/dataModel";
+import type { Id, Doc } from "../../_generated/dataModel";
+import type { WithoutSystemFields } from "convex/server";
 import { createProductionRecordsForItem } from "./productionRecords";
 
-export type OrderItemInsert = {
-  productName: string;
-  productVariant?: string;
-  quantity: number;
-  unitPrice: number;
-  unitCost: number;
-  discountAmount: number;
-  lineTotal: number;
-  lineCost: number;
-  lineMargin: number;
-  menuProductId?: Id<"menuProducts">;
-};
+// Typed inserts — the compiler enforces every required orders/orderItems field
+// (I1: dropping `as never` is what catches a missing `deliveryType`/`isKitchenVisible`).
+export type OrderInsert = WithoutSystemFields<Doc<"orders">>;
+export type OrderItemInsert = Omit<WithoutSystemFields<Doc<"orderItems">>, "orderId">;
 
 export async function insertOrderWithItems(
   ctx: MutationCtx,
-  args: { orderFields: Record<string, unknown>; items: OrderItemInsert[] },
+  args: { orderFields: OrderInsert; items: OrderItemInsert[] },
 ): Promise<Id<"orders">> {
-  const orderId = await ctx.db.insert("orders", args.orderFields as never);
+  const orderId = await ctx.db.insert("orders", args.orderFields);
   for (const item of args.items) {
-    const orderItemId = await ctx.db.insert("orderItems", { orderId, ...item } as never);
+    const orderItemId = await ctx.db.insert("orderItems", { orderId, ...item });
     if (item.menuProductId) {
       await createProductionRecordsForItem(ctx, orderItemId, item.menuProductId, item.quantity);
     }
@@ -457,6 +450,8 @@ export async function insertOrderWithItems(
   return orderId;
 }
 ```
+
+> The existing `create` mutation builds `itemsToCreate` already shaped like `OrderItemInsert`; if its field set differs, align it. The typed `OrderInsert` means `confirmWeek` (Task B7) **cannot compile** without every required field — that is the point.
 
 - [ ] **Step 2: Refactor `orderCrud.ts` `create` to call the helper**
 
@@ -604,8 +599,10 @@ export const confirmWeek = protectedMutation({
           customerId: sub.customerId,
           customerName: customer.name,
           customerPhone: customer.phone ?? "",
-          status: "Confirmed",            // subscription orders skip Draft; awaiting credit funding
-          paymentStatus: "AwaitingPayment",
+          status: "AwaitingPayment",      // canonical literal; awaiting credit funding (NOT legacy "Confirmed")
+          paymentStatus: "Unpaid",        // paymentStatus literals are Unpaid|Partial|Paid — funding flips to Paid
+          deliveryType: "Delivery",       // REQUIRED (v.string()); subscription = delivery by deliverByTime
+          isKitchenVisible: true,         // REQUIRED; staff must see it to produce
           orderDate: Date.now(),
           dueDate: day.date,
           deliveryDate: day.date,
@@ -644,7 +641,7 @@ export const confirmWeek = protectedMutation({
 });
 ```
 
-> **Status mapping:** confirm sets generated orders to `Confirmed` / `AwaitingPayment`. Funding (Task B9 `markWeeklyInvoicePaid`) flips them to `Paid` and posts the drawdown. Verify `"Confirmed"`/`"AwaitingPayment"` are valid `orders.status`/`paymentStatus` literals in `convex/schema.ts`; adjust to the real literals if they differ (the order status workflow is in CLAUDE.md Key Business Rule #9).
+> **Status mapping (grounded, plan-staffreview C1):** confirm sets generated orders to `status:"AwaitingPayment"` + `paymentStatus:"Unpaid"`. (`orders.paymentStatus` is exactly `Unpaid|Partial|Paid` — `schema.ts:215–242`; `"AwaitingPayment"` is a `status` literal, NOT a `paymentStatus`. Use the canonical `"AwaitingPayment"`, not the legacy `"Confirmed"`.) Funding (Task B9 `markWeeklyInvoicePaid`) sets `paymentStatus:"Paid"` and advances `status` to `"PaymentReceived"` (canonical), then posts the drawdown.
 > **Atomicity:** all order+item+production writes for the week happen in this one mutation → atomic. 7 days × few products is well within Convex write limits; if a subscription ever spans many products/day, revisit batching.
 
 - [ ] **Step 2: Regenerate API + type-check**
@@ -755,20 +752,32 @@ export const createSubscriptionWeeklyInvoice = protectedMutation({
     const subtotal = items.reduce((s, it) => s + it.lineTotal, 0);
     const invoiceNumber = await getNextInvoiceNumber(ctx);
 
+    // Mirror createDraft's seller/bank snapshot (convex/invoices/mutations.ts:243–270).
+    const settings = await ctx.db.query("businessSettings").first();
+    const bank = settings?.defaultBankAccountId ? await ctx.db.get(settings.defaultBankAccountId) : null;
+
     const invoiceId = await ctx.db.insert("invoices", {
       status: "final",
       invoiceNumber,
       invoiceKind: "subscription_weekly",
       subscriptionWeekId: week._id,
-      // orderId intentionally omitted (subscription invoice has no single order)
+      // orderId intentionally omitted (subscription invoice has no single order).
+      // orderNumber is REQUIRED on invoices but there is no order — synthesize a stable week label.
+      orderNumber: `WEEK-${getWibDateStr(week.weekStart)}`,
+      orderDate: week.weekStart,
       generatedAt: Date.now(),
       generatedBy: ctx.user._id,
       updatedAt: Date.now(),
+      sellerName: settings?.sellerName ?? "Frollie",
+      bankName: bank?.bankName ?? "",
+      bankAccountNumber: bank?.accountNumber ?? "",
+      bankAccountName: bank?.accountName ?? "",
+      buyerName: customer?.name ?? "Customer",
       items,
-      // buyer/seller/bank/totals: reuse the shape standard invoices use — copy from createDraft's
-      // insert (mutations.ts) for buyerName/sellerName/bankAccount/subtotal/total/paymentStatus.
+      subtotal,
+      finalTotal: subtotal,        // required field name is finalTotal (no `total` field)
       paymentStatus: "Unpaid",
-    } as never);
+    });
 
     await ctx.db.patch(week._id, { weeklyInvoiceId: invoiceId, status: "invoiced" });
     return invoiceId;
@@ -776,7 +785,7 @@ export const createSubscriptionWeeklyInvoice = protectedMutation({
 });
 ```
 
-> Fill the buyer/seller/bank/total fields by mirroring the `ctx.db.insert("invoices", {...})` in `createDraft` (`convex/invoices/mutations.ts:~239`) — read it and copy the non-order fields (sellerName, buyer from `customer`, bankAccount from `businessSettings.defaultBankAccountId`, subtotal/discount/total). Do NOT call `createDraft` (it hard-requires `orderId`).
+> **Required invoices fields (grounded `schema.ts:2287–2344`):** `status, generatedBy, updatedAt, sellerName, bankName, bankAccountNumber, bankAccountName, buyerName, orderNumber, orderDate, items, subtotal, finalTotal, paymentStatus`. All provided above. Read the exact `businessSettings`/`bankAccounts` field names (`sellerName`, `bankName`, `accountNumber`, `accountName`) from `createDraft` and align if they differ. Do NOT call `createDraft` (it hard-requires `orderId`). Add `import { getWibDateStr } from "../lib/periodRange";`.
 
 - [ ] **Step 3: Implement `markWeeklyInvoicePaid`**
 
@@ -806,7 +815,11 @@ export const markWeeklyInvoicePaid = protectedMutation({
       .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
       .collect();
     for (const order of orders) {
-      await ctx.db.patch(order._id, { paymentStatus: "Paid", paymentMethod: "subscription_credit" });
+      await ctx.db.patch(order._id, {
+        paymentStatus: "Paid",                 // Unpaid|Partial|Paid
+        paymentMethod: "subscription_credit",  // paymentMethod is v.optional(v.string())
+        status: "PaymentReceived",             // canonical advance from AwaitingPayment
+      });
       await postLedgerEntry(ctx, {
         subscriptionId: week.subscriptionId, subscriptionWeekId: week._id,
         type: "drawdown", amount: -order.totalAmount, createdBy: ctx.user._id,
