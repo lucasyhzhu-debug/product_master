@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Timeline v3 — Faceted Activity Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7f9; --surface:#ffffff; --raise:#fafbfc; --line:#e8eaee; --line2:#dadde3; --hover:#f4f6f8;
+    --ink:#15181f; --muted:#5c6470; --faint:#98a0ad;
+    --accent:#0f766e; --accent-soft:#e6f3f1;
+    --order:#2563eb; --credit:#059669; --wa:#0d9488; --doc:#b45309; --sched:#64748b; --mile:#be185d;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --body:"Inter",-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:13.5px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 22px 120px}
+  .crumb{font-size:11.5px;color:var(--faint);margin-bottom:14px;font-weight:500}
+  .crumb a{color:var(--accent);text-decoration:none}.crumb b{color:var(--muted)}
+
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  .bar h1{font-size:18px;font-weight:700;letter-spacing:-.3px;margin:0;display:flex;align-items:center;gap:10px}
+  .bar h1 .sub{font-size:12px;font-weight:500;color:var(--muted)}
+  .toggles{display:flex;gap:8px;align-items:center}
+  .seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg b{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);padding:7px 9px;align-self:center;font-weight:600}
+  .seg button{font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted);background:none;border:0;padding:7px 11px;cursor:pointer;border-left:1px solid var(--line)}
+  .seg button.on{background:var(--ink);color:#fff}
+  .search{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px;min-width:180px}
+
+  .grid{display:grid;grid-template-columns:212px 1fr;gap:16px;align-items:start}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}.facets{order:2}}
+
+  /* facet rail */
+  .facets{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;position:sticky;top:14px}
+  .facets .grp{padding:10px 10px 12px}
+  .facets .grp + .grp{border-top:1px solid var(--line)}
+  .facets .ttl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:9px}
+  .facet{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+  .facet:hover{background:var(--hover);color:var(--ink)}
+  .facet.on{color:var(--ink);font-weight:600}
+  .facet .box{width:13px;height:13px;border-radius:4px;border:1.5px solid var(--line2);flex:0 0 auto;display:grid;place-items:center}
+  .facet.on .box{background:var(--accent);border-color:var(--accent)}
+  .facet.on .box::after{content:"✓";color:#fff;font-size:9px;font-weight:700}
+  .facet .bar2{width:7px;height:7px;border-radius:2px;flex:0 0 auto}
+  .facet .ct{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  /* log table */
+  .log{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .log .colhd{display:grid;grid-template-columns:78px 96px 1fr 110px 130px;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--raise);font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .colhd .r{text-align:right}
+  .grphd{padding:8px 14px;background:var(--raise);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.2px;display:flex;gap:9px;align-items:center}
+  .grphd .ct{font-family:var(--mono);font-weight:400;color:var(--faint)}
+
+  .row{display:grid;grid-template-columns:78px 96px 1fr 110px 130px;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);align-items:center;position:relative;cursor:default}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:var(--hover)}
+  .row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bar,transparent)}
+  .row .tm{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .row .tag{font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 7px;border-radius:5px;justify-self:start}
+  .row .sum{min-width:0;font-size:13px}
+  .row .sum b{font-weight:600}
+  .row .sum a{color:var(--accent);text-decoration:none}
+  .row .sum .meta{color:var(--faint);font-size:11.5px}
+  .row .who{font-size:11.5px;color:var(--muted)}
+  .row .who .av{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:9px;font-weight:700;margin-right:5px;vertical-align:-4px}
+  .row .rt{text-align:right;font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .row .rt.up{color:var(--credit)} .row .rt.dn{color:#dc2626} .row .rt.mut{color:var(--muted);font-weight:500}
+  .row .rt .lk{font-family:var(--body);font-size:11px;font-weight:600;color:var(--muted)}
+
+  /* type colors */
+  .ty-order{--bar:var(--order)} .ty-order .tag{color:var(--order);background:#e7effd}
+  .ty-credit{--bar:var(--credit)} .ty-credit .tag{color:var(--credit);background:#e6f6ef}
+  .ty-wa{--bar:var(--wa)} .ty-wa .tag{color:var(--wa);background:#e3f4f2}
+  .ty-doc{--bar:var(--doc)} .ty-doc .tag{color:var(--doc);background:#fbf0e2}
+  .ty-sched{--bar:var(--sched)} .ty-sched .tag{color:var(--sched);background:#eef1f5}
+  .ty-mile{--bar:var(--mile)} .ty-mile .tag{color:var(--mile);background:#fbe7f1}
+
+  .foot{padding:12px 14px;text-align:center;border-top:1px solid var(--line)}
+  .foot a{font-size:12px;font-weight:600;color:var(--accent);text-decoration:none}
+
+  .taxnote{margin-top:16px;font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:13px 15px;line-height:1.6}
+  .taxnote b{color:var(--ink)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb"><a>CRM</a> / <a>Customers</a> / <a>Amsterdamn Cafe</a> / <b>Activity</b></div>
+
+  <div class="bar">
+    <h1>Amsterdamn Cafe <span class="sub">· activity log · 9 events / 14 days</span></h1>
+    <div class="toggles">
+      <span class="search">⌕ filter…</span>
+      <div class="seg"><b>Group</b><button class="on">Day</button><button>Type</button><button>Object</button></div>
+      <div class="seg"><b>Density</b><button class="on">Compact</button><button>Roomy</button></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- facet rail -->
+    <aside class="facets">
+      <div class="grp">
+        <div class="ttl">Type</div>
+        <div class="facet on"><span class="box"></span>All <span class="ct">9</span></div>
+        <div class="facet"><span class="bar2" style="background:var(--order)"></span>Orders <span class="ct">1</span></div>
+        <div class="facet"><span class="bar2" style="background:var(--credit)"></span>Finance <span class="ct">3</span></div>
+        <div class="facet"><span class="bar2" style="background:var(--wa)"></span>Messages <span class="ct">1</span></div>
+        <div class="facet"><span class="bar2" style="background:var(--doc)"></span>Documents <span class="ct">1</span></div>
+        <div class="facet"><span class="bar2" style="background:var(--sched)"></span>Schedule <span class="ct">1</span></div>
+        <div class="facet"><span class="bar2" style="background:var(--mile)"></span>Milestones <span class="ct">2</span></div>
+      </div>
+      <div class="grp">
+        <div class="ttl">Actor</div>
+        <div class="facet"><span class="box"></span>Nilson <span class="ct">1</span></div>
+        <div class="facet"><span class="box"></span>Lucas <span class="ct">1</span></div>
+        <div class="facet"><span class="box"></span>System <span class="ct">7</span></div>
+      </div>
+      <div class="grp">
+        <div class="ttl">Direction</div>
+        <div class="facet"><span class="box"></span>Outbound <span class="ct">2</span></div>
+        <div class="facet"><span class="box"></span>Inbound <span class="ct">1</span></div>
+        <div class="facet"><span class="box"></span>System <span class="ct">6</span></div>
+      </div>
+      <div class="grp">
+        <div class="ttl">Window</div>
+        <div class="facet on"><span class="box"></span>Last 14 days</div>
+        <div class="facet"><span class="box" style="border-color:var(--line2)"></span>30 / 90 / all</div>
+      </div>
+    </aside>
+
+    <!-- log -->
+    <div class="log">
+      <div class="colhd"><span>When</span><span>Type</span><span>Activity</span><span>Actor</span><span class="r">Amount / link</span></div>
+
+      <div class="grphd">Today · 23 Jun <span class="ct">2</span></div>
+      <div class="row ty-credit">
+        <span class="tm">09:12</span>
+        <span class="tag">Payment</span>
+        <span class="sum"><b>Credit funded</b> — week 23–29 Jun <span class="meta">· inv <a>INV-2606-014</a> paid</span></span>
+        <span class="who"><span class="av">N</span>Nilson</span>
+        <span class="rt up">+30,450,000</span>
+      </div>
+      <div class="row ty-wa">
+        <span class="tm">08:30</span>
+        <span class="tag">WhatsApp ↗</span>
+        <span class="sum"><b>Reminder drafted</b> — invoice due <span class="meta">· initiated, not confirmed</span></span>
+        <span class="who"><span class="av">L</span>Lucas</span>
+        <span class="rt mut"><a class="lk">view</a></span>
+      </div>
+
+      <div class="grphd">Yesterday · 22 Jun <span class="ct">1</span></div>
+      <div class="row ty-order">
+        <span class="tm">16:40</span>
+        <span class="tag">Invoice ↗</span>
+        <span class="sum"><b>Weekly invoice sent</b> <span class="meta">· <a>INV-2606-014</a> · ref INV-2606-014</span></span>
+        <span class="who">System</span>
+        <span class="rt mut">Rp 30,450,000</span>
+      </div>
+
+      <div class="grphd">Earlier this week <span class="ct">4</span></div>
+      <div class="row ty-order">
+        <span class="tm">Sat 21</span>
+        <span class="tag">Order</span>
+        <span class="sum"><b>Delivered</b> — 150 × Dubai Chewy <span class="meta">· <a>0621-008</a> · drawdown</span></span>
+        <span class="who">System</span>
+        <span class="rt dn">−4,350,000</span>
+      </div>
+      <div class="row ty-sched">
+        <span class="tm">Fri 20</span>
+        <span class="tag">Schedule</span>
+        <span class="sum"><b>Week 23–29 Jun confirmed</b> <span class="meta">· 1,050 pcs · 7 orders + invoice</span></span>
+        <span class="who">System</span>
+        <span class="rt mut"><a class="lk">scheduler</a></span>
+      </div>
+      <div class="row ty-mile">
+        <span class="tm">Fri 20</span>
+        <span class="tag">Milestone</span>
+        <span class="sum"><b>Subscription started</b> <span class="meta">· Dubai Chewy — weekly @ Rp 29,000</span></span>
+        <span class="who">System</span>
+        <span class="rt mut">—</span>
+      </div>
+      <div class="row ty-doc">
+        <span class="tm">Thu 19</span>
+        <span class="tag">Agreement ↙</span>
+        <span class="sum"><b>Agreement signed</b> <span class="meta">· <a>vFinal.pdf</a> (ID+EN) · linked sub</span></span>
+        <span class="who">System</span>
+        <span class="rt mut"><a class="lk">open</a></span>
+      </div>
+
+      <div class="grphd">Earlier <span class="ct">2</span></div>
+      <div class="row ty-credit">
+        <span class="tm">16 Jun</span>
+        <span class="tag">Payment</span>
+        <span class="sum"><b>Week 9–15 Jun reconciled</b> <span class="meta">· cafe under-ordered · expired</span></span>
+        <span class="who">System</span>
+        <span class="rt dn">−2,150,000</span>
+      </div>
+      <div class="row ty-mile">
+        <span class="tm">12 Jun</span>
+        <span class="tag">Milestone</span>
+        <span class="sum"><b>Customer onboarded</b> <span class="meta">· agreement sent for signature</span></span>
+        <span class="who">System</span>
+        <span class="rt mut">—</span>
+      </div>
+
+      <div class="foot"><a>Load older →</a></div>
+    </div>
+  </div>
+
+  <div class="taxnote">
+    <b>Information model (v3 — faceted activity log).</b> The timeline is treated as a <b>queryable normalized event log</b> (the Salesforce-Lightning / Stripe-dashboard pattern): one `customerActivity` row per event with <b>polymorphic subject-refs</b> (`orderId?`/`invoiceId?`/`subscriptionId?`), indexed facets (<b>type · actor · direction · window</b>) shown in the left rail with live counts, and a <b>group-by</b> view toggle (Day / Type / Object) + a <b>density</b> toggle over the same rows. Built for managers who scan and filter fast. <b>Implies:</b> the derived/union events (orders, invoices, ledger) and the logged rows must share one queryable shape with consistent facet fields — facets are indexed columns, not client-side filters. Comment: is faceted/queryable the right power-user model, or is the day-grouped feed (v2) closer to how you'll actually read a customer? Should "Object" grouping (all events for invoice INV-2606-014 together) be a first-class view?
+  </div>
+</div>
+
+<script>
+  window.__PROOFING_CONFIG = {
+    sendPrefix: "proofing-timeline-v3-",
+    specPath: "docs/superpowers/specs/2026-06-23-subscription-credit-system-phase-d-spec.md"
+  };
+</script>
+<script src="proofing-room.js"></script>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frollie CRM — Design Principles & Reference Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f4f6f9; --surface:#fff; --raise:#fafbfd; --line:#e6eaf0; --line2:#d6dce5; --hover:#f3f5f8;
+    --ink:#1b212c; --muted:#586173; --faint:#97a0b0;
+    --brand:#4f46e5; --brand-soft:#eef0fe;
+    --order:#2563eb; --credit:#059669; --wa:#0d9488; --doc:#b45309; --sched:#64748b; --mile:#be185d;
+    --radius:14px;
+    --disp:"Plus Jakarta Sans",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14.5px;line-height:1.55}
+  header.top{position:sticky;top:0;z-index:40;background:rgba(244,246,249,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:14px 26px}
+  header.top h1{font-family:var(--disp);font-weight:800;font-size:17px;margin:0;letter-spacing:-.3px}
+  header.top h1 span{color:var(--brand)}
+  nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  nav a{font-size:12px;color:var(--muted);text-decoration:none;padding:5px 11px;border:1px solid var(--line);border-radius:99px;background:var(--surface)}
+  nav a:hover{border-color:var(--brand);color:var(--ink)}
+  main{max-width:1060px;margin:0 auto;padding:30px 26px 130px}
+  section{margin:46px 0;scroll-margin-top:90px}
+  .kick{font-family:var(--disp);font-size:11.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--brand);font-weight:700}
+  h2{font-family:var(--disp);font-weight:800;font-size:23px;margin:5px 0 4px;letter-spacing:-.4px}
+  .lede{color:var(--muted);margin:0 0 20px;max-width:76ch}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:0 1px 2px rgba(20,30,50,.03)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:840px){.grid2,.grid4{grid-template-columns:1fr}}
+
+  /* principle cards */
+  .theme{font-family:var(--disp);font-weight:800;font-size:14px;letter-spacing:.2px;margin:22px 0 10px;display:flex;align-items:center;gap:9px}
+  .theme .n{width:24px;height:24px;border-radius:8px;background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:12px;font-weight:800}
+  .pr{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:15px 16px}
+  .pr .h{font-weight:700;font-size:14px;display:flex;gap:9px;align-items:baseline}
+  .pr .h .num{font-family:var(--mono);font-size:11px;color:var(--brand);font-weight:600;flex:0 0 auto}
+  .pr .b{color:var(--muted);font-size:13px;margin-top:5px}
+  .pr .lin{margin-top:9px;font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .pr .lin b{color:var(--muted)}
+
+  /* faux screen chrome */
+  .screen{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--surface);margin-top:14px}
+  .screen .barr{display:flex;align-items:center;gap:8px;padding:8px 13px;background:var(--raise);border-bottom:1px solid var(--line)}
+  .screen .barr i{width:9px;height:9px;border-radius:99px;background:#cdd3dd;display:block}
+  .screen .barr .u{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:6px}
+  .screen .in{padding:18px}
+  .crumb{font-size:12px;color:var(--faint);margin-bottom:13px;font-weight:500}
+  .crumb a{color:var(--brand);text-decoration:none}.crumb b{color:var(--muted)}
+  .lnk{color:var(--brand);text-decoration:none;border-bottom:1px solid #d9dcfb}
+  .h3{font-family:var(--disp);font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--faint);font-weight:700;margin:0 0 9px}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid var(--line)}
+  .pill.g{color:var(--credit);background:#e7f6ef;border-color:transparent}
+  .pill.a{color:var(--doc);background:#fbf0e2;border-color:transparent}
+  .row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .row .k{color:var(--faint)}
+  .note{font-size:12.5px;color:var(--muted);border-left:3px solid var(--brand);padding:7px 0 7px 13px;margin:14px 0;line-height:1.6}
+  .note b{color:var(--ink)}
+  .gauge{height:9px;border-radius:99px;background:#eef0f4;overflow:hidden;margin-top:5px}.gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),#7c75f0)}
+  .btn{font-size:12px;font-weight:600;color:#fff;background:var(--brand);border-radius:8px;padding:7px 12px;display:inline-block}
+  .btn.ghost{color:var(--muted);background:var(--surface);border:1px solid var(--line)}
+
+  /* hub object cards */
+  .objc{border:1px solid var(--line);border-radius:11px;padding:13px 14px;background:var(--raise)}
+  .objc .t{font-family:var(--disp);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .objc .t .arr{color:var(--brand);font-weight:700}
+  .objc .m{font-size:12px;color:var(--muted);margin-top:6px}
+
+  /* taxonomy table */
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);font-weight:700}
+  td .dot{display:inline-block;width:9px;height:9px;border-radius:99px;margin-right:7px;vertical-align:0}
+  .idisc{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:99px;font-size:12.5px;margin-right:9px;vertical-align:-7px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+  .idisc.sm{width:20px;height:20px;font-size:11px;margin-right:8px;vertical-align:-6px}
+  td .tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 7px;border-radius:5px}
+  .mono{font-family:var(--mono)}
+
+  svg{display:block;max-width:100%}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Frollie CRM — <span>Design Principles &amp; Reference Screens</span></h1>
+  <nav>
+    <a href="#principles">Principles</a>
+    <a href="#hub">① Record = hub</a>
+    <a href="#links">② Linking model</a>
+    <a href="#timeline">③ Timeline (recommended)</a>
+    <a href="#object">④ Object page</a>
+    <a href="#tax">⑤ Taxonomy</a>
+  </nav>
+</header>
+<main>
+  <p class="lede" style="margin-top:6px">A proof of the <b>CRM information model</b> — not pixels. We review our linking, data model, and taxonomy against record-centric CRMs (Salesforce Lightning, HubSpot, Attio, Intercom, Stripe, Linear), distil principles, and show reference screens that embody them. Comment on the <b>model</b> (what links to what, what the timeline event shape is, how things are grouped). Once agreed, a workflow applies these across the D/E specs before planning.</p>
+
+  <!-- PRINCIPLES -->
+  <section id="principles">
+    <div class="kick">The principles</div>
+    <h2>10 rules, 4 themes</h2>
+
+    <div class="theme"><span class="n">A</span>Navigation &amp; linking</div>
+    <div class="grid2">
+      <div class="pr"><div class="h"><span class="num">A1</span>Every entity has one canonical page, always rendered as a link</div><div class="b">Customer, subscription, week, invoice, order, agreement, payment, activity — each a stable route. A reference to it is always a link to it, never inert text.</div><div class="lin"><b>Lineage:</b> Salesforce/Attio record-centric</div></div>
+      <div class="pr"><div class="h"><span class="num">A2</span>Breadcrumbs mirror the object hierarchy, not click-history</div><div class="b">`CRM › Customers › Amsterdamn › Dubai Chewy › Wk 23 Jun › INV-2606-014`. A deep-link resolves the full trail; each segment links to its parent.</div><div class="lin"><b>Lineage:</b> Stripe dashboard, Linear</div></div>
+      <div class="pr"><div class="h"><span class="num">A3</span>The customer record is a hub/router, not a scroll-dump</div><div class="b">At-a-glance state (credit, status) + cards that link OUT to object pages. Detail lives on the object's own page, reached in one click.</div><div class="lin"><b>Lineage:</b> HubSpot record, Attio</div></div>
+      <div class="pr"><div class="h"><span class="num">A4</span>Cross-object links are bidirectional</div><div class="b">Agreement ↔ subscriptions, invoice ↔ week ↔ orders, order ↔ scheduler. Every object shows its back-references ("linked subscriptions", "orders this week").</div><div class="lin"><b>Lineage:</b> Salesforce related-lists</div></div>
+    </div>
+
+    <div class="theme"><span class="n">B</span>Data model &amp; taxonomy</div>
+    <div class="grid2">
+      <div class="pr"><div class="h"><span class="num">B5</span>Timeline = derived union over a normalized event log</div><div class="b">One `customerActivity` shape with polymorphic subject-refs; domain events (orders/invoices/ledger) projected into the same shape. Model once; render as feed / log / statement.</div><div class="lin"><b>Lineage:</b> Salesforce activity, Stripe events</div></div>
+      <div class="pr"><div class="h"><span class="num">B6</span>One shared activity taxonomy, sourced once</div><div class="b">`type · direction · actor · icon · color` defined in a single `crmActivityTaxonomy` map (like `platformColors.ts`) and reused across timeline, dashboard, kanban, invoice.</div><div class="lin"><b>Lineage:</b> design-system tokens</div></div>
+      <div class="pr"><div class="h"><span class="num">B7</span>"What happened" ≠ "what's next"</div><div class="b">Past activity is a feed; upcoming obligations (invoice due, contract end) are pinned tasks above it — never interleaved as if they already happened.</div><div class="lin"><b>Lineage:</b> HubSpot upcoming vs activity</div></div>
+      <div class="pr"><div class="h"><span class="num">B8</span>Facets are indexed fields, not client filters</div><div class="b">Filter by type/actor/direction/window on the server via indexes, so the log stays queryable at scale and counts are real.</div><div class="lin"><b>Lineage:</b> Salesforce/Linear faceting</div></div>
+    </div>
+
+    <div class="theme"><span class="n">C</span>Density &amp; money</div>
+    <div class="grid2">
+      <div class="pr"><div class="h"><span class="num">C9</span>Compact by default, progressive disclosure, windowed loads</div><div class="b">14-day window default, expand a row for detail, "load older" extends. Don't pre-render a customer's entire history.</div><div class="lin"><b>Lineage:</b> Salesforce Lightning collapse</div></div>
+      <div class="pr"><div class="h"><span class="num">C10</span>Money is first-class and traceable</div><div class="b">Finance events show a signed delta + running balance + a link to the ledger/invoice. Integer IDR. Read the derived `pool` (source of truth), never re-key a total.</div><div class="lin"><b>Lineage:</b> Stripe balance, our ledger invariant</div></div>
+    </div>
+
+    <div class="theme"><span class="n">D</span>Access &amp; states</div>
+    <div class="grid2">
+      <div class="pr"><div class="h"><span class="num">D11</span>Strip, don't hide</div><div class="b">Confidential fields (partner price, credit) are omitted <b>server-side</b> per role — never client-side hidden (leaks) and never via a manager-only query on a staff-reachable surface (crashes on mount, Pitfall #19).</div><div class="lin"><b>Lineage:</b> our Pitfall #19 + kanban gap #2</div></div>
+      <div class="pr"><div class="h"><span class="num">D12</span>Designed empty / loading / error states everywhere</div><div class="b">"No activity in 14 days", "No subscriptions yet", loading guards, and actionable errors — every CRM surface, not an afterthought.</div><div class="lin"><b>Lineage:</b> Intercom/Linear empty states</div></div>
+    </div>
+  </section>
+
+  <!-- ① HUB -->
+  <section id="hub">
+    <div class="kick">① Reference screen · principle A3</div>
+    <h2>Customer record = a hub that links out</h2>
+    <p class="lede">At-a-glance state + object cards that each deep-link to their own page. Not a mega-scroll. (Activity, subscriptions, invoices, agreement all have dedicated pages — this page routes to them.)</p>
+    <div class="screen">
+      <div class="barr"><i></i><i></i><i></i><span class="u">app / crm / customers / amsterdamn</span></div>
+      <div class="in">
+        <div class="crumb"><a>CRM</a> › <a>Customers</a> › <b>Amsterdamn Cafe</b></div>
+        <div class="grid2" style="grid-template-columns:1fr 1.3fr">
+          <div class="card" style="box-shadow:none">
+            <div class="h3">Identity</div>
+            <div class="row"><span class="k">Key contact</span><span>Bram · Owner</span></div>
+            <div class="row"><span class="k">WhatsApp</span><span><a class="lnk">+62 812-3456</a></span></div>
+            <div class="row"><span class="k">Email / IG</span><span><a class="lnk">email</a> · <a class="lnk">@amsterdamn</a></span></div>
+            <div class="row"><span class="k">Agreement</span><span><a class="lnk">vFinal.pdf 📄</a> <span class="pill g">Signed</span></span></div>
+            <div class="h3" style="margin-top:16px">Credit this week <span style="color:var(--faint)">· 23–29 Jun</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted)"><span>Rp 18.3M used</span><span>Rp 12,150,000 left</span></div>
+            <div class="gauge"><i style="width:60%"></i></div>
+            <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><span class="btn">Plan schedule</span><span class="btn">Mark paid → fund</span><span class="btn ghost">Settings</span></div>
+          </div>
+          <div>
+            <div class="grid2" style="gap:11px">
+              <div class="objc"><div class="t">Activity →<span class="arr"></span></div><div class="m">9 events / 14 days · last: payment funded today</div></div>
+              <div class="objc"><div class="t">Subscriptions →</div><div class="m">1 active · <a class="lnk">Dubai Chewy — weekly</a></div></div>
+              <div class="objc"><div class="t">Invoices →</div><div class="m">1 unpaid · <a class="lnk">INV-2606-014</a> · Rp 30.45M</div></div>
+              <div class="objc"><div class="t">Orders →</div><div class="m">filtered view of Activity (type=Order)</div></div>
+            </div>
+            <div class="note" style="margin-top:12px">Each card is a <b>link to that object's page</b> (A1). "Orders" is not a separate model — it's the Activity log filtered to <span class="mono">type=order</span> (B5). The credit gauge reads the derived <span class="mono">pool</span> (C10).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② LINKING MODEL -->
+  <section id="links">
+    <div class="kick">② The linking model · principles A1 A2 A4</div>
+    <h2>Object hierarchy + bidirectional links</h2>
+    <p class="lede">Breadcrumbs follow this hierarchy; every node is a page; arrows that point both ways are the back-references each object must render.</p>
+    <div class="card">
+      <svg viewBox="0 0 1000 300" role="img" aria-label="CRM object hierarchy">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#4f46e5"/></marker>
+          <marker id="ar2" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#97a0b0"/></marker>
+        </defs>
+        <g font-family="Inter,sans-serif" font-size="12.5" text-anchor="middle">
+          <!-- nodes -->
+          <rect x="40" y="125" width="150" height="50" rx="11" fill="#eef0fe" stroke="#4f46e5"/><text x="115" y="155" fill="#1b212c" font-weight="600">Customer</text>
+          <rect x="270" y="40" width="160" height="48" rx="11" fill="#fff" stroke="#d6dce5"/><text x="350" y="69" fill="#1b212c" font-weight="600">Agreement</text>
+          <rect x="270" y="125" width="160" height="50" rx="11" fill="#fff" stroke="#d6dce5"/><text x="350" y="155" fill="#1b212c" font-weight="600">Subscription</text>
+          <rect x="270" y="218" width="160" height="48" rx="11" fill="#fff" stroke="#d6dce5"/><text x="350" y="247" fill="#1b212c" font-weight="600">Activity log</text>
+          <rect x="510" y="125" width="150" height="50" rx="11" fill="#fff" stroke="#d6dce5"/><text x="585" y="150" fill="#1b212c" font-weight="600">Week</text><text x="585" y="166" fill="#586173" font-size="10">(subscriptionWeek)</text>
+          <rect x="740" y="60" width="150" height="48" rx="11" fill="#fff" stroke="#d6dce5"/><text x="815" y="89" fill="#1b212c" font-weight="600">Invoice</text>
+          <rect x="740" y="135" width="150" height="48" rx="11" fill="#fff" stroke="#d6dce5"/><text x="815" y="164" fill="#1b212c" font-weight="600">Orders</text>
+          <rect x="740" y="210" width="150" height="48" rx="11" fill="#fff" stroke="#d6dce5"/><text x="815" y="239" fill="#1b212c" font-weight="600">Ledger / credit</text>
+          <!-- bidirectional links -->
+          <line x1="190" y1="150" x2="268" y2="150" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ar)" marker-start="url(#ar)"/>
+          <line x1="190" y1="140" x2="268" y2="70" stroke="#97a0b0" stroke-width="1.4" marker-end="url(#ar2)" marker-start="url(#ar2)"/>
+          <line x1="190" y1="160" x2="268" y2="238" stroke="#97a0b0" stroke-width="1.4" marker-end="url(#ar2)" marker-start="url(#ar2)"/>
+          <line x1="350" y1="125" x2="350" y2="90" stroke="#97a0b0" stroke-width="1.4" marker-end="url(#ar2)" marker-start="url(#ar2)"/>
+          <line x1="430" y1="150" x2="508" y2="150" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ar)" marker-start="url(#ar)"/>
+          <line x1="660" y1="140" x2="738" y2="90" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ar)" marker-start="url(#ar)"/>
+          <line x1="660" y1="150" x2="738" y2="158" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ar)" marker-start="url(#ar)"/>
+          <line x1="660" y1="160" x2="738" y2="232" stroke="#4f46e5" stroke-width="1.6" marker-end="url(#ar)" marker-start="url(#ar)"/>
+        </g>
+      </svg>
+      <div class="note"><b>Indigo = strong hierarchy</b> (breadcrumb path, A2). <b>Grey = reference edge</b> (the activity log + agreement attach to the customer). Every edge is navigable <b>both ways</b> (A4): an invoice links up to its week + down to its orders; a week lists its orders + its invoice + its ledger entries. The activity log is a <b>projection</b> of all these events, not a sibling object (B5).</div>
+    </div>
+  </section>
+
+  <!-- ③ RECOMMENDED TIMELINE -->
+  <section id="timeline">
+    <div class="kick">③ Recommended timeline · principles B5 B6 B7 C9 C10</div>
+    <h2>The synthesis: log model, feed view, finance balance</h2>
+    <p class="lede"><b>Data model = v3</b> (normalized queryable event log + facets) · <b>default view = v2</b> (day-grouped feed) · <b>finance affordance = v1</b> (running balance on money rows). One contract, the most readable default, plus the balance where it matters.</p>
+    <div class="screen">
+      <div class="barr"><i></i><i></i><i></i><span class="u">app / crm / customers / amsterdamn / activity</span></div>
+      <div class="in">
+        <div class="crumb"><a>CRM</a> › <a>Customers</a> › <a>Amsterdamn Cafe</a> › <b>Activity</b></div>
+        <!-- next-step pinned (B7) -->
+        <div style="display:flex;align-items:center;gap:11px;background:var(--brand-soft);border:1px solid #d9dcfb;border-radius:11px;padding:11px 14px;margin-bottom:12px">
+          <span class="pill" style="color:var(--brand);background:#fff;border-color:#d9dcfb">Next step</span>
+          <span style="font-size:13px">Mon 30 Jun — <b>weekly invoice due</b> (Rp 30,450,000)</span>
+          <span class="btn" style="margin-left:auto">Open invoice</span>
+        </div>
+        <!-- facet pills (B8) -->
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:6px">
+          <span class="pill" style="background:var(--ink);color:#fff;border-color:var(--ink)">All</span>
+          <span class="pill">● Orders</span><span class="pill">● Finance</span><span class="pill">● Messages</span><span class="pill">● Documents</span><span class="pill">● Milestones</span>
+          <span class="pill ghost" style="margin-left:auto;color:var(--faint)">Last 14 days ▾</span>
+        </div>
+        <!-- day group -->
+        <div style="font-family:var(--disp);font-weight:700;font-size:12px;color:var(--muted);padding:12px 0 6px;border-bottom:1px solid var(--line)">Today · 23 Jun</div>
+        <div class="row" style="border-bottom-style:solid"><span><span class="idisc sm" style="background:var(--credit)">💳</span><b>Credit funded</b> — inv <a class="lnk">INV-2606-014</a> paid <span style="color:var(--faint)">· by Nilson</span></span><span class="mono" style="color:var(--credit);font-weight:600">+30,450,000 <span style="color:var(--faint);font-weight:400">· bal 30.45M</span></span></div>
+        <div class="row" style="border-bottom-style:solid"><span><span class="idisc sm" style="background:var(--wa)">💬</span>→ <b>WhatsApp reminder drafted</b> <span style="color:var(--faint)">· by Lucas, initiated</span></span><span class="mono" style="color:var(--muted)"><a class="lnk">view</a></span></div>
+        <div style="font-family:var(--disp);font-weight:700;font-size:12px;color:var(--muted);padding:12px 0 6px;border-bottom:1px solid var(--line)">Earlier this week</div>
+        <div class="row" style="border-bottom-style:solid"><span><span class="idisc sm" style="background:var(--order)">📦</span><b>Delivered</b> 150 × Dubai Chewy <span style="color:var(--faint)">· <a class="lnk">0621-008</a></span></span><span class="mono" style="color:#dc2626;font-weight:600">−4,350,000 <span style="color:var(--faint);font-weight:400">· bal 18.3M</span></span></div>
+        <div class="row" style="border-bottom-style:solid"><span><span class="idisc sm" style="background:var(--mile)">🏁</span><b>Subscription started</b> — Dubai Chewy weekly</span><span style="color:var(--faint)" class="mono">Fri 20</span></div>
+      </div>
+    </div>
+    <div class="note"><b>Why hybrid:</b> the feed (v2) is how people read a customer; facets + the normalized log (v3) keep it queryable and let "Orders/Invoices" be filtered views (B5/B8), not separate models; the running balance (v1) keeps money traceable inline (C10). Milestones (◆) and the pinned next-step (B7) sit in the same stream but read distinctly. Comment if you'd weight differently (e.g. balance always-on, or facets in a left rail like v3).</div>
+  </section>
+
+  <!-- ④ OBJECT PAGE -->
+  <section id="object">
+    <div class="kick">④ Object page pattern · principles A1 A4</div>
+    <h2>Every object page shows its place + its back-references</h2>
+    <p class="lede">A Week page: full breadcrumb up, and "related" sections pointing to its invoice, orders, and ledger entries — bidirectional (A4).</p>
+    <div class="screen">
+      <div class="barr"><i></i><i></i><i></i><span class="u">app / crm / customers / amsterdamn / subscriptions / dubai-chewy / week/2606-23</span></div>
+      <div class="in">
+        <div class="crumb"><a>CRM</a> › <a>Customers</a> › <a>Amsterdamn Cafe</a> › <a>Dubai Chewy</a> › <b>Wk 23–29 Jun</b></div>
+        <div class="grid2">
+          <div class="card" style="box-shadow:none">
+            <div class="h3">This week</div>
+            <div class="row"><span class="k">Status</span><span><span class="pill a">Invoiced · unpaid</span></span></div>
+            <div class="row"><span class="k">Planned</span><span>1,050 pcs · 150/day</span></div>
+            <div class="row"><span class="k">Credit</span><span class="mono">Rp 30,450,000</span></div>
+            <div style="margin-top:12px"><span class="btn ghost">Open in scheduler →</span></div>
+          </div>
+          <div class="card" style="box-shadow:none">
+            <div class="h3">Related (back-references)</div>
+            <div class="row"><span class="k">Invoice</span><span><a class="lnk">INV-2606-014</a></span></div>
+            <div class="row"><span class="k">Orders</span><span><a class="lnk">7 daily orders →</a></span></div>
+            <div class="row"><span class="k">Ledger</span><span><a class="lnk">topup + 7 drawdowns →</a></span></div>
+            <div class="row"><span class="k">Activity</span><span><a class="lnk">this week's events →</a></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ TAXONOMY -->
+  <section id="tax">
+    <div class="kick">⑤ The shared taxonomy · principle B6</div>
+    <h2>One source of type · direction · icon · color</h2>
+    <p class="lede">Defined once (proposed `src/lib/crmActivityTaxonomy.ts`, mirroring `platformColors.ts`) and consumed by timeline, dashboard cards, kanban badge, and invoice. This is the contract `customerActivity.type` validates against.</p>
+    <div class="card" style="padding:6px 14px 14px">
+      <table>
+        <tr><th>Type</th><th>Subtypes (examples)</th><th>Direction</th><th>Links to</th><th>Money?</th></tr>
+        <tr><td><span class="idisc" style="background:var(--order)">📦</span><span class="tag" style="color:var(--order);background:#e7effd">Order</span></td><td>placed · delivered</td><td>system</td><td>order</td><td>drawdown −</td></tr>
+        <tr><td><span class="idisc" style="background:var(--credit)">💳</span><span class="tag" style="color:var(--credit);background:#e6f6ef">Finance</span></td><td>invoice paid · funded · reconciled · expired</td><td>system</td><td>invoice / week / ledger</td><td>signed ±</td></tr>
+        <tr><td><span class="idisc" style="background:var(--wa)">💬</span><span class="tag" style="color:var(--wa);background:#e3f4f2">Message</span></td><td>whatsapp drafted · email</td><td>outbound / inbound</td><td>interaction row</td><td>—</td></tr>
+        <tr><td><span class="idisc" style="background:var(--doc)">📄</span><span class="tag" style="color:var(--doc);background:#fbf0e2">Document</span></td><td>agreement sent · signed · version</td><td>inbound</td><td>agreement</td><td>—</td></tr>
+        <tr><td><span class="idisc" style="background:var(--sched)">📅</span><span class="tag" style="color:var(--sched);background:#eef1f5">Schedule</span></td><td>week confirmed · edited</td><td>system</td><td>week / scheduler</td><td>—</td></tr>
+        <tr><td><span class="idisc" style="background:var(--mile)">🏁</span><span class="tag" style="color:var(--mile);background:#fbe7f1">Milestone</span></td><td>onboarded · sub started · contract end · terminated</td><td>system</td><td>customer / subscription</td><td>—</td></tr>
+      </table>
+      <div class="note"><b>Derived vs logged:</b> Order / Finance / Schedule rows are <b>projected</b> from existing tables (orders, invoices, creditLedger, subscriptionWeeks). Message / some Milestones are <b>logged</b> rows in the new <span class="mono">customerActivity</span> table. Both conform to the same <span class="mono">{type, subtype, direction, actor, occurredAt, subjectRefs, summary}</span> shape (B5).</div>
+    </div>
+  </section>
+
+  <!-- ⑥ CONFORMANCE AUDIT (note c3) -->
+  <section id="conformance">
+    <div class="kick">⑥ Conformance check · note c3</div>
+    <h2>Principles vs. our current base schema — fix the gaps now</h2>
+    <p class="lede">Audited theme B (data model &amp; taxonomy) + the linking principles against the shipped foundational schema (`convex/schema.ts`). What it already satisfies, and the <b>additive</b> gaps to close <b>before planning</b> — ideally folded into Phase B's active schema work (it already edits the schema).</p>
+
+    <div class="grid2">
+      <div class="card" style="box-shadow:none">
+        <div class="h3" style="color:var(--credit)">✓ Already conformant</div>
+        <div class="row"><span class="k">A4 bidirectional</span><span>agreement↔subscription · week→invoice (`weeklyInvoiceId`)</span></div>
+        <div class="row"><span class="k">A4 polymorphic refs</span><span>`creditLedger` {orderId, invoiceId, subscriptionWeekId}</span></div>
+        <div class="row"><span class="k">A4 order linkage</span><span>`orders` {subscriptionId, subscriptionWeekId}</span></div>
+        <div class="row"><span class="k">A3 hub fields</span><span>`customers` CRM contact fields (Phase A)</span></div>
+        <div class="row" style="border-bottom:0"><span class="k">C10 money</span><span>append-only `creditLedger` + `deriveCreditPool`</span></div>
+      </div>
+      <div class="card" style="box-shadow:none">
+        <div class="h3" style="color:var(--doc)">⚠ Gaps to fix (additive)</div>
+        <div class="row"><span class="k">B5 event log</span><span>No <span class="mono">customerActivity</span> table exists</span></div>
+        <div class="row"><span class="k">B6 taxonomy</span><span>No single-source <span class="mono">crmActivityTaxonomy</span></span></div>
+        <div class="row"><span class="k">B8 facets</span><span>(needs) <span class="mono">by_customer_occurredAt</span> + facet indexes</span></div>
+        <div class="row" style="border-bottom:0"><span class="k">A1/B8 invoices</span><span><b>no <span class="mono">customerId</span></b> + no <span class="mono">by_customer</span>/<span class="mono">by_subscriptionWeek</span></span></div>
+      </div>
+    </div>
+
+    <div class="note"><b>The gaps, in detail —</b>
+      <b>(1) B5:</b> the timeline's logged half (WhatsApp, manual milestones) has no base table; derived events project from existing tables but logged ones need <span class="mono">customerActivity {customerId, type, subtype?, direction, actor, occurredAt, subjectRefs, summary}</span>. <b>(2) B6:</b> event type→icon/color/direction isn't centralized — create <span class="mono">src/lib/crmActivityTaxonomy.ts</span> (one icon per type + per-subtype overrides like ✓ funded / ⚖ reconcile), the validator for <span class="mono">customerActivity.type</span> and the source for every disc/badge across timeline, dashboard, kanban, invoice. <b>(3) B8:</b> facets must be indexed fields, so <span class="mono">customerActivity</span> needs <span class="mono">by_customer_occurredAt</span> (windowed feed) + type/actor/direction support — else faceting is client-side. <b>(4) A1/A4/B8 — confirmed `schema.ts:2287–2344`:</b> <span class="mono">invoices</span> has <b>no <span class="mono">customerId</span></b> and only <span class="mono">by_order</span>/<span class="mono">by_status_number</span>/<span class="mono">by_date</span> — a customer-scoped invoice lookup (CRM home funding list, timeline invoice events) must traverse order→customer or week→subscription→customer. Add a denormalized <span class="mono">customerId</span> + <span class="mono">by_customer</span> (additive); <span class="mono">by_subscriptionWeek</span> is already planned in Phase B.
+      <br><br><b>Ownership (deny-by-default — your call):</b> all four are additive. Recommend the schema bits (`customerActivity` + indexes, `invoices.customerId` + index) land in <b>Phase B's schema task</b> (active schema-editing phase) and the <span class="mono">crmActivityTaxonomy</span> module ships as a shared lib used by B + D. Confirm the home before the workflow rewrites the specs.
+    </div>
+  </section>
+
+</main>
+<script>
+  window.__PROOFING_CONFIG = {
+    sendPrefix: "proofing-crm-principles-",
+    specPath: "docs/superpowers/specs/2026-06-23-subscription-credit-system-phase-d-spec.md"
+  };
+</script>
+<script src="proofing-room.js"></script>
+</body>
+</html>

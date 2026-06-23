@@ -203,6 +203,32 @@ Full per-route permission table: `docs/FILE_MAP.md` (Full Role → Route Permiss
 
 ---
 
+## CRM Design Principles
+
+> Apply to **all CRM / customer-facing surfaces** (customer record, activity timeline, subscriptions, invoices, agreements, funding dashboard). Established 2026-06-23 — don't re-derive when building new CRM features. Full proof + audit: `docs/superpowers/specs/2026-06-23-frollie-crm-design-principles.html`, conformance audit `…-crm-principles-conformance-audit.md`, ready-to-paste schema additions `…-crm-foundational-schema-additions.md`.
+
+**A — Navigation & linking**
+- **A1** Every entity has one canonical page; references render as **links** to it (never inert text).
+- **A2** Breadcrumbs mirror the **object hierarchy** (not click-history); deep-links resolve a full trail.
+- **A3** The customer record is a **hub/router** to object pages, not a scroll-dump.
+- **A4** Cross-object links are **bidirectional** (agreement↔subscription, invoice↔week↔orders, ledger↔week↔order) with back-reference sections on each object page.
+
+**B — Data model & taxonomy**
+- **B5** Activity timeline = a derived **union over a normalized event log** (`customerActivity`, polymorphic subject-refs); domain events (orders/invoices/ledger) project into the same shape.
+- **B6** ONE shared activity taxonomy `src/lib/crmActivityTaxonomy.ts` (type→icon/color/direction, one icon per type + subtype overrides) reused across timeline/dashboard/kanban/invoice — same single-source discipline as `platformColors.ts`/`orderConstants.ts`.
+- **B7** Separate **"what happened"** (activity feed) from **"what's next"** (due/tasks/reminders).
+- **B8** Facets are **indexed fields** (server-side), never a client `.filter()` over an unbounded fetch.
+
+**C — Density & money**
+- **C9** Compact by default, progressive disclosure, **windowed loads** (e.g. 14d); never `.collect()` unbounded history per read/write.
+- **C10** Money is first-class & traceable: signed delta + running balance + ledger link; **integer IDR**; read the **derived pool** (`deriveCreditPool`), never re-key a total.
+
+**D — Access & states**
+- **D11** **Strip, don't hide**: confidential fields (partner price, credit) omitted **server-side** per role — never client-hide (leaks over the wire), never a manager-only query on a staff-reachable surface (see Pitfall #19).
+- **D12** Designed **empty / loading / error** states on every CRM surface.
+
+---
+
 ## Documentation Index
 
 | File | Purpose | When to Read |

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Activity Timeline — Frollie CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15120e; --surface:#1d1916; --surface2:#241f1a; --line:#322b24; --line2:#3f372e;
+    --ink:#efe9e0; --muted:#a99e90; --faint:#7a7064;
+    --caramel:#e0a256; --caramel2:#f0b977;
+    --order:#6aa9ff; --credit:#54e08a; --invoice:#c79bff; --wa:#27d3a4; --doc:#f0b24a; --mile:#ff8a5c;
+    --debit:#ff7a6b;
+    --radius:13px;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --disp:"Space Grotesk",-apple-system,system-ui,sans-serif;
+    --body:"Inter",-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:
+      radial-gradient(1200px 480px at 78% -8%, #20190f 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:920px;margin:0 auto;padding:30px 26px 140px}
+
+  /* ---- header ---- */
+  .crumb{font-family:var(--mono);font-size:11.5px;letter-spacing:.3px;color:var(--faint);margin-bottom:20px}
+  .crumb a{color:var(--caramel);text-decoration:none}.crumb a:hover{text-decoration:underline}
+  .chevron{color:var(--line2);margin:0 7px}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;border-bottom:1px solid var(--line);padding-bottom:22px}
+  .who h1{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.5px;margin:0 0 6px}
+  .who .sub{color:var(--muted);font-size:13.5px}
+  .who .sub b{color:var(--ink);font-weight:600}
+  .links{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+  .links a{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 9px;display:inline-flex;gap:6px;align-items:center;transition:.15s}
+  .links a:hover{color:var(--ink);border-color:var(--line2);background:var(--surface)}
+  .credit-now{text-align:right;flex:0 0 auto}
+  .credit-now .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--faint)}
+  .credit-now .amt{font-family:var(--mono);font-weight:700;font-size:25px;color:var(--credit);margin-top:3px;letter-spacing:-.5px}
+  .credit-now .of{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin-top:2px}
+
+  /* ---- controls ---- */
+  .controls{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:24px 0 6px;flex-wrap:wrap}
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11.5px;letter-spacing:.2px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.15s;user-select:none}
+  .chip:hover{border-color:var(--line2);color:var(--ink)}
+  .chip .dot{width:8px;height:8px;border-radius:99px;display:inline-block}
+  .chip.on{color:var(--bg);background:var(--ink);border-color:var(--ink);font-weight:600}
+  .window{font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:9px}
+  .window select{font-family:var(--mono);font-size:11.5px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+
+  /* ---- the spine / statement ---- */
+  .feed{margin-top:14px;position:relative}
+  /* today cap */
+  .cap{display:flex;align-items:center;gap:11px;margin-left:78px;padding-left:30px;position:relative;color:var(--caramel);font-family:var(--mono);font-size:11px;letter-spacing:1.4px;text-transform:uppercase}
+  .cap::before{content:"";position:absolute;left:0;top:50%;width:13px;height:13px;border-radius:99px;background:var(--caramel);transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(224,162,86,.16)}
+  .cap .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line2),transparent)}
+
+  .ev{display:grid;grid-template-columns:70px 30px 1fr auto;gap:0 16px;position:relative;padding:15px 0;align-items:start}
+  /* the continuous spine lives in the 2nd column */
+  .ev .rail{grid-column:2;position:relative;justify-self:center;width:100%;height:100%}
+  .ev .rail::before{content:"";position:absolute;left:50%;top:-15px;bottom:-15px;width:2px;background:linear-gradient(180deg,var(--caramel) 0%,var(--wa) 55%,var(--line2) 100%);transform:translateX(-50%);opacity:.5}
+  .ev:first-of-type .rail::before{top:0}
+  .ev .disc{position:absolute;left:50%;top:3px;transform:translateX(-50%);width:26px;height:26px;border-radius:99px;background:var(--surface2);border:2px solid var(--line2);display:grid;place-items:center;font-size:13px;z-index:2}
+  .ev .when{grid-column:1;text-align:right;font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:6px;line-height:1.35}
+  .ev .when b{display:block;color:var(--muted);font-weight:500}
+  .ev .body{grid-column:3;min-width:0}
+  .ev .ttl{font-size:14.5px;font-weight:600;letter-spacing:-.1px}
+  .ev .ttl .kind{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 6px;border-radius:5px;margin-right:9px;vertical-align:1px}
+  .ev .dtl{color:var(--muted);font-size:13px;margin-top:3px}
+  .ev .dtl a{color:var(--caramel);text-decoration:none;border-bottom:1px solid rgba(224,162,86,.3)}
+  .ev .dtl .by{color:var(--faint)}
+  .ev .right{grid-column:4;text-align:right;padding-top:4px;white-space:nowrap}
+  .ev .delta{font-family:var(--mono);font-weight:700;font-size:14px}
+  .ev .delta.up{color:var(--credit)} .ev .delta.down{color:var(--debit)}
+  .ev .bal{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:2px}
+  .ev .go{font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 9px;display:inline-block;transition:.15s}
+  .ev .go:hover{color:var(--ink);border-color:var(--line2);background:var(--surface)}
+  .ev:hover .body .ttl{color:#fff}
+
+  /* per-type disc tints */
+  .t-order  .disc{border-color:var(--order); color:var(--order)}
+  .t-credit .disc{border-color:var(--credit);color:var(--credit)}
+  .t-invoice .disc{border-color:var(--invoice);color:var(--invoice)}
+  .t-wa     .disc{border-color:var(--wa);    color:var(--wa)}
+  .t-doc    .disc{border-color:var(--doc);   color:var(--doc)}
+  .t-sched  .disc{border-color:var(--muted); color:var(--muted)}
+  .t-order  .kind{color:var(--order); background:rgba(106,169,255,.13)}
+  .t-credit .kind{color:var(--credit);background:rgba(84,224,138,.13)}
+  .t-invoice .kind{color:var(--invoice);background:rgba(199,155,255,.13)}
+  .t-wa     .kind{color:var(--wa);    background:rgba(39,211,164,.13)}
+  .t-doc    .kind{color:var(--doc);   background:rgba(240,178,74,.13)}
+  .t-sched  .kind{color:var(--muted); background:rgba(169,158,144,.12)}
+
+  /* milestone — breaks the spine */
+  .mile{display:grid;grid-template-columns:70px 30px 1fr;gap:0 16px;position:relative;padding:9px 0;align-items:center}
+  .mile .rail{grid-column:2;position:relative;justify-self:center;width:100%;height:100%}
+  .mile .rail::before{content:"";position:absolute;left:50%;top:-9px;bottom:-9px;width:2px;background:var(--line2);transform:translateX(-50%);opacity:.5}
+  .mile .node{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:3px;background:var(--mile);box-shadow:0 0 0 4px rgba(255,138,92,.13);z-index:2}
+  .mile .when{grid-column:1;text-align:right;font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:1px}
+  .mile .label{grid-column:3;font-family:var(--mono);font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mile);font-weight:700;display:flex;align-items:center;gap:9px}
+  .mile .label .det{font-family:var(--body);font-size:13px;letter-spacing:0;text-transform:none;color:var(--muted);font-weight:400}
+
+  .foot{margin-left:78px;padding:18px 0 0 30px;border-top:1px dashed var(--line);margin-top:6px;color:var(--faint);font-family:var(--mono);font-size:11.5px}
+  .foot a{color:var(--caramel);text-decoration:none}
+
+  /* upcoming pin */
+  .pin{margin:0 0 18px 78px;padding-left:30px;position:relative}
+  .pin .card{background:linear-gradient(90deg,rgba(255,138,92,.08),transparent);border:1px solid var(--line);border-left:2px solid var(--mile);border-radius:10px;padding:11px 15px;display:flex;justify-content:space-between;align-items:center;gap:14px}
+  .pin .card .l{font-family:var(--mono);font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mile);font-weight:700}
+  .pin .card .r{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+
+  .legend{margin-top:30px;padding-top:18px;border-top:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:9px;height:9px;border-radius:99px;display:inline-block}
+  .hint{margin-top:26px;color:var(--faint);font-size:12.5px;border-left:2px solid var(--caramel);padding:6px 0 6px 13px;line-height:1.6}
+
+  @media (max-width:680px){
+    .ev{grid-template-columns:54px 24px 1fr;gap:0 11px}
+    .ev .right{grid-column:3;grid-row:2;text-align:left;padding-top:8px}
+    .cap,.foot,.pin{margin-left:54px;padding-left:24px}
+    .who h1{font-size:24px}
+    .head{flex-direction:column;align-items:flex-start}
+    .credit-now{text-align:left}
+  }
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="crumb"><a>CRM</a><span class="chevron">›</span><a>Customers</a><span class="chevron">›</span><a>Amsterdamn Cafe</a><span class="chevron">›</span>Activity</div>
+
+  <div class="head">
+    <div class="who">
+      <h1>Amsterdamn Cafe</h1>
+      <div class="sub">Key contact <b>Bram</b> · Owner &nbsp;·&nbsp; <b>1</b> active subscription &nbsp;·&nbsp; customer since 12 Jun 2026</div>
+      <div class="links">
+        <a>💬&nbsp; wa.me/6281234</a>
+        <a>✉&nbsp; bram@amsterdamn.id</a>
+        <a>📷&nbsp; @amsterdamn</a>
+        <a>📄&nbsp; Agreement vFinal</a>
+      </div>
+    </div>
+    <div class="credit-now">
+      <div class="lbl">This week's credit</div>
+      <div class="amt">Rp 12,150,000</div>
+      <div class="of">left of 30,450,000 · 23–29 Jun</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="chips">
+      <span class="chip on">All</span>
+      <span class="chip"><i class="dot" style="background:var(--order)"></i>Orders</span>
+      <span class="chip"><i class="dot" style="background:var(--invoice)"></i>Invoices</span>
+      <span class="chip"><i class="dot" style="background:var(--credit)"></i>Payments</span>
+      <span class="chip"><i class="dot" style="background:var(--wa)"></i>WhatsApp</span>
+      <span class="chip"><i class="dot" style="background:var(--doc)"></i>Agreements</span>
+      <span class="chip"><i class="dot" style="background:var(--mile)"></i>Milestones</span>
+    </div>
+    <div class="window">Window <select><option>Last 14 days</option><option>Last 30 days</option><option>Last 90 days</option><option>All time</option></select></div>
+  </div>
+
+  <div class="feed">
+
+    <!-- upcoming milestone pinned above 'today' -->
+    <div class="pin"><div class="card"><span class="l">⤓ Upcoming</span><span class="r">Contract review window opens — termination needs 30d notice · runs week-to-week</span></div></div>
+
+    <div class="cap">Today · 23 Jun<span class="ln"></span></div>
+
+    <!-- payment confirmed → credit funded (money, accountability) -->
+    <div class="ev t-credit">
+      <div class="when"><b>Today</b>09:12</div>
+      <div class="rail"><span class="disc">✓</span></div>
+      <div class="body">
+        <div class="ttl"><span class="kind">Payment</span>Credit funded for week 23–29 Jun</div>
+        <div class="dtl">Invoice <a>INV-2606-014</a> marked paid · <span class="by">confirmed by Nilson (manager)</span></div>
+      </div>
+      <div class="right"><div class="delta up">+30,450,000</div><div class="bal">bal 30,450,000</div></div>
+    </div>
+
+    <!-- whatsapp drafted -->
+    <div class="ev t-wa">
+      <div class="when"><b>Today</b>08:30</div>
+      <div class="rail"><span class="disc">💬</span></div>
+      <div class="body">
+        <div class="ttl"><span class="kind">WhatsApp</span>Reminder drafted — weekly invoice due</div>
+        <div class="dtl">Opened wa.me to Bram with prefilled dunning copy · <span class="by">by Lucas · initiated, delivery not confirmed</span></div>
+      </div>
+      <div class="right"><a class="go">View →</a></div>
+    </div>
+
+    <!-- invoice sent -->
+    <div class="ev t-invoice">
+      <div class="when"><b>Sun</b>22 Jun</div>
+      <div class="rail"><span class="disc">🧾</span></div>
+      <div class="body">
+        <div class="ttl"><span class="kind">Invoice</span>Weekly invoice sent</div>
+        <div class="dtl"><a>INV-2606-014</a> · 1,050 pcs · transfer ref <span style="font-family:var(--mono);color:var(--muted)">INV-2606-014</span></div>
+      </div>
+      <div class="right"><div class="delta" style="color:var(--invoice)">Rp 30,450,000</div><a class="go" style="margin-top:5px">Open →</a></div>
+    </div>
+
+    <!-- order delivered → drawdown -->
+    <div class="ev t-order">
+      <div class="when"><b>Sat</b>21 Jun</div>
+      <div class="rail"><span class="disc">📦</span></div>
+      <div class="body">
+        <div class="ttl"><span class="kind">Order</span>Delivered — 150 × Dubai Chewy Cookies</div>
+        <div class="dtl">Order <a>0621-008</a> · delivered by 09:00 · drew down week credit</div>
+      </div>
+      <div class="right"><div class="delta down">−4,350,000</div><div class="bal">bal 18,300,000</div></div>
+    </div>
+
+    <!-- schedule confirmed -->
+    <div class="ev t-sched">
+      <div class="when"><b>Fri</b>20 Jun</div>
+      <div class="rail"><span class="disc">📅</span></div>
+      <div class="body">
+        <div class="ttl"><span class="kind">Schedule</span>Week 23–29 Jun confirmed</div>
+        <div class="dtl">1,050 pcs · 150/day · generated 7 daily orders + the invoice · <a>open scheduler</a></div>
+      </div>
+      <div class="right"><a class="go">Open →</a></div>
+    </div>
+
+    <!-- milestone: subscription started -->
+    <div class="mile">
+      <div class="when">20 Jun</div>
+      <div class="rail"><span class="node"></span></div>
+      <div class="label">Subscription started<span class="det">Dubai Chewy — weekly · 1,050 pcs @ Rp 29,000</span></div>
+    </div>
+
+    <!-- agreement signed -->
+    <div class="ev t-doc">
+      <div class="when"><b>Thu</b>19 Jun</div>
+      <div class="rail"><span class="disc">📄</span></div>
+      <div class="body">
+        <div class="ttl"><span class="kind">Agreement</span>Supply agreement signed</div>
+        <div class="dtl"><a>vFinal.pdf</a> (ID + EN) uploaded · linked to Dubai Chewy — weekly</div>
+      </div>
+      <div class="right"><a class="go">Open →</a></div>
+    </div>
+
+    <!-- reconcile -->
+    <div class="ev t-credit">
+      <div class="when"><b>Mon</b>16 Jun</div>
+      <div class="rail"><span class="disc">⚖</span></div>
+      <div class="body">
+        <div class="ttl"><span class="kind">Payment</span>Week 9–15 Jun reconciled</div>
+        <div class="dtl">Cafe under-ordered · <span class="by">Rp 2,150,000 expired (non-transferable)</span></div>
+      </div>
+      <div class="right"><div class="delta down">−2,150,000</div><div class="bal">expired</div></div>
+    </div>
+
+    <!-- milestone: onboarded -->
+    <div class="mile">
+      <div class="when">12 Jun</div>
+      <div class="rail"><span class="node"></span></div>
+      <div class="label">Customer onboarded<span class="det">added to CRM · agreement sent for signature</span></div>
+    </div>
+
+    <div class="foot">Older activity beyond 14 days — <a>load more →</a></div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--order)"></i>Order</span>
+    <span><i style="background:var(--invoice)"></i>Invoice</span>
+    <span><i style="background:var(--credit)"></i>Payment / credit</span>
+    <span><i style="background:var(--wa)"></i>WhatsApp</span>
+    <span><i style="background:var(--doc)"></i>Agreement</span>
+    <span><i style="background:var(--muted)"></i>Schedule</span>
+    <span><i style="background:var(--mile)"></i>Milestone</span>
+  </div>
+
+  <div class="hint">
+    The right margin is a running <b>credit balance</b> — money events (payment funded, drawdown, expiry) post against it like a bank statement, so the credit story reads top-to-bottom on the same spine as everything else. Comment on anything: which event types matter, what each row should show, whether the balance margin earns its place, the default window, milestone set, or the WhatsApp/dunning row. Every note updates both this mockup and the Phase D spec.
+  </div>
+
+</div>
+
+<script>
+  window.__PROOFING_CONFIG = {
+    sendPrefix: "proofing-timeline-",
+    specPath: "docs/superpowers/specs/2026-06-23-subscription-credit-system-phase-d-spec.md"
+  };
+</script>
+<script src="proofing-room.js"></script>
+</body>
+</html>

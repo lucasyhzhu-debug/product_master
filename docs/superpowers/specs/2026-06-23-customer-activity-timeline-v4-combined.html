@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Timeline v4 — Header + Next-step + Facets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --raise:#fafbfd; --line:#e7eaf0; --line2:#d8dde7; --hover:#f3f6f9;
+    --ink:#1d2330; --muted:#5a6474; --faint:#9aa3b2;
+    --brand:#4f46e5; --brand-soft:#eef0fe;
+    --order:#2563eb; --credit:#059669; --wa:#0d9488; --doc:#d97706; --mile:#db2777; --sched:#64748b;
+    --radius:14px;
+    --disp:"Plus Jakarta Sans",system-ui,sans-serif; --body:"Inter",system-ui,sans-serif; --mono:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1020px;margin:0 auto;padding:24px 22px 130px}
+  .crumb{font-size:12px;color:var(--faint);margin-bottom:14px;font-weight:500}
+  .crumb a{color:var(--brand);text-decoration:none}.crumb b{color:var(--muted)}
+
+  /* ---- v2 header ---- */
+  .hd{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px;box-shadow:0 1px 2px rgba(20,30,50,.04)}
+  .hd .id{display:flex;align-items:center;gap:13px}
+  .hd .ava{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--brand),#7c75f0);color:#fff;display:grid;place-items:center;font-family:var(--disp);font-weight:800;font-size:19px}
+  .hd h1{font-family:var(--disp);font-weight:800;font-size:19px;margin:0;letter-spacing:-.3px}
+  .hd .meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .hd .links{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+  .hd .links a{font-size:11px;color:var(--muted);text-decoration:none;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:3px 8px}
+  .hd .credit{text-align:right}
+  .hd .credit .l{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .hd .credit .v{font-family:var(--mono);font-weight:600;font-size:21px;color:var(--credit);margin-top:2px}
+  .hd .credit .s{font-size:11px;color:var(--faint)}
+
+  /* ---- v2 next-step ---- */
+  .next{margin:13px 0;background:var(--brand-soft);border:1px solid #d9dcfb;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .next .tag{font-family:var(--disp);font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--brand);background:#fff;border:1px solid #d9dcfb;border-radius:7px;padding:4px 8px}
+  .next .txt{font-size:13.5px}.next .txt b{font-weight:700}
+  .next .go{margin-left:auto;font-size:12.5px;font-weight:600;color:#fff;background:var(--brand);border-radius:8px;padding:7px 13px;text-decoration:none}
+
+  /* ---- controls bar (v3 group/density + search) ---- */
+  .ctl{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 12px;flex-wrap:wrap}
+  .ctl .search{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px;min-width:190px}
+  .segs{display:flex;gap:8px}
+  .seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg b{font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);padding:7px 9px;align-self:center;font-weight:700}
+  .seg button{font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted);background:none;border:0;padding:7px 11px;cursor:pointer;border-left:1px solid var(--line)}
+  .seg button.on{background:var(--ink);color:#fff}
+
+  /* ---- two-col: facet rail (v3) + feed (v2) ---- */
+  .grid{display:grid;grid-template-columns:206px 1fr;gap:16px;align-items:start}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}.facets{order:2}}
+  .facets{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;position:sticky;top:14px}
+  .facets .grp{padding:10px 10px 12px}.facets .grp + .grp{border-top:1px solid var(--line)}
+  .facets .ttl{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:8px}
+  .facet{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+  .facet:hover{background:var(--hover);color:var(--ink)}
+  .facet.on{color:var(--ink);font-weight:600}
+  .facet .box{width:13px;height:13px;border-radius:4px;border:1.5px solid var(--line2);flex:0 0 auto;display:grid;place-items:center}
+  .facet.on .box{background:var(--brand);border-color:var(--brand)}.facet.on .box::after{content:"✓";color:#fff;font-size:9px;font-weight:700}
+  .facet .d{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
+  .facet .ct{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+  /* feed */
+  .feed > .day{position:sticky;top:0;background:linear-gradient(180deg,var(--bg) 72%,rgba(245,247,250,0));padding:4px 0 8px;z-index:5;font-family:var(--disp);font-size:12px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:9px}
+  .feed > .day .ct{font-family:var(--mono);font-size:11px;color:var(--faint);font-weight:400}
+  .feed > .day::after{content:"";flex:1;height:1px;background:var(--line)}
+  .ev{display:grid;grid-template-columns:74px 1fr auto;gap:0 12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px 14px;margin:7px 0;transition:.12s}
+  .ev:hover{border-color:var(--line2);box-shadow:0 2px 8px rgba(20,30,50,.05)}
+  .ev .tm{grid-column:1;font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:3px;display:flex;align-items:center;gap:6px}
+  .ev .tm .d{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
+  .idisc.sm{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:99px;font-size:11px;color:#fff;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+  .ev .bd{grid-column:2;min-width:0}
+  .ev .bd .t{font-weight:600;font-size:13.5px}
+  .ev .bd .t .dir{font-family:var(--mono);color:var(--faint);margin-right:6px}
+  .ev .bd .t .chip{font-family:var(--disp);font-size:9.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 6px;border-radius:5px;margin-right:8px;vertical-align:1px}
+  .ev .bd .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .ev .bd .s a{color:var(--brand);text-decoration:none;font-weight:500}.ev .bd .s .who{color:var(--faint)}
+  .ev .rt{grid-column:3;text-align:right;padding-top:2px;white-space:nowrap}
+  .ev .rt .amt{font-family:var(--mono);font-weight:600;font-size:13.5px}
+  .ev .rt .amt.up{color:var(--credit)}.ev .rt .amt.dn{color:#dc2626}
+  .ev .rt .bal{font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:1px}
+  .ev .rt .go{font-size:11px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 9px;display:inline-block}
+  .mile{display:flex;align-items:center;gap:11px;margin:8px 0;padding:8px 14px 8px 34px;position:relative}
+  .mile::before{content:"◆";position:absolute;left:12px;color:var(--mile);font-size:12px}
+  .mile .t{font-family:var(--disp);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--mile)}
+  .mile .s{font-size:12.5px;color:var(--muted)}.mile .tm{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto}
+  .more{text-align:center;margin-top:16px}.more a{font-size:12.5px;font-weight:600;color:var(--brand);text-decoration:none;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 16px}
+
+  .taxnote{margin-top:20px;font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:10px;padding:13px 15px;line-height:1.6}
+  .taxnote b{color:var(--ink)}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb"><a>CRM</a> / <a>Customers</a> / <a>Amsterdamn Cafe</a> / <b>Activity</b></div>
+
+  <!-- v2 header -->
+  <div class="hd">
+    <div class="id">
+      <div class="ava">A</div>
+      <div>
+        <h1>Amsterdamn Cafe</h1>
+        <div class="meta">Bram · Owner · 1 active subscription · since 12 Jun 2026</div>
+        <div class="links"><a>💬 WhatsApp</a><a>✉ Email</a><a>📷 IG</a><a>📄 Agreement</a></div>
+      </div>
+    </div>
+    <div class="credit">
+      <div class="l">Credit this week</div>
+      <div class="v">Rp 12,150,000</div>
+      <div class="s">of 30,450,000 · 23–29 Jun</div>
+    </div>
+  </div>
+
+  <!-- v2 next-step -->
+  <div class="next">
+    <span class="tag">Next step</span>
+    <span class="txt">Mon 30 Jun — <b>weekly invoice due</b> (Rp 30,450,000). Confirm payment to fund next week's credit.</span>
+    <a class="go" href="#">Open invoice</a>
+  </div>
+
+  <!-- v3 controls -->
+  <div class="ctl">
+    <span class="search">⌕ filter activity…</span>
+    <div class="segs">
+      <div class="seg"><b>Group</b><button class="on">Day</button><button>Type</button><button>Object</button></div>
+      <div class="seg"><b>Density</b><button class="on">Comfortable</button><button>Compact</button></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- v3 facet rail -->
+    <aside class="facets">
+      <div class="grp">
+        <div class="ttl">Type</div>
+        <div class="facet on"><span class="box"></span>All <span class="ct">9</span></div>
+        <div class="facet"><span class="d" style="background:var(--order)"></span>Orders <span class="ct">1</span></div>
+        <div class="facet"><span class="d" style="background:var(--credit)"></span>Finance <span class="ct">3</span></div>
+        <div class="facet"><span class="d" style="background:var(--wa)"></span>Messages <span class="ct">1</span></div>
+        <div class="facet"><span class="d" style="background:var(--doc)"></span>Documents <span class="ct">1</span></div>
+        <div class="facet"><span class="d" style="background:var(--sched)"></span>Schedule <span class="ct">1</span></div>
+        <div class="facet"><span class="d" style="background:var(--mile)"></span>Milestones <span class="ct">2</span></div>
+      </div>
+      <div class="grp">
+        <div class="ttl">Actor</div>
+        <div class="facet"><span class="box"></span>Nilson <span class="ct">1</span></div>
+        <div class="facet"><span class="box"></span>Lucas <span class="ct">1</span></div>
+        <div class="facet"><span class="box"></span>System <span class="ct">7</span></div>
+      </div>
+      <div class="grp">
+        <div class="ttl">Direction</div>
+        <div class="facet"><span class="box"></span>Outbound <span class="ct">2</span></div>
+        <div class="facet"><span class="box"></span>Inbound <span class="ct">1</span></div>
+        <div class="facet"><span class="box"></span>System <span class="ct">6</span></div>
+      </div>
+      <div class="grp">
+        <div class="ttl">Window</div>
+        <div class="facet on"><span class="box"></span>Last 14 days</div>
+        <div class="facet"><span class="box" style="border-color:var(--line2)"></span>30 / 90 / all</div>
+      </div>
+    </aside>
+
+    <!-- v2 feed -->
+    <div class="feed">
+      <div class="day">Today · 23 Jun <span class="ct">2</span></div>
+      <div class="ev">
+        <div class="tm"><span class="idisc sm" style="background:var(--credit)">✓</span>09:12</div>
+        <div class="bd">
+          <div class="t"><span class="dir">•</span><span class="chip" style="color:var(--credit);background:#e7f6ef">Payment</span>Credit funded — week 23–29 Jun</div>
+          <div class="s">Invoice <a>INV-2606-014</a> marked paid · <span class="who">by Nilson (manager)</span></div>
+        </div>
+        <div class="rt"><div class="amt up">+30,450,000</div><div class="bal">bal 30.45M</div></div>
+      </div>
+      <div class="ev">
+        <div class="tm"><span class="idisc sm" style="background:var(--wa)">💬</span>08:30</div>
+        <div class="bd">
+          <div class="t"><span class="dir">→</span><span class="chip" style="color:var(--wa);background:#e3f5f3">WhatsApp</span>Reminder drafted — invoice due</div>
+          <div class="s">Prefilled dunning to Bram · <span class="who">by Lucas · initiated</span></div>
+        </div>
+        <div class="rt"><a class="go">View</a></div>
+      </div>
+
+      <div class="day">Yesterday · 22 Jun <span class="ct">1</span></div>
+      <div class="ev">
+        <div class="tm"><span class="idisc sm" style="background:var(--order)">🧾</span>16:40</div>
+        <div class="bd">
+          <div class="t"><span class="dir">→</span><span class="chip" style="color:var(--order);background:#e7effd">Invoice</span>Weekly invoice sent</div>
+          <div class="s"><a>INV-2606-014</a> · 1,050 pcs · transfer ref <span style="font-family:var(--mono);color:var(--muted)">INV-2606-014</span></div>
+        </div>
+        <div class="rt"><div class="amt" style="color:var(--order)">Rp 30,450,000</div><a class="go">Open</a></div>
+      </div>
+
+      <div class="day">Earlier this week <span class="ct">4</span></div>
+      <div class="ev">
+        <div class="tm"><span class="idisc sm" style="background:var(--order)">📦</span>Sat 21</div>
+        <div class="bd">
+          <div class="t"><span class="dir">•</span><span class="chip" style="color:var(--order);background:#e7effd">Order</span>Delivered — 150 × Dubai Chewy Cookies</div>
+          <div class="s">Order <a>0621-008</a> · by 09:00 · drew down credit</div>
+        </div>
+        <div class="rt"><div class="amt dn">−4,350,000</div><div class="bal">bal 18.3M</div></div>
+      </div>
+      <div class="ev">
+        <div class="tm"><span class="idisc sm" style="background:var(--sched)">📅</span>Fri 20</div>
+        <div class="bd">
+          <div class="t"><span class="dir">•</span><span class="chip" style="color:var(--sched);background:#eef1f5">Schedule</span>Week 23–29 Jun confirmed</div>
+          <div class="s">1,050 pcs · 150/day · generated 7 orders + invoice · <a>open scheduler</a></div>
+        </div>
+        <div class="rt"><a class="go">Open</a></div>
+      </div>
+      <div class="mile">
+        <div class="t">Subscription started</div>
+        <div class="s">Dubai Chewy — weekly · 1,050 pcs @ Rp 29,000</div>
+        <div class="tm">Fri 20 Jun</div>
+      </div>
+      <div class="ev">
+        <div class="tm"><span class="idisc sm" style="background:var(--doc)">📄</span>Thu 19</div>
+        <div class="bd">
+          <div class="t"><span class="dir">←</span><span class="chip" style="color:var(--doc);background:#fcf0e0">Agreement</span>Supply agreement signed</div>
+          <div class="s"><a>vFinal.pdf</a> (ID + EN) · linked to Dubai Chewy — weekly</div>
+        </div>
+        <div class="rt"><a class="go">Open</a></div>
+      </div>
+
+      <div class="day">Earlier <span class="ct">2</span></div>
+      <div class="ev">
+        <div class="tm"><span class="idisc sm" style="background:var(--credit)">⚖</span>16 Jun</div>
+        <div class="bd">
+          <div class="t"><span class="dir">•</span><span class="chip" style="color:var(--credit);background:#e7f6ef">Payment</span>Week 9–15 Jun reconciled</div>
+          <div class="s">Cafe under-ordered · <span class="who">Rp 2,150,000 expired (non-transferable)</span></div>
+        </div>
+        <div class="rt"><div class="amt dn">−2,150,000</div></div>
+      </div>
+      <div class="mile">
+        <div class="t">Customer onboarded</div>
+        <div class="s">added to CRM · agreement sent for signature</div>
+        <div class="tm">12 Jun</div>
+      </div>
+
+      <div class="more"><a>Load older activity →</a></div>
+    </div>
+  </div>
+
+  <div class="taxnote">
+    <b>v4 = v2 (header + next-step + readable feed) + v3 (facet rail + group/density).</b> Top section carries the customer's key state (contact links + credit-this-week); the <b>Next step</b> card pins the actionable obligation (B7); the left rail facets by <b>type · actor · direction · window</b> with live counts (B8), and <b>Group</b> can reshape the same events by Day / Type / Object. Finance rows keep the inline <b>running balance</b> (C10). One normalized event log underneath (B5); this is just its richest view. Comment on facet set, default grouping, what belongs in "Next step", and whether the balance should show on every finance row or only on drawdowns.
+  </div>
+</div>
+
+<script>
+  window.__PROOFING_CONFIG = {
+    sendPrefix: "proofing-timeline-v4-",
+    specPath: "docs/superpowers/specs/2026-06-23-subscription-credit-system-phase-d-spec.md"
+  };
+</script>
+<script src="proofing-room.js"></script>
+</body>
+</html>

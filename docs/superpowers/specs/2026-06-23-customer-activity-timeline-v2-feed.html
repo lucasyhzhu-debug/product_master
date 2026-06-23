@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer Timeline v2 — Engagement Feed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f5f7fa; --surface:#ffffff; --raise:#fbfcfe; --line:#e7eaf0; --line2:#d8dde7;
+    --ink:#1d2330; --muted:#5a6474; --faint:#9aa3b2;
+    --indigo:#4f46e5; --indigo-soft:#eef0fe;
+    --order:#2563eb; --credit:#059669; --wa:#0d9488; --doc:#d97706; --mile:#db2777; --sched:#64748b;
+    --radius:14px;
+    --disp:"Plus Jakarta Sans",-apple-system,system-ui,sans-serif;
+    --body:"Inter",-apple-system,system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14.5px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px;margin:0 auto;padding:26px 22px 130px}
+  .crumb{font-size:12px;color:var(--faint);margin-bottom:16px;font-weight:500}
+  .crumb a{color:var(--indigo);text-decoration:none}.crumb b{color:var(--muted)}
+
+  /* compact header */
+  .hd{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px;box-shadow:0 1px 2px rgba(20,30,50,.04)}
+  .hd .id{display:flex;align-items:center;gap:13px}
+  .hd .ava{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--indigo),#7c75f0);color:#fff;display:grid;place-items:center;font-family:var(--disp);font-weight:800;font-size:18px}
+  .hd h1{font-family:var(--disp);font-weight:800;font-size:19px;margin:0;letter-spacing:-.3px}
+  .hd .meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .hd .links{display:flex;gap:6px;margin-top:7px}
+  .hd .links a{font-size:11px;color:var(--muted);text-decoration:none;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:3px 8px}
+  .hd .credit{text-align:right}
+  .hd .credit .l{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .hd .credit .v{font-family:var(--mono);font-weight:600;font-size:20px;color:var(--credit);margin-top:2px}
+  .hd .credit .s{font-size:11px;color:var(--faint)}
+
+  /* next step pinned */
+  .next{margin:14px 0;background:var(--indigo-soft);border:1px solid #d9dcfb;border-radius:12px;padding:13px 16px;display:flex;align-items:center;gap:12px}
+  .next .tag{font-family:var(--disp);font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--indigo);background:#fff;border:1px solid #d9dcfb;border-radius:7px;padding:4px 8px}
+  .next .txt{font-size:13.5px;color:var(--ink);font-weight:500}
+  .next .txt b{font-weight:700}
+  .next .go{margin-left:auto;font-size:12.5px;font-weight:600;color:#fff;background:var(--indigo);border-radius:8px;padding:7px 13px;text-decoration:none}
+
+  /* filter pills */
+  .filters{display:flex;gap:7px;flex-wrap:wrap;margin:18px 0 6px}
+  .pill{font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;user-select:none;transition:.12s}
+  .pill:hover{border-color:var(--line2)}
+  .pill .d{width:8px;height:8px;border-radius:99px}
+  .pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  /* day buckets */
+  .bucket{margin-top:10px}
+  .bucket > .day{position:sticky;top:0;background:linear-gradient(180deg,var(--bg) 70%,rgba(245,247,250,0));padding:14px 0 8px;z-index:5;font-family:var(--disp);font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.2px;display:flex;align-items:center;gap:9px}
+  .bucket > .day .ct{font-family:var(--mono);font-size:11px;color:var(--faint);font-weight:400}
+  .bucket > .day::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* event row: [gutter][dot+time][body][right] */
+  .ev{display:grid;grid-template-columns:30px 64px 1fr auto;gap:0 12px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:7px 0;transition:.12s}
+  .ev:hover{border-color:var(--line2);box-shadow:0 2px 8px rgba(20,30,50,.05)}
+  .ev .gut{grid-column:1;display:grid;place-items:center;padding-top:2px}
+  .ev .gut span{font-family:var(--mono);font-size:15px;line-height:1;color:var(--faint)}
+  .ev .gut .lbl{font-size:8.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-top:3px;font-family:var(--body);font-weight:600}
+  .ev .tm{grid-column:2;font-family:var(--mono);font-size:11px;color:var(--faint);padding-top:3px;display:flex;align-items:center;gap:6px}
+  .ev .tm .dot{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
+  .ev .bd{grid-column:3;min-width:0}
+  .ev .bd .t{font-weight:600;font-size:13.5px}
+  .ev .bd .t .chip{font-family:var(--disp);font-size:9.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:2px 6px;border-radius:5px;margin-right:8px;vertical-align:1px}
+  .ev .bd .s{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .ev .bd .s a{color:var(--indigo);text-decoration:none;font-weight:500}
+  .ev .bd .s .who{color:var(--faint)}
+  .ev .rt{grid-column:4;text-align:right;padding-top:2px;white-space:nowrap}
+  .ev .rt .amt{font-family:var(--mono);font-weight:600;font-size:13.5px}
+  .ev .rt .amt.up{color:var(--credit)} .ev .rt .amt.dn{color:#dc2626}
+  .ev .rt .go{font-size:11px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 9px;display:inline-block;margin-top:2px}
+
+  /* milestone — slim inline */
+  .mile{display:flex;align-items:center;gap:11px;margin:9px 0;padding:9px 14px 9px 36px;position:relative}
+  .mile::before{content:"◆";position:absolute;left:11px;color:var(--mile);font-size:13px}
+  .mile .t{font-family:var(--disp);font-size:11.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--mile)}
+  .mile .s{font-size:12.5px;color:var(--muted)}
+  .mile .tm{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto}
+
+  .more{text-align:center;margin-top:18px}
+  .more a{font-size:12.5px;font-weight:600;color:var(--indigo);text-decoration:none;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 16px}
+
+  .legend{margin-top:24px;padding:14px 16px;background:var(--raise);border:1px solid var(--line);border-radius:12px}
+  .legend .gut{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .legend .gut b{color:var(--ink)}
+  .taxnote{margin-top:14px;font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--indigo);border-radius:10px;padding:13px 15px;line-height:1.6}
+  .taxnote b{color:var(--ink)}
+  @media (max-width:640px){
+    .ev{grid-template-columns:26px 1fr;gap:6px}
+    .ev .tm{grid-column:2;grid-row:1}.ev .bd{grid-column:2}.ev .rt{grid-column:2;text-align:left}
+    .hd{flex-direction:column;align-items:flex-start}.hd .credit{text-align:left}
+  }
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb"><a>CRM</a> / <a>Customers</a> / <a>Amsterdamn Cafe</a> / <b>Activity</b></div>
+
+  <div class="hd">
+    <div class="id">
+      <div class="ava">A</div>
+      <div>
+        <h1>Amsterdamn Cafe</h1>
+        <div class="meta">Bram · Owner · 1 active subscription · since 12 Jun 2026</div>
+        <div class="links"><a>💬 WhatsApp</a><a>✉ Email</a><a>📷 IG</a><a>📄 Agreement</a></div>
+      </div>
+    </div>
+    <div class="credit">
+      <div class="l">Credit this week</div>
+      <div class="v">Rp 12,150,000</div>
+      <div class="s">of 30,450,000 · 23–29 Jun</div>
+    </div>
+  </div>
+
+  <div class="next">
+    <span class="tag">Next step</span>
+    <span class="txt">Mon 30 Jun — <b>weekly invoice due</b> (Rp 30,450,000). Confirm payment to fund next week's credit.</span>
+    <a class="go" href="#">Open invoice</a>
+  </div>
+
+  <div class="filters">
+    <span class="pill on">All</span>
+    <span class="pill"><span class="d" style="background:var(--order)"></span>Orders</span>
+    <span class="pill"><span class="d" style="background:var(--credit)"></span>Finance</span>
+    <span class="pill"><span class="d" style="background:var(--wa)"></span>Messages</span>
+    <span class="pill"><span class="d" style="background:var(--doc)"></span>Documents</span>
+    <span class="pill"><span class="d" style="background:var(--mile)"></span>Milestones</span>
+  </div>
+
+  <!-- TODAY -->
+  <div class="bucket">
+    <div class="day">Today · 23 Jun <span class="ct">2 events</span></div>
+
+    <div class="ev">
+      <div class="gut"><span>•</span><span class="lbl">sys</span></div>
+      <div class="tm"><span class="dot" style="background:var(--credit)"></span>09:12</div>
+      <div class="bd">
+        <div class="t"><span class="chip" style="color:var(--credit);background:#e7f6ef">Payment</span>Credit funded — week 23–29 Jun</div>
+        <div class="s">Invoice <a>INV-2606-014</a> marked paid · <span class="who">confirmed by Nilson (manager)</span></div>
+      </div>
+      <div class="rt"><div class="amt up">+30,450,000</div></div>
+    </div>
+
+    <div class="ev">
+      <div class="gut"><span>→</span><span class="lbl">out</span></div>
+      <div class="tm"><span class="dot" style="background:var(--wa)"></span>08:30</div>
+      <div class="bd">
+        <div class="t"><span class="chip" style="color:var(--wa);background:#e3f5f3">WhatsApp</span>Reminder drafted — invoice due</div>
+        <div class="s">Prefilled dunning copy to Bram · <span class="who">by Lucas · initiated (delivery not confirmed)</span></div>
+      </div>
+      <div class="rt"><a class="go">View</a></div>
+    </div>
+  </div>
+
+  <!-- YESTERDAY -->
+  <div class="bucket">
+    <div class="day">Yesterday · 22 Jun <span class="ct">1 event</span></div>
+    <div class="ev">
+      <div class="gut"><span>→</span><span class="lbl">out</span></div>
+      <div class="tm"><span class="dot" style="background:var(--order)"></span>16:40</div>
+      <div class="bd">
+        <div class="t"><span class="chip" style="color:var(--order);background:#e7effd">Invoice</span>Weekly invoice sent</div>
+        <div class="s"><a>INV-2606-014</a> · 1,050 pcs · transfer ref <span class="mono" style="font-family:var(--mono);color:var(--muted)">INV-2606-014</span></div>
+      </div>
+      <div class="rt"><div class="amt" style="color:var(--order)">Rp 30,450,000</div><a class="go">Open</a></div>
+    </div>
+  </div>
+
+  <!-- THIS WEEK -->
+  <div class="bucket">
+    <div class="day">Earlier this week <span class="ct">3 events</span></div>
+
+    <div class="ev">
+      <div class="gut"><span>•</span><span class="lbl">sys</span></div>
+      <div class="tm"><span class="dot" style="background:var(--order)"></span>Sat 21</div>
+      <div class="bd">
+        <div class="t"><span class="chip" style="color:var(--order);background:#e7effd">Order</span>Delivered — 150 × Dubai Chewy Cookies</div>
+        <div class="s">Order <a>0621-008</a> · delivered by 09:00 · drew down credit</div>
+      </div>
+      <div class="rt"><div class="amt dn">−4,350,000</div><div class="s" style="font-family:var(--mono);font-size:10.5px;color:var(--faint)">bal 18,300,000</div></div>
+    </div>
+
+    <div class="ev">
+      <div class="gut"><span>•</span><span class="lbl">sys</span></div>
+      <div class="tm"><span class="dot" style="background:var(--sched)"></span>Fri 20</div>
+      <div class="bd">
+        <div class="t"><span class="chip" style="color:var(--sched);background:#eef1f5">Schedule</span>Week 23–29 Jun confirmed</div>
+        <div class="s">1,050 pcs · 150/day · generated 7 orders + invoice · <a>open scheduler</a></div>
+      </div>
+      <div class="rt"><a class="go">Open</a></div>
+    </div>
+
+    <div class="mile">
+      <div class="t">Subscription started</div>
+      <div class="s">Dubai Chewy — weekly · 1,050 pcs @ Rp 29,000</div>
+      <div class="tm">Fri 20 Jun</div>
+    </div>
+
+    <div class="ev">
+      <div class="gut"><span>←</span><span class="lbl">in</span></div>
+      <div class="tm"><span class="dot" style="background:var(--doc)"></span>Thu 19</div>
+      <div class="bd">
+        <div class="t"><span class="chip" style="color:var(--doc);background:#fcf0e0">Agreement</span>Supply agreement signed</div>
+        <div class="s"><a>vFinal.pdf</a> (ID + EN) · linked to Dubai Chewy — weekly</div>
+      </div>
+      <div class="rt"><a class="go">Open</a></div>
+    </div>
+  </div>
+
+  <!-- EARLIER -->
+  <div class="bucket">
+    <div class="day">Earlier <span class="ct">2 events</span></div>
+    <div class="ev">
+      <div class="gut"><span>•</span><span class="lbl">sys</span></div>
+      <div class="tm"><span class="dot" style="background:var(--credit)"></span>16 Jun</div>
+      <div class="bd">
+        <div class="t"><span class="chip" style="color:var(--credit);background:#e7f6ef">Payment</span>Week 9–15 Jun reconciled</div>
+        <div class="s">Cafe under-ordered · <span class="who">Rp 2,150,000 expired (non-transferable)</span></div>
+      </div>
+      <div class="rt"><div class="amt dn">−2,150,000</div></div>
+    </div>
+    <div class="mile">
+      <div class="t">Customer onboarded</div>
+      <div class="s">added to CRM · agreement sent for signature</div>
+      <div class="tm">12 Jun</div>
+    </div>
+  </div>
+
+  <div class="more"><a>Load older activity →</a></div>
+
+  <div class="taxnote">
+    <b>Information model (v2 — engagement feed).</b> Events are a <b>unioned feed grouped by day</b> (Today / Yesterday / This week / Earlier — the HubSpot/Intercom pattern), each carrying a <b>direction</b> axis (← inbound · → outbound · • system) and a <b>type</b> (order / finance / message / document / schedule / milestone). A separate <b>"next step"</b> concept is pinned above the feed (CRMs treat upcoming tasks distinctly from past activity). Filters act on <b>type</b>; the day-bucket headers are sticky. <b>Implies:</b> `getCustomerTimeline` returns events tagged `{ type, direction, occurredAt }`; "next step" is a separate query (due invoices / open tasks), not part of the past feed. Comment on the taxonomy: are direction + day-buckets the right primary axes, or is type/object the better primary grouping (see v3)?
+  </div>
+</div>
+
+<script>
+  window.__PROOFING_CONFIG = {
+    sendPrefix: "proofing-timeline-v2-",
+    specPath: "docs/superpowers/specs/2026-06-23-subscription-credit-system-phase-d-spec.md"
+  };
+</script>
+<script src="proofing-room.js"></script>
+</body>
+</html>

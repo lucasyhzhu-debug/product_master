@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscription CRM (Phase D/E) — Visual Design</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+    --ink:#e8ecf3; --muted:#97a0b0; --faint:#6b7484;
+    --brand:#7c5cff; --brand2:#a78bfa;
+    --green:#34d399; --green-d:#0f3d31; --amber:#fbbf24; --amber-d:#3d300f;
+    --red:#f87171; --red-d:#3d1717; --blue:#60a5fa; --blue-d:#10243d; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header.top{position:sticky;top:0;z-index:50;background:rgba(15,17,21,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:14px 28px}
+  header.top h1{margin:0;font-size:17px}header.top h1 span{color:var(--brand2)}
+  nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  nav a{font-size:12.5px;color:var(--muted);text-decoration:none;padding:5px 11px;border:1px solid var(--line);border-radius:99px}
+  nav a:hover{color:var(--ink);border-color:var(--brand);background:var(--panel2)}
+  main{max-width:1080px;margin:0 auto;padding:34px 28px 120px}
+  section{margin:52px 0;scroll-margin-top:120px}
+  .kicker{font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--brand2);font-weight:700}
+  h2{font-size:24px;margin:6px 0 4px}
+  .lede{color:var(--muted);margin:0 0 22px;max-width:74ch}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:16px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid var(--line)}
+  .pill.green{color:var(--green);background:var(--green-d);border-color:transparent}
+  .pill.amber{color:var(--amber);background:var(--amber-d);border-color:transparent}
+  .pill.red{color:var(--red);background:var(--red-d);border-color:transparent}
+  .pill.blue{color:var(--blue);background:var(--blue-d);border-color:transparent}
+  .pill.brand{color:var(--brand2);background:#211b3d;border-color:transparent}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--faint);font-weight:600;font-size:11.5px;letter-spacing:.5px;text-transform:uppercase}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr.total td{border-top:2px solid var(--line);border-bottom:none;font-weight:700}
+  .note{font-size:12.5px;color:var(--faint);border-left:2px solid var(--brand);padding:4px 0 4px 12px;margin:14px 0}
+  .rec{border-left-color:var(--green)}
+  .alt{opacity:.92}
+  .screen{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--panel)}
+  .screen .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--panel2);border-bottom:1px solid var(--line)}
+  .screen .bar .dots{display:flex;gap:5px}.screen .bar .dots i{width:10px;height:10px;border-radius:99px;background:#3a404d;display:block}
+  .screen .bar .url{font-size:12px;color:var(--faint);margin-left:6px}.screen .body{padding:20px}
+  .crumb{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+  .crumb a{color:var(--brand2);text-decoration:none}.crumb a:hover{text-decoration:underline}
+  .lnk{color:var(--brand2);text-decoration:none;border-bottom:1px dashed #3a3560}
+  .h3{font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--faint);font-weight:700;margin:0 0 10px}
+  .field{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #232833;font-size:13.5px}
+  .field .k{color:var(--faint)} .field .v{color:var(--ink);text-align:right}
+  .btn{display:inline-block;font-size:12.5px;font-weight:600;padding:7px 12px;border-radius:9px;border:1px solid var(--line);color:var(--ink);background:var(--panel2);cursor:default}
+  .btn.primary{background:#211b3d;border-color:#3a2f6b;color:var(--brand2)}
+  .gauge{height:12px;border-radius:99px;background:#23283400;border:1px solid var(--line);overflow:hidden;background:#11151c}
+  .gauge i{display:block;height:100%;background:linear-gradient(90deg,var(--brand),var(--blue))}
+  .flowcap{font-size:12px;color:var(--faint);text-align:center;margin-top:6px}
+  .tag{font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:2px 7px;border-radius:6px}
+  .tagA{color:var(--green);background:var(--green-d)} .tagB{color:var(--amber);background:var(--amber-d)}
+  .tg{max-width:430px;background:#11161d;border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin:10px 0;font-size:13.5px;line-height:1.5}
+  .tg .from{font-size:11.5px;color:var(--brand2);font-weight:700;margin-bottom:5px}
+  .tg code{background:#1c2330;padding:1px 5px;border-radius:5px;font-size:12.5px}
+  .decision{font-size:12px;color:var(--amber);background:var(--amber-d);border:none;padding:8px 12px;border-radius:9px;margin:12px 0;display:inline-block}
+  .resolved{font-size:12px;color:var(--green);background:var(--green-d);padding:8px 12px;border-radius:9px;margin:12px 0;display:inline-block}
+  svg{display:block;max-width:100%}
+  .small{font-size:12.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Subscription &amp; Credit — <span>Phase D (CRM) + E visual surfaces</span></h1>
+  <nav>
+    <a href="#home">① CRM home</a>
+    <a href="#record">② Customer record</a>
+    <a href="#chart">③ Drawdown chart</a>
+    <a href="#sub">④ Subscription page</a>
+    <a href="#agreement">⑤ Agreement page</a>
+    <a href="#history">⑥ Order history</a>
+    <a href="#kanban">⑦ Kanban (E)</a>
+    <a href="#cogs">⑧ COGS alert (E)</a>
+    <a href="#telegram">⑨ Telegram copy (E)</a>
+  </nav>
+</header>
+
+<main>
+  <p class="lede" style="margin-top:8px">Each section is a layout/visual decision pulled from the Phase&nbsp;D + E staffreviews (the <code>isVisual</code> open questions). Where there's a choice, the <span class="pill green">Recommended</span> option leads and the alternative follows. <b>Comment on anything</b> (＋ Comment), or rewrite copy in place (✎ Edit), then hit <b>📤 Send</b>. Figures use the Amsterdamn Cafe contract (1,050 pcs/wk @ Rp&nbsp;29,000 = Rp&nbsp;30,450,000; 150 pcs/day) and are illustrative. <span class="tag tagA">A-only</span> = buildable on Phase A now; <span class="tag tagB">needs B</span> = needs Phase B's delivered/planned data.</p>
+
+  <!-- ① CRM HOME — QD3 -->
+  <section id="home">
+    <div class="kicker">① CRM home · QD3</div>
+    <h2>What's the landing layout — "who hasn't paid / what needs funding"?</h2>
+    <p class="lede">Recommended: <b>two stacked sections</b> — an action list (unfunded weeks) on top, an at-a-glance subscriptions overview below. The funding list is <span class="tag tagB">needs B</span> (week statuses + invoiceKind come from Phase B); the subscriptions overview is <span class="tag tagA">A-only</span>.</p>
+
+    <div class="screen">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="url">app / crm</span></div>
+      <div class="body">
+        <div class="crumb">CRM</div>
+        <div class="card" style="margin:0 0 16px">
+          <div class="h3">⚠ Needs funding — <span class="small">5 weeks · Rp 71,300,000 outstanding</span></div>
+          <table>
+            <tr><th>Customer</th><th>Week</th><th>Invoice</th><th class="num">Amount</th><th>Status</th><th></th></tr>
+            <tr><td><a class="lnk">Amsterdamn Cafe</a></td><td>23–29 Jun</td><td><a class="lnk">INV-2606-014</a></td><td class="num">Rp 30,450,000</td><td><span class="pill amber">Invoiced · unpaid</span></td><td><span class="btn primary">Mark paid → fund</span></td></tr>
+            <tr><td><a class="lnk">Dubai Bites Co</a></td><td>23–29 Jun</td><td><a class="lnk">INV-2606-015</a></td><td class="num">Rp 18,200,000</td><td><span class="pill amber">Invoiced · unpaid</span></td><td><span class="btn primary">Mark paid → fund</span></td></tr>
+            <tr><td><a class="lnk">Matcha House</a></td><td>16–22 Jun</td><td><a class="lnk">INV-2605-088</a></td><td class="num">Rp 9,400,000</td><td><span class="pill red">Overdue 4d</span></td><td><span class="btn primary">Mark paid → fund</span></td></tr>
+          </table>
+        </div>
+        <div class="card" style="margin:0">
+          <div class="h3">Active subscriptions <span class="tag tagA" style="margin-left:6px">A-only</span></div>
+          <table>
+            <tr><th>Customer</th><th>Subscription</th><th class="num">Weekly qty</th><th class="num">Weekly credit</th><th>Status</th></tr>
+            <tr><td><a class="lnk">Amsterdamn Cafe</a></td><td><a class="lnk">Dubai Chewy — weekly</a></td><td class="num">1,050</td><td class="num">Rp 30,450,000</td><td><span class="pill green">Active</span></td></tr>
+            <tr><td><a class="lnk">Dubai Bites Co</a></td><td><a class="lnk">Original 80g — weekly</a></td><td class="num">700</td><td class="num">Rp 18,200,000</td><td><span class="pill green">Active</span></td></tr>
+            <tr><td><a class="lnk">Sunda Coffee</a></td><td><a class="lnk">Mixed box — weekly</a></td><td class="num">420</td><td class="num">Rp 12,180,000</td><td><span class="pill amber">Terminating · ends 12 Jul</span></td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="note rec">✓ Resolved: two sections (needs-funding list + active-subscriptions overview). <b>Added (c1):</b> "Mark paid → fund" records <b>who confirmed it</b> (the topup ledger entry's <code>createdBy</code>) and the invoice # (<code>INV-YYMM-NNN</code>) doubles as the <b>bank-transfer reference</b> for financials matching. <b>Added (c2):</b> each unpaid row also gets a smaller <b>"Draft WhatsApp reminder"</b> dunning action — opens wa.me with prefilled copy AND logs the interaction onto the customer's Activity Timeline.</div>
+  </section>
+
+  <!-- ② CUSTOMER RECORD — QD1 -->
+  <section id="record">
+    <div class="kicker">② Customer record · QD1</div>
+    <h2>Single scrolling column vs. two-pane?</h2>
+    <p class="lede"><span class="resolved">✓ RESOLVED — two-pane dashboard (sub-phase D1, built first)</span> identity/contact/addresses left, financial story right + quick actions. The <b>Activity Timeline is its OWN PAGE + sub-phase (D2)</b> — NOT embedded here; the dashboard links to it via "View activity timeline →". See the dedicated design: <code>2026-06-23-customer-activity-timeline-design.html</code>. Order history is folded into that timeline (no separate page).</p>
+
+    <div class="grid2">
+      <div>
+        <div class="small" style="margin-bottom:8px"><span class="pill green">Recommended</span> Two-pane</div>
+        <div class="screen">
+          <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="url">app / crm / customers / amsterdamn</span></div>
+          <div class="body">
+            <div class="crumb"><a>CRM</a> › <a>Customers</a> › Amsterdamn Cafe</div>
+            <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:14px">
+              <div class="card" style="margin:0">
+                <div class="h3">Contact</div>
+                <div class="field"><span class="k">Key contact</span><span class="v">Bram (Owner)</span></div>
+                <div class="field"><span class="k">WhatsApp</span><span class="v"><a class="lnk">+62 812-3456</a></span></div>
+                <div class="field"><span class="k">Email</span><span class="v"><a class="lnk">bram@…</a></span></div>
+                <div class="field"><span class="k">Instagram</span><span class="v"><a class="lnk">@amsterdamn</a></span></div>
+                <div class="h3" style="margin-top:16px">Addresses</div>
+                <div class="field"><span class="k">Delivery</span><span class="v">Jl. Senopati 12</span></div>
+                <div class="field"><span class="k">Store</span><span class="v">Jl. Kemang 4</span></div>
+                <div class="h3" style="margin-top:16px">Agreement</div>
+                <div class="field"><span class="k">Contract</span><span class="v"><a class="lnk">vFinal.pdf 📎</a></span></div>
+              </div>
+              <div>
+                <div class="card" style="margin:0 0 14px">
+                  <div class="h3">This week's credit <span class="tag tagB" style="margin-left:6px">needs B</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span class="small">Rp 18.3M used of 30.45M</span><span class="small">Rp 12,150,000 left</span></div>
+                  <div class="gauge"><i style="width:60%"></i></div>
+                </div>
+                <div class="card" style="margin:0 0 14px">
+                  <div class="h3">Subscriptions</div>
+                  <div class="field"><span class="k"><a class="lnk">Dubai Chewy — weekly</a></span><span class="v"><span class="pill green">Active</span></span></div>
+                </div>
+                <div class="card" style="margin:0 0 14px">
+                  <div class="h3">Invoices &amp; funding</div>
+                  <div class="field"><span class="k"><a class="lnk">INV-2606-014</a> · 23–29 Jun</span><span class="v"><span class="pill amber">Unpaid</span></span></div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap"><span class="btn primary">Plan schedule</span><span class="btn primary">Mark invoice paid → fund</span><span class="btn">Settings</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="alt">
+        <div class="small" style="margin-bottom:8px"><span class="pill blue">Alternative</span> Single column</div>
+        <div class="screen">
+          <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="url">app / crm / customers / amsterdamn</span></div>
+          <div class="body">
+            <div class="crumb"><a>CRM</a> › <a>Customers</a> › Amsterdamn Cafe</div>
+            <div class="card" style="margin:0 0 12px"><div class="h3">Contact</div><div class="small">Bram (Owner) · <a class="lnk">WA</a> · <a class="lnk">email</a> · <a class="lnk">IG</a></div></div>
+            <div class="card" style="margin:0 0 12px"><div class="h3">Addresses</div><div class="small">Delivery: Jl. Senopati 12 · Store: Jl. Kemang 4</div></div>
+            <div class="card" style="margin:0 0 12px"><div class="h3">This week's credit <span class="tag tagB">needs B</span></div><div class="gauge"><i style="width:60%"></i></div></div>
+            <div class="card" style="margin:0 0 12px"><div class="h3">Subscriptions</div><div class="small"><a class="lnk">Dubai Chewy — weekly</a> · Active</div></div>
+            <div class="card" style="margin:0 0 12px"><div class="h3">Invoices</div><div class="small"><a class="lnk">INV-2606-014</a> · Unpaid</div></div>
+            <div style="display:flex;gap:8px"><span class="btn primary">Plan schedule</span><span class="btn primary">Mark paid → fund</span></div>
+          </div>
+        </div>
+        <div class="note">Single column is simpler to build and reads fine on mobile; two-pane keeps the money story above the fold on desktop. Comment which you prefer (or "single on mobile, two-pane on desktop").</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ DRAWDOWN CHART — QD5 -->
+  <section id="chart">
+    <div class="kicker">③ Drawdown chart · QD5</div>
+    <h2>Credit drawdown — delivered solid, planned dashed, dual axis</h2>
+    <p class="lede"><span class="tag tagB">needs B</span> Bars = pcs/day (left axis), line = credit remaining in Rp (right axis). <b>Solid</b> = delivered (Mon–Wed), <b>dashed + lighter</b> = planned (Thu–Sun), with a "today" divider. Flags leftover credit if the line won't reach zero by Sunday. <span class="resolved">✓ RESOLVED — per-subscription, NOT summed</span> a selector picks ONE subscription; the chart titles it + links to its page (supersedes the design's "sum pools for display").</p>
+    <div class="card">
+      <svg viewBox="0 0 1000 340" role="img" aria-label="Credit drawdown chart">
+        <defs>
+          <linearGradient id="barg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#4c3aa6"/></linearGradient>
+        </defs>
+        <!-- axes -->
+        <line x1="70" y1="20" x2="70" y2="280" stroke="#2a2f3a"/>
+        <line x1="70" y1="280" x2="930" y2="280" stroke="#2a2f3a"/>
+        <line x1="930" y1="20" x2="930" y2="280" stroke="#2a2f3a"/>
+        <text x="70" y="305" fill="#6b7484" font-size="12" text-anchor="middle">Mon</text>
+        <text x="190" y="305" fill="#6b7484" font-size="12" text-anchor="middle">Tue</text>
+        <text x="310" y="305" fill="#6b7484" font-size="12" text-anchor="middle">Wed</text>
+        <text x="430" y="305" fill="#6b7484" font-size="12" text-anchor="middle">Thu</text>
+        <text x="550" y="305" fill="#6b7484" font-size="12" text-anchor="middle">Fri</text>
+        <text x="670" y="305" fill="#6b7484" font-size="12" text-anchor="middle">Sat</text>
+        <text x="790" y="305" fill="#6b7484" font-size="12" text-anchor="middle">Sun</text>
+        <text x="34" y="26" fill="#a78bfa" font-size="11">pcs</text>
+        <text x="946" y="26" fill="#60a5fa" font-size="11" text-anchor="end" transform="rotate(0)">Rp</text>
+        <!-- delivered bars (solid) -->
+        <rect x="44" y="120" width="52" height="160" rx="4" fill="url(#barg)"/>
+        <rect x="164" y="120" width="52" height="160" rx="4" fill="url(#barg)"/>
+        <rect x="284" y="120" width="52" height="160" rx="4" fill="url(#barg)"/>
+        <!-- planned bars (dashed outline, faint) -->
+        <rect x="404" y="120" width="52" height="160" rx="4" fill="#2a2550" stroke="#7c5cff" stroke-dasharray="4 3" opacity=".7"/>
+        <rect x="524" y="120" width="52" height="160" rx="4" fill="#2a2550" stroke="#7c5cff" stroke-dasharray="4 3" opacity=".7"/>
+        <rect x="644" y="120" width="52" height="160" rx="4" fill="#2a2550" stroke="#7c5cff" stroke-dasharray="4 3" opacity=".7"/>
+        <rect x="764" y="120" width="52" height="160" rx="4" fill="#2a2550" stroke="#7c5cff" stroke-dasharray="4 3" opacity=".7"/>
+        <!-- today divider -->
+        <line x1="370" y1="20" x2="370" y2="280" stroke="#fbbf24" stroke-dasharray="3 4" opacity=".8"/>
+        <text x="370" y="16" fill="#fbbf24" font-size="11" text-anchor="middle">today</text>
+        <!-- credit remaining line: solid to today, dashed after -->
+        <polyline points="70,40 190,90 310,140" fill="none" stroke="#60a5fa" stroke-width="3"/>
+        <polyline points="310,140 430,180 550,210 670,235 790,250" fill="none" stroke="#60a5fa" stroke-width="3" stroke-dasharray="6 5" opacity=".75"/>
+        <circle cx="310" cy="140" r="4" fill="#60a5fa"/>
+        <!-- leftover flag -->
+        <line x1="790" y1="250" x2="790" y2="280" stroke="#f87171" stroke-width="2"/>
+        <rect x="700" y="226" width="150" height="20" rx="6" fill="#3d1717"/>
+        <text x="775" y="240" fill="#f87171" font-size="11" text-anchor="middle">⚠ Rp 2.1M leftover Sun</text>
+      </svg>
+      <p class="flowcap">Credit line lands above zero by Sunday → under-ordered → leftover-credit flag fires. (Computed from <code>pool.creditRemaining</code> projected, not <code>week.shortfall</code> which only exists post-reconcile.)</p>
+    </div>
+    <div class="note rec">✓ Resolved (c4): <b>one subscription at a time via a selector/dropdown</b> — title names it, small link to its subscription page (breadcrumb-consistent). No summed roll-up; each pool stays ring-fenced. This removes the multi-subscription alignment problem entirely.</div>
+  </section>
+
+  <!-- ④ SUBSCRIPTION PAGE — QD2 -->
+  <section id="sub">
+    <div class="kicker">④ Subscription page · QD2</div>
+    <h2>How much does Phase D build vs. leave to Phase B's scheduler?</h2>
+    <p class="lede">The page <code>/crm/customers/:id/subscriptions/:subId</code> is a link target. Recommended: Phase D ships the <b>read-only detail shell + Settings</b> (label, pricing, policy, cadence summary, ledger + weeks list) and a prominent <b>"Open in scheduler"</b> button; Phase B owns the editable week-by-week calendar. Avoids double-building.</p>
+    <div class="screen">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="url">app / crm / customers / amsterdamn / subscriptions / dubai-chewy</span></div>
+      <div class="body">
+        <div class="crumb"><a>CRM</a> › <a>Customers</a> › <a>Amsterdamn Cafe</a> › Dubai Chewy — weekly</div>
+        <div class="grid2">
+          <div class="card" style="margin:0">
+            <div class="h3">Terms <span class="tag tagA" style="margin-left:6px">A-only</span></div>
+            <div class="field"><span class="k">Unit price (confidential)</span><span class="v">Rp 29,000 🔒</span></div>
+            <div class="field"><span class="k">Baseline / day</span><span class="v">150 pcs</span></div>
+            <div class="field"><span class="k">Weekly qty</span><span class="v">1,050 pcs</span></div>
+            <div class="field"><span class="k">Deliver by</span><span class="v">09:00 WIB</span></div>
+            <div class="field"><span class="k">Rollover</span><span class="v">Expire (in-week)</span></div>
+            <div class="field"><span class="k">Termination notice</span><span class="v">30 days</span></div>
+            <div style="margin-top:14px"><span class="btn">Settings</span> <span class="btn primary">Open in scheduler →</span></div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="h3">Weeks <span class="tag tagB" style="margin-left:6px">needs B</span></div>
+            <table>
+              <tr><th>Week</th><th>Status</th><th class="num">Credit</th></tr>
+              <tr><td><a class="lnk">23–29 Jun</a></td><td><span class="pill amber">Invoiced</span></td><td class="num">Rp 30,450,000</td></tr>
+              <tr><td><a class="lnk">16–22 Jun</a></td><td><span class="pill green">Reconciled</span></td><td class="num">Rp 30,450,000</td></tr>
+            </table>
+            <div class="h3" style="margin-top:16px">Recent ledger</div>
+            <div class="small">＋ Topup Rp 30,450,000 · −Drawdown Rp 4,350,000 ×3 · …</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note rec">QD2 recommended option 1: D builds the shell + settings + ledger/weeks read-out; B wires the editable calendar behind "Open in scheduler". Alternative: D builds the full read-only detail (incl. a non-editable week grid) and B only adds editing. Comment if you want the week grid rendered here.</div>
+  </section>
+
+  <!-- ⑤ AGREEMENT PAGE — QD13 -->
+  <section id="agreement">
+    <div class="kicker">⑤ Agreement page · QD13</div>
+    <h2>Contract: terms snapshot + ID/EN versions + seed action</h2>
+    <p class="lede"><span class="tag tagA">A-only</span> <span class="resolved">✓ RESOLVED (c9) — no auto-seeding</span> Subscriptions are created manually. The agreement page's only jobs: confirm the <b>final version is uploaded</b> (with a last-uploaded date) and show <b>which subscriptions it's linked to</b>. Single page: status → versions (ID/EN, last-upload date) → Linked subscriptions.</p>
+    <div class="screen">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="url">app / crm / customers / amsterdamn / agreements / vfinal</span></div>
+      <div class="body">
+        <div class="crumb"><a>CRM</a> › <a>Customers</a> › <a>Amsterdamn Cafe</a> › Agreement vFinal</div>
+        <div class="card" style="margin:0 0 14px;display:flex;justify-content:space-between;align-items:center">
+          <div><b>Frollie × Amsterdamn Cafe Supply Agreement</b><div class="small">Signed 12 Jun 2026 · Governing law: Indonesia</div></div>
+          <span class="pill green">Signed</span>
+        </div>
+        <div class="grid2">
+          <div class="card" style="margin:0">
+            <div class="h3">Key terms (seeds subscription defaults)</div>
+            <div class="field"><span class="k">Weekly qty</span><span class="v">1,050</span></div>
+            <div class="field"><span class="k">Unit price</span><span class="v">Rp 29,000</span></div>
+            <div class="field"><span class="k">Weekly credit</span><span class="v">Rp 30,450,000</span></div>
+            <div class="field"><span class="k">Baseline/day</span><span class="v">150</span></div>
+            <div class="field"><span class="k">Deliver by</span><span class="v">09:00</span></div>
+            <div class="field"><span class="k">Term</span><span class="v">Week-to-week · 30d notice</span></div>
+            <div class="h3" style="margin-top:16px">Linked subscriptions</div>
+            <div class="field"><span class="k"><a class="lnk">Dubai Chewy — weekly</a></span><span class="v"><span class="pill green">Active</span></span></div>
+            <div class="field"><span class="k">Last uploaded</span><span class="v">19 Jun 2026 · vFinal (ID+EN)</span></div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="h3">Versions</div>
+            <div class="field"><span class="k">🇮🇩 vFinal (ID)</span><span class="v"><a class="lnk">open · download</a></span></div>
+            <div class="field"><span class="k">🇬🇧 vFinal (EN)</span><span class="v"><a class="lnk">open · download</a></span></div>
+            <div style="margin-top:12px"><span class="btn">Upload new version</span></div>
+            <div class="note" style="margin-top:14px">Upload reuses only <code>ctx.storage.generateUploadUrl()</code> — but with <code>roles:["manager","admin"]</code>, NOT businessSettings' admin-only roles (finding D-Important).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note rec">✓ Resolved (c7/c8/c9): single page, <b>no seed action</b> — added a "Linked subscriptions" section + a last-uploaded date. <code>keyTerms</code> may still be captured for reference but drives no auto-seeding (subscriptions created manually in Phase B).</div>
+  </section>
+
+  <!-- ⑥ ORDER HISTORY — QD6 -->
+  <section id="history">
+    <div class="kicker">⑥ Order history · QD6</div>
+    <h2>Per-customer order history — columns, filters, pagination</h2>
+    <p class="lede"><span class="resolved">✓ RESOLVED (c10) — folded into the Activity Timeline</span> There is no standalone order-history page. Orders are one <b>filterable activity type</b> within the customer timeline (see the timeline design). The table below is retained only to show the columns a "filter: Orders" timeline view would surface.</p>
+    <div class="screen">
+      <div class="bar"><div class="dots"><i></i><i></i><i></i></div><span class="url">app / crm / customers / amsterdamn / orders</span></div>
+      <div class="body">
+        <div class="crumb"><a>CRM</a> › <a>Customers</a> › <a>Amsterdamn Cafe</a> › Orders</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px"><span class="btn">Date range ▾</span><span class="btn">Funding: all ▾</span></div>
+        <div class="card" style="margin:0">
+          <table>
+            <tr><th>Order</th><th>Date</th><th>Funding</th><th class="num">Total</th><th>Status</th></tr>
+            <tr><td><a class="lnk">0623-014</a></td><td>23 Jun</td><td><span class="pill brand">Subscription credit</span></td><td class="num">Rp 4,350,000</td><td><span class="pill green">Paid</span></td></tr>
+            <tr><td><a class="lnk">0622-009</a></td><td>22 Jun</td><td><span class="pill blue">Part-credit / cash</span></td><td class="num">Rp 5,800,000</td><td><span class="pill green">Paid</span></td></tr>
+            <tr><td><a class="lnk">0619-002</a></td><td>19 Jun</td><td><span class="pill">Normal</span></td><td class="num">Rp 1,200,000</td><td><span class="pill amber">Awaiting payment</span></td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="note">Comment if you want different columns (e.g. delivery date, week link) or infinite-scroll instead of pages.</div>
+  </section>
+
+  <!-- ⑦ KANBAN — Q12 (Phase E) -->
+  <section id="kanban">
+    <div class="kicker">⑦ Kanban read-only · Q12 (Phase E)</div>
+    <h2>How does a subscription order look on the production kanban?</h2>
+    <p class="lede">Subscription orders flow through the normal kitchen kanban but render in a distinct <b>🔒 Subscription</b> style: no edit/status/delete controls, no pricing/credit shown (staff reach this board), and a single <b>"Open in scheduler"</b> link. The decision: do kitchen <b>production controls</b> (mark produced, auto-advance) stay enabled, or is the card fully read-only?</p>
+    <div class="grid2">
+      <div>
+        <div class="small" style="margin-bottom:8px"><span class="pill green">Recommended</span> Production stays, edits blocked</div>
+        <div class="card" style="margin:0;border-color:#3a2f6b">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <b>0623-014</b><span class="pill brand">🔒 Subscription</span>
+          </div>
+          <div class="small">Amsterdamn Cafe · deliver by 09:00</div>
+          <div class="small" style="margin:8px 0">150 × Dubai Chewy Cookies</div>
+          <div style="display:flex;gap:8px"><span class="btn">Mark produced ✓</span><span class="btn primary">Open in scheduler →</span></div>
+          <div class="note" style="margin-top:10px">No qty/price/credit. No status dropdown, no delete. Kitchen can still <b>produce/fulfil</b>; status auto-advances. Editing qty/products happens only in the scheduler so the credit pool can't desync.</div>
+        </div>
+      </div>
+      <div class="alt">
+        <div class="small" style="margin-bottom:8px"><span class="pill blue">Alternative</span> Fully read-only display</div>
+        <div class="card" style="margin:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <b>0623-014</b><span class="pill brand">🔒 Subscription</span>
+          </div>
+          <div class="small">Amsterdamn Cafe · deliver by 09:00</div>
+          <div class="small" style="margin:8px 0">150 × Dubai Chewy Cookies</div>
+          <div style="display:flex;gap:8px"><span class="btn primary">Open in scheduler →</span></div>
+          <div class="note" style="margin-top:10px">Even production buttons are hidden; the card is informational only. Likely too restrictive — design §6 says staff still produce. Shown for contrast.</div>
+        </div>
+      </div>
+    </div>
+    <div class="decision">✓ Resolved (c11): production stays, edits blocked. Mirror into BOTH <code>OrderSlideOver.tsx</code> AND <code>OrderDetail.tsx</code> (Pitfall #20). Confidential price stripped <b>server-side</b> in a staff-callable query (Q11/Q18) — not hidden client-side, or it leaks; and not manager-only, or it crashes the kanban for staff on mount (Pitfall #19).</div>
+  </section>
+
+  <!-- ⑧ COGS ALERT — Q10 (Phase E) -->
+  <section id="cogs">
+    <div class="kicker">⑧ COGS-rise alert · Q10 (Phase E)</div>
+    <h2>Where does the "COGS rose above contract basis" alert surface?</h2>
+    <p class="lede"><span style="color:var(--red);background:var(--red-d);padding:8px 12px;border-radius:9px;display:inline-block;font-size:12px">✗ DROPPED (c12/c13)</span> — COGS-rise alerting is removed from the system entirely. Pricing changes are handled as a <b>manual contract-renegotiation journey</b> (they require updating the agreement too). Removed from Phase E: <code>detectCogsRise</code>, AC10, EC10, Q10, Q16. The two cards below are struck through for reference only.</p>
+    <div class="grid2">
+      <div class="card" style="margin:0">
+        <div class="h3">CRM badge (on subscription)</div>
+        <div style="display:flex;align-items:center;gap:10px"><span class="pill red">⚠ COGS Rp 31,200 &gt; basis Rp 29,000</span></div>
+        <div class="small" style="margin-top:10px">Sits on the subscription header + CRM home overview row. Advisory — links to "Review pricing".</div>
+      </div>
+      <div class="card" style="margin:0">
+        <div class="h3">Telegram (subscription-ops)</div>
+        <div class="tg"><div class="from">FrollieProBot</div>⚠️ <b>COGS alert — Amsterdamn Cafe</b><br>Dubai Chewy COGS is now <b>Rp 31,200</b>, above the contract basis <b>Rp 29,000</b>. Price change needs mutual agreement before adjusting. <i>Review in app.</i></div>
+      </div>
+    </div>
+    <div class="decision">Open: advisory (recommended v1) vs. hard-block the price change until acknowledged; and de-dupe cadence — once per week (recommended, slot-keyed, no schema) vs. once-until-acknowledged (needs an ack field = schema add). Comment your call.</div>
+  </section>
+
+  <!-- ⑨ TELEGRAM COPY — Q2 (Phase E) -->
+  <section id="telegram">
+    <div class="kicker">⑨ Telegram reminder copy · Q2 (Phase E)</div>
+    <h2>The 5 weekly reminders — draft copy (human-nudge style)</h2>
+    <p class="lede">Per your decision, crons are <b>human nudges</b> — they prompt a manager to act in-app, they don't auto-write credit. Draft copy below; edit any line in place (✎). Money is integer IDR. These get locked via formatter unit tests.</p>
+
+    <div class="tg"><div class="from">FrollieProBot · Sun 17:00</div>📋 <b>Confirm next week's schedule</b><br>Amsterdamn Cafe · 23–29 Jun · 1,050 pcs (150/day) · <b>Rp 30,450,000</b> credit.<br>Review &amp; confirm in the scheduler → then it generates orders + the invoice. <i>Open scheduler.</i></div>
+
+    <div class="tg"><div class="from">FrollieProBot · Mon 08:00</div>💳 <b>Weekly credit invoice due</b><br>Amsterdamn Cafe · <code>INV-2606-014</code> · <b>Rp 30,450,000</b> (prepaid, due today).<br>Once payment lands, mark it paid → funds this week's credit. <i>Open invoice.</i></div>
+
+    <div class="tg"><div class="from">FrollieProBot · Daily 07:00</div>🚚 <b>Today's deliveries — by 09:00</b><br>Amsterdamn Cafe:<br>• 150 × Dubai Chewy Cookies<br><i>Open today's board.</i></div>
+
+    <div class="tg"><div class="from">FrollieProBot · Daily 12:30</div>⏰ <b>Change cutoff at 13:00</b><br>Tomorrow's orders lock at 13:00 today. Any qty change for tomorrow must be in before then. <i>Open scheduler.</i></div>
+
+    <div class="tg"><div class="from">FrollieProBot · Mon 09:00</div>🧾 <b>Reconcile last week</b><br>Amsterdamn Cafe · 16–22 Jun · issued Rp 30,450,000 · consumed Rp 28,300,000 · <b>Rp 2,150,000 unused</b>.<br>Attribute: cafe under-ordered (expire) or Frollie shortfall (refund)? <i>Open reconcile.</i></div>
+
+    <div class="note">Comment on tone/length/what each should include (e.g. add the customer's WhatsApp link, or per-day product split in the deliveries nudge).</div>
+  </section>
+
+</main>
+
+<script>
+  window.__PROOFING_CONFIG = {
+    sendPrefix: "proofing-subscription-cde-",
+    specPath: "docs/superpowers/specs/2026-06-23-subscription-credit-system-phase-d-spec.md"
+  };
+</script>
+<script src="proofing-room.js"></script>
+</body>
+</html>
