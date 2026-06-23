@@ -1,0 +1,1048 @@
+# Subscription Phase B — Automated Ordering Schedule + Weekly Billing Cycle (merged B+C) Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build the complete weekly subscription cycle — plan a week in a calendar → confirm → generate real orders + a weekly credit invoice → mark paid → fund credit → orders draw down → reconcile at week-end — on top of the Phase-A credit-wallet spine, manager+admin only.
+
+**Architecture:** The confirmed schedule is the single source of truth; the credit amount is *derived* (`schedule total = invoice total = credit granted`). Phase A shipped the tables + pure credit-math + append-only ledger + CRUD + week-seed. This phase adds: scheduling (validate/align/seed-sources/confirm + order generation), the money loop (weekly invoice, drawdown-on-funded, top-up, reconcile incl. per-tranche FIFO rollover), the `/crm` calendar + invoice + funding UI, and read-only subscription rendering on the kanban. Convex serverless backend + React 19 frontend.
+
+**Tech Stack:** Convex (`protectedMutation`/`protectedQuery` from `convex/lib/functions.ts`), TypeScript, Vitest (pure-function unit tests), React 19 + shadcn/ui + Tailwind 4, `react-router` lazy routes.
+
+**Spec:** `docs/superpowers/specs/2026-06-23-subscription-credit-system-design.md` (merged Phase B = §6 schedule, §7 billing/credit/weekly cycle incl. reconcile, §8 out-of-credit)
+**Spec staffreview:** `docs/reviews/staffreview-subscription-phase-b-merged-2026-06-23.md`
+
+## Global Constraints
+
+- **Access control:** every subscription/credit/invoice/CRM query+mutation uses `roles: ["manager", "admin"]`, aligned with the `/crm` route `requiredPermission` (CLAUDE.md Pitfall #19). Never `["admin"]`-only on a manager-reachable surface.
+- **Auth wrappers:** `protectedMutation`/`protectedQuery` from `convex/lib/functions.ts` (inject `ctx.user`; sessionId via `SessionIdArg` — do NOT add a `token` arg).
+- **Money:** integers (IDR, no decimals). Never floats. Use `computeLineTotal` / `Math.round`.
+- **WIB dates:** reuse `convex/lib/periodRange.ts` (`getWibComponents`, `wibMidnightToUtc`, `calculateWeekRange`, `getWibDateStr`). Pitfall #18 bans the deleted alternatives — do not hand-roll week math.
+- **Shared line type:** the line `{ menuProductId, productName, qty, unitPrice, lineTotal }` is the Phase-A `ScheduleLine` (`convex/subscriptions/types.ts`) — reuse it; construct ONLY via the new `makeScheduleLine` factory (Task B1).
+- **Analytics isolation (C1):** subscription orders are NOT channel revenue. Gate them out of `externalRevenue` sync AND `getDailySalesSummary`. BOM ball-counting (Pitfall #11/#13) must still resolve.
+- **Order dual-surface (Pitfall #20):** kanban subscription rendering goes into BOTH `OrderSlideOver.tsx` AND `OrderDetail.tsx`.
+- **Ship-dark:** all surfaces manager+admin gated from day one; all changes additive (schema already landed in A — only one new index here). Revert = revert commits.
+- **camelCase** Convex field names. **Convex Ids are typed strings** (`Id<"table">`). **Mutations are async — always `await`.**
+- **Branch:** `feature/subscription-phase-b` (cut from synced `main`). `npm run build` must pass before merge.
+- **Testing convention (grounded):** extract pure functions and unit-test with Vitest; auth-gated convex-test runtime tests are deferred per project convention (see header of `convex/invoices/__tests__/mutations.test.ts`). TDD targets the pure cores; ctx-dependent mutations are verified via their extracted pure helpers + manual UAT.
+
+---
+
+## File Structure
+
+**Backend — create:**
+- `convex/subscriptions/scheduleLine.ts` — `makeScheduleLine` factory + `validateScheduleTemplate` pure fns.
+- `convex/subscriptions/weekBounds.ts` — `computeWeekStart`/`computeWeekBounds` (Monday-WIB) pure wrappers over `periodRange`.
+- `convex/subscriptions/reconcileMath.ts` — per-tranche FIFO rollover pure core.
+- `convex/subscriptions/scheduling/confirmWeek.ts` — `confirmWeek` mutation (order generation).
+- `convex/subscriptions/scheduling/queries.ts` — `getPlanningWeek`, `listWeeks` (calendar reads).
+- `convex/subscriptions/invoicing.ts` — `createSubscriptionWeeklyInvoice`, `markWeeklyInvoicePaid`, `createTopupInvoice`.
+- `convex/subscriptions/reconcile.ts` — `reconcileWeek` mutation.
+- `convex/subscriptions/outOfCredit.ts` — split / apply-partial helpers.
+- `convex/subscriptions/revenueGate.ts` — `isSubscriptionOrder` predicate (C1 single source).
+- `convex/orders/helpers/insertOrder.ts` — extracted `insertOrderWithItems` helper (I1).
+- Tests: `convex/subscriptions/__tests__/scheduleLine.test.ts`, `weekBounds.test.ts`, `reconcileMath.test.ts`, `revenueGate.test.ts`.
+
+**Backend — modify:**
+- `convex/subscriptions/weeks.ts` — add `source` arg to `seedWeek` (template/previousWeek/blank).
+- `convex/subscriptions/creditMath.ts` — re-export `makeScheduleLine` (so all line construction routes through one module is optional; factory lives in `scheduleLine.ts`).
+- `convex/orders/mutations/orderCrud.ts` — `create` calls the extracted `insertOrderWithItems`.
+- `convex/integrations/internal/queries.ts:36` — exclude subscription orders (C1).
+- `convex/reports/dailySales.ts:13` — exclude subscription orders (C1).
+- `convex/schema.ts` — add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` (Refinement).
+
+**Frontend — create:**
+- `src/pages/crm/SubscriptionSchedulePage.tsx` — the schedule calendar.
+- `src/pages/crm/SubscriptionWeeklyInvoicePage.tsx` — visual day-by-day invoice + send.
+- `src/pages/crm/CrmFundingDashboardPage.tsx` — "who hasn't paid / what needs funding".
+- `src/components/crm/WeekCalendarGrid.tsx`, `src/components/crm/DayPlanCell.tsx`, `src/components/crm/ProductLineEditor.tsx`.
+- `src/lib/crmPermissions.ts` (if a small helper is needed) — else extend `src/lib/types.ts`.
+
+**Frontend — modify:**
+- `src/lib/types.ts` — add `canAccessCrm` to `ROLE_PERMISSIONS` (manager+admin).
+- `src/App.tsx` — register `/crm/...` lazy routes under `<ProtectedRoute requiredPermission="canAccessCrm">`.
+- `src/components/orders/OrderSlideOver.tsx` AND `src/pages/OrderDetail.tsx` — read-only "🔒 Subscription" rendering (Pitfall #20).
+
+**Docs — modify:** `docs/CHANGELOG.md`, `docs/API_REFERENCE.md`, `docs/FILE_MAP.md`.
+
+---
+
+# Wave 1 — Backend pure cores (TDD) [PARALLEL]
+
+### Task B1: `makeScheduleLine` factory + `validateScheduleTemplate` (I2, I3)
+
+**Files:**
+- Create: `convex/subscriptions/scheduleLine.ts`
+- Test: `convex/subscriptions/__tests__/scheduleLine.test.ts`
+
+**Interfaces:**
+- Consumes: `computeLineTotal` (`convex/subscriptions/creditMath.ts`), `ScheduleLine` (`convex/subscriptions/types.ts`), `Id` (`convex/_generated/dataModel`).
+- Produces:
+  - `makeScheduleLine(menuProductId: Id<"menuProducts">, productName: string, qty: number, unitPrice: number): ScheduleLine` — the ONLY way to build a `ScheduleLine`; computes `lineTotal` internally.
+  - `validateScheduleTemplate(template: { dayOfWeek: number; items: { menuProductId: Id<"menuProducts">; qty: number }[] }[]): { ok: true } | { ok: false; error: string }` — `dayOfWeek ∈ 0..6`, no duplicate `dayOfWeek`, each day non-empty, each `qty` an integer `> 0`.
+
+- [ ] **Step 1: Write the failing test**
+
+`convex/subscriptions/__tests__/scheduleLine.test.ts`:
+
+```ts
+import { describe, it, expect } from "vitest";
+import { makeScheduleLine, validateScheduleTemplate } from "../scheduleLine";
+
+const pid = (s: string) => s as unknown as import("../../_generated/dataModel").Id<"menuProducts">;
+
+describe("makeScheduleLine", () => {
+  it("computes lineTotal from qty × unitPrice (integer IDR)", () => {
+    expect(makeScheduleLine(pid("p1"), "Dubai", 150, 29000)).toEqual({
+      menuProductId: pid("p1"), productName: "Dubai", qty: 150, unitPrice: 29000, lineTotal: 4350000,
+    });
+  });
+});
+
+describe("validateScheduleTemplate", () => {
+  const day = (d: number, qty = 150) => ({ dayOfWeek: d, items: [{ menuProductId: pid("p1"), qty }] });
+  it("accepts a valid 7-day template", () => {
+    expect(validateScheduleTemplate([0,1,2,3,4,5,6].map((d) => day(d)))).toEqual({ ok: true });
+  });
+  it("rejects dayOfWeek out of range", () => {
+    expect(validateScheduleTemplate([day(7)]).ok).toBe(false);
+  });
+  it("rejects duplicate dayOfWeek", () => {
+    expect(validateScheduleTemplate([day(1), day(1)]).ok).toBe(false);
+  });
+  it("rejects an empty day", () => {
+    expect(validateScheduleTemplate([{ dayOfWeek: 1, items: [] }]).ok).toBe(false);
+  });
+  it("rejects qty <= 0 or non-integer", () => {
+    expect(validateScheduleTemplate([day(1, 0)]).ok).toBe(false);
+    expect(validateScheduleTemplate([day(1, 1.5)]).ok).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Run it, verify it fails**
+
+Run: `npx vitest run convex/subscriptions/__tests__/scheduleLine.test.ts`
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement `scheduleLine.ts`**
+
+```ts
+import type { Id } from "../_generated/dataModel";
+import type { ScheduleLine } from "./types";
+import { computeLineTotal } from "./creditMath";
+
+export function makeScheduleLine(
+  menuProductId: Id<"menuProducts">,
+  productName: string,
+  qty: number,
+  unitPrice: number,
+): ScheduleLine {
+  return { menuProductId, productName, qty, unitPrice, lineTotal: computeLineTotal(qty, unitPrice) };
+}
+
+export function validateScheduleTemplate(
+  template: { dayOfWeek: number; items: { menuProductId: Id<"menuProducts">; qty: number }[] }[],
+): { ok: true } | { ok: false; error: string } {
+  const seen = new Set<number>();
+  for (const day of template) {
+    if (!Number.isInteger(day.dayOfWeek) || day.dayOfWeek < 0 || day.dayOfWeek > 6)
+      return { ok: false, error: `dayOfWeek out of range: ${day.dayOfWeek}` };
+    if (seen.has(day.dayOfWeek)) return { ok: false, error: `duplicate dayOfWeek: ${day.dayOfWeek}` };
+    seen.add(day.dayOfWeek);
+    if (day.items.length === 0) return { ok: false, error: `empty day: ${day.dayOfWeek}` };
+    for (const it of day.items) {
+      if (!Number.isInteger(it.qty) || it.qty <= 0)
+        return { ok: false, error: `qty must be a positive integer (day ${day.dayOfWeek})` };
+    }
+  }
+  return { ok: true };
+}
+```
+
+- [ ] **Step 4: Run it, verify it passes**
+
+Run: `npx vitest run convex/subscriptions/__tests__/scheduleLine.test.ts` → PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add convex/subscriptions/scheduleLine.ts convex/subscriptions/__tests__/scheduleLine.test.ts
+git commit -m "feat(subscriptions): makeScheduleLine factory + validateScheduleTemplate (TDD)"
+```
+
+---
+
+### Task B2: Monday-WIB week bounds (I3)
+
+**Files:**
+- Create: `convex/subscriptions/weekBounds.ts`
+- Test: `convex/subscriptions/__tests__/weekBounds.test.ts`
+
+**Interfaces:**
+- Consumes: `getWibComponents`, `wibMidnightToUtc` (`convex/lib/periodRange.ts`).
+- Produces:
+  - `computeWeekStart(anyMsInWeek: number): number` — UTC ms of Monday 00:00 WIB for the week containing `anyMsInWeek`.
+  - `computeWeekBounds(weekStart: number): { weekStart: number; weekEnd: number }` — `weekEnd` = Sunday 23:59:59.999 WIB (= next Monday 00:00 − 1).
+  - `isAlignedWeekStart(ms: number): boolean` — true iff `ms === computeWeekStart(ms)`.
+
+- [ ] **Step 1: Write the failing test**
+
+`convex/subscriptions/__tests__/weekBounds.test.ts`:
+
+```ts
+import { describe, it, expect } from "vitest";
+import { computeWeekStart, computeWeekBounds, isAlignedWeekStart } from "../weekBounds";
+
+// Mon 30 Jun 2026 00:00 WIB === 2026-06-29T17:00:00Z
+const MON_30_JUN_WIB = Date.UTC(2026, 5, 29, 17, 0, 0, 0);
+
+describe("computeWeekStart", () => {
+  it("returns the same Monday 00:00 WIB for any instant inside that week", () => {
+    const wedNoonWib = Date.UTC(2026, 6, 1, 5, 0, 0, 0); // Wed 1 Jul 12:00 WIB
+    expect(computeWeekStart(wedNoonWib)).toBe(MON_30_JUN_WIB);
+    expect(computeWeekStart(MON_30_JUN_WIB)).toBe(MON_30_JUN_WIB);
+  });
+});
+
+describe("computeWeekBounds", () => {
+  it("weekEnd is one ms before next Monday 00:00 WIB", () => {
+    const { weekStart, weekEnd } = computeWeekBounds(MON_30_JUN_WIB);
+    expect(weekStart).toBe(MON_30_JUN_WIB);
+    expect(weekEnd).toBe(MON_30_JUN_WIB + 7 * 86400000 - 1);
+  });
+});
+
+describe("isAlignedWeekStart", () => {
+  it("true for an aligned Monday, false otherwise", () => {
+    expect(isAlignedWeekStart(MON_30_JUN_WIB)).toBe(true);
+    expect(isAlignedWeekStart(MON_30_JUN_WIB + 3600000)).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Run, verify fail.** `npx vitest run convex/subscriptions/__tests__/weekBounds.test.ts` → FAIL.
+
+- [ ] **Step 3: Implement `weekBounds.ts`**
+
+```ts
+import { getWibComponents, wibMidnightToUtc } from "../lib/periodRange";
+
+const DAY_MS = 86400000;
+
+export function computeWeekStart(anyMsInWeek: number): number {
+  const { year, month, day, dayOfWeek } = getWibComponents(anyMsInWeek);
+  // dayOfWeek: 0=Sunday..6=Saturday (JS convention from getWibComponents). Monday = 1.
+  const daysSinceMonday = (dayOfWeek + 6) % 7; // Mon→0, Tue→1, ... Sun→6
+  const wibMidnightThisDay = wibMidnightToUtc(year, month, day);
+  return wibMidnightThisDay - daysSinceMonday * DAY_MS;
+}
+
+export function computeWeekBounds(weekStart: number): { weekStart: number; weekEnd: number } {
+  return { weekStart, weekEnd: weekStart + 7 * DAY_MS - 1 };
+}
+
+export function isAlignedWeekStart(ms: number): boolean {
+  return ms === computeWeekStart(ms);
+}
+```
+
+> **Note:** confirm `getWibComponents` returns `dayOfWeek` with 0=Sunday (the existing convention). If it returns 1=Monday, adjust `daysSinceMonday` to `(dayOfWeek + 6) % 7` accordingly — the test pins the expected Monday so it will catch a wrong convention.
+
+- [ ] **Step 4: Run, verify pass.** → PASS. If the dayOfWeek convention differs, fix `daysSinceMonday` and re-run.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add convex/subscriptions/weekBounds.ts convex/subscriptions/__tests__/weekBounds.test.ts
+git commit -m "feat(subscriptions): Monday-WIB week bounds (TDD)"
+```
+
+---
+
+### Task B3: Per-tranche FIFO rollover reconcile core (C2)
+
+**Files:**
+- Create: `convex/subscriptions/reconcileMath.ts`
+- Test: `convex/subscriptions/__tests__/reconcileMath.test.ts`
+
+**Interfaces:**
+- Produces: `reconcileTranches(args: { tranches: { weekId: string; amount: number; weeksCarried: number }[]; policy: "expire" | "rollover"; rolloverExpiryWeeks: number | null }): { expire: { weekId: string; amount: number }[]; carry: { weekId: string; amount: number }[] }` — decides, per tranche of leftover credit (oldest first by `weeksCarried` desc), whether it expires (policy `expire`, or rolled past horizon) or carries forward. Pure; `reconcileWeek` (Task B11) turns the result into ledger entries.
+
+- [ ] **Step 1: Write the failing test**
+
+`convex/subscriptions/__tests__/reconcileMath.test.ts`:
+
+```ts
+import { describe, it, expect } from "vitest";
+import { reconcileTranches } from "../reconcileMath";
+
+describe("reconcileTranches", () => {
+  it("expires everything under policy=expire", () => {
+    const r = reconcileTranches({
+      tranches: [{ weekId: "w1", amount: 100, weeksCarried: 0 }],
+      policy: "expire", rolloverExpiryWeeks: 4,
+    });
+    expect(r.expire).toEqual([{ weekId: "w1", amount: 100 }]);
+    expect(r.carry).toEqual([]);
+  });
+  it("carries fresh tranches and expires those at/over the horizon (FIFO oldest-first)", () => {
+    const r = reconcileTranches({
+      tranches: [
+        { weekId: "wOld", amount: 50, weeksCarried: 4 }, // at horizon → expire
+        { weekId: "wMid", amount: 30, weeksCarried: 2 }, // carry
+        { weekId: "wNew", amount: 20, weeksCarried: 0 }, // carry
+      ],
+      policy: "rollover", rolloverExpiryWeeks: 4,
+    });
+    expect(r.expire).toEqual([{ weekId: "wOld", amount: 50 }]);
+    expect(r.carry).toEqual([
+      { weekId: "wMid", amount: 30 },
+      { weekId: "wNew", amount: 20 },
+    ]);
+  });
+  it("never expires when rolloverExpiryWeeks is null (explicit opt-out)", () => {
+    const r = reconcileTranches({
+      tranches: [{ weekId: "w", amount: 10, weeksCarried: 99 }],
+      policy: "rollover", rolloverExpiryWeeks: null,
+    });
+    expect(r.expire).toEqual([]);
+    expect(r.carry).toEqual([{ weekId: "w", amount: 10 }]);
+  });
+  it("drops zero-amount tranches from both lists", () => {
+    const r = reconcileTranches({
+      tranches: [{ weekId: "w", amount: 0, weeksCarried: 0 }],
+      policy: "rollover", rolloverExpiryWeeks: 4,
+    });
+    expect(r.expire).toEqual([]);
+    expect(r.carry).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run, verify fail.** → FAIL.
+
+- [ ] **Step 3: Implement `reconcileMath.ts`**
+
+```ts
+export function reconcileTranches(args: {
+  tranches: { weekId: string; amount: number; weeksCarried: number }[];
+  policy: "expire" | "rollover";
+  rolloverExpiryWeeks: number | null;
+}): { expire: { weekId: string; amount: number }[]; carry: { weekId: string; amount: number }[] } {
+  const expire: { weekId: string; amount: number }[] = [];
+  const carry: { weekId: string; amount: number }[] = [];
+  // Oldest first (highest weeksCarried) for deterministic FIFO expiry.
+  const ordered = [...args.tranches].sort((a, b) => b.weeksCarried - a.weeksCarried);
+  for (const t of ordered) {
+    if (t.amount <= 0) continue;
+    const expired =
+      args.policy === "expire" ||
+      (args.rolloverExpiryWeeks !== null && t.weeksCarried >= args.rolloverExpiryWeeks);
+    (expired ? expire : carry).push({ weekId: t.weekId, amount: t.amount });
+  }
+  return { expire, carry };
+}
+```
+
+- [ ] **Step 4: Run, verify pass.** → PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add convex/subscriptions/reconcileMath.ts convex/subscriptions/__tests__/reconcileMath.test.ts
+git commit -m "feat(subscriptions): per-tranche FIFO rollover reconcile core (TDD, C2)"
+```
+
+---
+
+### Task B4: Subscription-order revenue gate predicate (C1)
+
+**Files:**
+- Create: `convex/subscriptions/revenueGate.ts`
+- Test: `convex/subscriptions/__tests__/revenueGate.test.ts`
+
+**Interfaces:**
+- Produces: `isSubscriptionOrder(order: { fundingSource?: string | null; subscriptionId?: unknown }): boolean` — true when an order is credit-funded subscription fulfilment and must be excluded from channel-revenue aggregations. Single source consumed by the two gate sites (Tasks B5b).
+
+- [ ] **Step 1: Write the failing test**
+
+`convex/subscriptions/__tests__/revenueGate.test.ts`:
+
+```ts
+import { describe, it, expect } from "vitest";
+import { isSubscriptionOrder } from "../revenueGate";
+
+describe("isSubscriptionOrder", () => {
+  it("true when fundingSource is subscription_credit", () => {
+    expect(isSubscriptionOrder({ fundingSource: "subscription_credit" })).toBe(true);
+  });
+  it("true when subscriptionId is present", () => {
+    expect(isSubscriptionOrder({ subscriptionId: "sub1" })).toBe(true);
+  });
+  it("false for a normal order", () => {
+    expect(isSubscriptionOrder({ fundingSource: "normal" })).toBe(false);
+    expect(isSubscriptionOrder({})).toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Run, verify fail.** → FAIL.
+
+- [ ] **Step 3: Implement `revenueGate.ts`**
+
+```ts
+export function isSubscriptionOrder(order: {
+  fundingSource?: string | null;
+  subscriptionId?: unknown;
+}): boolean {
+  return order.fundingSource === "subscription_credit" || order.subscriptionId != null;
+}
+```
+
+- [ ] **Step 4: Run, verify pass.** → PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add convex/subscriptions/revenueGate.ts convex/subscriptions/__tests__/revenueGate.test.ts
+git commit -m "feat(subscriptions): isSubscriptionOrder revenue-gate predicate (TDD, C1)"
+```
+
+---
+
+# Wave 2 — Scheduling backend [after Wave 1]
+
+### Task B5: Extract `insertOrderWithItems` helper from `orders.create` (I1)
+
+**Files:**
+- Create: `convex/orders/helpers/insertOrder.ts`
+- Modify: `convex/orders/mutations/orderCrud.ts` (replace the inline order+items+production insert block, lines ~211–267, with a call to the helper)
+
+**Interfaces:**
+- Consumes: `createProductionRecordsForItem` (`convex/orders/helpers/productionRecords.ts:155`), `MutationCtx`, `Id`.
+- Produces:
+  - `insertOrderWithItems(ctx: MutationCtx, args: { orderFields: Record<string, unknown>; items: { productName: string; productVariant?: string; quantity: number; unitPrice: number; unitCost: number; discountAmount: number; lineTotal: number; lineCost: number; lineMargin: number; menuProductId?: Id<"menuProducts"> }[] }): Promise<Id<"orders">>` — inserts the `orders` row (caller supplies the full computed `orderFields`), inserts each `orderItems`, and creates production records for items with a `menuProductId`. The single write path for any order + its lines + production bridge.
+
+- [ ] **Step 1: Implement `insertOrder.ts`** (lift the grounded block verbatim)
+
+```ts
+import type { MutationCtx } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
+import { createProductionRecordsForItem } from "./productionRecords";
+
+export type OrderItemInsert = {
+  productName: string;
+  productVariant?: string;
+  quantity: number;
+  unitPrice: number;
+  unitCost: number;
+  discountAmount: number;
+  lineTotal: number;
+  lineCost: number;
+  lineMargin: number;
+  menuProductId?: Id<"menuProducts">;
+};
+
+export async function insertOrderWithItems(
+  ctx: MutationCtx,
+  args: { orderFields: Record<string, unknown>; items: OrderItemInsert[] },
+): Promise<Id<"orders">> {
+  const orderId = await ctx.db.insert("orders", args.orderFields as never);
+  for (const item of args.items) {
+    const orderItemId = await ctx.db.insert("orderItems", { orderId, ...item } as never);
+    if (item.menuProductId) {
+      await createProductionRecordsForItem(ctx, orderItemId, item.menuProductId, item.quantity);
+    }
+  }
+  return orderId;
+}
+```
+
+- [ ] **Step 2: Refactor `orderCrud.ts` `create` to call the helper**
+
+Replace the inline `ctx.db.insert("orders", {...})` + the `for (const item of itemsToCreate)` loop (grounded at lines ~211–267) with:
+
+```ts
+import { insertOrderWithItems } from "../helpers/insertOrder";
+// ...inside the handler, after all fields are computed:
+const orderId = await insertOrderWithItems(ctx, {
+  orderFields: {
+    orderNumber, customerId, customerName, customerPhone,
+    status: "Draft", isKitchenVisible, paymentStatus: "Unpaid",
+    orderDate: Date.now(), dueDate, totalAmount, totalCost, totalMargin,
+    orderLevelDiscount, orderLevelDiscountType, finalTotal,
+    voucherId, voucherCode, voucherDiscountValue, lowPriceConfirmed,
+    soldBy, createdByUserId, ...parseDeliveryAddress(args.deliveryAddress),
+    deliveryAddress, contactWa, contactIg, notes, createdBy, itemCount,
+  },
+  items: itemsToCreate,
+});
+```
+
+(Keep the surrounding voucher-usage recording and audit-log calls in `create` — they are NOT part of the helper.)
+
+- [ ] **Step 3: Type-check + run the existing order tests**
+
+Run: `npm run type-check && npx vitest run convex/orders`
+Expected: PASS — behaviour unchanged (pure refactor). If `orders` create tests are convex-test runtime (deferred), at minimum type-check passes and the create path compiles.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add convex/orders/helpers/insertOrder.ts convex/orders/mutations/orderCrud.ts
+git commit -m "refactor(orders): extract insertOrderWithItems shared by create + confirmWeek (I1)"
+```
+
+---
+
+### Task B6: `seedWeek` seed-source extension (note r1.c1)
+
+**Files:**
+- Modify: `convex/subscriptions/weeks.ts`
+
+**Interfaces:**
+- Consumes: `validateScheduleTemplate` (B1), `buildPlannedDays` + existing `seedWeek` (Phase A), `computeWeekBounds` (B2).
+- Produces: `seedWeek` gains arg `source: v.optional(v.union(v.literal("template"), v.literal("previousWeek"), v.literal("blank")))` (default `"template"`). `"previousWeek"` reads the most recent prior `subscriptionWeeks` row (by `by_subscription_weekStart`, `weekStart < args.weekStart`, desc) and rebuilds `plannedDays` from its `plannedDays` shape re-priced at the live `unitPrice`; `"blank"` seeds empty `plannedDays`.
+
+- [ ] **Step 1: Add the `source` arg + branch logic to `seedWeek`**
+
+In `convex/subscriptions/weeks.ts`, extend the mutation args and handler. After the existing idempotency check (returns existing week if present), branch on `source`:
+
+```ts
+import { computeWeekBounds } from "./weekBounds";
+import { makeScheduleLine } from "./scheduleLine";
+// args: add
+//   source: v.optional(v.union(v.literal("template"), v.literal("previousWeek"), v.literal("blank"))),
+
+const source = args.source ?? "template";
+const { weekEnd } = computeWeekBounds(args.weekStart);
+
+let plannedDays;
+if (source === "blank") {
+  plannedDays = [];
+} else if (source === "previousWeek") {
+  const prev = await ctx.db
+    .query("subscriptionWeeks")
+    .withIndex("by_subscription_weekStart", (q) =>
+      q.eq("subscriptionId", args.subscriptionId).lt("weekStart", args.weekStart),
+    )
+    .order("desc")
+    .first();
+  if (!prev) {
+    // No prior week — fall back to template (documented behaviour).
+    plannedDays = buildPlannedDays({ /* existing template path */ });
+  } else {
+    const DAY_MS = 86400000;
+    plannedDays = prev.plannedDays.map((d, i) => ({
+      date: args.weekStart + i * DAY_MS, // re-date onto the new week by ordinal position
+      deliverByTime: sub.deliverByTime,
+      locked: false,
+      items: d.items.map((it) =>
+        makeScheduleLine(it.menuProductId, it.productName, it.qty, sub.unitPrice), // re-price at live unitPrice
+      ),
+    }));
+  }
+} else {
+  plannedDays = buildPlannedDays({ /* existing template path, unchanged */ });
+}
+```
+
+Use `weekEnd` from `computeWeekBounds` for the inserted row instead of the hand-rolled `+7*DAY-1`.
+
+> **Re-date note:** `previousWeek` maps prior `plannedDays` onto the new week by **ordinal position** (1st planned day → Monday, etc.). If you need calendar-day-of-week fidelity instead, map by `getWibComponents(d.date).dayOfWeek`; ordinal is simpler and matches "repeat last week's pattern". Pick ordinal for v1.
+
+- [ ] **Step 2: Regenerate API + type-check**
+
+Run: `npx convex codegen && npm run type-check` → PASS; `seedWeek` shows the new `source` arg.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add convex/subscriptions/weeks.ts convex/_generated/
+git commit -m "feat(subscriptions): seedWeek source = template/previousWeek/blank (note r1.c1)"
+```
+
+---
+
+### Task B7: `confirmWeek` — generate orders atomically
+
+**Files:**
+- Create: `convex/subscriptions/scheduling/confirmWeek.ts`
+
+**Interfaces:**
+- Consumes: `insertOrderWithItems` (B5), `validateScheduleTemplate` (B1), the subscription + week rows, `generateNextOrderNumber` (`convex/orders/helpers/customerResolution.ts:55`).
+- Produces: `confirmWeek` (`protectedMutation`, manager+admin) `args: { subscriptionWeekId: v.id("subscriptionWeeks") }` → generates one `orders` row per `plannedDays` entry (each day = one delivery order carrying that day's lines at partner `unitPrice`), sets `subscriptionId`/`subscriptionWeekId`/`deliveryDate`/`fundingSource: "subscription_credit"`, flips the week `planned → confirmed`, stamps `confirmedAt`/`confirmedBy`. Idempotent: refuses if week status ≠ `planned`. All writes in one mutation (Convex transaction = atomic; forward-carried "ledger atomicity").
+
+- [ ] **Step 1: Implement `confirmWeek.ts`**
+
+```ts
+import { v, ConvexError } from "convex/values";
+import { protectedMutation } from "../../lib/functions";
+import { insertOrderWithItems } from "../../orders/helpers/insertOrder";
+import { generateNextOrderNumber } from "../../orders/helpers/customerResolution";
+
+export const confirmWeek = protectedMutation({
+  roles: ["manager", "admin"],
+  args: { subscriptionWeekId: v.id("subscriptionWeeks") },
+  handler: async (ctx, args) => {
+    const week = await ctx.db.get(args.subscriptionWeekId);
+    if (!week) throw new ConvexError("Subscription week not found");
+    if (week.status !== "planned")
+      throw new ConvexError(`Week is ${week.status}, can only confirm a planned week`);
+    const sub = await ctx.db.get(week.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+    const customer = await ctx.db.get(sub.customerId);
+    if (!customer) throw new ConvexError("Customer not found");
+
+    for (const day of week.plannedDays) {
+      if (day.items.length === 0) continue;
+      const orderNumber = await generateNextOrderNumber(ctx);
+      const totalAmount = day.items.reduce((s, it) => s + it.lineTotal, 0);
+      await insertOrderWithItems(ctx, {
+        orderFields: {
+          orderNumber,
+          customerId: sub.customerId,
+          customerName: customer.name,
+          customerPhone: customer.phone ?? "",
+          status: "Confirmed",            // subscription orders skip Draft; awaiting credit funding
+          paymentStatus: "AwaitingPayment",
+          orderDate: Date.now(),
+          dueDate: day.date,
+          deliveryDate: day.date,
+          totalAmount,
+          totalCost: 0,                   // COGS resolved by production/BOM, not partner price
+          totalMargin: totalAmount,
+          finalTotal: totalAmount,
+          subscriptionId: sub._id,
+          subscriptionWeekId: week._id,
+          fundingSource: "subscription_credit",
+          createdBy: ctx.user._id,
+          createdByUserId: ctx.user._id,
+          itemCount: day.items.length,
+        },
+        items: day.items.map((it) => ({
+          productName: it.productName,
+          quantity: it.qty,
+          unitPrice: it.unitPrice,        // partner price → orders.totalAmount = drawdown
+          unitCost: 0,
+          discountAmount: 0,
+          lineTotal: it.lineTotal,
+          lineCost: 0,
+          lineMargin: it.lineTotal,
+          menuProductId: it.menuProductId,
+        })),
+      });
+    }
+
+    await ctx.db.patch(week._id, {
+      status: "confirmed",
+      confirmedAt: Date.now(),
+      confirmedBy: ctx.user._id,
+    });
+    return week._id;
+  },
+});
+```
+
+> **Status mapping:** confirm sets generated orders to `Confirmed` / `AwaitingPayment`. Funding (Task B9 `markWeeklyInvoicePaid`) flips them to `Paid` and posts the drawdown. Verify `"Confirmed"`/`"AwaitingPayment"` are valid `orders.status`/`paymentStatus` literals in `convex/schema.ts`; adjust to the real literals if they differ (the order status workflow is in CLAUDE.md Key Business Rule #9).
+> **Atomicity:** all order+item+production writes for the week happen in this one mutation → atomic. 7 days × few products is well within Convex write limits; if a subscription ever spans many products/day, revisit batching.
+
+- [ ] **Step 2: Regenerate API + type-check**
+
+Run: `npx convex codegen && npm run type-check` → PASS.
+
+- [ ] **Step 3: Manual smoke (dev)** — via `npx convex dev` dashboard: seed a week, `confirmWeek`, confirm N orders appear with `fundingSource:"subscription_credit"`, partner price, and production records (check kitchen visibility). Document result in the PR.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add convex/subscriptions/scheduling/confirmWeek.ts convex/_generated/
+git commit -m "feat(subscriptions): confirmWeek generates orders atomically at partner price"
+```
+
+---
+
+### Task B8: Apply the C1 revenue gates
+
+**Files:**
+- Modify: `convex/integrations/internal/queries.ts:36` and `convex/reports/dailySales.ts:13`
+
+**Interfaces:**
+- Consumes: `isSubscriptionOrder` (B4).
+
+- [ ] **Step 1: Gate the `externalRevenue` feed**
+
+In `convex/integrations/internal/queries.ts` (the function returning revenue-countable internal orders, ~line 36), add the exclusion:
+
+```ts
+import { isSubscriptionOrder } from "../../subscriptions/revenueGate";
+// ...
+return allOrders.filter(
+  (order) =>
+    (REVENUE_COUNTABLE_STATUSES as readonly string[]).includes(order.status) &&
+    !isSubscriptionOrder(order),
+);
+```
+
+- [ ] **Step 2: Gate `getDailySalesSummary`**
+
+In `convex/reports/dailySales.ts` (~line 13):
+
+```ts
+import { isSubscriptionOrder } from "../subscriptions/revenueGate";
+// ...
+const validOrders = allOrders.filter(
+  (o) => o.status !== "Draft" && o.status !== "Cancelled" && !isSubscriptionOrder(o),
+);
+```
+
+- [ ] **Step 3: Add the mechanical sentinel test (C1 success criterion)**
+
+`convex/subscriptions/__tests__/revenueGate.test.ts` — extend with a guard that both call sites use the predicate (grep-style assertion is brittle; instead assert the predicate's behaviour is the contract). Add a doc-comment in each gated file: `// C1: subscription orders excluded from channel revenue — see isSubscriptionOrder`. The pure predicate test (B4) is the mechanical proof; the manual UAT (below) confirms wiring.
+
+- [ ] **Step 4: Manual UAT** — seed + confirm a subscription week; run `getDailySalesSummary` and `getIncomeStatement` for that period; assert the 1,050-pcs order's qty/Rp is absent from gross/channel totals; assert kitchen production volume (BOM ball-count) still includes it. Record in PR.
+
+- [ ] **Step 5: Type-check + commit**
+
+```bash
+npm run type-check
+git add convex/integrations/internal/queries.ts convex/reports/dailySales.ts convex/subscriptions/__tests__/revenueGate.test.ts
+git commit -m "fix(reports): exclude subscription orders from channel revenue (C1)"
+```
+
+---
+
+# Wave 3 — Money loop: invoicing, drawdown, top-up, reconcile [after Wave 2]
+
+### Task B9: Weekly invoice + mark-paid → fund + drawdown-on-funded
+
+**Files:**
+- Create: `convex/subscriptions/invoicing.ts`
+- Modify: `convex/schema.ts` (add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices`)
+
+**Interfaces:**
+- Consumes: `getNextInvoiceNumber` (`convex/invoices/mutations.ts:114` — export it if not already exported), `postLedgerEntry` (`convex/subscriptions/ledger.ts`), the week's `plannedDays`.
+- Produces:
+  - `createSubscriptionWeeklyInvoice` (`protectedMutation`, manager+admin) `args: { subscriptionWeekId }` → builds a `final` invoice with `items` from `plannedDays` (each line carries `date`), `invoiceKind: "subscription_weekly"`, `orderId` undefined, `subscriptionWeekId` set, number via `getNextInvoiceNumber`; patches `subscriptionWeeks.weeklyInvoiceId` + status → `invoiced`.
+  - `markWeeklyInvoicePaid` (`protectedMutation`) `args: { subscriptionWeekId }` → posts a `topup` ledger entry (amount = invoice total) via `postLedgerEntry`, flips the week's generated orders to `paymentStatus:"Paid"` + `paymentMethod:"subscription_credit"`, posts a `drawdown` ledger entry per order (`qty×unitPrice`), sets week status → `paid` then `delivering`, stamps `paymentReceivedAt`.
+
+- [ ] **Step 1: Export `getNextInvoiceNumber`** from `convex/invoices/mutations.ts` (change `async function getNextInvoiceNumber` → `export async function getNextInvoiceNumber`). Type-check.
+
+- [ ] **Step 2: Implement `createSubscriptionWeeklyInvoice`**
+
+```ts
+import { v, ConvexError } from "convex/values";
+import { protectedMutation } from "../lib/functions";
+import { getNextInvoiceNumber } from "../invoices/mutations";
+
+export const createSubscriptionWeeklyInvoice = protectedMutation({
+  roles: ["manager", "admin"],
+  args: { subscriptionWeekId: v.id("subscriptionWeeks") },
+  handler: async (ctx, args) => {
+    const week = await ctx.db.get(args.subscriptionWeekId);
+    if (!week) throw new ConvexError("Week not found");
+    if (week.weeklyInvoiceId) return week.weeklyInvoiceId; // idempotent
+    const sub = await ctx.db.get(week.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+    const customer = await ctx.db.get(sub.customerId);
+
+    const items = week.plannedDays.flatMap((d) =>
+      d.items.map((it) => ({
+        productName: it.productName, qty: it.qty, unitPrice: it.unitPrice,
+        lineTotal: it.lineTotal, date: d.date,
+      })),
+    );
+    const subtotal = items.reduce((s, it) => s + it.lineTotal, 0);
+    const invoiceNumber = await getNextInvoiceNumber(ctx);
+
+    const invoiceId = await ctx.db.insert("invoices", {
+      status: "final",
+      invoiceNumber,
+      invoiceKind: "subscription_weekly",
+      subscriptionWeekId: week._id,
+      // orderId intentionally omitted (subscription invoice has no single order)
+      generatedAt: Date.now(),
+      generatedBy: ctx.user._id,
+      updatedAt: Date.now(),
+      items,
+      // buyer/seller/bank/totals: reuse the shape standard invoices use — copy from createDraft's
+      // insert (mutations.ts) for buyerName/sellerName/bankAccount/subtotal/total/paymentStatus.
+      paymentStatus: "Unpaid",
+    } as never);
+
+    await ctx.db.patch(week._id, { weeklyInvoiceId: invoiceId, status: "invoiced" });
+    return invoiceId;
+  },
+});
+```
+
+> Fill the buyer/seller/bank/total fields by mirroring the `ctx.db.insert("invoices", {...})` in `createDraft` (`convex/invoices/mutations.ts:~239`) — read it and copy the non-order fields (sellerName, buyer from `customer`, bankAccount from `businessSettings.defaultBankAccountId`, subtotal/discount/total). Do NOT call `createDraft` (it hard-requires `orderId`).
+
+- [ ] **Step 3: Implement `markWeeklyInvoicePaid`**
+
+```ts
+export const markWeeklyInvoicePaid = protectedMutation({
+  roles: ["manager", "admin"],
+  args: { subscriptionWeekId: v.id("subscriptionWeeks") },
+  handler: async (ctx, args) => {
+    const week = await ctx.db.get(args.subscriptionWeekId);
+    if (!week) throw new ConvexError("Week not found");
+    if (!week.weeklyInvoiceId) throw new ConvexError("No weekly invoice to pay");
+    if (week.status !== "invoiced") throw new ConvexError(`Week is ${week.status}`);
+    const invoice = await ctx.db.get(week.weeklyInvoiceId);
+    const total = (invoice?.items ?? []).reduce((s, it) => s + it.lineTotal, 0);
+
+    // Fund the pool.
+    await postLedgerEntry(ctx, {
+      subscriptionId: week.subscriptionId, subscriptionWeekId: week._id,
+      type: "topup", amount: total, createdBy: ctx.user._id,
+      invoiceId: week.weeklyInvoiceId, note: "Weekly invoice paid",
+    });
+    await ctx.db.patch(week.weeklyInvoiceId, { paymentStatus: "Paid", updatedAt: Date.now() });
+
+    // Flip generated orders to Paid + post one drawdown per order.
+    const orders = await ctx.db
+      .query("orders")
+      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
+      .collect();
+    for (const order of orders) {
+      await ctx.db.patch(order._id, { paymentStatus: "Paid", paymentMethod: "subscription_credit" });
+      await postLedgerEntry(ctx, {
+        subscriptionId: week.subscriptionId, subscriptionWeekId: week._id,
+        type: "drawdown", amount: -order.totalAmount, createdBy: ctx.user._id,
+        orderId: order._id, note: `Drawdown ${order.orderNumber}`,
+      });
+    }
+    await ctx.db.patch(week._id, { status: "delivering", paymentReceivedAt: Date.now() });
+    return week._id;
+  },
+});
+```
+
+- [ ] **Step 4: Add the `invoices.by_subscriptionWeek` index** in `convex/schema.ts` and `npx convex codegen && npm run type-check`. (Used if you later look up an invoice by week; the reverse pointer already exists, so this is the Refinement.)
+
+- [ ] **Step 5: Manual smoke + commit**
+
+Manual: invoice a confirmed week, mark paid, verify pool `creditIssued` = week total, each order Paid, `creditConsumed` = sum of order totals, `creditRemaining` = issued − consumed.
+
+```bash
+git add convex/subscriptions/invoicing.ts convex/invoices/mutations.ts convex/schema.ts convex/_generated/
+git commit -m "feat(subscriptions): weekly invoice + mark-paid→fund + drawdown-on-funded"
+```
+
+---
+
+### Task B10: Schedule-driven top-up delta invoice
+
+**Files:**
+- Modify: `convex/subscriptions/invoicing.ts`
+
+**Interfaces:**
+- Produces: `createTopupInvoice` (`protectedMutation`) `args: { subscriptionWeekId, addedLines: ScheduleLine[] }` (or recompute delta from a re-planned week vs funded credit) → builds an invoice with `invoiceKind: "subscription_topup"`, `items` = only the delta lines, numbered via `getNextInvoiceNumber`, linked to the same `subscriptionWeekId`. On mark-paid it posts another `topup` against the same week (pool = weekly + top-ups). No standalone form — the UI triggers this when a mid-week schedule edit pushes the week total above funded credit.
+
+- [ ] **Step 1: Implement `createTopupInvoice`** — mirror `createSubscriptionWeeklyInvoice` but: `invoiceKind: "subscription_topup"`, `items` = the delta lines only, do NOT change week status (week stays `delivering`/`invoiced`). Reuse `markWeeklyInvoicePaid`-style topup posting (extract a shared `fundWeek(ctx, weekId, invoiceId, amount)` helper if it reduces duplication with Task B9).
+
+- [ ] **Step 2: Type-check + commit**
+
+```bash
+npx convex codegen && npm run type-check
+git add convex/subscriptions/invoicing.ts convex/_generated/
+git commit -m "feat(subscriptions): schedule-driven top-up delta invoice"
+```
+
+---
+
+### Task B11: `reconcileWeek` (per-tranche FIFO + refund flag + closed-week guard)
+
+**Files:**
+- Create: `convex/subscriptions/reconcile.ts`
+
+**Interfaces:**
+- Consumes: `reconcileTranches` (B3), `postLedgerEntry`, `getWeekPool`-style replay (`deriveCreditPool`).
+- Produces: `reconcileWeek` (`protectedMutation`) `args: { subscriptionWeekId, shortfallFault: v.union("none","cafe","frollie") }` → at week end computes `shortfall = creditRemaining`, builds the tranche list from `rolloverFromWeekId`-tagged + base topup entries (each tagged with its `weeksCarried`), calls `reconcileTranches`, posts an `expiry` entry for each expired tranche and a carry-forward `topup` (tagged `rolloverFromWeekId`, against the next open week) for each carried tranche; on `shortfallFault:"frollie"` sets `refundDue = shortfall` + `refundStatus:"pending"` (flag only, no payout — I4); sets week status → `reconciled`. **Refuses if week status is `closed`** (closed-week guard, C2).
+
+- [ ] **Step 1: Implement `reconcileWeek`** following the interface above. Compute `weeksCarried` per tranche from how many reconciles a tranche has survived (base topup = 0; a carried `topup` tagged `rolloverFromWeekId` increments the source tranche's age — read the source week's tranche age + 1). Guard: `if (week.status === "closed") throw new ConvexError("Week already closed")`.
+
+```ts
+// sketch of the core decision wiring:
+const pool = deriveCreditPool(entries.map((e) => ({ type: e.type, amount: e.amount })));
+const leftover = pool.creditRemaining;
+const tranches = buildTranchesFromLedger(entries); // [{ weekId, amount, weeksCarried }]
+const { expire, carry } = reconcileTranches({
+  tranches, policy: sub.creditRolloverPolicy, rolloverExpiryWeeks: sub.rolloverExpiryWeeks ?? null,
+});
+for (const e of expire) await postLedgerEntry(ctx, { ...base, type: "expiry", amount: -e.amount });
+for (const c of carry) {
+  // carry forward onto the next open week as a topup tagged rolloverFromWeekId
+}
+const refundDue = args.shortfallFault === "frollie" ? leftover : 0;
+await ctx.db.patch(week._id, {
+  status: "reconciled", shortfall: leftover, shortfallFault: args.shortfallFault,
+  refundDue, refundStatus: refundDue > 0 ? "pending" : undefined,
+});
+```
+
+- [ ] **Step 2: Type-check + manual multi-week smoke** (the math is proven by B3's unit tests; smoke confirms wiring): create two weeks with rollover policy, leave leftover in week 1, reconcile, confirm carry-forward `topup` appears on week 2 tagged `rolloverFromWeekId`; reconcile a `frollie`-fault week, confirm `refundDue` set and NO payout entry.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add convex/subscriptions/reconcile.ts convex/_generated/
+git commit -m "feat(subscriptions): reconcileWeek per-tranche FIFO + refund flag + closed-week guard (C2, I4)"
+```
+
+---
+
+### Task B12: Out-of-credit handling (§8 Paths A/B)
+
+**Files:**
+- Create: `convex/subscriptions/outOfCredit.ts`
+
+**Interfaces:**
+- Produces:
+  - `splitScheduledOrderOnCredit` (`protectedMutation`) — Path A: when a scheduled day's order exceeds remaining credit, split so only the credit-covered qty draws down; the remainder + rest-of-week becomes a top-up invoice (reuse Task B10). Split happens here (scheduler), never on the kanban.
+  - `applyPartialCreditToAdHocOrder` (`protectedMutation`) — Path B: apply remaining credit to an ad-hoc order as a `drawdown`, label `fundingSource:"deposit"`, leave the uncovered remainder on normal billing (`AwaitingPayment`) for the existing QRIS/bank flow (no new deposit subsystem — §13.2).
+
+- [ ] **Step 1: Implement both mutations** per the interface. For Path A, compute covered qty = `floor(remainingCredit / unitPrice)`, split the order item, post `drawdown` for the covered portion, route the remainder through `createTopupInvoice`. For Path B, post `drawdown` for `min(remainingCredit, orderTotal)`, set `fundingSource:"deposit"`, leave remainder `AwaitingPayment`.
+
+- [ ] **Step 2: Type-check + commit**
+
+```bash
+npx convex codegen && npm run type-check
+git add convex/subscriptions/outOfCredit.ts convex/_generated/
+git commit -m "feat(subscriptions): out-of-credit split (Path A) + apply-partial (Path B)"
+```
+
+---
+
+### Task B13: Calendar read queries
+
+**Files:**
+- Create: `convex/subscriptions/scheduling/queries.ts`
+
+**Interfaces:**
+- Produces: `getPlanningWeek` (`protectedQuery`) `args: { subscriptionId, weekStart }` → the `subscriptionWeeks` row (or null if unseeded) + the subscription; `listWeeks` (`protectedQuery`) `args: { subscriptionId }` → weeks desc for the subscription; `getFundingDashboard` (`protectedQuery`) → across subscriptions: weeks in `invoiced` (awaiting payment) + `confirmed` (awaiting invoice), for the "who hasn't paid / what needs funding" surface.
+
+- [ ] **Step 1: Implement the three queries** (manager+admin), using `by_subscription_weekStart` / `by_status` indexes.
+- [ ] **Step 2: codegen + type-check + commit**
+
+```bash
+npx convex codegen && npm run type-check
+git add convex/subscriptions/scheduling/queries.ts convex/_generated/
+git commit -m "feat(subscriptions): calendar + funding-dashboard read queries"
+```
+
+---
+
+# Wave 4 — Frontend [after Wave 3] [PARALLEL within wave]
+
+### Task B14: `/crm` route + permission + schedule calendar page
+
+**Files:**
+- Modify: `src/lib/types.ts` (add `canAccessCrm: true` for manager+admin, `false` for kitchen/order_staff in `ROLE_PERMISSIONS`)
+- Modify: `src/App.tsx` (lazy routes under `<ProtectedRoute requiredPermission="canAccessCrm">`)
+- Create: `src/pages/crm/SubscriptionSchedulePage.tsx`, `src/components/crm/WeekCalendarGrid.tsx`, `src/components/crm/DayPlanCell.tsx`, `src/components/crm/ProductLineEditor.tsx`
+
+**Interfaces:**
+- Consumes: `getPlanningWeek`/`seedWeek`/`confirmWeek` (Convex hooks), `menuProducts.list({activeOnly:true})`.
+- Produces: the calendar at `/crm/customers/:id/subscriptions/:subId/week` (Mon→Sun real dates, product dropdowns, qty + partner price + line/day/week subtotals, multi-product days, the **3 seed-source actions** "Reset to template / ⧉ Copy last week / Blank", "Confirm → generate orders + invoice").
+
+- [ ] **Step 1: Add `canAccessCrm` to `ROLE_PERMISSIONS`** in `src/lib/types.ts` (mirror an existing manager+admin permission like `canAccessDashboard`). Type-check.
+- [ ] **Step 2: Register the lazy route** in `src/App.tsx` following the existing `lazyWithPreload` + `<ProtectedRoute requiredPermission=...>` pattern.
+- [ ] **Step 3: Build `WeekCalendarGrid` + `DayPlanCell` + `ProductLineEditor`** — grid of 7 `DayPlanCell`s; each cell lists its `ScheduleLine`s via `ProductLineEditor` (product dropdown from `menuProducts`, qty input, read-only line total), a day subtotal, "+ add product"; the page header has the week label, the 3 seed-source buttons, the week total, and "Confirm → generate orders + invoice" (calls `confirmWeek` then `createSubscriptionWeeklyInvoice`). Loading guard: `if (week === undefined) return <Loading/>`. Partner price shown to manager+admin only (the page is already gated).
+- [ ] **Step 4: `npm run build`** → PASS (watch vendor-bundle cap, Pitfall #16). Manual: render the calendar in dev, plan/confirm a week.
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/lib/types.ts src/App.tsx src/pages/crm/SubscriptionSchedulePage.tsx src/components/crm/
+git commit -m "feat(crm): /crm route + schedule calendar (3 seed sources, confirm→orders+invoice)"
+```
+
+---
+
+### Task B15: Visual weekly invoice + funding dashboard
+
+**Files:**
+- Create: `src/pages/crm/SubscriptionWeeklyInvoicePage.tsx`, `src/pages/crm/CrmFundingDashboardPage.tsx`
+
+**Interfaces:**
+- Consumes: the week + its `weeklyInvoiceId` invoice, `markWeeklyInvoicePaid`, `getFundingDashboard`.
+- Produces: the day-by-day invoice (group `items` by `date`, per-product unit price + line subtotal, day subtotal, week total = credit), "Mark paid → fund credit" action, 1-click WhatsApp/email/PDF-PNG (reuse any existing invoice-PDF util if present; else a print-to-PDF + a `wa.me`/`mailto` deep link from `customer.whatsapp`/`customer.email`); the funding dashboard listing weeks awaiting payment/funding.
+
+- [ ] **Step 1: Build the invoice page** — group by `items[].date`, render day cards, week total, "Mark paid → fund". Loading guards.
+- [ ] **Step 2: Build the funding dashboard** — table from `getFundingDashboard`, each row links to its invoice/customer.
+- [ ] **Step 3: `npm run build` + manual + commit**
+
+```bash
+git add src/pages/crm/SubscriptionWeeklyInvoicePage.tsx src/pages/crm/CrmFundingDashboardPage.tsx
+git commit -m "feat(crm): visual weekly invoice + 1-click send + funding dashboard"
+```
+
+---
+
+### Task B16: Read-only subscription rendering on the kanban (Pitfall #20)
+
+**Files:**
+- Modify: `src/components/orders/OrderSlideOver.tsx` AND `src/pages/OrderDetail.tsx`
+
+**Interfaces:**
+- Consumes: `order.subscriptionId` / `order.fundingSource`.
+- Produces: when an order is a subscription order, BOTH surfaces render a distinct "🔒 Subscription" badge, hide/disable the Actions (edit/status/delete) section, and show an "↗ Open in scheduler" link to `/crm/customers/:id/subscriptions/:subId/week`. Staff still see the order for production; they cannot edit it.
+
+- [ ] **Step 1: Add the read-only branch to `OrderSlideOver.tsx`** — at the Actions section (grounded ~lines 557–570), if `order.subscriptionId` render the locked variant instead of `<StatusActionButtons/>`.
+- [ ] **Step 2: Mirror the exact same branch into `OrderDetail.tsx`** (Actions section ~lines 314–330). They do NOT share a component — mirror by hand (Pitfall #20).
+- [ ] **Step 3: `npm run build` + manual (open a subscription order in BOTH surfaces) + commit**
+
+```bash
+git add src/components/orders/OrderSlideOver.tsx src/pages/OrderDetail.tsx
+git commit -m "feat(crm): read-only subscription rendering on kanban (both surfaces, Pitfall #20)"
+```
+
+---
+
+# Wave 5 — Verification + docs [SEQUENTIAL]
+
+### Task B17: Full gate + access-control audit + docs
+
+- [ ] **Step 1: Full verification gate**
+
+Run: `npm run type-check && npx vitest run convex/subscriptions && npm run build`
+Expected: type-check PASS; all subscription unit tests PASS (scheduleLine, weekBounds, reconcileMath, revenueGate, + Phase-A creditMath/rollover/weeks); build PASS (vendor cap OK).
+
+- [ ] **Step 2: `code-auditor` pass** — dispatch `code-auditor`: every new `protectedMutation`/`protectedQuery` is `roles:["manager","admin"]` (Pitfall #19); `canAccessCrm` resolves to manager+admin and the route `requiredPermission` matches; no deprecated `productionType`/`productionUnits` (Pitfall #11); no banned Phase-81 imports (Pitfall #18); both kanban surfaces mirror (Pitfall #20); the C1 gates are present at both sites.
+
+- [ ] **Step 3: Docs** — update:
+  - `docs/CHANGELOG.md` — Phase B entry (schedule, weekly cycle, reconcile, CRM calendar/invoice/funding, C1 isolation).
+  - `docs/API_REFERENCE.md` — new mutations/queries (`confirmWeek`, `createSubscriptionWeeklyInvoice`, `markWeeklyInvoicePaid`, `createTopupInvoice`, `reconcileWeek`, out-of-credit, calendar queries).
+  - `docs/FILE_MAP.md` — CRM feature area + permission row (`canAccessCrm` → manager+admin).
+
+- [ ] **Step 4: Commit docs**
+
+```bash
+git add docs/CHANGELOG.md docs/API_REFERENCE.md docs/FILE_MAP.md
+git commit -m "docs(subscriptions): Phase B weekly-cycle changelog + API + file map"
+```
+
+---
+
+## Phase B Success Criteria
+
+- [ ] `npm run type-check` passes; `npx convex codegen` clean (`_generated/` committed).
+- [ ] `npx vitest run convex/subscriptions` passes (scheduleLine, weekBounds, reconcileMath, revenueGate + Phase-A suites).
+- [ ] `npm run build` succeeds (vendor cap respected).
+- [ ] Schedule total = weekly invoice total = credit granted (enforced via `makeScheduleLine`; proven on a confirmed week).
+- [ ] `confirmWeek` generates one order per planned day at partner `unitPrice`; production records created (kanban shows units).
+- [ ] `markWeeklyInvoicePaid` funds the pool (`topup`), flips orders Paid, posts a `drawdown` per order; pool replay matches.
+- [ ] Top-up = schedule-driven delta invoice only; no standalone form.
+- [ ] Out-of-credit: scheduled split (Path A) + ad-hoc apply-partial (Path B, no new deposit table).
+- [ ] **C1:** subscription order absent from `getDailySalesSummary` + `getIncomeStatement` totals; BOM ball-count still resolves (sentinel predicate test + manual UAT).
+- [ ] **C2:** per-tranche FIFO reconcile proven by multi-week unit fixture; `reconcileWeek` rejects a `closed` week.
+- [ ] **I4:** Frollie-fault shortfall flags `refundDue` only (no payout mutation).
+- [ ] Subscription orders read-only on BOTH kanban surfaces (Pitfall #20); editable only in scheduler.
+- [ ] All subscription/credit/invoice/CRM surfaces manager+admin only (Pitfall #19).
+
+## Self-Review (writing-plans)
+
+- **Spec coverage:** §6 schedule → B6/B7/B13/B14; §7 billing/credit/weekly cycle → B9/B10/B11/B15; §7 reconcile + §13.1 FIFO → B3/B11; §8 out-of-credit → B12; §4.4 analytics isolation (C1) → B4/B8; §4.5 invoices → B9; r1.c1 seed sources → B6/B14; kanban read-only → B16. All merged-phase sections mapped.
+- **Placeholder scan:** pure cores (B1–B4) carry full TDD code; ctx-dependent mutations (B5–B13) carry real signatures + grounded code shape + the exact reuse points (per project convention that defers their runtime tests); UI tasks (B14–B16) carry component structure + wiring. The two "mirror createDraft's non-order fields" notes (B9) and "verify status literals" (B7) are explicit read-the-file instructions, not placeholders.
+- **Type consistency:** `ScheduleLine`/`PlannedDay`/`CreditPool`/`LedgerType` from Phase-A `types.ts`; `makeScheduleLine`, `validateScheduleTemplate`, `computeWeekBounds`, `reconcileTranches`, `isSubscriptionOrder`, `insertOrderWithItems` signatures consistent across their consumers (B6/B7/B8/B9/B11).
