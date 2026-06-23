@@ -60,8 +60,10 @@ The standing agreement / config per customer.
 - `label: string` (e.g. "Dubai Chewy Cookies — weekly")
 - `status: "draft" | "active" | "terminating" | "ended"`
 - `billingModel: "prepaid_weekly_credit"` (extensible literal union)
-- `unitPrice: number` (partner price, e.g. 29000) — **confidential**
+- `unitPrice: number` (partner price, e.g. 29000) — **confidential**. Overrides the per-product default (`menuProducts.defaultPrice`, `convex/schema.ts`) for all schedule lines.
 - `confidentialPrice: boolean`
+- `baselineDailyQty: number` (e.g. 150) — drives §11 above-baseline detection (`needsSupplierConfirmation` when a day's qty > baseline) and the Sunday reminder default.
+- `weeklyQty: number` (e.g. 1,050) — derived from `scheduleTemplate` (sum of items × days); stored denormalised for the agreement key-terms snapshot (§4.6) and quick display.
 - `deliverByTime: string` (e.g. "09:00", WIB)
 - `creditRolloverPolicy: "expire" | "rollover"` (default `expire` per clause 7)
 - `rolloverExpiryWeeks?: number` (default `4`; only meaningful when `creditRolloverPolicy = "rollover"`; `null`/`undefined` ⇒ never expires — explicit opt-out, see §13.1). Rolled-over credit is consumed **FIFO (oldest week first)** so expiry is deterministic.
@@ -108,12 +110,18 @@ Daily deliveries reuse the existing `orders`/`orderItems`/production pipeline. A
 - `deliveryDate?: number`
 - `fundingSource?: "subscription_credit" | "deposit" | "normal"` (how it was paid)
 - **Behaviour:** when funded, a subscription order auto-sets `paymentStatus: "Paid"`, `paymentMethod: "subscription_credit"`, and writes a `drawdown` ledger entry (`qty × unitPrice`).
+- **Partner price on `orderItems` (staffreview I3):** the generated order's `orderItems` carry the subscription **partner `unitPrice`** so `orders.totalAmount` (DERIVED sum of `orderItems.lineTotal`) equals the credit drawdown — otherwise the order total and the drawdown diverge.
+- **Analytics isolation (staffreview I3):** 1,050 pcs/wk at a confidential B2B price must NOT pollute the existing sales/margin/channel reports (`/financials`, platform analytics). Subscription orders are identified by `subscriptionId`/`fundingSource` and either excluded or bucketed as a distinct channel; BOM ball-counting (Pitfall #11/#13) must still resolve for these products. **Audit every revenue/margin aggregation for subscription leakage before Phase B merge.**
 - **Index:** `by_subscriptionWeek`
 
 ### 4.5 `invoices` (changes)
+> **Staffreview C1/C2 (grounded):** today the invoice model is strictly **1-invoice ↔ 1-order** — `invoices.orderId` is **required** (`convex/schema.ts:2265`) and `createDraft`/`finalize` (`convex/invoices/mutations.ts:145,372`) build `items` from the order's `orderItems` via `by_order`. A weekly subscription invoice covers 7 days × many orders (which may not exist yet at confirm time) and has no single owning order. The changes below make that explicit.
+
+- **`orderId` → optional** (`v.optional(v.id("orders"))`). Standard order invoices keep it; subscription-weekly/top-up invoices leave it null and rely on `subscriptionWeekId`. **Audit every consumer of `invoice.orderId` / `.withIndex("by_order")` for null-tolerance before merge.**
 - `subscriptionWeekId?: Id<"subscriptionWeeks">` (nullable) — lets ONE invoice represent a week's credit covering MANY orders. Solves the invoice→many-orders gap.
 - `invoiceKind?: "standard" | "subscription_weekly" | "subscription_topup"` — flags top-up invoices in UI/ledger/flows.
-- Line items become **per-delivery-day** (date + product + qty + unitPrice + lineTotal). Multi-product days produce multiple lines under the same date.
+- **`items[].date?: number`** — add an optional `date` to the existing `items` object (`{ productName, variant?, qty, unitPrice, lineTotal }`, `convex/schema.ts:2287`). Optional ⇒ existing standard invoices (date null) render flat as today; the visual weekly invoice groups/sorts lines by `date`. Multi-product days produce multiple lines under the same date.
+- **New builder, existing path untouched:** keep `createDraft`/`finalize` as-is for standard order invoices. Add `createSubscriptionWeeklyInvoice({ subscriptionWeekId })` that builds `items` from `subscriptionWeeks.plannedDays` (NOT from `orderItems`), reuses `getNextInvoiceNumber`/`invoiceCounters` for the `INV-YYMM-NNN` series, sets `invoiceKind`, and leaves `orderId` null.
 - Numbering: keep existing `INV-YYMM-NNN` series.
 
 ### 4.6 `supplyAgreements` (new)
@@ -209,7 +217,7 @@ Two paths, shortfall always **flagged** first:
 
 ## 9. Manager reminders — Telegram
 
-New `subscription-ops` role (extends `KNOWN_TELEGRAM_ROLES`; follows the existing pack-list/sales-updates cron pattern). Crons (WIB):
+New `subscription-ops` role added to `KNOWN_TELEGRAM_ROLES` (`convex/telegram/config.ts:8`, currently `["pack-list","sales-updates"]`) — follow **Pitfall #21** (extend the registry, no new env var; operator assigns the group via `/admin/telegram-chats`) and **Pitfall #22** (any new bot command needs a `COMMAND_POLICY` entry). Crons (WIB):
 
 - **Sun 17:00** — confirm next week's schedule → generates orders + invoice.
 - **Mon 08:00** — weekly credit invoice due (prepaid); send + mark paid.
@@ -217,7 +225,7 @@ New `subscription-ops` role (extends `KNOWN_TELEGRAM_ROLES`; follows the existin
 - **Daily 12:30** — 13:00 change cutoff for tomorrow.
 - **Mon 09:00** — prior-week reconcile (shortfall + fault attribution).
 
-Each uses the resilient + watchdog send pattern (`*Resilient` + 15-min watchdog) for delivery reliability.
+Each reuses the **existing resilient send pattern** from `convex/telegram/salesSummary/` (the `*Resilient` action + 15-min watchdog, plus the transient-retry fix from PR #175) — do not re-roll retry/watchdog logic.
 
 ---
 
@@ -252,6 +260,16 @@ Each uses the resilient + watchdog send pattern (`*Resilient` + 15-min watchdog)
 4. **Refund payout mechanism** (clause 7 Frollie-fault) — manual expense/transfer vs. tracked obligation only. *(Still open — deferred to Phase C reconciliation; default: track `refundDue` as an obligation flag only, actual payout handled manually outside the system for v1.)*
 
 ---
+
+## Cross-cutting reuse (staffreview R2/R3)
+- **Shared line type:** `subscriptionWeeks.plannedDays[].items`, the invoice `items`, and the generated order lines all share `{ menuProductId, productName, qty, unitPrice, lineTotal }`. Define it ONCE (`convex/subscriptions/types.ts`) and reuse across schedule, invoice builder, and order generation so the `schedule = invoice = credit` invariant is enforced by the type system.
+- **WIB week math:** `subscriptionWeeks.weekStart` (Monday WIB) MUST reuse `convex/lib/periodRange.ts` (`getWibDateStr` + week helpers). Pitfall #18 bans the deleted alternatives — do not hand-roll week boundaries.
+
+## Rollback & Deployment (staffreview R1)
+- **Ship-dark:** every CRM / credit / invoice / schedule surface is manager+admin gated from day one, so a partially-built phase never exposes half-finished flows to staff.
+- **Additive-only schema:** all new tables + field additions are optional/additive (`orderId` becomes optional, never dropped) ⇒ no data migration, no destructive change; reverting a phase = revert its commits.
+- **Deployment order:** schema → backend → frontend, per phase (Convex deploys before Vercel rebuild). Atomic commits keep each phase `/gsd-undo`-friendly.
+- **Split-brain guard:** convex test-file type errors fail `deploy-convex` while a docs push ships the frontend alone — check `gh run list` after merge (see `lesson_convex_vercel_splitbrain`).
 
 ## Git Workflow
 **Branch:** `feature/subscription-credit-system` (phased; likely a milestone of several feature branches)
