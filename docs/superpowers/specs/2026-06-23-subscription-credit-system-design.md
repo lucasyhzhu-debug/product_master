@@ -164,6 +164,11 @@ New **CRM** area (`/crm`). Manager & admin only.
 - **Schedule calendar** (note: calendar-style, not a table): a Mon→Sun week grid with **real calendar dates** (month shown across boundaries), planning the *week after*.
 - Each day cell holds one or more **products chosen from a dropdown sourced from the POS `menuProducts`** (Original, Bite Sized Single/Double/Triple, Dubai Chewy Cookies, Matcha, …), each with a quantity, **unit price, and line subtotal**; a **day subtotal**; "+ add product" for multi-product days.
 - Unit price defaults from the product but the subscription's confidential partner price overrides it.
+- **Seed a new week from one of three sources** (note r1.c1 — managers who deviated from the template last week want to repeat *last week's actuals*, not re-derive from the template):
+  - **(a) Default template** — the subscription's `scheduleTemplate` (today's only path).
+  - **(b) Copy last week** — one-click; seeds `plannedDays` from the **most recent prior `subscriptionWeeks` row's actual `plannedDays`** (carrying products + qty, re-priced at the current `unitPrice`). This is the common case for a steady supply relationship that drifts off-template week to week.
+  - **(c) Blank week** — start empty.
+  - Backend: `seedWeek` gains `source: "template" | "previousWeek" | "blank"` (default `"template"`); `"previousWeek"` reads the latest prior week by `by_subscription_weekStart` and re-runs line construction at the live `unitPrice` (so a price change since last week is honoured). Idempotency (one week row per `weekStart`) is unchanged; an already-seeded week is never silently overwritten — re-seed requires the week still be `planned` and is an explicit manager action.
 - **Week total drives the credit invoice** (schedule = invoice = credit).
 - **Confirm → generate orders + invoice** in one action.
 
@@ -276,27 +281,27 @@ Each reuses the **existing resilient send pattern** from `convex/telegram/salesS
 **Checkpoints:** per wave below.
 
 ## Implementation Waves
-*(Phased delivery — A→E. Each phase = its own feature branch, merged before the next.)*
+*(Phased delivery. Each phase = its own feature branch, merged before the next.)*
 
-### Phase A — Credit wallet + subscriptions (backend spine) [PARALLEL]
+> **Re-phasing (2026-06-23, round-1 proofing — note r1.c2):** original Phases B and C **merge into one phase B** — "Automated ordering schedule + weekly billing cycle." Rationale: a schedule-only phase generates orders nobody can bill (credit never funded), so it is not an independently shippable unit; the *complete weekly cycle* (plan → confirm → orders + weekly invoice → fund → drawdown → top-up → reconcile) is the smallest genuinely-useful slice and ships together. The merged phase reaches **everything including week-end reconciliation** (user decision, 2026-06-23). Phases D (broader CRM surface + agreements) and E (Telegram + rule enforcement) follow unchanged.
+
+### Phase A — Credit wallet + subscriptions (backend spine) [DONE — PR #189, 2026-06-23]
 | Agent | Task | Files |
 |-------|------|-------|
 | schema-architect | `subscriptions`, `subscriptionWeeks`, `creditLedger`, `supplyAgreements` tables + indexes; `orders`/`invoices`/`customers` field additions | `convex/schema.ts` |
 | convex-backend | Subscription CRUD, credit ledger ops (topup/drawdown/expiry/refund), pool derivation | `convex/subscriptions/` |
 
-### Phase B — Automated ordering schedule + weekly cycle [PARALLEL, after A]
+### Phase B — Automated ordering schedule + weekly billing cycle (merged B+C; full money loop) [vertical slice, after A]
+*(Backend scheduling + the whole money loop + the schedule/invoice/funding UI + read-only kanban. A manager runs a full live week end-to-end the day it merges, and weeks reconcile at close. Addresses the Phase-A forward-carried findings: week-alignment + template validation, ledger atomicity on confirm, `makeScheduleLine` factory, FIFO rollover tranches, closed-week posting guard, `invoices.by_subscriptionWeek` index.)*
+
 | Agent | Task | Files |
 |-------|------|-------|
-| convex-backend | Schedule template, week seed/confirm, order generation, drawdown-on-funded | `convex/subscriptions/scheduling/` |
-| react-ui-builder | Schedule calendar (menu-product dropdowns, dates, per-product pricing) | `src/pages/crm/` |
+| convex-backend | `validateScheduleTemplate` + Monday-WIB week alignment (`calculateWeekRange`); `seedWeek` source = template/previousWeek/blank (note r1.c1); `confirmWeek` (planned→confirmed, **atomically** generates `orders`+`orderItems` at partner `unitPrice` so `orders.totalAmount` = drawdown, sets `subscriptionId`/`subscriptionWeekId`/`deliveryDate`/`fundingSource`); `makeScheduleLine` factory | `convex/subscriptions/scheduling/` |
+| convex-backend | `createSubscriptionWeeklyInvoice({ subscriptionWeekId })` from `plannedDays` (NOT `orderItems`), `items[].date`, reuse `getNextInvoiceNumber`, `invoiceKind`, `orderId` null; `markWeeklyInvoicePaid` → `postLedgerEntry` topup + flip week orders Paid; drawdown-on-funded; schedule-driven top-up delta invoice; `reconcileWeek` (FIFO rollover tranches via `computeRolloverExpiry`, shortfall/fault, refund flag, closed-week guard); out-of-credit split + apply-partial | `convex/invoices/`, `convex/subscriptions/` |
+| react-ui-builder | Schedule calendar (`menuProducts` dropdowns, real dates, partner pricing, day/week subtotals, multi-product days, 3 seed sources, "Confirm → generate orders + invoice"); visual day-by-day weekly invoice (group by `items[].date`), 1-click WhatsApp/email/PDF-PNG; funding dashboard ("who hasn't paid / what needs funding") | `src/pages/crm/`, `src/components/invoice/` |
+| react-ui-builder | Read-only "🔒 Subscription" rendering + "Open in scheduler" on **both** `OrderSlideOver.tsx` AND `OrderDetail.tsx` (Pitfall #20) | `src/components/orders/` |
 
-### Phase C — Invoicing (consolidated weekly + top-up) + reconciliation [after B]
-| Agent | Task | Files |
-|-------|------|-------|
-| convex-backend | `subscriptionWeekId` invoices, top-up deltas, reconcile + refund | `convex/invoices/`, `convex/subscriptions/` |
-| react-ui-builder | Visual day-by-day invoice, 1-click WhatsApp/email/PDF, funding dashboard | `src/pages/crm/`, `src/components/invoice/` |
-
-### Phase D — CRM surface + navigation + agreements [after C]
+### Phase D — CRM surface + navigation + agreements [after B]
 | Agent | Task | Files |
 |-------|------|-------|
 | react-ui-builder | CRM home, customer record, breadcrumbs + linkable objects, agreement upload/terms, order history, drawdown chart | `src/pages/crm/`, `src/components/crm/` |
