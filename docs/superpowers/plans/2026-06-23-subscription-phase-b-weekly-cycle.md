@@ -51,8 +51,9 @@
 - `convex/bankStatements/matchEngine.ts` — match incoming credit lines to subscription weekly invoices by `invoiceNumber` reference (gap #1, B9).
 - `convex/integrations/internal/queries.ts:36` — exclude subscription orders (C1).
 - `convex/reports/dailySales.ts:13` — exclude subscription orders (C1).
-- `convex/schema.ts` — add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` (Refinement); add `customers.customerType: "direct_b2c" | "b2b_wholesale"` (optional, revenue-category seam — spec §7.x).
+- `convex/schema.ts` (**Task B0, additive**) — new `customerActivity` table (+`by_customer_at`); `invoices` `+customerId` +`by_customer`/`by_subscriptionWeek`/`by_kind_paymentStatus`; `orders` `+by_subscription`; `creditLedger` `+by_invoice`; `customers` `+customerType: "direct_b2c" | "b2b_wholesale"`.
 - `convex/subscriptions/mutations.ts` — `createSubscription` sets the customer's `customerType = "b2b_wholesale"`.
+- `convex/invoices/mutations.ts` — `finalize` backfills standard-invoice `customerId` from the order (B0/B9).
 - `src/hooks/convex/useOrders.ts` (+ kitchen hooks) — session-aware hooks for the converted `protectedQuery`s (gap #2, B16).
 
 **Frontend — create:**
@@ -60,6 +61,7 @@
 - `src/pages/crm/SubscriptionWeeklyInvoicePage.tsx` — visual day-by-day invoice + send.
 - `src/pages/crm/CrmFundingDashboardPage.tsx` — "who hasn't paid / what needs funding".
 - `src/components/crm/WeekCalendarGrid.tsx`, `src/components/crm/DayPlanCell.tsx`, `src/components/crm/ProductLineEditor.tsx`.
+- `src/lib/crmActivityTaxonomy.ts` (**Task B0**) — shared `ActivityType` union + `ACTIVITY_TAXONOMY` `Record` + `getActivityVisual` (stub; finalized in Phase D).
 - `src/lib/crmPermissions.ts` (if a small helper is needed) — else extend `src/lib/types.ts`.
 
 **Frontend — modify:**
@@ -72,6 +74,108 @@
 ---
 
 # Wave 1 — Backend pure cores (TDD) [PARALLEL]
+
+### Task B0: CRM foundational schema additions (additive — land FIRST)
+
+> Source: `docs/superpowers/specs/2026-06-23-crm-foundational-schema-additions.md` (CRM principles-conformance audit fix-now items #2–#6, #13, #14). All additive (new table + optional field + new indexes — no migration). Load-bearing for the CRM timeline, funding dashboard, per-subscription drawdown, gap#1 bank-match, and the confidential-price strip. Landing them in the in-flight schema PR unblocks clean Phase D/E planning. **Run FIRST** so every later task references real indexes.
+
+**Files:**
+- Modify: `convex/schema.ts` (one new table + one optional field + 5 new indexes).
+- Create: `src/lib/crmActivityTaxonomy.ts` (shared-lib stub — frontend, not a schema change).
+
+- [ ] **Step 1: Add the `customerActivity` table** to `defineSchema({...})`:
+
+```ts
+  customerActivity: defineTable({
+    customerId: v.id("customers"),
+    type: v.union(
+      v.literal("whatsapp_drafted"),
+      v.literal("note"),
+      v.literal("manual_milestone"),
+      // extend in lockstep with src/lib/crmActivityTaxonomy.ts (single ActivityType union)
+    ),
+    subtype: v.optional(v.string()),
+    direction: v.optional(
+      v.union(v.literal("inbound"), v.literal("outbound"), v.literal("system")),
+    ),
+    at: v.number(), // explicit WIB ms — business event time, NOT _creationTime
+    actor: v.id("users"),
+    summary: v.optional(v.string()),
+    note: v.optional(v.string()),
+    // polymorphic subject-refs (the event's linked object):
+    subscriptionId: v.optional(v.id("subscriptions")),
+    invoiceId: v.optional(v.id("invoices")),
+    orderId: v.optional(v.id("orders")),
+    agreementId: v.optional(v.id("supplyAgreements")),
+  })
+    .index("by_customer_at", ["customerId", "at"]),
+```
+
+- [ ] **Step 2: `invoices` — add `customerId` + indexes.** Inside the `invoices` `defineTable({...})` add the field, and add the index chain entries (keep existing `by_order`/`by_status_number`/`by_date`):
+
+```ts
+    customerId: v.optional(v.id("customers")),
+    // ...index chain:
+    .index("by_customer", ["customerId"])
+    .index("by_subscriptionWeek", ["subscriptionWeekId"])     // confirm it actually merges (audit #4)
+    .index("by_kind_paymentStatus", ["invoiceKind", "paymentStatus"])  // gap#1 match-engine (audit #14)
+```
+
+- [ ] **Step 3: `orders` — add `by_subscription`.** (Already has `by_customer` + `by_subscriptionWeek`; this spans weeks for one subscription — drawdown partition + timeline.)
+
+```ts
+    .index("by_subscription", ["subscriptionId"])
+```
+
+- [ ] **Step 4: `creditLedger` — add `by_invoice`.** (Rows carry `invoiceId?`; gap#1 topup idempotency + "which topup funded this invoice".)
+
+```ts
+    .index("by_invoice", ["invoiceId"])
+```
+
+- [ ] **Step 5: `customers` — add `customerType`** (the §7.x revenue-category seam):
+
+```ts
+    customerType: v.optional(v.union(v.literal("direct_b2c"), v.literal("b2b_wholesale"))),
+```
+
+- [ ] **Step 6: Create the shared taxonomy stub** `src/lib/crmActivityTaxonomy.ts` (mirrors `src/lib/orderConstants.ts`/`platformColors.ts`):
+
+```ts
+export type ActivityType =
+  | "order" | "finance" | "message" | "document" | "schedule" | "milestone";
+
+export type ActivityVisual = {
+  icon: string;
+  colorClass: string;
+  label: string;
+  direction?: "inbound" | "outbound" | "system";
+};
+
+export const ACTIVITY_TAXONOMY: Record<ActivityType, ActivityVisual> = {
+  order:     { icon: "📦", colorClass: "text-blue-500",   label: "Order",     direction: "system" },
+  finance:   { icon: "💳", colorClass: "text-green-500",  label: "Finance",   direction: "system" },
+  message:   { icon: "💬", colorClass: "text-violet-500", label: "Message",   direction: "outbound" },
+  document:  { icon: "📄", colorClass: "text-amber-500",  label: "Document",  direction: "inbound" },
+  schedule:  { icon: "📅", colorClass: "text-cyan-500",   label: "Schedule",  direction: "system" },
+  milestone: { icon: "🏁", colorClass: "text-rose-500",   label: "Milestone", direction: "system" },
+};
+
+export function getActivityVisual(type: ActivityType, _subtype?: string): ActivityVisual {
+  return ACTIVITY_TAXONOMY[type]; // subtype icon overrides layered in the Phase D timeline task
+}
+```
+
+> **Taxonomy reconciliation (flag):** `customerActivity.type` (logged union: `whatsapp_drafted | note | manual_milestone`) and `ActivityType` (category union above) are two granularities. The **Phase D timeline task** reconciles them to a single source-of-truth union (the derived-event mapper + `customerActivity.type` import the same union) and adds the exhaustiveness test (every timeline-produced `type` has a taxonomy entry — `Record<ActivityType,…>` already makes a missing entry a compile error). For Phase B: land the table + this stub as the foundation only.
+
+- [ ] **Step 7: Regenerate + commit.** `npx convex codegen && npm run type-check` → PASS.
+
+```bash
+git add convex/schema.ts convex/_generated/ src/lib/crmActivityTaxonomy.ts
+git commit -m "feat(crm): foundational additive schema — customerActivity + invoices.customerId/indexes + orders.by_subscription + creditLedger.by_invoice + customerType + taxonomy stub"
+```
+
+---
 
 ### Task B1: `makeScheduleLine` factory + `validateScheduleTemplate` (I2, I3)
 
@@ -769,6 +873,7 @@ export const createSubscriptionWeeklyInvoice = protectedMutation({
       invoiceNumber,
       invoiceKind: "subscription_weekly",
       subscriptionWeekId: week._id,
+      customerId: sub.customerId,            // B0 denormalized field — reachable by customer (no orderId)
       // orderId intentionally omitted (subscription invoice has no single order).
       // orderNumber is REQUIRED on invoices but there is no order — synthesize a stable week label.
       orderNumber: `WEEK-${getWibDateStr(week.weekStart)}`,
@@ -812,6 +917,11 @@ export const markWeeklyInvoicePaid = protectedMutation({
     if (week.status !== "invoiced") throw new ConvexError(`Week is ${week.status}`);
     const invoice = await ctx.db.get(week.weeklyInvoiceId);
     const total = (invoice?.items ?? []).reduce((s, it) => s + it.lineTotal, 0);
+
+    // Idempotency (B0 by_invoice index): if a topup for this invoice already exists, don't double-fund.
+    const existingTopup = await ctx.db.query("creditLedger")
+      .withIndex("by_invoice", (q) => q.eq("invoiceId", week.weeklyInvoiceId!)).first();
+    if (existingTopup) return week._id;
 
     // Fund the deferred-revenue pool (cash in → unearned). NOT sales yet.
     await postLedgerEntry(ctx, {
@@ -866,10 +976,10 @@ export async function recognizeSubscriptionDelivery(ctx: MutationCtx, orderId: I
 > **Define "sent":** wire `recognizeSubscriptionDelivery` to the status transition that means *dispatched/delivered* (confirm the literal — `AwaitingDelivery` = out for delivery, or `Complete`). Pick the one ops sets when the order physically goes out by `deliverByTime`. The drawdown/revenue must NOT fire at funding (Monday) — only at delivery.
 > **Reconciles C1 + categorization (§7.x):** subscription orders stay excluded from `externalRevenue` + per-channel sales dashboards (confidential price, B2B not a retail channel); the *revenue* reaches the income-statement TOTAL via the at-delivery journal line under a **B2B Wholesale** line keyed on `customers.customerType`. Cash-vs-earned: credit pool balance = deferred-revenue liability. The B2B Wholesale bucket is the umbrella — subscription cafe sales are its first occupant; future non-subscription wholesale slots in via the same `customerType` key.
 
-- [ ] **Step 4: Schema additions** in `convex/schema.ts` + `npx convex codegen && npm run type-check`:
-  - Add `.index("by_subscriptionWeek", ["subscriptionWeekId"])` to `invoices` (the Refinement).
-  - Add `customerType: v.optional(v.union(v.literal("direct_b2c"), v.literal("b2b_wholesale")))` to `customers` (additive, default treated as `direct_b2c`) — the durable revenue-category seam (spec §4.7/§7.x). The at-delivery journal line (Step 3b) buckets B2B Wholesale on this field.
-  - In `createSubscription` (Task A5, already shipped — patch it here): when a subscription is created/activated for a customer, set that `customers.customerType = "b2b_wholesale"` if not already set (a subscription customer is, by definition, B2B wholesale). Durable — survives if the subscription later ends.
+- [ ] **Step 4: Backfill `invoices.customerId` + set `customerType`** (schema fields/indexes already landed in **Task B0** — do NOT re-add):
+  - `createSubscriptionWeeklyInvoice` (Step 2) and `createTopupInvoice` (B10) set `customerId: customer._id` on insert (the customer is already loaded). For standard invoices, set `customerId` from the order in `finalize` (`convex/invoices/mutations.ts`). Without this a subscription invoice is unreachable by customer (no `orderId`).
+  - In `createSubscription` (Task A5, already shipped — patch it): when a subscription is created for a customer, set `customers.customerType = "b2b_wholesale"` if unset (a subscription customer is, by definition, B2B wholesale; durable — survives if the subscription later ends). The at-delivery journal line (Step 3b) buckets B2B Wholesale on this field.
+  - `npx convex codegen && npm run type-check`.
 
 - [ ] **Step 5: Manual smoke + commit**
 
@@ -895,20 +1005,16 @@ git commit -m "feat(subscriptions): weekly invoice + fund (deferred revenue) + r
 
 ```ts
 // inside findLinkedRecord, credit-line branch — BEFORE the externalRevenue fuzzy scan:
-// 1. Reference match: bank line description contains the invoiceNumber → exact link.
-const weeklyInvoices = await ctx.db
+// Use the B0 by_kind_paymentStatus index (NOT a full scan of all final invoices).
+const candidates = await ctx.db
   .query("invoices")
-  .withIndex("by_status_number", (q) => q.eq("status", "final")) // invoiceNumber index
+  .withIndex("by_kind_paymentStatus", (q) =>
+    q.eq("invoiceKind", "subscription_weekly").eq("paymentStatus", "Unpaid"))
   .collect();
-const byRef = weeklyInvoices.find(
-  (inv) =>
-    inv.invoiceKind === "subscription_weekly" &&
-    inv.paymentStatus !== "Paid" &&
-    inv.invoiceNumber &&
-    line.description.includes(inv.invoiceNumber),
-);
+// 1. Reference match: bank line description contains the invoiceNumber → exact link.
+const byRef = candidates.find((inv) => inv.invoiceNumber && line.description.includes(inv.invoiceNumber));
 if (byRef) return { kind: "subscriptionWeeklyInvoice", id: byRef._id, invoiceNumber: byRef.invoiceNumber, confidence: "exact" };
-// 2. else fall through to amount+date fuzzy over unpaid subscription_weekly invoices, then the existing externalRevenue scan.
+// 2. else amount+date fuzzy over `candidates` (same ±3-day window), then the existing externalRevenue scan.
 ```
 
 - [ ] **Step A2: On confirm-link, fund the week (cash event = deferred revenue).** When the operator confirms a bank line ↔ subscription-weekly-invoice link in `/financials`, call `markWeeklyInvoicePaid({ subscriptionWeekId })` (Task B9) — that posts the `topup` (funds the **deferred-revenue** pool) and marks the week's orders cash-Paid. It does **NOT** recognize sales (that happens per order at delivery — B9 Step 3b). Wire the reconcile-confirm action (wherever bank-line links are confirmed today) to dispatch `markWeeklyInvoicePaid` when `kind === "subscriptionWeeklyInvoice"`.
@@ -1197,6 +1303,7 @@ git commit -m "docs(subscriptions): Phase B weekly-cycle changelog + API + file 
 - [ ] Out-of-credit: scheduled split (Path A) + ad-hoc apply-partial (Path B, no new deposit table).
 - [ ] **C1 (refined):** subscription order absent from `getDailySalesSummary` + per-channel `externalRevenue` breakdowns, **but** its at-delivery revenue PRESENT in the income-statement total under a **B2B Wholesale** bucket (keyed on `customers.customerType`); BOM ball-count still resolves (sentinel predicate test + manual UAT).
 - [ ] **Revenue categorization (§7.x):** `customers.customerType` seam added; subscription create sets `b2b_wholesale`; B2B Wholesale recognized separately from B2C Direct in the P&L (subscription is the first B2B occupant; future non-subscription wholesale uses the same key).
+- [ ] **B0 foundational schema (additive):** `customerActivity` table + `by_customer_at`; `invoices` `+customerId`/`by_customer`/`by_subscriptionWeek`/`by_kind_paymentStatus` (customerId backfilled at create + finalize); `orders` `+by_subscription`; `creditLedger` `+by_invoice`; `customers` `+customerType`; `src/lib/crmActivityTaxonomy.ts` stub (`Record<ActivityType,…>` exhaustive); `npx convex codegen` clean + `_generated/` committed. (gap#1 match uses `by_kind_paymentStatus`; topup idempotency uses `by_invoice`.)
 - [ ] **C2:** per-tranche FIFO reconcile proven by multi-week unit fixture; `reconcileWeek` rejects a `closed` week.
 - [ ] **I4:** Frollie-fault shortfall flags `refundDue` only (no payout mutation).
 - [ ] Subscription orders read-only on BOTH kanban surfaces (Pitfall #20); editable only in scheduler.
@@ -1206,6 +1313,6 @@ git commit -m "docs(subscriptions): Phase B weekly-cycle changelog + API + file 
 
 ## Self-Review (writing-plans)
 
-- **Spec coverage:** §6 schedule → B6/B7/B13/B14; §7 billing/credit/weekly cycle → B9/B10/B11/B15; §7 reconcile + §13.1 FIFO → B3/B11; §8 out-of-credit → B12; §4.4 analytics isolation (C1) → B4/B8; §4.5 invoices → B9; r1.c1 seed sources → B6/B14; kanban read-only → B16; **gap #1 (transfer ref + /financials match) → B9 amendment; gap #2 (server-side price strip) → B16 amendment.** All merged-phase sections mapped.
+- **Spec coverage:** §4.3/§4.4/§4.5/§4.7/§4.8 schema additions + §5.x taxonomy lib → **B0**; §6 schedule → B6/B7/B13/B14; §7 billing/credit/weekly cycle → B9/B10/B11/B15; §7 reconcile + §13.1 FIFO → B3/B11; §8 out-of-credit → B12; §4.4 analytics isolation (C1) → B4/B8; §4.5 invoices → B9; r1.c1 seed sources → B6/B14; kanban read-only → B16; **gap #1 (transfer ref + /financials match) → B9 amendment (uses B0 `by_kind_paymentStatus`/`by_invoice`); gap #2 (server-side price strip) → B16 amendment.** All merged-phase sections mapped.
 - **Placeholder scan:** pure cores (B1–B4) carry full TDD code; ctx-dependent mutations (B5–B13) carry real signatures + grounded code shape + the exact reuse points (per project convention that defers their runtime tests); UI tasks (B14–B16) carry component structure + wiring. The two "mirror createDraft's non-order fields" notes (B9) and "verify status literals" (B7) are explicit read-the-file instructions, not placeholders.
 - **Type consistency:** `ScheduleLine`/`PlannedDay`/`CreditPool`/`LedgerType` from Phase-A `types.ts`; `makeScheduleLine`, `validateScheduleTemplate`, `computeWeekBounds`, `reconcileTranches`, `isSubscriptionOrder`, `insertOrderWithItems` signatures consistent across their consumers (B6/B7/B8/B9/B11).
