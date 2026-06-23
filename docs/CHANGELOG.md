@@ -14,7 +14,16 @@ After merging any code change, add a new entry with:
 
 ---
 
-## [Unreleased]
+## [Unreleased] — Subscription & Credit System (Phase A)
+### Added
+- Schema: `subscriptions`, `subscriptionWeeks`, `creditLedger`, `supplyAgreements` tables.
+- Credit-math core (pool derivation, schedule total, FIFO rollover expiry) + append-only ledger.
+- Subscription CRUD + week-seed (manager+admin).
+### Changed
+- `invoices.orderId` is now optional (subscription weekly invoices have no single owning order).
+- Additive optional fields on `orders` (subscription/funding) and `customers` (CRM contact data).
+
+---
 
 ### Fix: clearer error when assigning a product to a POS slot fails — 2026-06-22
 
