@@ -269,6 +269,12 @@ import type * as staffAttendance_mutations from "../staffAttendance/mutations.js
 import type * as staffAttendance_queries from "../staffAttendance/queries.js";
 import type * as storageLocations_mutations from "../storageLocations/mutations.js";
 import type * as storageLocations_queries from "../storageLocations/queries.js";
+import type * as subscriptions_creditMath from "../subscriptions/creditMath.js";
+import type * as subscriptions_ledger from "../subscriptions/ledger.js";
+import type * as subscriptions_mutations from "../subscriptions/mutations.js";
+import type * as subscriptions_queries from "../subscriptions/queries.js";
+import type * as subscriptions_rollover from "../subscriptions/rollover.js";
+import type * as subscriptions_types from "../subscriptions/types.js";
 import type * as telegram___tests___testHelpers from "../telegram/__tests__/testHelpers.js";
 import type * as telegram_chatRegistry from "../telegram/chatRegistry.js";
 import type * as telegram_config from "../telegram/config.js";
@@ -556,6 +562,12 @@ declare const fullApi: ApiFromModules<{
   "staffAttendance/queries": typeof staffAttendance_queries;
   "storageLocations/mutations": typeof storageLocations_mutations;
   "storageLocations/queries": typeof storageLocations_queries;
+  "subscriptions/creditMath": typeof subscriptions_creditMath;
+  "subscriptions/ledger": typeof subscriptions_ledger;
+  "subscriptions/mutations": typeof subscriptions_mutations;
+  "subscriptions/queries": typeof subscriptions_queries;
+  "subscriptions/rollover": typeof subscriptions_rollover;
+  "subscriptions/types": typeof subscriptions_types;
   "telegram/__tests__/testHelpers": typeof telegram___tests___testHelpers;
   "telegram/chatRegistry": typeof telegram_chatRegistry;
   "telegram/config": typeof telegram_config;
