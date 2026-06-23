@@ -5,6 +5,8 @@
 **Companion mockup:** `docs/superpowers/specs/2026-06-23-subscription-credit-mockups.html` (open in browser; has a proofing room for inline comments)
 **Driving contract:** `Frollie × Amsterdamn Cafe Supply Agreement` (vFinal ID) — first real instance
 
+**Spec rev-note (2026-06-23):** Applied audit #24 (C9/drawdown-model drift) — repointed the customer-dashboard credit drawdown chart (§7, §13.3) from a summed per-subscription roll-up to a **per-subscription selector**; Phase D rev-2 (proofing c4) is authoritative.
+
 ---
 
 ## 1. Problem & Goal
@@ -100,7 +102,7 @@ Every credit movement is one immutable entry. Pool fields above are derived from
 - `orderId?: Id<"orders">` (drawdown), `invoiceId?: Id<"invoices">` (topup)
 - `rolloverFromWeekId?: Id<"subscriptionWeeks">` (set on the carry-forward `topup` entry when `creditRolloverPolicy = "rollover"`; lets reconcile trace + FIFO-expire carried credit within `rolloverExpiryWeeks`)
 - `createdAt`, `createdBy`, `note?`
-- **Indexes:** `by_subscriptionWeek`, `by_subscription`, `by_order`
+- **Indexes:** `by_subscriptionWeek`, `by_subscription`, `by_order`, `by_invoice` (`["invoiceId"]` — gap#1 topup idempotency + "which topup funded this invoice"; avoids `by_subscriptionWeek` + in-memory filter).
 
 ### 4.4 `orders` (changes)
 Daily deliveries reuse the existing `orders`/`orderItems`/production pipeline. Add:
@@ -115,7 +117,7 @@ Daily deliveries reuse the existing `orders`/`orderItems`/production pipeline. A
   - **Exclude from channel/platform analytics:** gate subscription orders out of `externalRevenue` sync (on `fundingSource !== "subscription_credit"` / no `subscriptionId`) and out of `getDailySalesSummary` (`convex/reports/dailySales.ts:8`) — so per-platform breakdowns + margin-by-channel + the sales dashboards stay clean and the confidential per-unit price never lands in channel data.
   - **Include in the P&L total as a distinct bucket:** subscription revenue is recognized **at delivery** via a **B2B Wholesale** **journal line** keyed on `customerType` (§7.x; NOT via `externalRevenue`). The income statement (`fetchAndAggregate`, `convex/reports/incomeStatement.ts:581`, which already scans journal lines) therefore reflects it in total revenue under the B2B Wholesale line, without contaminating per-channel analytics.
   - **Sentinel test (mandatory):** a subscription order is **absent** from `getDailySalesSummary` and from per-channel `externalRevenue` breakdowns, **but** its at-delivery revenue **is present** in the income-statement total under the **B2B Wholesale** bucket. **BOM ball-counting (Pitfall #11/#13) MUST still resolve** for subscription products (kitchen/production volume stays correct).
-- **Index:** `by_subscriptionWeek`
+- **Indexes:** `by_subscriptionWeek`, `by_subscription` (`["subscriptionId"]` — all orders for one subscription across weeks; per-subscription drawdown "delivered vs planned" partition + timeline order events; `by_customer` + `by_subscriptionWeek` alone can't span weeks for one subscription).
 
 ### 4.5 `invoices` (changes)
 > **Staffreview C1/C2 (grounded):** today the invoice model is strictly **1-invoice ↔ 1-order** — `invoices.orderId` is **required** (`convex/schema.ts:2265`) and `createDraft`/`finalize` (`convex/invoices/mutations.ts:145,372`) build `items` from the order's `orderItems` via `by_order`. A weekly subscription invoice covers 7 days × many orders (which may not exist yet at confirm time) and has no single owning order. The changes below make that explicit.
@@ -125,6 +127,9 @@ Daily deliveries reuse the existing `orders`/`orderItems`/production pipeline. A
 - `invoiceKind?: "standard" | "subscription_weekly" | "subscription_topup"` — flags top-up invoices in UI/ledger/flows.
 - **`items[].date?: number`** — add an optional `date` to the existing `items` object (`{ productName, variant?, qty, unitPrice, lineTotal }`, `convex/schema.ts:2287`). Optional ⇒ existing standard invoices (date null) render flat as today; the visual weekly invoice groups/sorts lines by `date`. Multi-product days produce multiple lines under the same date.
 - **New builder, existing path untouched:** keep `createDraft`/`finalize` as-is for standard order invoices. Add `createSubscriptionWeeklyInvoice({ subscriptionWeekId })` that builds `items` from `subscriptionWeeks.plannedDays` (NOT from `orderItems`), reuses `getNextInvoiceNumber`/`invoiceCounters` for the `INV-YYMM-NNN` series, sets `invoiceKind`, and leaves `orderId` null.
+- **`customerId?: Id<"customers">` (denormalized) + index `by_customer`** — a subscription weekly/top-up invoice has `orderId` null, so it is **unreachable by customer via any index** today. Backfill `customerId` at creation (`createSubscriptionWeeklyInvoice` already loads the customer) and at `finalize` for standard invoices (from the order). Drives the CRM customer-record invoice list + funding dashboard.
+- **Index `by_kind_paymentStatus` (`["invoiceKind", "paymentStatus"]`)** — the gap#1 bank-match engine otherwise full-scans `final` invoices and filters in memory on `invoiceKind === "subscription_weekly" && paymentStatus !== "Paid"`. Index it.
+- **Index `by_subscriptionWeek` (`["subscriptionWeekId"]`)** — confirm this actually lands in the committed schema (the reverse pointer `subscriptionWeeks.weeklyInvoiceId` exists, but querying invoices by week needs the forward index).
 - Numbering: keep existing `INV-YYMM-NNN` series.
 
 ### 4.6 `supplyAgreements` (new)
@@ -146,6 +151,21 @@ Crisp CRM contact data (additive to existing fields):
 - add: **`customerType?: "direct_b2c" | "b2b_wholesale"`** (optional, default `direct_b2c`) — the durable **revenue-category** dimension (§7.x). A subscription cafe is `b2b_wholesale`; this stays true even if the cafe later buys wholesale *without* a subscription. Keying the P&L B2B bucket on `customerType` (not on "is a subscription order") is what makes the categorization survive future non-subscription wholesale.
 - All contact/social fields render as **clickable links** (wa.me / mailto / IG / TikTok).
 
+### 4.8 `customerActivity` (new) — the CRM timeline's *logged* half
+The customer timeline is **derived + logged**. Derived events (orders, invoices, ledger movements) are projected from existing tables at read time by `getCustomerTimeline` — NOT stored. `customerActivity` stores only the events with no other home (drafted WhatsApp, manual notes, manual milestones).
+
+- `customerId: Id<"customers">`
+- `type: "whatsapp_drafted" | "note" | "manual_milestone"` (logged-event union — **extend in lockstep with the `ActivityType` taxonomy lib**, §5.x)
+- `subtype?: string`
+- `direction?: "inbound" | "outbound" | "system"`
+- `at: number` — explicit WIB business-event ms (NOT `_creationTime`; project lesson: insertion time ≠ event time)
+- `actor: Id<"users">`
+- `summary?: string`, `note?: string`
+- **Polymorphic subject-refs** (the event's linked object): `subscriptionId?`, `invoiceId?`, `orderId?`, `agreementId?` (all optional Ids)
+- **Index:** `by_customer_at` (`["customerId", "at"]`) — windowed timeline feed.
+
+> **Taxonomy reconciliation (flag):** the foundational-schema source lists this logged `type` union AND a coarser `ActivityType` (`order | finance | message | document | schedule | milestone`) for the shared visual taxonomy (§5.x). These are two granularities; the Phase-D shared-lib task MUST reconcile them into a single source-of-truth union (the timeline derived-event mapper and `customerActivity.type` import the same union). For the in-flight Phase B PR, land the table with the logged union above + the taxonomy stub; finalize the union in Phase D.
+
 ---
 
 ## 5. CRM surface & navigation
@@ -160,6 +180,9 @@ New **CRM** area (`/crm`). Manager & admin only.
 ### Navigation principle (note c16) — *everything linkable + breadcrumbs*
 - **Chevron breadcrumb trail** on every CRM page, each segment a link back to the parent; the trail accumulates as you drill in (`CRM › Customers › Amsterdamn Cafe › Invoices › INV-2606-014`).
 - **Any object reference is a link** to that object's page: subscription name → subscription page, invoice number → invoice, agreement → document, order/day → scheduler, customer → customer record. Contact handles → external links.
+
+### 5.x Shared activity taxonomy lib — `src/lib/crmActivityTaxonomy.ts`
+Single source of `type → { icon, colorClass, label, direction }` for the customer timeline, mirroring `src/lib/orderConstants.ts` (`STATUS_COLORS`/`getStatusColor`) and `src/lib/platformColors.ts`. Define the `ActivityType` union **ONCE** and import it into both `customerActivity.type` (backend, §4.8) and the derived-event mapper. The `Record<ActivityType, ActivityVisual>` makes a missing entry a **compile error** (same guard as Pitfall #22's `COMMAND_POLICY`). A test asserts every `type` produced by the timeline builder (derived + logged) has a taxonomy entry — so a new event type can't ship without its visual. (Foundational stub lands in the Phase B PR; the union is finalized + reconciled with §4.8's logged union in the Phase D timeline task.)
 
 ---
 
@@ -209,7 +232,7 @@ Reporting consequence:
 - **Phase B scope:** only subscription cafe sales populate B2B Wholesale now; the `customerType` seam + the B2B P&L line are built so future non-subscription wholesale slots in. A full retail-vs-wholesale dashboard split is a natural follow-up, not required for Phase B.
 
 ### Credit drawdown chart (note c24)
-- On the **customer dashboard**, **summing the customer's per-subscription pools for display** (each pool stays ring-fenced; this is a visual roll-up, not a shared balance).
+- On the **customer dashboard**, the chart uses a **per-subscription selector — NOT a summed roll-up** (audit #24). Each subscription's ring-fenced weekly pool is charted on its own; the customer picks which subscription to view. **Phase D (rev-2, proofing c4) is authoritative on this** and overrode the earlier "sum the per-subscription pools for display" language: each pool is ring-fenced, and summing across off-cadence weeks (subscriptions on different weekly billing cycles) produces a misleading balance, so no cross-subscription sum is shown.
 - Dual series / dual axis: **bars = pcs/day** (left), **line = credit remaining in Rp** (right).
 - **Solid = delivered; dashed & lighter = planned** (future days), with a "today" divider.
 - **Flags leftover credit** if the projected line won't reach zero by Sunday (they under-ordered).
@@ -278,7 +301,7 @@ Each reuses the **existing resilient send pattern** from `convex/telegram/salesS
 
 1. ~~Rollover semantics~~ **RESOLVED (2026-06-23): bounded rollover horizon.** When `creditRolloverPolicy = "rollover"`, carried credit expires after `rolloverExpiryWeeks` (default **4**), consumed **FIFO (oldest week's credit drawn down first)** so expiry is deterministic. Setting `rolloverExpiryWeeks = null` is an explicit opt-out ⇒ never expires (use sparingly — unbounded credit is an untracked liability). Default subscription policy remains `expire` (clause 7 spirit: in-week consumption); rollover is opt-in per subscription. Mechanism: on week-end reconcile, unconsumed credit either posts an `expiry` entry (policy `expire`, or rolled credit past its horizon) or carries forward as a fresh `topup`-typed entry tagged `rolloverFromWeekId` against the next open `subscriptionWeek` (policy `rollover`, within horizon).
 2. ~~Deposit mechanism (Path B)~~ **RESOLVED (2026-06-23): reuse the existing normal/QRIS payment flow — no new deposit table.** The ad-hoc order's applied-credit portion posts a `drawdown` ledger entry; the uncovered remainder falls to normal billing (`AwaitingPayment`) and is collected through the existing payment infrastructure (Phase 84 `qrisPayments` action + webhook / bank transfer). `orders.fundingSource: "deposit"` is just the order-level label distinguishing a part-credit/part-cash order; it adds no new money-tracking subsystem. Rationale: the credit ledger stays the single source of truth for *credit*, and existing payment reconciliation stays the single source of truth for *cash* — no parallel deposit ledger to keep in sync.
-3. ~~Pool scoping~~ **RESOLVED (2026-06-23): per subscription-week pools.** Each subscription has its own ring-fenced weekly credit pool (`subscriptionWeeks` + `creditLedger` keyed by `subscriptionId`); refunds/rollover/expiry are per-agreement. The customer-dashboard drawdown chart (c24) **sums the customer's subscription pools for display only** — it is not a shared balance. An order draws from the pool of the subscription it belongs to.
+3. ~~Pool scoping~~ **RESOLVED (2026-06-23): per subscription-week pools.** Each subscription has its own ring-fenced weekly credit pool (`subscriptionWeeks` + `creditLedger` keyed by `subscriptionId`); refunds/rollover/expiry are per-agreement. The customer-dashboard drawdown chart (c24) uses a **per-subscription selector — NOT a summed roll-up** (audit #24; Phase D rev-2 / proofing c4 is authoritative — see §7 "Credit drawdown chart"): pools are never summed across subscriptions, since off-cadence weeks make a combined balance misleading. An order draws from the pool of the subscription it belongs to.
 4. ~~Refund payout mechanism~~ **RESOLVED (2026-06-23, staffreview I4): obligation-flag only for v1.** Reconcile is now in this merged phase, so this can no longer defer to a non-existent later phase. On a Frollie-fault shortfall, `reconcileWeek` flags `refundDue` (Rp) + `refundStatus` and posts no payout — the actual transfer/expense is handled **manually outside the system** for v1. **Non-goal:** no refund-payout mutation, no auto-expense/journal wiring. (Revisit only if manual reconciliation proves error-prone.)
 
 ---
