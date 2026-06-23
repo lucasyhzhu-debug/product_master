@@ -181,6 +181,7 @@ import type * as migrations_fixDispatchPlanOutlets from "../migrations/fixDispat
 import type * as migrations_gobizCleanupLegacySummaries from "../migrations/gobizCleanupLegacySummaries.js";
 import type * as migrations_gofoodSaleToChannelSale from "../migrations/gofoodSaleToChannelSale.js";
 import type * as migrations_inventorySetup from "../migrations/inventorySetup.js";
+import type * as migrations_posPurgeTestRows from "../migrations/posPurgeTestRows.js";
 import type * as migrations_restoreCapexReimbursements from "../migrations/restoreCapexReimbursements.js";
 import type * as migrations_schemaCleanup from "../migrations/schemaCleanup.js";
 import type * as migrations_seedFinishedGoodsLocations from "../migrations/seedFinishedGoodsLocations.js";
@@ -467,6 +468,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/gobizCleanupLegacySummaries": typeof migrations_gobizCleanupLegacySummaries;
   "migrations/gofoodSaleToChannelSale": typeof migrations_gofoodSaleToChannelSale;
   "migrations/inventorySetup": typeof migrations_inventorySetup;
+  "migrations/posPurgeTestRows": typeof migrations_posPurgeTestRows;
   "migrations/restoreCapexReimbursements": typeof migrations_restoreCapexReimbursements;
   "migrations/schemaCleanup": typeof migrations_schemaCleanup;
   "migrations/seedFinishedGoodsLocations": typeof migrations_seedFinishedGoodsLocations;
