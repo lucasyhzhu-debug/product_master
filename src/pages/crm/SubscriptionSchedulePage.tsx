@@ -6,7 +6,7 @@
  *
  * Session hooks: useSessionQuery / useSessionMutation (protectedQuery/protectedMutation).
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -153,18 +153,26 @@ export function SubscriptionSchedulePage() {
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
+  // Ref holds the latest server-derived display plan so handleDayChange can
+  // seed from it on the FIRST edit (when prev is null) without adding
+  // displayPlan to the useCallback dep array (which would violate C1's
+  // hoisting requirement and break Rules of Hooks).
+  const displayPlanRef = useRef<LocalWeekPlan>([[], [], [], [], [], [], []]);
+
   // C1: hoisted above ALL early returns so Rules of Hooks is satisfied.
   // Uses functional updater — no dependency on post-guard `displayPlan`.
   const handleDayChange = useCallback(
     (dayIndex: number, lines: ScheduleLineLocal[]) => {
       setLocalDays((prev) => {
-        const base: LocalWeekPlan = prev ?? [[], [], [], [], [], [], []];
+        // On first edit (prev === null) seed from the server-derived plan so
+        // other days retain their data. The ref is stable — not a dependency.
+        const base: LocalWeekPlan = prev ?? displayPlanRef.current;
         const next = [...base] as LocalWeekPlan;
         next[dayIndex] = lines;
         return next;
       });
     },
-    [], // stable — only depends on setLocalDays (stable setter)
+    [], // stable — only depends on setLocalDays (stable) and displayPlanRef (stable ref)
   );
 
   // Loading guard (D12)
@@ -194,6 +202,10 @@ export function SubscriptionSchedulePage() {
     (week !== null
       ? toLocalWeekPlan(week.plannedDays, weekStartMs)
       : [[], [], [], [], [], [], []]);
+
+  // Keep the ref in sync with the latest server-derived plan so handleDayChange
+  // can seed from it on the first edit without needing it as a dep.
+  displayPlanRef.current = displayPlan;
 
   const weekTotal = displayPlan.reduce(
     (s, lines) => s + lines.reduce((ds, l) => ds + l.qty * unitPrice, 0),
