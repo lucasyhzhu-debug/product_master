@@ -71,6 +71,17 @@ export function remainderQty(totalQty: number, covered: number): number {
  *   - If covered qty ≥ total qty: full drawdown, no split needed.
  *
  * Returns: { coveredOrderId, topupInvoiceId | null, drawdownAmount }
+ *
+ * ⚠ IMP-4 — KNOWN INCONSISTENCY (rework in Phase D/E, do NOT "fix" here):
+ * This posts the `drawdown` at SPLIT time (scheduler), NOT at delivery — unlike the
+ * canonical at-delivery recognition model (recognizeSubscriptionDelivery, which posts
+ * the drawdown only on BeingPrepared→AwaitingDelivery). That means this recognizes the
+ * sale for an order that might later be cancelled, and double-recognition is possible if
+ * the at-delivery path also fires for the same order (its idempotency guard keys on
+ * creditLedger.by_order, so a split-time drawdown here would actually SUPPRESS the
+ * at-delivery drawdown — making split orders recognize early instead of at delivery).
+ * Out-of-credit has no UI in Phase B, so this path is currently dormant. The at-delivery
+ * vs at-split timing reconciliation is deferred to Phase D/E.
  */
 export const splitScheduledOrderOnCredit = protectedMutation({
   roles: ["manager", "admin"],

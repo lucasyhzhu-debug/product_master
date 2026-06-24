@@ -17,6 +17,7 @@ import {
   classifyLine,
   computeConfidence,
   findLinkedRecord,
+  referenceTokenMatch,
   type BankKeywordRule,
 } from "../matchEngine";
 import { readFileSync } from "fs";
@@ -756,6 +757,33 @@ describe("findLinkedRecord — subscription weekly invoice (gap#1)", () => {
     expect(result!.fuzzyScore).toBe(1.0);
   });
 
+  // IMP-7/M1 (gap#1 hardening): a shorter invoiceNumber must NOT reference-match
+  // inside a longer one. A memo referencing INV-2606-10 (amount 999_999, no
+  // candidate) must not exact-match the seeded INV-2606-1 (substring false-positive).
+  it("does NOT reference-match a shorter invoiceNumber inside a longer one (INV-…-1 vs -10)", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    // Seed ONLY the short invoice; its amount differs from the line so the
+    // amount+date fuzzy fallback can't rescue a wrong match either.
+    await seedWeeklyInvoice(t, userId, {
+      invoiceNumber: "INV-2606-1",
+      finalTotal: 700000,
+      paymentStatus: "Unpaid",
+    });
+
+    const result = await t.run(async (ctx) => {
+      return await findLinkedRecord(ctx, {
+        amountIdr: 999999, // ≠ the short invoice's finalTotal → no fuzzy fallback
+        direction: "credit",
+        date: NOW,
+        rawDescription: "TRANSFER FROM CAFE INV-2606-10 WEEKLY",
+      });
+    });
+
+    // Substring match would have wrongly returned the INV-2606-1 invoice.
+    expect(result?.matchedType === "subscriptionWeeklyInvoice").toBe(false);
+  });
+
   it("matches by amount + date when invoiceNumber absent from description → fuzzy fallback", async () => {
     const t = convexTest(schema);
     const userId = await seedUser(t);
@@ -821,5 +849,42 @@ describe("findLinkedRecord — subscription weekly invoice (gap#1)", () => {
     });
 
     expect(result?.matchedType === "subscriptionWeeklyInvoice").toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// referenceTokenMatch — gap#1 hardening (IMP-7 / M1), pure unit tests
+// ---------------------------------------------------------------------------
+
+describe("referenceTokenMatch", () => {
+  it("matches a whole-token invoiceNumber", () => {
+    expect(referenceTokenMatch("TRANSFER INV-2606-1 WEEKLY", "INV-2606-1")).toBe(true);
+  });
+
+  it("matches at string start and end", () => {
+    expect(referenceTokenMatch("INV-2606-1", "INV-2606-1")).toBe(true);
+    expect(referenceTokenMatch("PAID INV-2606-1", "INV-2606-1")).toBe(true);
+  });
+
+  it("is case-insensitive", () => {
+    expect(referenceTokenMatch("transfer inv-2606-1 ref", "INV-2606-1")).toBe(true);
+  });
+
+  it("does NOT match a shorter number inside a longer one (the -1 vs -10 bug)", () => {
+    expect(referenceTokenMatch("TRANSFER INV-2606-10 WEEKLY", "INV-2606-1")).toBe(false);
+    expect(referenceTokenMatch("INV-2606-100", "INV-2606-1")).toBe(false);
+  });
+
+  it("the longer number still matches itself", () => {
+    expect(referenceTokenMatch("TRANSFER INV-2606-10 WEEKLY", "INV-2606-10")).toBe(true);
+  });
+
+  it("does NOT match when a letter/digit abuts without separator", () => {
+    expect(referenceTokenMatch("INV-2606-1A", "INV-2606-1")).toBe(false);
+    expect(referenceTokenMatch("XINV-2606-1", "INV-2606-1")).toBe(false);
+  });
+
+  it("returns false for empty invoiceNumber", () => {
+    expect(referenceTokenMatch("anything", "")).toBe(false);
   });
 });

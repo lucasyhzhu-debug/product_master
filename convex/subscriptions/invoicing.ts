@@ -22,6 +22,7 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { getNextInvoiceNumber } from "../invoices/mutations";
 import { getWibDateStr } from "../lib/periodRange";
+import { isTerminalStatus } from "../orders/helpers/statusTransitions";
 import { postLedgerEntry } from "./ledger";
 
 /**
@@ -181,11 +182,26 @@ export const markWeeklyInvoicePaid = protectedMutation({
 
     // Orders are cash-settled from the prepaid voucher, but NOT yet drawn down /
     // recognized. Drawdown + revenue recognition happen at each delivery.
+    //
+    // IMP-3 (documented intentional bypass — do NOT "fix" by routing through
+    // statusUpdates): this raw-patches order.status directly, bypassing the
+    // statusUpdates side-effects (packaging stock reservation via
+    // reserveStockForOrderInternal, status-transition audit log, and
+    // computeIsKitchenVisible). Subscription-order packaging-inventory reservation
+    // is DEFERRED to Phase D/E — the weekly cycle currently has no UI and the
+    // reservation model for subscription orders is undecided. Until then this stays
+    // a deliberate bare patch. Track in Phase D/E.
     const orders = await ctx.db
       .query("orders")
       .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
       .collect();
     for (const order of orders) {
+      // IMP-2: never revive a terminal-status order. A split-cancelled order (e.g.
+      // outOfCredit Path A) is already Cancelled; patching it to PaymentReceived/Paid
+      // would resurrect a dead order into the active pipeline. isTerminalStatus covers
+      // both Cancelled and Complete (an already-delivered+completed order must also not
+      // be reset to PaymentReceived).
+      if (isTerminalStatus(order.status)) continue;
       await ctx.db.patch(order._id, {
         paymentStatus: "Paid",
         paymentMethod: "subscription_credit",

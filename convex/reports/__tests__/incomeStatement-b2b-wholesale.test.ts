@@ -261,6 +261,70 @@ describe("incomeStatement — B2B Wholesale revenue source (Task B9b / C1)", () 
     expect(stmt.current.totalGross).toBe(0);
   });
 
+  it("CR-F: a delivered subscription order contributes BOM COGS to the B2B channel; breakage adds none", async () => {
+    const t = convexTest(schema);
+    const user = await seedUser(t);
+    const customer = await seedCustomer(t, "b2b_wholesale");
+
+    const deliveryDate = Date.now() - 3 * 24 * 60 * 60 * 1000;
+
+    // Seed a menuProduct whose BOM COGS is supplied via cogsOverrideIdr (the resolver
+    // reads cogsOverrideIdr OR the BOM component sum; override is the simplest deterministic
+    // hook and exercises the same cogsMap path resolveItemsCOGS uses).
+    const COGS_PER_UNIT = 30_000;
+    const QTY = 4;
+    const menuProductId = await t.run(async (ctx) =>
+      ctx.db.insert("menuProducts", {
+        code: "CAFE_BALL",
+        name: "Cafe Ball",
+        grams: 80,
+        defaultPrice: 60_000,
+        isActive: true,
+        unitCost: 0,
+        cachedProductionSummary: "",
+        cogsOverrideIdr: COGS_PER_UNIT, // override → counted as production COGS in buildProductCOGSMap
+      } as never),
+    );
+
+    // Seed the delivered order + drawdown, then attach an orderItem linking to the product.
+    const { orderId } = await seedDeliveredSubscriptionOrder(
+      t,
+      customer,
+      deliveryDate,
+      240_000,
+      user,
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.insert("orderItems", {
+        orderId,
+        productName: "Cafe Ball",
+        quantity: QTY,
+        unitPrice: 60_000,
+        unitCost: COGS_PER_UNIT,
+        discountAmount: 0,
+        lineTotal: 240_000,
+        lineCost: COGS_PER_UNIT * QTY,
+        lineMargin: 240_000 - COGS_PER_UNIT * QTY,
+        menuProductId,
+      } as never);
+    });
+
+    const stmt = await t.query(api.reports.incomeStatement.getIncomeStatement, {
+      periodStart: deliveryDate - 60 * 60 * 1000,
+      periodEnd: deliveryDate + 60 * 60 * 1000,
+    });
+
+    const b2b = findChannel(stmt, "b2b_wholesale");
+    expect(b2b).toBeDefined();
+    expect(b2b.gross).toBe(240_000);
+    // CR-F: COGS resolved from the delivered order's items (cogsOverrideIdr maps to production).
+    expect(b2b.cogs.total).toBe(COGS_PER_UNIT * QTY); // 120_000
+    expect(b2b.cogs.production).toBe(COGS_PER_UNIT * QTY);
+    expect(stmt.current.totalCogs).toBe(COGS_PER_UNIT * QTY);
+    // Gross profit reflects the offsetting COGS (no longer overstated).
+    expect(stmt.current.grossProfit).toBe(240_000 - COGS_PER_UNIT * QTY);
+  });
+
   it("Task B11: an expiry (breakage) row is recognized as B2B Wholesale revenue, attributed by weekEnd", async () => {
     const t = convexTest(schema);
     const user = await seedUser(t);

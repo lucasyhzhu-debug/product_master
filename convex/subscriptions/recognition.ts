@@ -24,6 +24,7 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { postLedgerEntry } from "./ledger";
+import { deriveCreditPool } from "./creditMath";
 
 /**
  * Recognize a subscription order's sale at delivery. No-op for non-subscription
@@ -52,6 +53,42 @@ export async function recognizeSubscriptionDelivery(
   // fall back to the order's creator so the entry is never authorless.
   const author = createdBy ?? order.createdByUserId;
   if (!author) return; // cannot post an authorless ledger entry; skip defensively
+
+  // IMP-5 — funded-pool invariant (warn, do NOT guard-drop).
+  // -------------------------------------------------------------------------
+  // INVARIANT: funding (markWeeklyInvoicePaid → `topup`) must precede delivery
+  // (this `drawdown`). The normal cycle funds on Monday, then delivers mid-week,
+  // so the pool is always positive at recognition time. A delivery against an
+  // UNFUNDED pool (no `topup` yet) drives the pool negative and recognizes revenue
+  // for cash not received — an operational anomaly worth surfacing.
+  //
+  // We WARN rather than guard-and-skip on purpose: recognition fires on a single
+  // edge (BeingPrepared→AwaitingDelivery / packaging / force-complete) and there is
+  // NO guaranteed retry. If we returned-without-posting here, a sale delivered
+  // before funding would be SILENTLY LOST whenever funding arrives after delivery
+  // and the order never re-enters that edge. Dropping a recognition is worse than
+  // surfacing a transient negative pool that self-corrects when the topup lands
+  // (the pool is replayed from the full ledger on every postLedgerEntry). So we
+  // always post the drawdown and log a console.warn for operator reconciliation.
+  const priorEntries = await ctx.db
+    .query("creditLedger")
+    .withIndex("by_subscriptionWeek", (q) =>
+      q.eq("subscriptionWeekId", order.subscriptionWeekId!),
+    )
+    .collect();
+  const priorPool = deriveCreditPool(
+    priorEntries.map((e) => ({ type: e.type, amount: e.amount })),
+  );
+  const hasFunding = priorEntries.some((e) => e.type === "topup");
+  if (!hasFunding || priorPool.creditRemaining < order.totalAmount) {
+    console.warn(
+      `[recognizeSubscriptionDelivery] recognizing ${order.orderNumber} against an ` +
+        `under-funded credit pool (week ${order.subscriptionWeekId}): ` +
+        `funded=${hasFunding}, remaining=${priorPool.creditRemaining}, ` +
+        `drawdown=${order.totalAmount}. Pool will go negative until funded — ` +
+        `expected funding (markWeeklyInvoicePaid) precedes delivery. Reconcile.`,
+    );
+  }
 
   // 1. Drawdown the prepaid credit pool — consumes the deferred-revenue liability.
   await postLedgerEntry(ctx, {

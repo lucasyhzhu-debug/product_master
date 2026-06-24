@@ -149,25 +149,40 @@ export const B2B_WHOLESALE_SOURCE = "b2b_wholesale" as const;
 export interface B2BRecognizedRevenue {
   deliveryDate: number; // epoch ms — attribution date (order.deliveryDate)
   amount: number; // recognized revenue, positive integer IDR (= Math.abs(drawdown.amount))
+  // CR-F: BOM COGS for the matched DELIVERED subscription order. Resolved upstream
+  // from the order's orderItems (menuProductId → cogsMap), same resolution as every
+  // other channel. Drawdown (delivery) rows carry real COGS; expiry (breakage) rows
+  // carry zeros (no goods shipped — breakage is pure margin).
+  cogs: { production: number; packaging: number; total: number };
 }
 
 /**
- * Sum recognized B2B Wholesale revenue falling inside [periodStart, periodEnd).
- * Half-open interval matches the externalRevenue by_period convention used throughout.
- * Pure — no ctx, no async.
+ * Sum recognized B2B Wholesale revenue + matched COGS falling inside
+ * [periodStart, periodEnd). Half-open interval matches the externalRevenue
+ * by_period convention used throughout. Pure — no ctx, no async.
  */
 function sumB2BWholesaleInPeriod(
   records: B2BRecognizedRevenue[],
   periodStart: number,
   periodEnd: number,
-): number {
-  let total = 0;
+): {
+  gross: number;
+  cogs: { production: number; packaging: number; total: number };
+  transactions: number;
+} {
+  let gross = 0;
+  let transactions = 0;
+  const cogs = { production: 0, packaging: 0, total: 0 };
   for (const r of records) {
     if (r.deliveryDate >= periodStart && r.deliveryDate < periodEnd) {
-      total += r.amount;
+      gross += r.amount;
+      cogs.production += r.cogs.production;
+      cogs.packaging += r.cogs.packaging;
+      cogs.total += r.cogs.total;
+      transactions++;
     }
   }
-  return total;
+  return { gross, cogs, transactions };
 }
 
 // ─── Channel confidence rules ───
@@ -464,26 +479,31 @@ function aggregateWeek(
   // It feeds totalGross/netRevenue via the channels[] reducers below, exactly like any
   // other channel, but is NEVER an externalRevenue/per-channel retail bucket (the rows
   // come from creditLedger, not externalRevenue — C1 stays intact). No platform-fee
-  // deductions, no COGS resolution here: the order's BOM COGS is already counted on the
-  // internal-orders side at fulfilment, and double-counting COGS here is avoided by
-  // design (revenue-only line, gross == net).
-  const b2bGross = sumB2BWholesaleInPeriod(b2bRecognized, periodStart, periodEnd);
-  if (b2bGross !== 0) {
+  // deductions (gross == net).
+  //
+  // CR-F: COGS is resolved HERE, not on the internal-orders side. Subscription orders are
+  // excluded from externalRevenue (C1 gate), and the income statement resolves COGS ONLY
+  // from externalRevenueItems — so the only place delivered-subscription COGS can be booked
+  // is against this B2B channel. The order's BOM COGS (production+packaging) is resolved
+  // upstream in fetchAndAggregate (order → orderItems → menuProductId → cogsMap, the SAME
+  // resolution resolveItemsCOGS uses) and summed into b2bRecognized[].cogs for `drawdown`
+  // (delivery) rows. `expiry` (breakage) rows carry COGS 0 — no goods shipped, breakage is
+  // pure margin. The drawdown revenue + its COGS are the matched pair; no double-count.
+  const b2b = sumB2BWholesaleInPeriod(b2bRecognized, periodStart, periodEnd);
+  if (b2b.gross !== 0) {
     channels.push({
       source: B2B_WHOLESALE_SOURCE,
       displayName: "B2B Wholesale",
-      gross: b2bGross,
-      netRevenue: b2bGross,
+      gross: b2b.gross,
+      netRevenue: b2b.gross,
       discount: 0,
       commission: 0,
       adBurn: 0,
       promoBurn: 0,
       revShare: 0,
-      transactions: b2bRecognized.filter(
-        (r) => r.deliveryDate >= periodStart && r.deliveryDate < periodEnd,
-      ).length,
+      transactions: b2b.transactions,
       confidence: "exact",
-      cogs: { production: 0, packaging: 0, total: 0 },
+      cogs: b2b.cogs,
       products: [],
     });
   }
@@ -868,13 +888,39 @@ export async function fetchAndAggregate(
     ? buildMissingReversals(previousStart, previousEnd)
     : ([] as GapAnalysis["missingReversals"]);
 
-  // ── Task B9b: resolve recognized B2B Wholesale revenue (subscription drawdowns) ──
+  // Build COGS map
+  // Filter inactive componentTypes to exclude discontinued items from cost calculations.
+  const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
+  const cogsMap = buildProductCOGSMap(
+    bomComponents.map((c) => ({
+      menuProductId: c.menuProductId as string,
+      componentTypeId: c.componentTypeId as string,
+      quantity: c.quantity,
+    })),
+    activeComponentTypes.map((ct) => ({
+      _id: ct._id as string,
+      unitCostIdr: ct.unitCostIdr,
+      category: ct.category,
+    })),
+    menuProductsList.map((mp) => ({
+      _id: mp._id as string,
+      cogsOverrideIdr: mp.cogsOverrideIdr,
+    }))
+  );
+
+  // ── Task B9b + CR-F: resolve recognized B2B Wholesale revenue (subscription drawdowns) ──
   // Source of record: creditLedger drawdown rows (one per delivered subscription order,
   // amount signed negative). creditLedger has no date index, so we scan the (small,
   // subscription-scale) drawdown set once and attribute each by its order's deliveryDate.
   // The two aggregateWeek calls below share this resolved list; the pure period filter
   // (sumB2BWholesaleInPeriod) buckets each record into the matching window. Kept entirely
   // out of externalRevenue (C1): this never touches the per-channel revenue map.
+  //
+  // CR-F: for each DELIVERED drawdown order, we also resolve its BOM COGS by reading the
+  // order's orderItems and applying cogsMap (menuProductId → per-unit {production,packaging,
+  // total}) × item.quantity — the SAME resolution resolveItemsCOGS uses for every other
+  // channel. This populates the B2B channel cogs so delivered subscription revenue carries
+  // its offsetting COGS. Expiry (breakage) rows carry COGS 0 (no goods shipped).
   const b2bRecognized = await (async (): Promise<B2BRecognizedRevenue[]> => {
     const drawdowns = await ctx.db
       .query("creditLedger")
@@ -914,6 +960,40 @@ export async function fetchAndAggregate(
       const customerMap = new Map<string, Doc<"customers">>();
       for (const c of customers) if (c) customerMap.set(c._id as string, c);
 
+      // CR-F: resolve each drawdown order's orderItems → BOM COGS (Set-deduped, no N+1).
+      const orderItemsByOrder = new Map<string, Doc<"orderItems">[]>();
+      const orderItemsLists = await Promise.all(
+        orderIds.map((id) =>
+          ctx.db
+            .query("orderItems")
+            .withIndex("by_order", (q) => q.eq("orderId", id))
+            .collect(),
+        ),
+      );
+      for (let i = 0; i < orderIds.length; i++) {
+        orderItemsByOrder.set(orderIds[i] as string, orderItemsLists[i]);
+      }
+
+      // CR-F: resolve BOM COGS for one order via cogsMap (same path as resolveItemsCOGS).
+      // Skips cancelled items; missing menuProductId / unmapped product contributes 0.
+      const resolveOrderCogs = (
+        orderId: string,
+      ): { production: number; packaging: number; total: number } => {
+        const cogs = { production: 0, packaging: 0, total: 0 };
+        const items = orderItemsByOrder.get(orderId) ?? [];
+        for (const item of items) {
+          if (item.isCancelled) continue;
+          const productCogs = item.menuProductId
+            ? cogsMap.get(item.menuProductId as string) ?? null
+            : null;
+          if (!productCogs) continue;
+          cogs.production += productCogs.production * item.quantity;
+          cogs.packaging += productCogs.packaging * item.quantity;
+          cogs.total += productCogs.total * item.quantity;
+        }
+        return cogs;
+      };
+
       for (const d of drawdowns) {
         if (!d.orderId) continue;
         const order = orderMap.get(d.orderId as string);
@@ -923,6 +1003,7 @@ export async function fetchAndAggregate(
         records.push({
           deliveryDate: order.deliveryDate,
           amount: Math.abs(d.amount), // drawdown.amount is negative; recognized revenue is positive
+          cogs: resolveOrderCogs(d.orderId as string), // CR-F: matched BOM COGS for delivered order
         });
       }
     }
@@ -965,32 +1046,13 @@ export async function fetchAndAggregate(
         records.push({
           deliveryDate: week.weekEnd, // breakage recognized at week end / reconcile
           amount: Math.abs(e.amount), // expiry.amount is negative; recognized revenue is positive
+          cogs: { production: 0, packaging: 0, total: 0 }, // CR-F: breakage ships no goods — pure margin
         });
       }
     }
 
     return records;
   })();
-
-  // Build COGS map
-  // Filter inactive componentTypes to exclude discontinued items from cost calculations.
-  const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
-  const cogsMap = buildProductCOGSMap(
-    bomComponents.map((c) => ({
-      menuProductId: c.menuProductId as string,
-      componentTypeId: c.componentTypeId as string,
-      quantity: c.quantity,
-    })),
-    activeComponentTypes.map((ct) => ({
-      _id: ct._id as string,
-      unitCostIdr: ct.unitCostIdr,
-      category: ct.category,
-    })),
-    menuProductsList.map((mp) => ({
-      _id: mp._id as string,
-      cogsOverrideIdr: mp.cogsOverrideIdr,
-    }))
-  );
 
   // Aggregate both periods (pure — no await needed)
   const currentPeriod = aggregateWeek(

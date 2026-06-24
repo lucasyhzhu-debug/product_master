@@ -749,6 +749,15 @@ export const forceComplete = protectedMutation({
       ...(order.confirmedAt ? {} : { confirmedAt: Date.now() }),
     });
 
+    // IMP-1: force-complete jumps straight to Complete, skipping the
+    // BeingPrepared→AwaitingDelivery edge where subscription delivery is normally
+    // recognized. Without this, a force-completed subscription order's sale is never
+    // recognized (orphan deferred revenue / un-drawn-down credit pool). Idempotent —
+    // no-op for non-subscription orders, guarded by creditLedger.by_order for already-
+    // recognized ones. Author = the acting admin/manager (protectedMutation guarantees
+    // ctx.user), consistent with the other call sites passing the session user.
+    await recognizeSubscriptionDelivery(ctx, args.orderId, user._id);
+
     // Audit: log the force-complete event
     await logOrderEvent(ctx, args.orderId, "admin_force_complete", {
       fromStatus: oldStatus,
