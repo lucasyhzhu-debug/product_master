@@ -27,6 +27,33 @@
 
 ---
 
+## Execution Strategy — multi-agent, wave-gated (READ BEFORE DISPATCHING)
+
+This phase is built for **`superpowers:subagent-driven-development`**: the orchestrator (you, the executing session) holds the thread and dispatches a **fresh subagent per task**, reviewing the diff between tasks so your own context stays lean. It is feasible in one session, but **only wave-gated** — parallelize *within* a wave, **barrier between waves**. Do NOT spawn all tasks at once.
+
+### Hard rules (these prevent the known failure modes)
+1. **`convex/schema.ts` has ONE writer: Task B0.** No other task edits the schema. Run B0 **solo and to completion (incl. `npx convex codegen`) before any other task** — everything downstream reads its new tables/indexes.
+2. **`convex/_generated/api.d.ts` is the parallelism hazard.** Every backend task that adds a Convex function regenerates it; parallel agents collide there. Mitigation: give each **parallel backend** subagent its own **git worktree** (`isolation: "worktree"`), and after a wave's fan-out completes, the orchestrator re-runs `npx convex codegen && npm run type-check` once on the merged tree. Pure-fn tasks (B1–B4) add no Convex functions → no contention → no worktree needed.
+3. **Serialize shared-file tasks** (never parallel — same file): `convex/subscriptions/invoicing.ts` → **B9 then B10**; `orderCrud.ts` → **B5 then B7**; `convex/invoices/mutations.ts` → B9. B12 after B9/B10.
+4. **Manual UAT can't be done headless.** B7/B8/B9/B11 carry "manual smoke in the dev dashboard" steps (project convention defers auth-gated convex-test runtime tests). A subagent lands code + pure-fn tests + type-check + build; the funding/delivery/reconcile UAT **queues for the human** — mark those success-criteria boxes "pending UAT," don't claim them passed.
+5. **The QA close-out runs in the MAIN session, never a background agent** (`feedback_background_agents`: background agents skip the Skill tool + quality gates): `/triple-review` → `/simplify xhigh` after all tasks land.
+
+### Wave dispatch map
+| Wave | Dispatch | Parallelism | Gate to next wave |
+|------|----------|-------------|-------------------|
+| **W1** | B0 **solo+barrier** (schema+codegen), then **B1‖B2‖B3‖B4** | 4-wide, no worktrees needed (pure fns) | all green: `npx vitest run convex/subscriptions convex/orders/helpers` |
+| **W2** | **B5‖B6‖B8**, then **B7** (after B5) | 3-wide + 1; worktrees for B5/B6/B7 (add functions) | codegen + type-check clean on merged tree |
+| **W3** | **B9 solo** (spine), then **B10‖B11‖B12‖B13** | B9 alone, then 4-wide; worktrees | type-check + vitest green; manual UAT queued |
+| **W4** | **B14‖B15‖B16** | 3-wide; B16 has a backend half (worktree) | `npm run build` green (watch vendor cap) |
+| **W5** | **B17 solo** | — | full gate + code-auditor |
+| **close-out** | **main session**: `/triple-review` → `/simplify xhigh` | — | re-run type-check+vitest+build; address findings |
+
+**Critical path** (sets minimum wall-clock): B0 → B5 → B7 → B9 → {B10/B11/B12} → {B14/B15} → B17 → close-out (~7 hops). Everything else fans out off it.
+
+**Budget note:** this is the "everything" merged phase (18 tasks + full money-flow). Expect a long, token-heavy run; the real tail is the **human UAT + the `/triple-review`→`/simplify` close-out**, not the coding. If de-risking, split at the backend/frontend seam: **Waves 1–3 one session, Waves 4–5 a second** — backend is where correctness risk concentrates.
+
+---
+
 ## File Structure
 
 **Backend — create:**
