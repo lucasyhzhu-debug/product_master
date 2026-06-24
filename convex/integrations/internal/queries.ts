@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "../../_generated/server";
 import { REVENUE_COUNTABLE_STATUSES } from "./config";
+import { isSubscriptionOrder } from "../../subscriptions/revenueGate";
 
 /**
  * Fetch orders that qualify as revenue.
@@ -33,8 +34,10 @@ export const getRevenueOrders = internalQuery({
       allOrders = await ctx.db.query("orders").collect();
     }
 
+    // C1: subscription orders excluded from channel revenue — see isSubscriptionOrder
     return allOrders.filter((order) =>
-      (REVENUE_COUNTABLE_STATUSES as readonly string[]).includes(order.status)
+      (REVENUE_COUNTABLE_STATUSES as readonly string[]).includes(order.status) &&
+      !isSubscriptionOrder(order)
     );
   },
 });
