@@ -119,12 +119,13 @@ After T30: `/triple-review` (address every Critical + Improvement) → `/simplif
 ### Task T1: Extend `crmActivityTaxonomy` + `getActivityVisual` + `eventType→ActivityType` mapper
 
 **Files:**
-- Modify: `src/lib/crmActivityTaxonomy.ts`
-- Test: `src/lib/__tests__/crmActivityTaxonomy.test.ts`
+- Create: `convex/lib/activityEvents.ts` (the pure mapper — **must live in convex** so the backend timeline-merge (T20/T21) can import it; convex CANNOT import from `src/` — staffreview C1)
+- Modify: `src/lib/crmActivityTaxonomy.ts` (visuals only; imports the category type from the convex module — Vite bundles plain TS from `convex/`)
+- Test: `convex/lib/__tests__/activityEvents.test.ts` + `src/lib/__tests__/crmActivityTaxonomy.test.ts`
 
 **Interfaces:**
-- Consumes: existing `ActivityType = "order"|"finance"|"message"|"document"|"schedule"|"milestone"` + `ACTIVITY_TAXONOMY: Record<ActivityType, ActivityVisual>`.
-- Produces: `getActivityVisual(category: ActivityType, subtype?: string): ActivityVisual`; `EventType` union (every specific event the timeline can emit) + `eventTypeToCategory(eventType: EventType): ActivityType`. These are the authoritative two-level model (spec AC17).
+- `convex/lib/activityEvents.ts` produces: `ActivityCategory = "order"|"finance"|"message"|"document"|"schedule"|"milestone"`; `EVENT_TYPES`/`EventType` (every specific event the timeline can emit); `eventTypeToCategory(eventType: EventType): ActivityCategory`. **Pure, no convex/server imports** so both runtimes can use it.
+- `src/lib/crmActivityTaxonomy.ts` produces: `getActivityVisual(category: ActivityCategory, subtype?: string): ActivityVisual` over the existing `ACTIVITY_TAXONOMY`; re-exports `ActivityCategory` as `ActivityType`. These are the authoritative two-level model (spec AC17).
 
 - [ ] **Step 1: Write the failing test**
 ```ts
@@ -147,9 +148,9 @@ describe("crmActivityTaxonomy two-level model", () => {
 
 - [ ] **Step 2: Run test, verify it fails** — `npx vitest run src/lib/__tests__/crmActivityTaxonomy.test.ts` → FAIL (`getActivityVisual` not exported).
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 3a: Implement the pure mapper in `convex/lib/activityEvents.ts`** (convex-importable, no server imports)
 ```ts
-// append to src/lib/crmActivityTaxonomy.ts
+export type ActivityCategory = "order" | "finance" | "message" | "document" | "schedule" | "milestone";
 export const EVENT_TYPES = [
   // derived
   "order_placed", "order_delivered", "invoice_sent", "payment_funded",
@@ -160,8 +161,7 @@ export const EVENT_TYPES = [
   "whatsapp_drafted", "note", "manual_milestone",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
-
-const EVENT_CATEGORY: Record<EventType, ActivityType> = {
+const EVENT_CATEGORY: Record<EventType, ActivityCategory> = {
   order_placed: "order", order_delivered: "order",
   invoice_sent: "finance", payment_funded: "finance", topup: "finance", week_reconciled: "finance",
   schedule_changed: "schedule",
@@ -170,10 +170,15 @@ const EVENT_CATEGORY: Record<EventType, ActivityType> = {
   customer_onboarded: "milestone", manual_milestone: "milestone",
   whatsapp_drafted: "message", note: "message",
 };
-export function eventTypeToCategory(eventType: EventType): ActivityType {
+export function eventTypeToCategory(eventType: EventType): ActivityCategory {
   return EVENT_CATEGORY[eventType];
 }
+```
 
+- [ ] **Step 3b: Extend `src/lib/crmActivityTaxonomy.ts`** (visuals only; import the category type from the convex module)
+```ts
+import { ActivityCategory } from "../../convex/lib/activityEvents";
+export type ActivityType = ActivityCategory; // category IS the visual key
 const SUBTYPE_ICON: Record<string, string> = { funded: "✓", reconcile: "⚖" };
 export function getActivityVisual(category: ActivityType, subtype?: string): ActivityVisual {
   const base = ACTIVITY_TAXONOMY[category];
@@ -181,6 +186,7 @@ export function getActivityVisual(category: ActivityType, subtype?: string): Act
   return base;
 }
 ```
+> Add a parity test: assert `ACTIVITY_TAXONOMY` has a key for every `ActivityCategory` the mapper can return (so the split stays consistent).
 
 - [ ] **Step 4: Run test, verify PASS.**
 - [ ] **Step 5: Commit** — `git commit -m "feat(crm): two-level activity taxonomy (getActivityVisual + eventType→category mapper)"`
@@ -410,7 +416,7 @@ export const getCrmHomeActiveSubscriptions = protectedQuery({
   },
 });
 ```
-> **Verify-first:** confirm the `subscriptions.status` active literal (read `convex/schema.ts` `subscriptions` table) before coding `getCrmHomeActiveSubscriptions`. If there's no `status`, derive "active" from `startDate ≤ now && (!endDate || endDate > now)`.
+> **Verified:** `subscriptions.status = draft|active|terminating|ended` (schema) — `s.status === "active"` is correct. Treat `terminating` as still-active-for-display if the UX wants in-flight terminations visible.
 - [ ] **Step 4: Run, verify PASS.**
 - [ ] **Step 5: Commit** — `git commit -m "feat(crm): getCustomerRecord + getCrmHomeActiveSubscriptions"`
 
@@ -534,7 +540,7 @@ export const getWeekBackReferences = protectedQuery({
 
 - [ ] **Step 1: Failing test** — render Header as manager → "CRM" link present; as order_staff → absent.
 - [ ] **Step 2: Run, verify FAIL.**
-- [ ] **Step 3: Implement** — add a `{ label: "CRM", to: "/crm", permission: "canAccessCrm" }` style entry to BOTH nav surfaces following the existing Phase-85 `/admin/telegram-chats` pattern; add the lazy route block in App.tsx (`CrmHome` registered here; page tasks append their routes serially).
+- [ ] **Step 3: Implement** — add `{ path: '/crm', label: 'CRM', icon: Contact, permission: 'canAccessCrm' }` (verified config shape, `Header.tsx:113`; import a lucide icon e.g. `Contact`/`Users`) to BOTH `Header.tsx` configItems AND `MobileBottomNav.tsx` moreItems; add the lazy route block in App.tsx (`CrmHome` registered here; page tasks append their routes serially).
 - [ ] **Step 4: Run, verify PASS.** → **Step 5: Commit** `feat(crm): nav links (Header+MobileBottomNav, m+a) + /crm route shell`
 
 ---
@@ -626,7 +632,7 @@ export const getWeekBackReferences = protectedQuery({
 
 **Files:** Create `convex/crm/helpers/timelineMerge.ts`; Test `convex/crm/helpers/__tests__/timelineMerge.test.ts`
 
-**Interfaces:** Consumes `EventType`/`eventTypeToCategory` (T1, imported from `src/lib/crmActivityTaxonomy` — confirm import path works across the convex/src boundary; if not, duplicate the minimal mapper in a shared `convex/lib/` module and assert parity in a test). Produces `TimelineItem = { id, eventType: EventType, at, actor?, title, detail, linkTo: { kind, id } }` and `buildCustomerTimeline(derived: TimelineItem[], logged: TimelineItem[], { sinceDays, types? }): { items: TimelineItem[] }` — desc by `at`, windowed at `sinceDays`, in-memory `types` (category) filter, stable tiebreaker `(at desc, id desc)`.
+**Interfaces:** Consumes `EventType`/`eventTypeToCategory` from `convex/lib/activityEvents` (T1 — convex-importable; resolved staffreview C1). Produces `TimelineItem = { id, eventType: EventType, at, actor?, title, detail, linkTo: { kind, id } }` and `buildCustomerTimeline(derived: TimelineItem[], logged: TimelineItem[], { sinceDays, types? }): { items: TimelineItem[] }` — desc by `at`, windowed at `sinceDays`, in-memory `types` (category) filter, stable tiebreaker `(at desc, id desc)`.
 
 - [ ] **Step 1: Failing test** — fixture mixes orders+invoices+topups+milestones+logged whatsapp across the 14-day boundary: assert desc order, window cut, type filter, tiebreaker; AND assert every produced `eventType` resolves via `eventTypeToCategory` (coverage — a new event can't ship without a category).
 - [ ] **Step 2–4: TDD.** → **Step 5: Commit** `feat(crm): buildCustomerTimeline pure merge + taxonomy coverage`
@@ -648,7 +654,7 @@ export const getWeekBackReferences = protectedQuery({
 
 **Files:** Create the three; Modify `src/App.tsx` (route `/crm/customers/:customerId/activity`). Test RTL.
 
-**Interfaces:** Consumes `api.crm.timeline.getCustomerTimeline`, `getActivityVisual` (T1), `<Breadcrumbs>`. Latest-on-top, default 14d, type-filter control, each row = icon disc (from `getActivityVisual(eventTypeToCategory(item.eventType), item.subtype)`) + title/detail, clickable into `item.linkTo`. "Load older" extends window via cursor.
+**Interfaces:** Consumes `api.crm.timeline.getCustomerTimeline`, `getActivityVisual` (from `src/lib/crmActivityTaxonomy`), `eventTypeToCategory` (from `convex/lib/activityEvents`), `<Breadcrumbs>`. Use `useSessionQuery` for the read. Latest-on-top, default 14d, type-filter control, each row = icon disc (from `getActivityVisual(eventTypeToCategory(item.eventType), item.subtype)`) + title/detail, clickable into `item.linkTo`. "Load older" extends window via cursor.
 
 - [ ] **Step 1: Failing test** — rows render desc with icon discs; filter toggles a type; a row links into its object; empty/loading states.
 - [ ] **Step 2–4: TDD.** → **Step 5: Commit** `feat(crm): CustomerActivityPage + ActivityTimeline + TimelineItem`
