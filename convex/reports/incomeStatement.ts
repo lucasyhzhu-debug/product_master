@@ -925,12 +925,12 @@ export async function fetchAndAggregate(
     const [drawdowns, expiries] = await Promise.all([
       ctx.db
         .query("creditLedger")
-        .filter((q) => q.eq(q.field("type"), "drawdown"))
+        .withIndex("by_type", (q) => q.eq("type", "drawdown"))
         .collect(),
       // Task B11: expiry rows = breakage revenue (cafe-fault forfeiture at reconcile).
       ctx.db
         .query("creditLedger")
-        .filter((q) => q.eq(q.field("type"), "expiry"))
+        .withIndex("by_type", (q) => q.eq("type", "expiry"))
         .collect(),
     ]);
     if (drawdowns.length === 0 && expiries.length === 0) return [];
