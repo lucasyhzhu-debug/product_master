@@ -1,4 +1,4 @@
-import { describe, it, expect, test } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   getBaseUnit,
   normalizeToBaseUnit,
@@ -154,7 +154,7 @@ describe("calculateLineCost", () => {
 const cogsMapFixture = new Map([
   ["p1", { production: 100, packaging: 20, total: 120 }],
 ]);
-test("sums mapped items, skips cancelled/unmapped/missing-id", () => {
+it("sums mapped items, skips cancelled/unmapped/missing-id", () => {
   const items = [
     { menuProductId: "p1", quantity: 2 },
     { menuProductId: "p1", quantity: 1, isCancelled: true },

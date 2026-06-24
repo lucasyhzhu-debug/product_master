@@ -14,8 +14,10 @@ import { recognizeOnDelivery } from "../recognition";
 // Fixtures
 // ---------------------------------------------------------------------------
 
+type RunCtx = Parameters<Parameters<ReturnType<typeof convexTest>["run"]>[0]>[0];
+
 /** Minimal valid user for creditLedger.createdBy. */
-async function insertUser(ctx: Parameters<Parameters<ReturnType<typeof convexTest>["run"]>[0]>[0]) {
+async function insertUser(ctx: RunCtx) {
   return await ctx.db.insert("users", {
     name: "Test User",
     pinHash: "salt:hash",
@@ -27,7 +29,7 @@ async function insertUser(ctx: Parameters<Parameters<ReturnType<typeof convexTes
 }
 
 /** Minimal valid customer required by orders.customerId FK. */
-async function insertCustomer(ctx: Parameters<Parameters<ReturnType<typeof convexTest>["run"]>[0]>[0]) {
+async function insertCustomer(ctx: RunCtx) {
   return await ctx.db.insert("customers", {
     name: "Test Cafe",
     createdBy: "test",
@@ -39,7 +41,7 @@ async function insertCustomer(ctx: Parameters<Parameters<ReturnType<typeof conve
  * recognizeOnDelivery must be a no-op for these.
  */
 async function insertNonSubOrder(
-  ctx: Parameters<Parameters<ReturnType<typeof convexTest>["run"]>[0]>[0],
+  ctx: RunCtx,
   userId: Awaited<ReturnType<typeof insertUser>>,
   customerId: Awaited<ReturnType<typeof insertCustomer>>,
 ) {
@@ -66,7 +68,7 @@ async function insertNonSubOrder(
  * Mirrors the pattern used in postLedgerEntry (requires a week doc to patch).
  */
 async function insertSubscriptionFixture(
-  ctx: Parameters<Parameters<ReturnType<typeof convexTest>["run"]>[0]>[0],
+  ctx: RunCtx,
   userId: Awaited<ReturnType<typeof insertUser>>,
   customerId: Awaited<ReturnType<typeof insertCustomer>>,
 ) {
@@ -120,6 +122,38 @@ async function insertSubscriptionFixture(
   return { subscriptionId, subscriptionWeekId };
 }
 
+/**
+ * Minimal funded subscription order (with subscriptionId + subscriptionWeekId).
+ * recognizeOnDelivery must post a drawdown for these.
+ */
+async function insertSubOrder(
+  ctx: RunCtx,
+  orderNumber: string,
+  userId: Awaited<ReturnType<typeof insertUser>>,
+  customerId: Awaited<ReturnType<typeof insertCustomer>>,
+  subscriptionId: Awaited<ReturnType<typeof insertSubscriptionFixture>>["subscriptionId"],
+  subscriptionWeekId: Awaited<ReturnType<typeof insertSubscriptionFixture>>["subscriptionWeekId"],
+) {
+  return await ctx.db.insert("orders", {
+    orderNumber,
+    customerId,
+    customerName: "Test Cafe",
+    status: "AwaitingDelivery",
+    paymentStatus: "Paid",
+    orderDate: Date.now(),
+    totalAmount: 29000,
+    totalCost: 15000,
+    totalMargin: 14000,
+    finalTotal: 29000,
+    deliveryType: "Delivery",
+    createdBy: "test",
+    createdByUserId: userId,
+    itemCount: 1,
+    subscriptionId,
+    subscriptionWeekId,
+  } as never);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -148,24 +182,7 @@ test("recognizeOnDelivery posts exactly one drawdown for a funded subscription o
     const customerId = await insertCustomer(ctx);
     const { subscriptionId, subscriptionWeekId } = await insertSubscriptionFixture(ctx, userId, customerId);
 
-    const orderId = await ctx.db.insert("orders", {
-      orderNumber: "0101-002",
-      customerId,
-      customerName: "Test Cafe",
-      status: "AwaitingDelivery",
-      paymentStatus: "Paid",
-      orderDate: Date.now(),
-      totalAmount: 29000,
-      totalCost: 15000,
-      totalMargin: 14000,
-      finalTotal: 29000,
-      deliveryType: "Delivery",
-      createdBy: "test",
-      createdByUserId: userId,
-      itemCount: 1,
-      subscriptionId,
-      subscriptionWeekId,
-    } as never);
+    const orderId = await insertSubOrder(ctx, "0101-002", userId, customerId, subscriptionId, subscriptionWeekId);
 
     await recognizeOnDelivery(ctx, orderId, userId);
 
@@ -187,24 +204,7 @@ test("recognizeOnDelivery is idempotent — second call produces no extra drawdo
     const customerId = await insertCustomer(ctx);
     const { subscriptionId, subscriptionWeekId } = await insertSubscriptionFixture(ctx, userId, customerId);
 
-    const orderId = await ctx.db.insert("orders", {
-      orderNumber: "0101-003",
-      customerId,
-      customerName: "Test Cafe",
-      status: "AwaitingDelivery",
-      paymentStatus: "Paid",
-      orderDate: Date.now(),
-      totalAmount: 29000,
-      totalCost: 15000,
-      totalMargin: 14000,
-      finalTotal: 29000,
-      deliveryType: "Delivery",
-      createdBy: "test",
-      createdByUserId: userId,
-      itemCount: 1,
-      subscriptionId,
-      subscriptionWeekId,
-    } as never);
+    const orderId = await insertSubOrder(ctx, "0101-003", userId, customerId, subscriptionId, subscriptionWeekId);
 
     // Two calls — must produce exactly ONE drawdown row.
     await recognizeOnDelivery(ctx, orderId, userId);
@@ -225,24 +225,7 @@ test("recognizeOnDelivery falls back to order.createdByUserId when actingUserId 
     const customerId = await insertCustomer(ctx);
     const { subscriptionId, subscriptionWeekId } = await insertSubscriptionFixture(ctx, userId, customerId);
 
-    const orderId = await ctx.db.insert("orders", {
-      orderNumber: "0101-004",
-      customerId,
-      customerName: "Test Cafe",
-      status: "AwaitingDelivery",
-      paymentStatus: "Paid",
-      orderDate: Date.now(),
-      totalAmount: 29000,
-      totalCost: 15000,
-      totalMargin: 14000,
-      finalTotal: 29000,
-      deliveryType: "Delivery",
-      createdBy: "test",
-      createdByUserId: userId,
-      itemCount: 1,
-      subscriptionId,
-      subscriptionWeekId,
-    } as never);
+    const orderId = await insertSubOrder(ctx, "0101-004", userId, customerId, subscriptionId, subscriptionWeekId);
 
     // Pass undefined — mirrors completeOrder/completePackaging (no token in scope).
     await recognizeOnDelivery(ctx, orderId, undefined);
