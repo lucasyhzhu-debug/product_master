@@ -199,6 +199,7 @@ import type * as orders_helpers_orderItemProcessing from "../orders/helpers/orde
 import type * as orders_helpers_productionRecords from "../orders/helpers/productionRecords.js";
 import type * as orders_helpers_statusFetching from "../orders/helpers/statusFetching.js";
 import type * as orders_helpers_statusTransitions from "../orders/helpers/statusTransitions.js";
+import type * as orders_helpers_stripSubscriptionPricing from "../orders/helpers/stripSubscriptionPricing.js";
 import type * as orders_helpers_usageTracking from "../orders/helpers/usageTracking.js";
 import type * as orders_helpers_voucherHandling from "../orders/helpers/voucherHandling.js";
 import type * as orders_kitchenQueries from "../orders/kitchenQueries.js";
@@ -504,6 +505,7 @@ declare const fullApi: ApiFromModules<{
   "orders/helpers/productionRecords": typeof orders_helpers_productionRecords;
   "orders/helpers/statusFetching": typeof orders_helpers_statusFetching;
   "orders/helpers/statusTransitions": typeof orders_helpers_statusTransitions;
+  "orders/helpers/stripSubscriptionPricing": typeof orders_helpers_stripSubscriptionPricing;
   "orders/helpers/usageTracking": typeof orders_helpers_usageTracking;
   "orders/helpers/voucherHandling": typeof orders_helpers_voucherHandling;
   "orders/kitchenQueries": typeof orders_kitchenQueries;

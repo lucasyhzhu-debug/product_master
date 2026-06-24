@@ -8,13 +8,14 @@
  *             Edit/Delete/Shipping/Cancel parity with full OrderDetail page.
  */
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
-import { useQuery, useMutation } from 'convex/react';
+import { useMutation } from 'convex/react';
+import { useSessionQuery } from 'convex-helpers/react/sessions';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import {
   Phone, MapPin, Copy, FileText, MessageCircle,
-  ShieldAlert, Pencil, XCircle, Truck, Loader2, QrCode,
+  ShieldAlert, Pencil, XCircle, Truck, Loader2, QrCode, Lock, ExternalLink,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
@@ -136,10 +137,17 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   const { user } = useAuth();
   const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
 
-  const order = useQuery(
+  // gap#2: `get` is now a protectedQuery (kitchen/order_staff/manager/admin) that
+  // strips confidential subscription pricing server-side for non-managers — supply
+  // the session via useSessionQuery.
+  const order = useSessionQuery(
     api.orders.queries.get,
     orderId ? { id: orderId } : 'skip'
   );
+
+  // Pitfall #20: subscription orders render read-only on the kanban. Detect via the
+  // raw query (subscriptionId is on the order doc). MIRROR in OrderDetail.tsx.
+  const isSubscriptionOrder = Boolean(order?.subscriptionId);
 
   const forceComplete = useForceComplete();
   const deleteOrder = useDeleteOrder();
@@ -293,6 +301,14 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                     EXPEDITED
                   </Badge>
                 )}
+                {/* Pitfall #20: subscription orders are read-only on the kanban —
+                    locked badge. MIRROR in OrderDetail.tsx. */}
+                {isSubscriptionOrder && (
+                  <Badge className="bg-violet-100 text-violet-700 border-violet-300 text-xs">
+                    <Lock className="h-3 w-3 mr-1" />
+                    Subscription
+                  </Badge>
+                )}
                 {/* QRIS needsReview indicator (D-02) — mirror of OrderDetail.tsx (pitfall #20).
                     Indicator only; the reason is surfaced via title (slide-over has no Tooltip). */}
                 {activeQris?.needsReview && (
@@ -397,8 +413,8 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                 canEditDeliveryFee={!['Cancelled', 'Complete'].includes(order.status)}
               />
 
-              {/* Edit Order Items (Draft / AwaitingPayment) */}
-              {['Draft', 'AwaitingPayment'].includes(order.status) && orderId && (
+              {/* Edit Order Items (Draft / AwaitingPayment) — hidden for subscription orders (Pitfall #20). */}
+              {!isSubscriptionOrder && ['Draft', 'AwaitingPayment'].includes(order.status) && orderId && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -555,6 +571,37 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
               )}
 
               {/* ── Actions ──────────────────────────────── */}
+              {isSubscriptionOrder ? (
+                /* Pitfall #20: subscription orders are managed in the scheduler, NOT
+                   editable from the kanban. Staff still see the order for production
+                   but cannot edit/transition/cancel/delete it here. MIRROR in OrderDetail.tsx. */
+                <div className="rounded-md border border-violet-200 bg-violet-50 p-3 space-y-2">
+                  <h4 className="text-sm font-semibold flex items-center gap-1 text-violet-700">
+                    <Lock className="h-3.5 w-3.5" />
+                    Subscription order (read-only)
+                  </h4>
+                  <p className="text-xs text-violet-700/80">
+                    This order is managed from the subscription scheduler. Edit, status,
+                    and cancel actions are disabled here.
+                  </p>
+                  {order.subscriptionId && order.customerId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-violet-700 border-violet-300 hover:bg-violet-100"
+                      onClick={() => {
+                        onClose();
+                        navigate(
+                          `/crm/customers/${order.customerId}/subscriptions/${order.subscriptionId}/week`,
+                        );
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in scheduler
+                    </Button>
+                  )}
+                </div>
+              ) : (
               <div>
                 <h4 className="text-sm font-semibold mb-2">Actions</h4>
                 <div className="space-y-2">
@@ -616,9 +663,10 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                   )}
                 </div>
               </div>
+              )}
 
-              {/* Delete Draft */}
-              {order.status === 'Draft' && (
+              {/* Delete Draft — hidden for subscription orders (Pitfall #20). */}
+              {!isSubscriptionOrder && order.status === 'Draft' && (
                 <div className="border border-destructive rounded-md p-3">
                   <Button
                     variant="destructive"

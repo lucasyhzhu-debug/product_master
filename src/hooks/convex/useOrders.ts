@@ -4,7 +4,7 @@
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
 import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
-import { useSessionMutation } from "convex-helpers/react/sessions";
+import { useSessionMutation, useSessionQuery } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -115,10 +115,11 @@ interface ConvexOrderItem {
   productName: string;
   productVariant?: string;
   quantity: number;
-  unitPrice: number;
+  // gap#2: stripped to undefined for non-managers on subscription orders.
+  unitPrice: number | undefined;
   unitCost: number;
   discountAmount: number;
-  lineTotal: number;
+  lineTotal: number | undefined;
   lineCost: number;
   lineMargin: number;
 }
@@ -126,6 +127,7 @@ interface ConvexOrderItem {
 interface ConvexOrderDetail extends ConvexOrderBase {
   _id: Id<"orders">;
   customerId: Id<"customers">;
+  subscriptionId?: Id<"subscriptions">;
   paymentMethod?: string;
   orderDate: number;
   finalTotal?: number;
@@ -165,15 +167,24 @@ function transformOrderItem(item: ConvexOrderItem): OrderItem {
 
 function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
   const totalDiscount = calculateTotalDiscount(
-    order.totalAmount,
+    order.totalAmount ?? 0,
     order.orderLevelDiscount,
     order.orderLevelDiscountType
   );
+
+  // gap#2: money fields may be stripped (undefined) for non-managers on
+  // subscription orders — guard the derived margin %.
+  const marginPct =
+    order.totalAmount != null && order.totalMargin != null && order.totalAmount > 0
+      ? (order.totalMargin / order.totalAmount) * 100
+      : null;
 
   return {
     id: order._id as unknown as number,
     order_number: order.orderNumber,
     customer_id: order.customerId as unknown as number,
+    subscription_id: (order.subscriptionId as unknown as string) ?? null,
+    customer_id_raw: (order.customerId as unknown as string) ?? null,
     customer_name: order.customerName,
     customer_phone: order.customerPhone ?? null,
     status: order.status as OrderStatus,
@@ -188,10 +199,7 @@ function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
     total_cost: order.totalCost,
     total_margin: order.totalMargin,
     total_discount: totalDiscount,
-    margin_pct:
-      order.totalAmount > 0
-        ? (order.totalMargin / order.totalAmount) * 100
-        : null,
+    margin_pct: marginPct,
     voucher_code: order.voucherCode ?? null,
     voucher_discount_value: order.voucherDiscountValue ?? null,
     final_total: order.finalTotal ?? null,
@@ -307,7 +315,9 @@ export function useOrdersPaginated(options?: { status?: OrderStatusType; skip?: 
  * Get a single order by ID with items.
  */
 export function useOrder(id: Id<"orders"> | undefined) {
-  const data = useQuery(api.orders.queries.get, id ? { id } : "skip");
+  // gap#2: `get` is now a protectedQuery (kitchen/order_staff/manager/admin) so the
+  // server can strip confidential subscription pricing — must supply the session.
+  const data = useSessionQuery(api.orders.queries.get, id ? { id } : "skip");
   if (data === undefined) return { data: undefined, isLoading: id !== undefined };
   if (data === null) return { data: null, isLoading: false };
   return {
@@ -320,7 +330,8 @@ export function useOrder(id: Id<"orders"> | undefined) {
  * Get order by order number.
  */
 export function useOrderByNumber(orderNumber: string | undefined) {
-  const data = useQuery(
+  // gap#2: getByOrderNumber is now a protectedQuery — supply the session.
+  const data = useSessionQuery(
     api.orders.queries.getByOrderNumber,
     orderNumber ? { orderNumber } : "skip"
   );
@@ -336,7 +347,8 @@ export function useOrderByNumber(orderNumber: string | undefined) {
  * Get orders for kitchen view (production pipeline).
  */
 export function useKitchenOrders() {
-  const data = useQuery(api.orders.queries.getKitchenOrders, {});
+  // gap#2: getKitchenOrders is now a protectedQuery — supply the session.
+  const data = useSessionQuery(api.orders.queries.getKitchenOrders, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
     data: data.map(transformToOrderSummary),

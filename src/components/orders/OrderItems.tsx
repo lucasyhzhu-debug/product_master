@@ -10,7 +10,10 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { toast } from 'sonner';
 import type { OrderItem } from '@/lib/types';
 
-function formatCurrency(amount: number): string {
+// gap#2: money may be stripped (undefined) for non-managers on subscription
+// orders — render an em-dash placeholder instead of crashing on undefined/NaN.
+function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null || Number.isNaN(amount)) return '—';
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -21,7 +24,8 @@ function formatCurrency(amount: number): string {
 
 interface OrderItemsProps {
   items: OrderItem[];
-  totalAmount: number;
+  // gap#2: totalAmount may be undefined when stripped server-side.
+  totalAmount: number | undefined;
   totalDiscount?: number;
   voucherCode?: string | null;
   voucherDiscountValue?: number | null;
@@ -47,8 +51,14 @@ export function OrderItems({
   const [feeInput, setFeeInput] = useState("");
   const updateDeliveryFee = useMutation(api.orders.mutations.index.updateDeliveryFee);
 
+  // gap#2: when money is stripped (subscription order, non-manager) line_total /
+  // totalAmount arrive undefined — surface "—" instead of NaN totals.
+  const moneyHidden = totalAmount == null;
+
   // Calculate subtotal (sum of line totals, before order-level discount)
-  const subtotal = items.reduce((sum, item) => sum + item.line_total, 0);
+  const subtotal = moneyHidden
+    ? undefined
+    : items.reduce((sum, item) => sum + (item.line_total ?? 0), 0);
 
   const hasManualDiscount = totalDiscount > 0;
   const hasVoucher = voucherCode && voucherDiscountValue && voucherDiscountValue > 0;
@@ -58,7 +68,9 @@ export function OrderItems({
 
   // Use finalTotal from backend if available, otherwise calculate
   const deliveryFeeAmount = deliveryFee ?? 0;
-  const displayTotal = finalTotal ?? (totalAmount - (voucherDiscountValue ?? 0) + deliveryFeeAmount);
+  const displayTotal = moneyHidden
+    ? undefined
+    : (finalTotal ?? ((totalAmount ?? 0) - (voucherDiscountValue ?? 0) + deliveryFeeAmount));
 
   const handleSaveFee = async () => {
     if (!orderId) return;

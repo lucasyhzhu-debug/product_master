@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Send, Save, Loader2, Package, User, MapPin, Calendar, FileText, Ticket, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
+import { useSessionQuery } from 'convex-helpers/react/sessions';
 import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -49,7 +50,8 @@ export function OrderCreate() {
   const isEditMode = !!editDraftId;
 
   // Fetch existing Draft/AwaitingPayment data when in edit mode
-  const existingOrder = useQuery(
+  // gap#2: `get` is now a protectedQuery — supply the session.
+  const existingOrder = useSessionQuery(
     api.orders.queries.get,
     editDraftId ? { id: editDraftId as Id<"orders"> } : 'skip'
   );

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode } from 'lucide-react';
+import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode, Lock, ExternalLink } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -184,7 +184,7 @@ export function OrderDetail() {
         return sum + (item.quantity || 0);
       }, 0),
       hasProductionStarted,
-      totalAmount: order.total_amount,
+      totalAmount: order.total_amount ?? 0,
     };
   }, [order]);
 
@@ -200,6 +200,9 @@ export function OrderDetail() {
       </div>
     );
   }
+
+  // Pitfall #20: subscription orders render read-only here too (MIRROR of OrderSlideOver.tsx).
+  const isSubscriptionOrder = Boolean(order?.subscription_id);
 
   if (!order) {
     return (
@@ -269,6 +272,13 @@ export function OrderDetail() {
                   <Badge className={`${getStatusColor(order.status)} text-white`}>
                     {STATUS_LABELS[order.status] ?? order.status}
                   </Badge>
+                  {/* Pitfall #20: subscription locked badge — MIRROR of OrderSlideOver.tsx. */}
+                  {isSubscriptionOrder && (
+                    <Badge className="bg-violet-100 text-violet-700 border-violet-300">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Subscription
+                    </Badge>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -312,6 +322,39 @@ export function OrderDetail() {
           </Card>
 
           {/* Status Actions */}
+          {isSubscriptionOrder ? (
+            /* Pitfall #20: subscription orders are managed in the scheduler, NOT here.
+               MIRROR of OrderSlideOver.tsx read-only branch. */
+            <Card className="border-violet-200 bg-violet-50">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-1 text-violet-700">
+                  <Lock className="h-3.5 w-3.5" />
+                  Subscription order (read-only)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-xs text-violet-700/80">
+                  This order is managed from the subscription scheduler. Edit, status,
+                  and cancel actions are disabled here.
+                </p>
+                {order.subscription_id && order.customer_id_raw && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-violet-700 border-violet-300 hover:bg-violet-100"
+                    onClick={() =>
+                      navigate(
+                        `/crm/customers/${order.customer_id_raw}/subscriptions/${order.subscription_id}/week`,
+                      )
+                    }
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open in scheduler
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Actions</CardTitle>
@@ -355,6 +398,7 @@ export function OrderDetail() {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Stock Override Audit Trail */}
           {overrideEvents.length > 0 && (
@@ -513,8 +557,8 @@ export function OrderDetail() {
             canEditDeliveryFee={!['Cancelled', 'Complete'].includes(order.status)}
           />
 
-          {/* Edit Order Items Button */}
-          {['Draft', 'AwaitingPayment'].includes(order.status) && (
+          {/* Edit Order Items Button — hidden for subscription orders (Pitfall #20). */}
+          {!isSubscriptionOrder && ['Draft', 'AwaitingPayment'].includes(order.status) && (
             <Button
               variant="outline"
               className="w-full"
@@ -545,8 +589,8 @@ export function OrderDetail() {
             </Card>
           )}
 
-          {/* Delete Draft Order */}
-          {order.status === 'Draft' && (
+          {/* Delete Draft Order — hidden for subscription orders (Pitfall #20). */}
+          {!isSubscriptionOrder && order.status === 'Draft' && (
             <Card className="border-destructive">
               <CardContent className="pt-6">
                 <Button
@@ -560,8 +604,8 @@ export function OrderDetail() {
             </Card>
           )}
 
-          {/* Cancel Order - small button with hold-to-activate */}
-          {!['Cancelled', 'Complete'].includes(order.status) && (
+          {/* Cancel Order - small button with hold-to-activate. Hidden for subscription orders (Pitfall #20). */}
+          {!isSubscriptionOrder && !['Cancelled', 'Complete'].includes(order.status) && (
             <div className="pt-4">
               <HoldButton
                 variant="ghost"
