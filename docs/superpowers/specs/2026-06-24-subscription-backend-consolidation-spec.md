@@ -49,17 +49,17 @@ Five backend consolidations of the merged Phase B code, each eliminating a dupli
 
 **Finding:** there is **no existing "shared status-transition hook"** in `convex/orders`. `moveForward` is the de-facto primary handler; `completeOrder`/`completePackaging`/`forceComplete` bypass it. The recognition call + its idempotency are duplicated as bare calls at 5 sites; each site independently knows "transition-to-delivered → recognize."
 
-**Decision (DD-R1):** introduce a single **delivery-recognition seam** — a named helper, e.g. `recognizeOnDelivery(ctx, orderId, { actingUserId })`, co-located with the recognition logic (`recognition.ts`) — that *wraps* `recognizeSubscriptionDelivery` and is the **only** thing the 5 call sites invoke. The seam centralizes:
-- the "is this the delivery edge?" decision is **NOT** moved into the seam (each mutation already knows its own transition); the seam stays a thin, idempotent, no-op-for-non-subscription call. The idempotency + non-subscription guard already live *inside* `recognizeSubscriptionDelivery` — the seam must NOT duplicate them.
-- a consistent `actingUserId → createdBy` resolution so every site passes an author the same way.
+**Decision (DD-R1) — RESOLVED (staffreview C1/QR1):** A thin rename that leaves 5 direct callers is a no-op, not centralization. R1's concrete, defensible win is **uniform author resolution**: today **2 of the 5 sites omit `createdBy`** (`completeOrder` `orderCrud.ts:441` and `completePackaging` `packaging.ts:235` call `recognizeSubscriptionDelivery(ctx, args.orderId)` with no author and lean on the in-function `order.createdByUserId` fallback), while the other 3 (`statusUpdates.ts:227/536/759`) pass the acting user. That inconsistency means delivery-recognition ledger entries are authored differently depending on which mutation fired.
 
-> **Open question QR1 (for staffreview):** Is a thin rename/wrapper (`recognizeOnDelivery`) the right "centralization," or does the user want a heavier `applyForwardTransition` hook that *all* forward status mutations route through (so `completeOrder`/`completePackaging` stop hand-rolling their status patch)? The heavier option is a much larger blast radius (touches every forward transition, not just recognition). **Spec's position:** the thin seam is the behavior-preserving choice that satisfies "centralize recognition"; the heavy hook is a separate, riskier refactor that should NOT ride in this slice. Staffreview to confirm.
+R1 introduces `recognizeOnDelivery(ctx, orderId, { actingUserId })` in `recognition.ts` that **requires** an explicit `actingUserId` and is the **single** recognition entry point all 5 sites call. The win is: (1) one documented entry point, (2) every site now passes the acting user the same way (the 2 omitting sites resolve their session user and pass it), removing the silent author divergence. The seam does NOT absorb the per-mutation edge decision and does NOT duplicate the idempotency / non-subscription guards (those stay inside `recognizeSubscriptionDelivery`, which the seam calls).
+
+**Explicitly rejected:** a heavier `applyForwardTransition` hook that all forward status mutations route through (so `completeOrder`/`completePackaging` stop hand-rolling their status patch). That is real centralization but a much larger blast radius (every forward transition, not just recognition) — out of scope for this behavior-preserving slice. If R1's author-resolution win is judged too thin to warrant a new function, the fallback is to keep `recognizeSubscriptionDelivery` and add a single AC that all callers pass `actingUserId` — but the new-function form is preferred for the documented single entry point.
 
 **Acceptance:**
-- AC-R1.1 Exactly one function is the recognition entry point; all 5 sites call it; `grep recognizeSubscriptionDelivery` shows callers only through the seam (or the seam is the renamed function and the 5 sites call it identically).
-- AC-R1.2 `forceComplete`'s intentional bypass semantics are preserved — it still recognizes orders that skip the BeingPrepared→AwaitingDelivery edge.
+- AC-R1.1 Exactly one function (`recognizeOnDelivery`) is the recognition entry point; all 5 sites call it; `grep recognizeSubscriptionDelivery` shows it called ONLY from inside the seam.
+- AC-R1.2 `forceComplete`'s intentional bypass semantics are preserved — it still recognizes orders that skip the BeingPrepared→AwaitingDelivery edge (the seam adds NO edge guard).
 - AC-R1.3 Idempotency (one drawdown per order) and the IMP-5 under-funded-pool warn-not-drop behavior are byte-for-byte preserved.
-- AC-R1.4 `createdBy`/author fallback behavior unchanged at every site.
+- AC-R1.4 **All 5 sites now pass an explicit `actingUserId`** — `completeOrder` and `completePackaging` resolve their session user (matching how `moveForward` does) rather than relying on the `order.createdByUserId` fallback. The fallback stays inside `recognizeSubscriptionDelivery` as a defensive last resort but is no longer the normal path for those 2 sites. This is the one *intended* observable change (ledger author), and it is an improvement, not a regression — flag it in the CHANGELOG.
 - AC-R1.5 Existing recognition tests pass; a new test asserts the seam no-ops for non-subscription orders and is idempotent.
 
 ### R2 — One `fetchOrdersStripped` wrapper (altitude #2)
@@ -68,23 +68,26 @@ Five backend consolidations of the merged Phase B code, each eliminating a dupli
 
 **Fetch-shape variance (why this is the hard one):** the 8 consumers use `withIndex("by_status")`, `.paginate()`, `withIndex("by_order_number")`, `withIndex("by_customer")`, `withIndex("by_kitchen_visible")`, batch helpers (`fetchOrdersWithItemsAndProduction`), and some skip items entirely. A single wrapper must NOT try to absorb all fetch strategies (that becomes a god-function).
 
-**Decision (DD-R2):** the consolidation target is the **strip application + role gate**, not the fetch. Introduce `fetchOrdersStripped` (name per user) as a **post-fetch normalizer** the consumers funnel their already-fetched rows through:
+**Decision (DD-R2) — RESOLVED (staffreview QR2):** the consolidation target is the **strip application + role gate**, NOT the fetch. Verified: all 10 strip calls live in `queries.ts` (`kanbanBuilders.ts` only references the helper in a comment), so the duplication is already single-file. Introduce a **post-fetch normalizer** the consumers funnel their already-fetched rows through — keeping the user's `fetchOrdersStripped` intent but scoped to stripping, not fetching:
 
 ```
-stripOrders(role, orders, itemsByOrder?) → { orders, itemsByOrder }   // batch form
-stripOrder(role, order, items?) → { order, items }                     // single form
+stripOrders<O, I>(role, orders, itemsByOrder?) → { orders, itemsByOrder }   // batch form
+stripOrder<O, I>(role, order, items?) → { order, items }                    // single form
 ```
 
-i.e. each query keeps its own fetch (its index choice is intrinsic), but the **strip is applied in exactly one shared place** that loops, gates by role once, and calls the existing `stripSubscriptionPricing` per row. This removes the 10× inline `stripSubscriptionPricing(order, items, ctx.user.role)` repetition and the divergence risk (a new query forgetting to strip, or stripping inconsistently) without forcing a fetch-shape mega-enum.
+It MUST stay **generic over item shape** (`<O, I>`) — verified the 10 sites pass three distinct item types: plain `items`, empty `[]`, production-enriched `itemsWithProduction` (`:399`), and menu-enriched `enrichedItems` (`:735`). `stripSubscriptionPricing` is already generic; the batch seam must preserve that or it rejects the enriched shapes. Each query keeps its own fetch (its index choice is intrinsic); the **strip is applied in exactly one shared place** that gates by role once and calls the existing `stripSubscriptionPricing` per row. This kills the 10× inline repetition + divergence risk without a fetch-shape mega-enum. **Rejected:** a fetch-owning `fetchOrdersStripped(ctx, {shape, role})` (agent-proposed enum dispatch) — higher risk, re-routes 8 queries through one polymorphic fetcher for no duplication win.
 
-> **Open question QR2 (for staffreview):** Confirm scope = "centralize the *strip application*," not "centralize the *fetch*." A literal `fetchOrdersStripped(ctx, {shape, role})` that owns fetching too (the agent-proposed enum-dispatch) is higher-risk and would re-route 8 queries through one polymorphic fetcher. **Spec's position:** centralize the strip (low risk, kills the real duplication); leave each query's fetch in place. Staffreview to confirm the lighter interpretation matches intent, OR explicitly accept the heavier fetch-owning wrapper.
+> **Behavior-preserving protocol (staffreview C2/QR5) — the refactor and any leak-fix are SEPARATE:**
+> 1. The R2 **refactor is strictly behavior-preserving**: it reproduces *today's* stripping exactly, leak-for-leak. A **characterization test captures current behavior at all 10 call sites FIRST** (red→green), then the seam keeps it green. The refactor must NOT, on its own, change what any role sees.
+> 2. If the refactor surfaces a genuine **confidential-pricing leak** (a surface that today fails to strip for a non-manager), fixing it is **in-bounds for this slice but is a DISTINCT task** — its own commit, its own test asserting the *new* stripped behavior, its own CHANGELOG line flagged as a **security fix**. It is NOT folded into the refactor's ACs. This keeps the refactor reviewable and surfaces the security change loudly.
 
 **Acceptance:**
-- AC-R2.1 Exactly one shared strip seam; all 8+ consumers call it; no inline `stripSubscriptionPricing(...)` remains in `queries.ts` outside the seam.
-- AC-R2.2 **Leak-proof:** for every consumer, a non-manager (kitchen/order_staff) requesting a subscription order receives nulled money fields (order + item level), and a non-subscription order is untouched. A regression test pins each of the 8 surfaces (per the recurring Pitfall #19 / D11 leak concern that Phase B's triple-review already hit twice).
-- AC-R2.3 Managers/admins see full pricing unchanged.
+- AC-R2.1 Exactly one shared strip seam; all 10 call sites in `queries.ts` call it; no inline `stripSubscriptionPricing(...)` remains outside the seam (grep-enforced in the verification wave).
+- AC-R2.2 **Behavior-preserving:** a characterization test pins TODAY's output (money fields nulled-or-not) at all 10 surfaces × {manager, non-manager} × {subscription, non-subscription}; the seam keeps every assertion green. The refactor changes no role's visible output.
+- AC-R2.3 The seam is generic over item shape — plain, empty, production-enriched, and menu-enriched item arrays all pass through unchanged in their non-money fields.
 - AC-R2.4 Paginated (`listPaginated`) and items-less (`getByCustomer`) shapes still work — the seam tolerates "no items."
 - AC-R2.5 No change to which rows are returned, ordering, or any non-money field.
+- AC-R2.6 (Conditional, only if a leak is found) Any leak-fix lands as a separate task/commit/test/CHANGELOG entry per the protocol above — never inside AC-R2.1–R2.5.
 
 ### R3 — `creditLedger.by_type` index (altitude #3)
 
@@ -97,7 +100,7 @@ filtered by `type` with **no narrowing predicate** (across all subscriptions/wee
 
 **Decision (DD-R3):** add `.index("by_type", ["type"])` and switch the two incomeStatement scans to `withIndex("by_type", q => q.eq("type", "drawdown"|"expiry"))`. Do **not** add a compound `by_subscriptionWeek_type` — the per-week loops are small and already indexed; adding an unused index is churn.
 
-> **Caveat CR3 (must be in spec, staffreview to weigh):** `by_type` removes the *full-table* scan but the income-statement query is still **unbounded over time** — it reads every drawdown/expiry row ever written, then filters by period in memory downstream. `by_type` is a strict improvement (index range vs table scan) but NOT a surgical period-bounded fetch. A truly bounded fetch would need the income statement to carry a date range into the ledger query (out of scope here — it would change the query contract). The plan must state this is a scan-narrowing win, not an O(period) fetch.
+> **Caveat CR3 (RESOLVED — staffreview I1):** `by_type` removes the *full-table* scan but the income-statement query is still **unbounded over time** — it reads every drawdown/expiry row ever written, then filters by period in memory downstream. It is a strict improvement (index-range over a type partition vs whole-table scan) but NOT a period-bounded fetch. **Cardinality note:** `type` has only 5 values and `drawdown` is the dominant one, so the drawdown partition approaches table size over time — the real bound is "all-drawdowns-ever," fixable only by period-bounding the income-statement ledger query (out of scope; would change the query contract). **Do NOT** attempt a `_creationTime` range shortcut on the index: Convex appends `_creationTime` to every index, but recognition attributes revenue by the order's `deliveryDate`, NOT `_creationTime`, so a `_creationTime` range would silently drop or misattribute rows. The plan must state this is a scan-narrowing win only.
 
 **Acceptance:**
 - AC-R3.1 `creditLedger` has a `by_type` index; `npx convex codegen` regenerates cleanly.
@@ -109,12 +112,13 @@ filtered by `type` with **no narrowing predicate** (across all subscriptions/wee
 
 **Current state (grounded):** `createSubscriptionWeeklyInvoice` (`invoicing.ts:72-105`) and `buildTopupInvoice` (`invoicing.ts:260-293`) construct **near-identical** invoice insert objects. The 14 snapshot fields (seller ×6, bank ×3, buyer ×5) + `status`/`orderDate`/`generatedAt`/`updatedAt`/`subtotal`/`finalTotal`/`paymentStatus` are identical; both fetch `businessSettings` + default `bankAccount` identically (lines 66-69 vs 254-257). They differ only in: `invoiceKind`, `orderNumber` prefix (`WEEK-` vs `TOPUP-`), `generatedBy` source, and the `items` origin.
 
-**Decision (DD-R4):** extract `buildInvoiceSnapshot(ctx, { week, sub, customer, invoiceKind, orderNumber, items, generatedBy })` returning the full invoice insert object (seller/bank/buyer snapshot + common fields + computed `subtotal`/`finalTotal`). The helper does NOT insert and does NOT patch the week — callers keep their distinct post-insert steps (weekly patches `weeklyInvoiceId`+status; topup does not). Both callers fetch `settings`/`bank` inside the helper (dedupe that too).
+**Decision (DD-R4) — RESOLVED (staffreview C3):** extract `buildInvoiceSnapshot(ctx, { week, sub, customer, invoiceKind, orderNumber, invoiceNumber, items, generatedBy })` returning the full invoice insert object (seller/bank/buyer snapshot + common fields + computed `subtotal`/`finalTotal`). **The caller allocates `invoiceNumber` via `getNextInvoiceNumber(ctx)` and passes it in** — the helper performs NO `ctx.db` *writes* and does not touch the sequential invoice counter, keeping it a pure-ish builder (it MAY read `businessSettings`/default `bankAccount`, which both callers do identically — dedupe those reads inside the helper). This preserves R4's "Low risk / pure construction" characterization and keeps counter-allocation + idempotency reasoning local to each caller. The helper does NOT insert and does NOT patch the week — callers keep their distinct post-insert steps (weekly patches `weeklyInvoiceId`+status; topup does not).
 
 **Acceptance:**
 - AC-R4.1 One helper produces the snapshot; both call sites use it; the 14 shared fields exist in exactly one place.
-- AC-R4.2 Resulting invoice docs are field-identical to today for both weekly and top-up (pinned by an invoicing test asserting the full inserted shape for each kind).
-- AC-R4.3 Weekly still patches `week.weeklyInvoiceId` + `status:"invoiced"`; topup still changes no week status. Idempotency of `createSubscriptionWeeklyInvoice` (returns existing `weeklyInvoiceId`) preserved.
+- AC-R4.2 `buildInvoiceSnapshot` performs **no `ctx.db` writes** and does not call `getNextInvoiceNumber` — the caller allocates `invoiceNumber` and passes it in.
+- AC-R4.3 Resulting invoice docs are field-identical to today for both weekly and top-up (pinned by an invoicing test asserting the full inserted shape for each kind).
+- AC-R4.4 Weekly still patches `week.weeklyInvoiceId` + `status:"invoiced"`; topup still changes no week status. Idempotency of `createSubscriptionWeeklyInvoice` (early return of existing `weeklyInvoiceId` BEFORE any snapshot build or invoice-number allocation) preserved.
 
 ### R5 — `accumulateOrderCogs` helper (reuse #1)
 
@@ -134,7 +138,7 @@ filtered by `type` with **no narrowing predicate** (across all subscriptions/wee
 
 ## 3. Cross-cutting constraints
 
-- **C1 — Behavior-preserving:** full existing test suite (`npm run test`) green; new tests added per AC above. `npm run build` (tsc + vite) passes.
+- **C1 — Behavior-preserving:** full existing test suite (`npm run test`) green; new tests added per AC above. `npm run build` (tsc + vite) passes. **Test surfaces (staffreview I4):** all tests use `convex-test` + vitest. R2 extends the existing `convex/orders/helpers/__tests__/stripSubscriptionPricing.test.ts` plus per-query characterization tests; R1 extends the recognition test; R3 + R5 use a golden-value income-statement test asserting the B2B Wholesale total is bit-identical before/after; R4 asserts the full inserted invoice shape per kind.
 - **C2 — Codegen:** R3 adds an index → `npx convex codegen` MUST run and `convex/_generated/api.d.ts` committed (recurring Phase-76/81 lesson: stale generated files = silent CI break).
 - **C3 — No new wire data:** none of these refactors change what crosses the network except R2's *guarantee* that stripping is applied consistently (which can only ADD stripping where a leak existed — that's a fix, flag it if found).
 - **C4 — Lint:** respect `no-restricted-imports` (Pitfall #18) — use canonical helpers; new helpers live beside their domain (`costCalculator.ts`, `recognition.ts`, `invoicing.ts`, `queries.ts`/`helpers/`).
@@ -142,13 +146,13 @@ filtered by `type` with **no narrowing predicate** (across all subscriptions/wee
 
 ---
 
-## 4. Open questions (resolve at spec staffreview)
+## 4. Open questions — RESOLVED at spec staffreview (2026-06-24)
 
-- **QR1** R1: thin recognition seam vs heavy forward-transition hook? (Spec position: thin.)
-- **QR2** R2: centralize strip-application only vs a fetch-owning `fetchOrdersStripped`? (Spec position: strip-application only.)
-- **QR3** R3: confirm `by_type` simple index is enough; explicitly decline the compound index.
-- **QR4** Sequencing: R3 (schema/index) must land + codegen before R5 if both touch incomeStatement.ts (shared file — serialize). R1 touches order mutations; R2 touches order queries — disjoint, parallelizable. Confirm wave map in the plan.
-- **QR5** Is there appetite to fix any *leak* R2 uncovers in the same slice, or strictly preserve current (possibly leaky) behavior and file the leak separately? (Spec position: fixing a confidential-pricing leak is in-bounds and should ship here, loudly flagged.)
+- **QR1 ✅** R1: thin seam vs heavy hook → **thin `recognizeOnDelivery` seam, win = uniform author resolution** (see DD-R1). Heavy `applyForwardTransition` hook explicitly rejected.
+- **QR2 ✅** R2: centralize strip-application only (NOT fetch) → **confirmed** (DD-R2). Fetch-owning wrapper rejected.
+- **QR3 ✅** R3: `by_type` simple index is enough; compound `by_subscriptionWeek_type` explicitly declined (per-week scans already cheap + indexed).
+- **QR4 ✅** Sequencing: **R3 then R5 serialize on `incomeStatement.ts`** (disjoint regions ~928/933 vs ~981-997, but same file — same agent or strictly sequential, NO parallel writes; re-run `npx convex codegen` once after R3's index lands). R1 (order mutations) and R2 (order queries) are disjoint → parallelizable. R4 (`invoicing.ts`) independent. **Critical path = R3 → codegen → R5.** Plan's wave map must encode this.
+- **QR5 ✅** R2 leak handling → **refactor is strictly behavior-preserving; any discovered leak ships as a SEPARATE task/commit/test/CHANGELOG flagged as a security fix** (DD-R2 protocol). The two are never conflated.
 
 ## 5. Success criteria
 
