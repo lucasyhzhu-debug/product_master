@@ -431,8 +431,8 @@ export function OrderDetail() {
             </Card>
           )}
 
-          {/* WhatsApp Templates */}
-          {orderId && ['AwaitingPayment', 'AwaitingDelivery', 'Complete'].includes(order.status) && (
+          {/* WhatsApp Templates — suppressed for subscription orders (read-only, no customer-messaging — Pitfall #20). MIRROR in OrderSlideOver.tsx. */}
+          {!isSubscriptionOrder && orderId && ['AwaitingPayment', 'AwaitingDelivery', 'Complete'].includes(order.status) && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">WhatsApp Template</CardTitle>
@@ -528,8 +528,8 @@ export function OrderDetail() {
 
         {/* Right: Order Items + Actions (1/3) */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Fulfill from Inventory (PaymentReceived orders only) */}
-          {orderId && (
+          {/* Fulfill from Inventory (PaymentReceived orders only) — suppressed for subscription orders (read-only — Pitfall #20). MIRROR in OrderSlideOver.tsx. */}
+          {!isSubscriptionOrder && orderId && (
             <FulfillFromInventoryButton
               orderId={orderId}
               orderStatus={order.status}

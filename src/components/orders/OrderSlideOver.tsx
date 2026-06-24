@@ -501,7 +501,8 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
               )}
 
               {/* ── WhatsApp Actions ──────────────────────── */}
-              {(() => {
+              {/* Suppressed for subscription orders (read-only, no customer-messaging — Pitfall #20). MIRROR in OrderDetail.tsx. */}
+              {!isSubscriptionOrder && (() => {
                 const status = order.status;
                 const deliveryType = getField(order, 'deliveryType', 'delivery_type');
                 const buttons: Array<{ templateType: WhatsAppTemplateType; label: string }> = [];
@@ -564,7 +565,8 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
               })()}
 
               {/* ── Use Available Inventory (PaymentReceived) */}
-              {orderId && (
+              {/* Suppressed for subscription orders (read-only — Pitfall #20). MIRROR in OrderDetail.tsx. */}
+              {!isSubscriptionOrder && orderId && (
                 <FulfillFromInventoryButton
                   orderId={orderId}
                   orderStatus={order.status}
