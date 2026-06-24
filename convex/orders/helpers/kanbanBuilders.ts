@@ -34,9 +34,12 @@ export interface KanbanOrderCard {
   completedAt?: number;
   deliveryType?: string;
   deliveryAddress?: string;
-  totalAmount: number;
-  totalCost: number;
-  totalMargin: number;
+  // CR-D: money fields are optional because stripSubscriptionPricing nulls them
+  // for non-managers on subscription orders (D11: strip, don't hide). The UI
+  // renders "—" when undefined.
+  totalAmount?: number;
+  totalCost?: number;
+  totalMargin?: number;
   finalTotal?: number;
   orderLevelDiscount?: number;
   orderLevelDiscountType?: string;
@@ -50,7 +53,7 @@ export interface KanbanOrderCard {
     productName: string;
     productVariant?: string;
     quantity: number;
-    lineTotal: number;
+    lineTotal?: number;
   }>;
 }
 

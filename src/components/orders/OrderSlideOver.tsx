@@ -399,7 +399,9 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                 }))}
                 totalAmount={order.totalAmount}
                 totalDiscount={
-                  order.orderLevelDiscount && order.orderLevelDiscountType
+                  // IMP-6: totalAmount may be stripped (undefined) — avoid NaN in
+                  // the percentage branch; OrderItems renders "—" for the total.
+                  order.orderLevelDiscount && order.orderLevelDiscountType && order.totalAmount !== undefined
                     ? order.orderLevelDiscountType === 'percentage'
                       ? order.totalAmount * (order.orderLevelDiscount / 100)
                       : order.orderLevelDiscount

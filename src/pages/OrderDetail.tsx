@@ -172,7 +172,7 @@ export function OrderDetail() {
         itemCount: 0,
         productionUnitsAffected: 0,
         hasProductionStarted: false,
-        totalAmount: 0,
+        totalAmount: undefined,
       };
     }
 
@@ -184,7 +184,8 @@ export function OrderDetail() {
         return sum + (item.quantity || 0);
       }, 0),
       hasProductionStarted,
-      totalAmount: order.total_amount ?? 0,
+      // IMP-6: keep undefined when stripped so the cancel dialog shows "—" not "Rp 0".
+      totalAmount: order.total_amount,
     };
   }, [order]);
 

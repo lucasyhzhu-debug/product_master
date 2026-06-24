@@ -1,8 +1,9 @@
 /**
  * Strip confidential subscription pricing for non-managerial callers.
  *
- * A subscription order's orderItems carry the CONFIDENTIAL partner unitPrice,
- * and the order carries totalAmount/finalTotal/totalMargin/totalCost. The kanban
+ * A subscription order's orderItems carry the CONFIDENTIAL partner price across
+ * unitPrice / lineTotal / lineMargin (lineCost is 0), and the order carries
+ * totalAmount/finalTotal/totalMargin/totalCost. The kanban
  * (OrderSlideOver / OrderDetail / kitchen board) is reachable by kitchen and
  * order_staff, who must see qty + product (for production) but NOT money.
  *
@@ -31,6 +32,14 @@ export function stripSubscriptionPricing<
       totalMargin: undefined,
       totalCost: undefined,
     },
-    items: items.map((it) => ({ ...it, unitPrice: undefined, lineTotal: undefined })),
+    items: items.map((it) => ({
+      ...it,
+      unitPrice: undefined,
+      lineTotal: undefined,
+      // CR-E: subscription items carry the CONFIDENTIAL partner price in lineMargin
+      // (lineCost is 0). These leaked through the original strip — null them too.
+      lineMargin: undefined,
+      lineCost: undefined,
+    })),
   };
 }

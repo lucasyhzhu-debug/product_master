@@ -253,7 +253,9 @@ function transformProductSuggestion(item: {
  * Returns column-grouped orders for the Kanban UI.
  */
 export function useKanbanOrders() {
-  const data = useQuery(api.orders.queries.listForKanban, {});
+  // CR-D: listForKanban is now a protectedQuery (strips subscription pricing for
+  // non-managers) — must subscribe with a session, like get/getKitchenOrders.
+  const data = useSessionQuery(api.orders.queries.listForKanban, {});
   return data;
 }
 

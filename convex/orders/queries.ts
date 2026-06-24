@@ -884,7 +884,13 @@ export const getCompletedToday = query({
  *
  * Phase 14: Core query powering the Kanban UI (Plan 04).
  */
-export const listForKanban = query({
+export const listForKanban = protectedQuery({
+  // CR-D: ALL kanban-viewing roles (Pitfall #19 — omitting kitchen/order_staff
+  // crashes the board for them on mount). This is the PRIMARY kanban board query;
+  // it emitted subscription-order money (totalAmount/finalTotal/totalMargin/
+  // totalCost + per-item lineTotal) unstripped to kitchen/order_staff. Confidential
+  // partner pricing is now stripped server-side per card (D11: strip, don't hide).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {},
   handler: async (ctx) => {
     const result: Record<string, KanbanOrderCard[]> = {};
@@ -916,7 +922,11 @@ export const listForKanban = query({
             if (user) creatorName = user.name;
           }
 
-          return buildKanbanCard(order, items, creatorName);
+          // CR-D: strip confidential partner pricing BEFORE building the card so
+          // the card inherits the nulled money fields (non-managers on subscription
+          // orders). buildKanbanCard copies order.totalAmount/etc + item.lineTotal.
+          const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+          return buildKanbanCard(stripped.order, stripped.items, creatorName);
         })
       );
 
