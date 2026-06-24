@@ -17,6 +17,7 @@ import {
   LayoutTemplate,
   Minus,
   RefreshCw,
+  Save,
 } from "lucide-react";
 import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
 import { toast } from "sonner";
@@ -135,6 +136,7 @@ export function SubscriptionSchedulePage() {
   // Mutations
   // ---------------------------------------------------------------------------
   const seedWeekMutation = useSessionMutation(api.subscriptions.weeks.seedWeek);
+  const saveWeekPlanMutation = useSessionMutation(api.subscriptions.weeks.saveWeekPlan);
   const confirmWeekMutation = useSessionMutation(
     api.subscriptions.scheduling.confirmWeek.confirmWeek,
   );
@@ -148,6 +150,7 @@ export function SubscriptionSchedulePage() {
   // ---------------------------------------------------------------------------
   const [localDays, setLocalDays] = useState<LocalWeekPlan | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
   // Loading guard (D12)
@@ -224,6 +227,37 @@ export function SubscriptionSchedulePage() {
   }
 
   // ---------------------------------------------------------------------------
+  // Save plan — persist localDays to Convex plannedDays
+  // ---------------------------------------------------------------------------
+  async function handleSave(plan: LocalWeekPlan, weekId: string): Promise<boolean> {
+    setSaving(true);
+    try {
+      // Convert LocalWeekPlan (7-element array indexed Mon→Sun) into the
+      // { date, items } shape saveWeekPlan expects. Skip entirely-empty days
+      // so the backend stores only days that actually have lines.
+      const days = plan
+        .map((lines, i) => ({
+          date: weekStartMs + i * DAY_MS,
+          items: lines.map((l) => ({ menuProductId: l.menuProductId, qty: l.qty })),
+        }))
+        .filter((d) => d.items.length > 0);
+
+      await saveWeekPlanMutation({
+        subscriptionWeekId: weekId as Id<"subscriptionWeeks">,
+        days,
+      });
+      setLocalDays(null); // let Convex data repopulate (edits now persisted)
+      toast.success("Plan saved.");
+      return true;
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to save plan"));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Confirm → generate orders + invoice
   // ---------------------------------------------------------------------------
   async function handleConfirm() {
@@ -237,6 +271,14 @@ export function SubscriptionSchedulePage() {
     }
     setConfirming(true);
     try {
+      // Persist any unsaved edits first so confirm always acts on saved data.
+      if (localDays !== null) {
+        const saved = await handleSave(localDays, week._id);
+        if (!saved) {
+          setConfirming(false);
+          return;
+        }
+      }
       await confirmWeekMutation({ subscriptionWeekId: week._id });
       await createInvoiceMutation({ subscriptionWeekId: week._id });
       toast.success("Week confirmed and invoice created.");
@@ -294,7 +336,7 @@ export function SubscriptionSchedulePage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleSeed("template")}
-                disabled={seeding}
+                disabled={seeding || saving || confirming}
                 className="text-xs"
               >
                 <LayoutTemplate className="h-3.5 w-3.5 mr-1.5" />
@@ -304,7 +346,7 @@ export function SubscriptionSchedulePage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleSeed("previousWeek")}
-                disabled={seeding}
+                disabled={seeding || saving || confirming}
                 className="text-xs"
               >
                 <Copy className="h-3.5 w-3.5 mr-1.5" />
@@ -314,7 +356,7 @@ export function SubscriptionSchedulePage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleSeed("blank")}
-                disabled={seeding}
+                disabled={seeding || saving || confirming}
                 className="text-xs"
               >
                 <Minus className="h-3.5 w-3.5 mr-1.5" />
@@ -323,10 +365,28 @@ export function SubscriptionSchedulePage() {
 
               <Separator orientation="vertical" className="h-6" />
 
+              {/* Save plan — only visible when there are unsaved local edits */}
+              {localDays !== null && week !== null && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleSave(localDays, week._id)}
+                  disabled={saving || confirming}
+                  className="text-xs"
+                >
+                  {saving ? (
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Save className="h-3.5 w-3.5 mr-1.5" />
+                  )}
+                  Save plan
+                </Button>
+              )}
+
               <Button
                 size="sm"
                 onClick={handleConfirm}
-                disabled={confirming || !week || week.status !== "planned"}
+                disabled={confirming || saving || !week || week.status !== "planned"}
                 className="text-xs"
               >
                 {confirming ? (

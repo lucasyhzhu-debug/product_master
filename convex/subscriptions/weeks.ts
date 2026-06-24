@@ -126,3 +126,100 @@ export const seedWeek = protectedMutation({
     });
   },
 });
+
+/**
+ * saveWeekPlan — persist calendar edits for a planned week.
+ *
+ * args.days: one entry per day the caller wants to plan (days with no lines can be
+ * omitted — they will be stored as empty PlannedDay rows; pass them all if you want
+ * exact placement).  Each entry carries the day's epoch-ms date so we can derive
+ * dayIndex = (date - weekStart) / DAY_MS, matching the client's LocalWeekPlan indexing.
+ *
+ * Price source: sub.unitPrice — same flat price seedWeek uses per makeScheduleLine.
+ * productName: resolved via menuProducts lookup, same as buildPlannedDays.
+ * deliverByTime: preserved from the existing week row (sub.deliverByTime fallback).
+ * locked: preserved per-day from the existing PlannedDay if it exists, else false.
+ *
+ * Guard: only "planned" weeks are editable. Confirmed / invoiced / delivering / etc.
+ * are locked server-side regardless of client state.
+ *
+ * Idempotent: calling with the same data twice produces the same result.
+ */
+export const saveWeekPlan = protectedMutation({
+  roles: ["manager", "admin"],
+  args: {
+    subscriptionWeekId: v.id("subscriptionWeeks"),
+    days: v.array(
+      v.object({
+        date: v.number(),
+        items: v.array(
+          v.object({
+            menuProductId: v.id("menuProducts"),
+            qty: v.number(),
+          }),
+        ),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const week = await ctx.db.get(args.subscriptionWeekId);
+    if (!week) throw new ConvexError("Subscription week not found");
+
+    // Editable guard: only "planned" weeks may be modified.
+    if (week.status !== "planned") {
+      throw new ConvexError(
+        `Week is "${week.status}" and can no longer be edited. Only planned weeks accept plan changes.`,
+      );
+    }
+
+    const sub = await ctx.db.get(week.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+
+    // Validate items: qty must be a positive integer.
+    for (const day of args.days) {
+      for (const it of day.items) {
+        if (!Number.isInteger(it.qty) || it.qty <= 0) {
+          throw new ConvexError(
+            `qty must be a positive integer (date ${day.date}, product ${it.menuProductId})`,
+          );
+        }
+      }
+    }
+
+    // Collect all distinct menuProductIds for a single-pass lookup.
+    const productIdSet = new Set<Id<"menuProducts">>();
+    for (const day of args.days) {
+      for (const it of day.items) productIdSet.add(it.menuProductId);
+    }
+    const productRows = await Promise.all([...productIdSet].map((pid) => ctx.db.get(pid)));
+    const productNames: Record<string, string> = {};
+    for (const p of productRows) {
+      if (p) productNames[p._id] = p.name;
+    }
+
+    // Build a lookup from existing plannedDays to preserve deliverByTime and locked.
+    const existingByDate: Record<number, PlannedDay> = {};
+    for (const d of week.plannedDays) existingByDate[d.date] = d;
+
+    // Rebuild plannedDays from args.days, sorted by date ascending.
+    const sortedDays = [...args.days].sort((a, b) => a.date - b.date);
+    const plannedDays: PlannedDay[] = sortedDays.map((d) => {
+      const existing = existingByDate[d.date];
+      return {
+        date: d.date,
+        deliverByTime: existing?.deliverByTime ?? sub.deliverByTime,
+        locked: existing?.locked ?? false,
+        items: d.items.map((it) =>
+          makeScheduleLine(
+            it.menuProductId,
+            productNames[it.menuProductId] ?? "Unknown",
+            it.qty,
+            sub.unitPrice, // flat partner price — same source as seedWeek / buildPlannedDays
+          ),
+        ),
+      };
+    });
+
+    await ctx.db.patch(args.subscriptionWeekId, { plannedDays });
+  },
+});
