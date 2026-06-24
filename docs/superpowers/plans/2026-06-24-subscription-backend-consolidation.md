@@ -61,6 +61,7 @@
 | `convex/orders/helpers/__tests__/stripSubscriptionPricing.test.ts` | R2 | Extended characterization matrix |
 | `convex/schema.ts` | R3 | `creditLedger` gains `.index("by_type", ["type"])` |
 | `convex/reports/incomeStatement.ts` | R3 + R5 | drawdown/expiry scans use `by_type`; Site B uses `accumulateOrderCogs` |
+| `convex/reports/__tests__/incomeStatement-b2b-wholesale.test.ts` | R3 + R5 | EXISTING B2B regression guard — must stay green (no new `incomeStatement.test.ts`) |
 | `convex/subscriptions/invoicing.ts` | R4 | `buildInvoiceSnapshot` helper; weekly + topup builders use it |
 | `convex/lib/costCalculator.ts` | R5 | NEW `accumulateOrderCogs(items, cogsMap)` beside `buildProductCOGSMap` |
 
@@ -104,7 +105,7 @@ test("recognizeOnDelivery no-ops for a non-subscription order", async () => {
 });
 ```
 
-> NOTE for implementer: fill the order/subscription fixture with the exact required fields from `convex/schema.ts` (`orders` + `subscriptions` + `subscriptionWeeks`). Mirror the fixture already used by Phase B's recognition/reconcile tests — copy from `convex/subscriptions/__tests__/` if those tests exist; otherwise build the minimal funded-week fixture.
+> NOTE for implementer: `recognition.test.ts` does NOT exist yet — create it. Fill the order/subscription fixture with the exact required fields from `convex/schema.ts` (`orders` + `subscriptions` + `subscriptionWeeks`). **Fixture donors that already build a subscription + subscriptionWeek + funded `topup` ledger:** `convex/subscriptions/__tests__/reconcileMath.test.ts`, `reconcileNetting.test.ts`, `rollover.test.ts`, `weeks.test.ts` — copy the minimal funded-week fixture from one of these rather than re-deriving it.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -329,13 +330,16 @@ git commit -m "refactor(orders): single stripOrders seam for subscription price-
 **Files:**
 - Modify: `convex/schema.ts` (`creditLedger` table, ~line 2606 — after `by_invoice`)
 - Modify: `convex/reports/incomeStatement.ts:928,933`
-- Test: `convex/reports/__tests__/incomeStatement.test.ts` (extend — golden value)
+- Test: `convex/reports/__tests__/incomeStatement-b2b-wholesale.test.ts` (EXISTING — extend; this is the regression guard, NOT a new `incomeStatement.test.ts` which does not exist)
 
 **Interfaces:**
 - Produces: index `by_type: ["type"]` on `creditLedger`.
 - Consumes: nothing new.
 
-- [ ] **Step 1: Write/extend a golden-value test** asserting the income statement's B2B Wholesale revenue total for a fixture with ≥1 drawdown + ≥1 expiry equals a known number. Run — expect PASS (baseline, pre-index).
+- [ ] **Step 1: Confirm the existing B2B golden test is green** — `incomeStatement-b2b-wholesale.test.ts` already exercises the drawdown/expiry → B2B Wholesale path. Run it as the pre-change baseline; add an explicit "B2B total === known value" assertion only if one isn't already present.
+
+Run: `npx vitest run convex/reports/__tests__/incomeStatement-b2b-wholesale.test.ts`
+Expected: PASS (baseline, pre-index).
 
 - [ ] **Step 2: Add the index** in `schema.ts`:
 
@@ -367,12 +371,12 @@ Expected: ZERO matches.
 - [ ] **Step 5: Regenerate Convex types + run the golden test**
 
 Run: `npx convex codegen && npx vitest run convex/reports`
-Expected: PASS — B2B total bit-identical to Step 1.
+Expected: PASS — `incomeStatement-b2b-wholesale.test.ts` green, B2B total bit-identical to Step 1.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add convex/schema.ts convex/reports/incomeStatement.ts convex/reports/__tests__/incomeStatement.test.ts convex/_generated
+git add convex/schema.ts convex/reports/incomeStatement.ts convex/reports/__tests__/incomeStatement-b2b-wholesale.test.ts convex/_generated
 git commit -m "perf(subscriptions): creditLedger.by_type index; switch incomeStatement scans (R3, behavior-preserving)"
 ```
 
@@ -382,7 +386,7 @@ git commit -m "perf(subscriptions): creditLedger.by_type index; switch incomeSta
 
 **Files:**
 - Modify: `convex/subscriptions/invoicing.ts` (add helper; repoint `createSubscriptionWeeklyInvoice` ~72-105 + `buildTopupInvoice` ~260-293)
-- Test: `convex/subscriptions/__tests__/invoicing.test.ts` (extend — full-shape assertion per kind)
+- Test: `convex/subscriptions/__tests__/invoicing.test.ts` (CREATE — no existing file; scaffold a `convexTest(schema)` harness; full-shape assertion per kind)
 
 **Interfaces:**
 - Produces:
@@ -475,10 +479,10 @@ export function accumulateOrderCogs(
 
 - [ ] **Step 5: Adopt at Site B** — replace the inline `resolveOrderCogs(orderId)` lambda body (`incomeStatement.ts:981-997`) with a call to `accumulateOrderCogs(orderItemsByOrder.get(orderId) ?? [], cogsMap)`. Leave Site A (`resolveItemsCOGS`, ~214-267) UNTOUCHED — it tracks unmapped products + builds `ProductDetail[]` and cannot adopt the helper (document this with a one-line comment at Site A).
 
-- [ ] **Step 6: Run the income-statement golden test (from Task 3) + cost tests**
+- [ ] **Step 6: Run the income-statement B2B test + cost tests**
 
-Run: `npx vitest run convex/reports convex/lib`
-Expected: PASS — B2B Wholesale COGS bit-identical.
+Run: `npx vitest run convex/reports/__tests__/incomeStatement-b2b-wholesale.test.ts convex/lib`
+Expected: PASS — B2B Wholesale COGS bit-identical (the existing b2b-wholesale test is the guard).
 
 - [ ] **Step 7: Commit**
 
@@ -494,7 +498,11 @@ git commit -m "refactor(reports): shared accumulateOrderCogs adopted at income-s
 - [ ] **Step 1: Regenerate codegen on the merged tree** (once): `npx convex codegen` — commit any `_generated` delta.
 - [ ] **Step 2: Type-check:** `npm run type-check` — expect clean.
 - [ ] **Step 3: Full test suite:** `npm run test` — expect all green (existing + new).
-- [ ] **Step 4: `code-auditor` grep-gates** — confirm: `recognizeSubscriptionDelivery(` called only inside `recognizeOnDelivery`; zero `stripSubscriptionPricing(` in `queries.ts`; zero `q.eq(q.field("type")` on creditLedger; one `buildInvoiceSnapshot`; one `accumulateOrderCogs`.
+- [ ] **Step 4: `code-auditor` grep-gates** — confirm:
+  - `grep -rn "recognizeSubscriptionDelivery(" convex --include=*.ts | grep -v _generated` → exactly ONE call (inside `recognizeOnDelivery`) + the definition.
+  - `grep -rn "stripSubscriptionPricing(" convex/orders/queries.ts` → ZERO.
+  - `grep -rn 'q.eq(q.field("type")' convex/reports/incomeStatement.ts` → ZERO.
+  - one `buildInvoiceSnapshot`, one `accumulateOrderCogs` export.
 - [ ] **Step 5: Build:** `npm run build` — MUST pass (tsc + vite + bundlesize).
 - [ ] **Step 6: Close-out (main session, NOT a background agent):** `/triple-review` → address every Critical + Improvement → `/simplify xhigh` → apply cleanups → re-run `npm run type-check` + `npm run test`. Only then is the slice done.
 
