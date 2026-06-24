@@ -176,6 +176,11 @@ const TelegramChatsManager = lazyWithPreload(() =>
   import('./pages/TelegramChatsManager').then(m => ({ default: m.TelegramChatsManager }))
 );
 
+// Phase B (Subscriptions): /crm/customers/:customerId/subscriptions/:subId/week
+const SubscriptionSchedulePage = lazyWithPreload(() =>
+  import('./pages/crm/SubscriptionSchedulePage').then(m => ({ default: m.SubscriptionSchedulePage }))
+);
+
 function App() {
   return (
     <TooltipProvider>
@@ -703,6 +708,16 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessDashboard">
                         <GrabFoodMenuSimulator />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Phase B (Subscriptions) — CRM schedule calendar (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/subscriptions/:subId/week"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <SubscriptionSchedulePage />
                       </ProtectedRoute>
                     }
                   />

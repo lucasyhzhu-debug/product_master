@@ -145,7 +145,8 @@ export const reconcileWeek = protectedMutation({
 
     // Build the tranche list with per-tranche ages (carried topups chain age forward).
     const sourceAgeByWeek = new Map<string, number>();
-    const tranches = buildTranchesFromLedger(
+    // Initial pass to populate sourceAgeByWeek — result is superseded by resolvedTranches below.
+    buildTranchesFromLedger(
       entries.map((e) => ({
         type: e.type,
         amount: e.amount,

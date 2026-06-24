@@ -730,6 +730,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessInvoices: boolean;  // Invoice generation (manager + admin)
   canAccessAssets: boolean;  // Asset Register (manager + admin)
   canAccessTelegramChats: boolean;  // Phase 85: Telegram chats registry (manager + admin)
+  canAccessCrm: boolean;  // Phase B: CRM / subscription schedule calendar (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -754,6 +755,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: false,
     canAccessAssets: false,
     canAccessTelegramChats: false,
+    canAccessCrm: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -778,6 +780,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: false,
     canAccessAssets: false,
     canAccessTelegramChats: false,
+    canAccessCrm: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -802,6 +805,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: true,
     canAccessAssets: true,
     canAccessTelegramChats: true,
+    canAccessCrm: true,
   },
   admin: {
     canAccessDashboard: true,
@@ -826,6 +830,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: true,
     canAccessAssets: true,
     canAccessTelegramChats: true,
+    canAccessCrm: true,
   },
 };
 

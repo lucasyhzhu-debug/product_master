@@ -1,0 +1,389 @@
+/**
+ * SubscriptionSchedulePage — /crm/customers/:customerId/subscriptions/:subId/week
+ *
+ * Schedule calendar for one subscription week.
+ * Manager + admin only (canAccessCrm).
+ *
+ * Session hooks: useSessionQuery / useSessionMutation (protectedQuery/protectedMutation).
+ */
+import { useCallback, useMemo, useState } from "react";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  Copy,
+  FileText,
+  LayoutTemplate,
+  Minus,
+  RefreshCw,
+} from "lucide-react";
+import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
+import { toast } from "sonner";
+
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { LoadingPage } from "@/components/shared/LoadingState";
+import { WeekCalendarGrid } from "@/components/crm/WeekCalendarGrid";
+import type { LocalWeekPlan } from "@/components/crm/WeekCalendarGrid";
+import type { ScheduleLineLocal } from "@/components/crm/ProductLineEditor";
+import { formatCurrency } from "@/lib/utils";
+import { utcToWibDateStr } from "@/lib/dateUtils";
+import { getErrorMessage } from "@/lib/utils";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 86_400_000;
+
+/** Format a Monday epoch-ms as "Wk DD MMM – DD MMM YYYY" */
+function formatWeekLabel(weekStartMs: number): string {
+  const monDate = new Date(weekStartMs);
+  const sunDate = new Date(weekStartMs + 6 * DAY_MS);
+  const opts: Intl.DateTimeFormatOptions = {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  };
+  const mon = monDate.toLocaleDateString("en-GB", opts);
+  const sun = sunDate.toLocaleDateString("en-GB", {
+    ...opts,
+    year: "numeric",
+  });
+  return `${mon} – ${sun}`;
+}
+
+/** Status badge colours */
+const STATUS_BADGE: Record<string, string> = {
+  planned: "bg-blue-100 text-blue-700",
+  confirmed: "bg-amber-100 text-amber-700",
+  invoiced: "bg-purple-100 text-purple-700",
+  paid: "bg-green-100 text-green-700",
+  delivering: "bg-teal-100 text-teal-700",
+  reconciled: "bg-gray-100 text-gray-600",
+  closed: "bg-gray-100 text-gray-500",
+};
+
+/**
+ * Convert plannedDays from Convex into a LocalWeekPlan (7-element array indexed Mon→Sun).
+ * Convex day.date is a UTC epoch ms for WIB midnight of that day.
+ * dayIndex = (date - weekStart) / DAY_MS.
+ */
+function toLocalWeekPlan(
+  plannedDays: Array<{
+    date: number;
+    items: Array<{ menuProductId: Id<"menuProducts">; qty: number; unitPrice: number }>;
+  }>,
+  weekStart: number,
+): LocalWeekPlan {
+  const plan: LocalWeekPlan = [[], [], [], [], [], [], []];
+  for (const day of plannedDays) {
+    const idx = Math.round((day.date - weekStart) / DAY_MS);
+    if (idx < 0 || idx > 6) continue;
+    plan[idx] = day.items.map((it) => ({
+      menuProductId: it.menuProductId,
+      qty: it.qty,
+      unitPrice: it.unitPrice,
+    }));
+  }
+  return plan;
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export function SubscriptionSchedulePage() {
+  const { subId } = useParams<{ customerId: string; subId: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // weekStart comes from the query string (epoch ms as string), falls back to
+  // "current Monday" computed client-side in WIB.
+  const weekStartMs: number = useMemo(() => {
+    const raw = searchParams.get("weekStart");
+    if (raw) {
+      const parsed = parseInt(raw, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    // Default: current WIB week Monday
+    const nowWib = Date.now() + 7 * 3600_000;
+    const d = new Date(nowWib);
+    // getUTCDay: 0=Sun, 1=Mon … 6=Sat → shift to Mon=0
+    const dow = (d.getUTCDay() + 6) % 7;
+    return nowWib - dow * DAY_MS - (nowWib % DAY_MS) - 7 * 3600_000;
+  }, [searchParams]);
+
+  const subscriptionId = subId as Id<"subscriptions">;
+
+  // ---------------------------------------------------------------------------
+  // Server data
+  // ---------------------------------------------------------------------------
+  const planningData = useSessionQuery(api.subscriptions.scheduling.queries.getPlanningWeek, {
+    subscriptionId,
+    weekStart: weekStartMs,
+  });
+
+  const products = useSessionQuery(api.menuProducts.queries.list, { activeOnly: true });
+
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+  const seedWeekMutation = useSessionMutation(api.subscriptions.weeks.seedWeek);
+  const confirmWeekMutation = useSessionMutation(
+    api.subscriptions.scheduling.confirmWeek.confirmWeek,
+  );
+  const createInvoiceMutation = useSessionMutation(
+    api.subscriptions.invoicing.createSubscriptionWeeklyInvoice,
+  );
+
+  // ---------------------------------------------------------------------------
+  // Local editable plan (derived from Convex week.plannedDays)
+  // Convex is the source of truth; localDays shadows changes before seedWeek is called.
+  // ---------------------------------------------------------------------------
+  const [localDays, setLocalDays] = useState<LocalWeekPlan | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  // Loading guard (D12)
+  if (planningData === undefined || products === undefined) {
+    return <LoadingPage />;
+  }
+
+  // Null = subscription not found
+  if (planningData === null) {
+    return (
+      <EmptyState
+        icon={CalendarDays}
+        title="Subscription not found"
+        description="This subscription or week could not be loaded. Check the URL and try again."
+        action={{ label: "Go back", onClick: () => navigate(-1) }}
+      />
+    );
+  }
+
+  const { week, subscription } = planningData;
+  const isLocked = week !== null && week.status !== "planned";
+  const unitPrice = subscription.unitPrice;
+
+  // Display plan: prefer localDays (unsaved edits) otherwise derive from week
+  const displayPlan: LocalWeekPlan =
+    localDays ??
+    (week !== null
+      ? toLocalWeekPlan(week.plannedDays, weekStartMs)
+      : [[], [], [], [], [], [], []]);
+
+  const weekTotal = displayPlan.reduce(
+    (s, lines) => s + lines.reduce((ds, l) => ds + l.qty * unitPrice, 0),
+    0,
+  );
+
+  const productOptions = (products ?? []).map((p) => ({
+    _id: p._id,
+    name: p.name,
+  }));
+
+  // ---------------------------------------------------------------------------
+  // Seed actions
+  // ---------------------------------------------------------------------------
+  async function handleSeed(source: "template" | "previousWeek" | "blank") {
+    if (week !== null) {
+      // Week already exists — just reset local view
+      if (source === "blank") {
+        setLocalDays([[], [], [], [], [], [], []]);
+      } else if (source === "template") {
+        setLocalDays(null); // will re-derive from subscription.scheduleTemplate
+        // For template reset on existing week: show toast — full re-seed not supported once row exists
+        toast.info("To fully reset to template, delete the week first.");
+      } else {
+        toast.info("Copy last week is only available when seeding a new week.");
+      }
+      return;
+    }
+    setSeeding(true);
+    try {
+      await seedWeekMutation({ subscriptionId, weekStart: weekStartMs, source });
+      setLocalDays(null); // let Convex data re-populate
+      toast.success(
+        source === "blank"
+          ? "Blank week created"
+          : source === "previousWeek"
+            ? "Week copied from previous week"
+            : "Week seeded from template",
+      );
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to seed week"));
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Confirm → generate orders + invoice
+  // ---------------------------------------------------------------------------
+  async function handleConfirm() {
+    if (!week) {
+      toast.error("Seed the week first before confirming.");
+      return;
+    }
+    if (week.status !== "planned") {
+      toast.error(`Week is ${week.status} — only planned weeks can be confirmed.`);
+      return;
+    }
+    setConfirming(true);
+    try {
+      await confirmWeekMutation({ subscriptionWeekId: week._id });
+      await createInvoiceMutation({ subscriptionWeekId: week._id });
+      toast.success("Week confirmed and invoice created.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to confirm week"));
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  const weekLabel = formatWeekLabel(weekStartMs);
+  const statusLabel = week?.status ?? "unseeded";
+  const statusClass = STATUS_BADGE[statusLabel] ?? "bg-gray-100 text-gray-500";
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 mt-0.5"
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-semibold leading-tight">Schedule Calendar</h1>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-sm text-muted-foreground">{weekLabel}</span>
+              <Badge className={`text-xs font-medium capitalize ${statusClass}`}>
+                {statusLabel}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                Partner price: {formatCurrency(unitPrice)} / unit
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              WIB Mon–Sun &middot; week starting {utcToWibDateStr(weekStartMs)}
+            </p>
+          </div>
+        </div>
+
+        {/* Action bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Seed actions — only when not locked */}
+          {!isLocked && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSeed("template")}
+                disabled={seeding}
+                className="text-xs"
+              >
+                <LayoutTemplate className="h-3.5 w-3.5 mr-1.5" />
+                Reset to template
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSeed("previousWeek")}
+                disabled={seeding}
+                className="text-xs"
+              >
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+                Copy last week
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleSeed("blank")}
+                disabled={seeding}
+                className="text-xs"
+              >
+                <Minus className="h-3.5 w-3.5 mr-1.5" />
+                Blank
+              </Button>
+
+              <Separator orientation="vertical" className="h-6" />
+
+              <Button
+                size="sm"
+                onClick={handleConfirm}
+                disabled={confirming || !week || week.status !== "planned"}
+                className="text-xs"
+              >
+                {confirming ? (
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                )}
+                Confirm &rarr; orders + invoice
+              </Button>
+            </>
+          )}
+
+          {/* Week total */}
+          <div className="flex items-center gap-1.5 ml-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold tabular-nums">
+              {formatCurrency(weekTotal)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Empty state — no week seeded yet */}
+      {week === null ? (
+        <EmptyState
+          icon={CalendarDays}
+          title="Week not seeded yet"
+          description="Choose a seed source above to create the schedule for this week."
+        />
+      ) : (
+        <WeekCalendarGrid
+          weekStart={weekStartMs}
+          localDays={displayPlan}
+          products={productOptions}
+          unitPrice={unitPrice}
+          locked={isLocked}
+          onChange={useCallback(
+            (dayIndex: number, lines: ScheduleLineLocal[]) => {
+              setLocalDays((prev) => {
+                const next = prev ? [...prev] : [...displayPlan];
+                next[dayIndex] = lines;
+                return next as LocalWeekPlan;
+              });
+            },
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+            [displayPlan],
+          )}
+        />
+      )}
+
+      {/* Locked notice */}
+      {isLocked && (
+        <p className="text-xs text-muted-foreground text-center">
+          This week is <span className="font-medium">{statusLabel}</span> and cannot be
+          edited. Navigate to a planned week to make changes.
+        </p>
+      )}
+    </div>
+  );
+}
