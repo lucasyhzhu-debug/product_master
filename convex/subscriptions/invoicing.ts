@@ -123,7 +123,8 @@ export const markWeeklyInvoicePaid = protectedMutation({
     }
     const weeklyInvoiceId = week.weeklyInvoiceId;
     const invoice = await ctx.db.get(weeklyInvoiceId);
-    const total = invoice?.finalTotal ?? 0;
+    if (!invoice) throw new ConvexError("Weekly invoice not found");
+    const total = invoice.finalTotal;
 
     // Idempotency: if a topup for this invoice already exists, don't double-fund.
     const existingTopup = await ctx.db
