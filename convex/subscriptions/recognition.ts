@@ -118,3 +118,19 @@ export async function recognizeSubscriptionDelivery(
   // there via isSubscriptionOrder — convex/subscriptions/revenueGate.ts). The drawdown
   // is the single recognition path, so there is no double-count.
 }
+
+/**
+ * Single delivery-recognition entry point (Phase D Slice 0, R1). All order
+ * status mutations that reach "delivered" call THIS, not recognizeSubscriptionDelivery
+ * directly, so the recognition trigger has one home. actingUserId is OPTIONAL:
+ * the 3 status mutations pass their acting user; completeOrder/completePackaging
+ * (plain mutations with no token in scope) pass undefined → recognizeSubscriptionDelivery
+ * falls back to order.createdByUserId, exactly as before. Behavior-preserving.
+ */
+export async function recognizeOnDelivery(
+  ctx: MutationCtx,
+  orderId: Id<"orders">,
+  actingUserId?: Id<"users">,
+): Promise<void> {
+  await recognizeSubscriptionDelivery(ctx, orderId, actingUserId);
+}

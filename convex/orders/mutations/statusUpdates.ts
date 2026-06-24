@@ -48,7 +48,7 @@ import {
 } from "./inventoryIntegration";
 
 // Phase B (Task B9): recognize subscription sale at delivery (AwaitingDelivery).
-import { recognizeSubscriptionDelivery } from "../../subscriptions/recognition";
+import { recognizeOnDelivery } from "../../subscriptions/recognition";
 
 // ============================================
 // Type-safe Update Interfaces
@@ -224,7 +224,7 @@ export const updateStatus = mutation({
 
     // Task B9: recognize subscription sale on entry to AwaitingDelivery (idempotent).
     if (newStatus === "AwaitingDelivery" && oldStatus !== "AwaitingDelivery") {
-      await recognizeSubscriptionDelivery(ctx, args.orderId, args.userId);
+      await recognizeOnDelivery(ctx, args.orderId, args.userId);
     }
 
     return args.orderId;
@@ -533,7 +533,7 @@ export const moveForward = mutation({
     // Task B9: recognize the subscription sale when the order goes out for delivery.
     // No-op for non-subscription orders; idempotent on repeat.
     if (nextStatus === "AwaitingDelivery") {
-      await recognizeSubscriptionDelivery(ctx, args.orderId, userId);
+      await recognizeOnDelivery(ctx, args.orderId, userId);
     }
 
     return args.orderId;
@@ -756,7 +756,7 @@ export const forceComplete = protectedMutation({
     // no-op for non-subscription orders, guarded by creditLedger.by_order for already-
     // recognized ones. Author = the acting admin/manager (protectedMutation guarantees
     // ctx.user), consistent with the other call sites passing the session user.
-    await recognizeSubscriptionDelivery(ctx, args.orderId, user._id);
+    await recognizeOnDelivery(ctx, args.orderId, user._id);
 
     // Audit: log the force-complete event
     await logOrderEvent(ctx, args.orderId, "admin_force_complete", {

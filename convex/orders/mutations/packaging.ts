@@ -12,7 +12,7 @@ import { calculatePackageStatus } from "../helpers";
 import { logOrderEvent, computeIsKitchenVisible, isTerminalStatus } from "../helpers/index";
 
 // Phase B (Task B9): recognize subscription sale at delivery (AwaitingDelivery).
-import { recognizeSubscriptionDelivery } from "../../subscriptions/recognition";
+import { recognizeOnDelivery } from "../../subscriptions/recognition";
 
 // ============================================
 // Production record helpers for packaging
@@ -232,7 +232,7 @@ export const completePackaging = mutation({
     });
 
     // Task B9: recognize subscription sale on entry to AwaitingDelivery (idempotent).
-    await recognizeSubscriptionDelivery(ctx, args.orderId);
+    await recognizeOnDelivery(ctx, args.orderId);
 
     return {
       orderId: args.orderId,
