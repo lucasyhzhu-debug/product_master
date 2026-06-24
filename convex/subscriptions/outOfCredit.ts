@@ -18,11 +18,8 @@
 
 import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
-import type { MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
-import { getNextInvoiceNumber } from "../invoices/mutations";
-import { getWibDateStr } from "../lib/periodRange";
 import { postLedgerEntry } from "./ledger";
+import { buildTopupInvoice } from "./invoicing";
 
 // ---------------------------------------------------------------------------
 // Pure split-math helpers — unit-testable, no Convex context needed.
@@ -50,75 +47,6 @@ export function coveredQty(remainingCredit: number, unitPrice: number): number {
  */
 export function remainderQty(totalQty: number, covered: number): number {
   return totalQty - covered;
-}
-
-// ---------------------------------------------------------------------------
-// Internal helper — build a subscription_topup invoice inside a mutation ctx.
-// Static imports only (Convex Pitfall #8: no dynamic import()).
-// ---------------------------------------------------------------------------
-async function createTopupInvoiceInternal(
-  ctx: MutationCtx,
-  args: {
-    subscriptionWeekId: Id<"subscriptionWeeks">;
-    productName: string;
-    qty: number;
-    unitPrice: number;
-    lineTotal: number;
-    generatedBy: Id<"users">;
-  },
-): Promise<Id<"invoices">> {
-  const week = await ctx.db.get(args.subscriptionWeekId);
-  if (!week) throw new ConvexError("Subscription week not found");
-
-  const sub = await ctx.db.get(week.subscriptionId);
-  if (!sub) throw new ConvexError("Subscription not found");
-  const customer = await ctx.db.get(sub.customerId);
-
-  const settings = await ctx.db.query("businessSettings").first();
-  const bank = settings?.defaultBankAccountId
-    ? await ctx.db.get(settings.defaultBankAccountId)
-    : null;
-
-  const now = Date.now();
-  const invoiceNumber = await getNextInvoiceNumber(ctx);
-
-  return ctx.db.insert("invoices", {
-    status: "final",
-    invoiceNumber,
-    invoiceKind: "subscription_topup",
-    subscriptionWeekId: week._id,
-    customerId: sub.customerId,
-    orderNumber: `TOPUP-${getWibDateStr(week.weekStart)}`,
-    orderDate: week.weekStart,
-    generatedAt: now,
-    generatedBy: args.generatedBy,
-    updatedAt: now,
-    sellerName: settings?.businessName ?? "Frollie",
-    sellerAddress: settings?.address,
-    sellerPhone: settings?.phone,
-    sellerEmail: settings?.email,
-    sellerNpwp: settings?.npwp,
-    sellerLogoStorageId: settings?.logoStorageId,
-    bankName: bank?.bankName ?? "",
-    bankAccountNumber: bank?.accountNumber ?? "",
-    bankAccountName: bank?.name ?? "",
-    buyerName: customer?.name ?? "Customer",
-    buyerCompany: customer?.companyName,
-    buyerNpwp: customer?.npwp,
-    buyerAddress: customer?.billingAddress ?? customer?.defaultAddress,
-    buyerPhone: customer?.phone,
-    items: [
-      {
-        productName: args.productName,
-        qty: args.qty,
-        unitPrice: args.unitPrice,
-        lineTotal: args.lineTotal,
-      },
-    ],
-    subtotal: args.lineTotal,
-    finalTotal: args.lineTotal,
-    paymentStatus: "Unpaid",
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -201,8 +129,8 @@ export const splitScheduledOrderOnCredit = protectedMutation({
         note: `Full credit drawdown on order ${order.orderNumber}`,
       });
       return {
-        coveredOrderId: order._id as Id<"orders"> | null,
-        topupInvoiceId: null as Id<"invoices"> | null,
+        coveredOrderId: order._id,
+        topupInvoiceId: null,
         drawdownAmount,
       };
     }
@@ -212,18 +140,22 @@ export const splitScheduledOrderOnCredit = protectedMutation({
       // Cancel the order — a zero-qty subscription order is invalid.
       await ctx.db.patch(order._id, { status: "Cancelled" });
 
-      const topupInvoiceId = await createTopupInvoiceInternal(ctx, {
+      const topupInvoiceId = await buildTopupInvoice(ctx, {
         subscriptionWeekId: order.subscriptionWeekId,
-        productName: item.productName,
-        qty: totalQty,
-        unitPrice,
-        lineTotal: totalQty * unitPrice,
+        items: [
+          {
+            productName: item.productName,
+            qty: totalQty,
+            unitPrice,
+            lineTotal: totalQty * unitPrice,
+          },
+        ],
         generatedBy: ctx.user._id,
       });
 
       return {
-        coveredOrderId: null as Id<"orders"> | null,
-        topupInvoiceId: topupInvoiceId as Id<"invoices"> | null,
+        coveredOrderId: null,
+        topupInvoiceId,
         drawdownAmount: 0,
       };
     }
@@ -241,8 +173,10 @@ export const splitScheduledOrderOnCredit = protectedMutation({
     });
 
     // Update order-level totals to reflect the covered portion only.
+    // totalCost stays 0 — subscription orders use BOM-resolved COGS (same as confirmWeek).
     await ctx.db.patch(order._id, {
       totalAmount: coveredLineTotal,
+      totalCost: 0,
       totalMargin: coveredLineTotal,
       finalTotal: coveredLineTotal,
     });
@@ -260,18 +194,22 @@ export const splitScheduledOrderOnCredit = protectedMutation({
     });
 
     // Route the uncovered remainder to a subscription_topup invoice.
-    const topupInvoiceId = await createTopupInvoiceInternal(ctx, {
+    const topupInvoiceId = await buildTopupInvoice(ctx, {
       subscriptionWeekId: order.subscriptionWeekId,
-      productName: item.productName,
-      qty: remainder,
-      unitPrice,
-      lineTotal: remainderLineTotal,
+      items: [
+        {
+          productName: item.productName,
+          qty: remainder,
+          unitPrice,
+          lineTotal: remainderLineTotal,
+        },
+      ],
       generatedBy: ctx.user._id,
     });
 
     return {
-      coveredOrderId: order._id as Id<"orders"> | null,
-      topupInvoiceId: topupInvoiceId as Id<"invoices"> | null,
+      coveredOrderId: order._id,
+      topupInvoiceId,
       drawdownAmount,
     };
   },

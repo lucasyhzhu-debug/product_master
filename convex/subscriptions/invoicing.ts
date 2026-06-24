@@ -197,6 +197,83 @@ export const markWeeklyInvoicePaid = protectedMutation({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Shared helper — build a `subscription_topup` invoice inside a mutation ctx.
+// Used by both createTopupInvoice (public mutation) and outOfCredit.ts (split path).
+// Static imports only (Convex Pitfall #8: no dynamic import()).
+// ---------------------------------------------------------------------------
+
+/**
+ * Build and insert a `subscription_topup` invoice. Returns the new invoiceId.
+ *
+ * @param generatedBy  userId to stamp on the invoice (caller passes ctx.user._id)
+ */
+export async function buildTopupInvoice(
+  ctx: MutationCtx,
+  args: {
+    subscriptionWeekId: Id<"subscriptionWeeks">;
+    items: Array<{
+      productName: string;
+      qty: number;
+      unitPrice: number;
+      lineTotal: number;
+    }>;
+    generatedBy: Id<"users">;
+  },
+): Promise<Id<"invoices">> {
+  const week = await ctx.db.get(args.subscriptionWeekId);
+  if (!week) throw new ConvexError("Week not found");
+
+  const sub = await ctx.db.get(week.subscriptionId);
+  if (!sub) throw new ConvexError("Subscription not found");
+  const customer = await ctx.db.get(sub.customerId);
+
+  const subtotal = args.items.reduce((s, it) => s + it.lineTotal, 0);
+
+  const invoiceNumber = await getNextInvoiceNumber(ctx);
+
+  const settings = await ctx.db.query("businessSettings").first();
+  const bank = settings?.defaultBankAccountId
+    ? await ctx.db.get(settings.defaultBankAccountId)
+    : null;
+
+  const now = Date.now();
+  return ctx.db.insert("invoices", {
+    status: "final",
+    invoiceNumber,
+    invoiceKind: "subscription_topup",
+    subscriptionWeekId: week._id,
+    customerId: sub.customerId,
+    // orderId intentionally omitted — top-up spans the week, not a single order
+    orderNumber: `TOPUP-${getWibDateStr(week.weekStart)}`,
+    orderDate: week.weekStart,
+    generatedAt: now,
+    generatedBy: args.generatedBy,
+    updatedAt: now,
+    // Seller snapshot
+    sellerName: settings?.businessName ?? "Frollie",
+    sellerAddress: settings?.address,
+    sellerPhone: settings?.phone,
+    sellerEmail: settings?.email,
+    sellerNpwp: settings?.npwp,
+    sellerLogoStorageId: settings?.logoStorageId,
+    // Bank snapshot
+    bankName: bank?.bankName ?? "",
+    bankAccountNumber: bank?.accountNumber ?? "",
+    bankAccountName: bank?.name ?? "",
+    // Buyer snapshot
+    buyerName: customer?.name ?? "Customer",
+    buyerCompany: customer?.companyName,
+    buyerNpwp: customer?.npwp,
+    buyerAddress: customer?.billingAddress ?? customer?.defaultAddress,
+    buyerPhone: customer?.phone,
+    items: args.items,
+    subtotal,
+    finalTotal: subtotal,
+    paymentStatus: "Unpaid",
+  });
+}
+
 /**
  * Build a `subscription_topup` invoice for delta lines added to a week mid-cycle.
  *
@@ -224,63 +301,16 @@ export const createTopupInvoice = protectedMutation({
   handler: async (ctx, args) => {
     if (args.addedLines.length === 0) throw new ConvexError("addedLines must not be empty");
 
-    const week = await ctx.db.get(args.subscriptionWeekId);
-    if (!week) throw new ConvexError("Week not found");
-
-    const sub = await ctx.db.get(week.subscriptionId);
-    if (!sub) throw new ConvexError("Subscription not found");
-    const customer = await ctx.db.get(sub.customerId);
-
-    const items = args.addedLines.map((it) => ({
-      productName: it.productName,
-      qty: it.qty,
-      unitPrice: it.unitPrice,
-      lineTotal: it.lineTotal,
-      // date intentionally omitted — topup lines are not tied to a specific delivery date
-    }));
-    const subtotal = items.reduce((s, it) => s + it.lineTotal, 0);
-
-    const invoiceNumber = await getNextInvoiceNumber(ctx);
-
-    const settings = await ctx.db.query("businessSettings").first();
-    const bank = settings?.defaultBankAccountId
-      ? await ctx.db.get(settings.defaultBankAccountId)
-      : null;
-
-    const now = Date.now();
-    const invoiceId = await ctx.db.insert("invoices", {
-      status: "final",
-      invoiceNumber,
-      invoiceKind: "subscription_topup",
-      subscriptionWeekId: week._id,
-      customerId: sub.customerId,
-      // orderId intentionally omitted — top-up spans the week, not a single order
-      orderNumber: `TOPUP-${getWibDateStr(week.weekStart)}`,
-      orderDate: week.weekStart,
-      generatedAt: now,
+    const invoiceId = await buildTopupInvoice(ctx, {
+      subscriptionWeekId: args.subscriptionWeekId,
+      items: args.addedLines.map((it) => ({
+        productName: it.productName,
+        qty: it.qty,
+        unitPrice: it.unitPrice,
+        lineTotal: it.lineTotal,
+        // date intentionally omitted — topup lines are not tied to a specific delivery date
+      })),
       generatedBy: ctx.user._id,
-      updatedAt: now,
-      // Seller snapshot
-      sellerName: settings?.businessName ?? "Frollie",
-      sellerAddress: settings?.address,
-      sellerPhone: settings?.phone,
-      sellerEmail: settings?.email,
-      sellerNpwp: settings?.npwp,
-      sellerLogoStorageId: settings?.logoStorageId,
-      // Bank snapshot
-      bankName: bank?.bankName ?? "",
-      bankAccountNumber: bank?.accountNumber ?? "",
-      bankAccountName: bank?.name ?? "",
-      // Buyer snapshot
-      buyerName: customer?.name ?? "Customer",
-      buyerCompany: customer?.companyName,
-      buyerNpwp: customer?.npwp,
-      buyerAddress: customer?.billingAddress ?? customer?.defaultAddress,
-      buyerPhone: customer?.phone,
-      items,
-      subtotal,
-      finalTotal: subtotal,
-      paymentStatus: "Unpaid",
     });
 
     return invoiceId;
