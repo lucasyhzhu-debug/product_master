@@ -151,13 +151,25 @@ describe("stripSubscriptionPricing characterization (pre-R2)", () => {
     test(`${role}: subscription order (subscriptionId) — full pricing visible`, () => {
       const { order: o, items: it } = stripSubscriptionPricing(subOrderById, orderItems, role);
       expect(o.totalAmount).toBe(5000);
+      expect(o.finalTotal).toBe(5000);
+      expect(o.totalMargin).toBe(1000);
+      expect(o.totalCost).toBe(4000);
       expect(it[0].unitPrice).toBe(2500);
+      expect(it[0].lineTotal).toBe(5000);
+      expect(it[0].lineMargin).toBe(500);
+      expect(it[0].lineCost).toBe(2000);
     });
 
     test(`${role}: NON-subscription order — money untouched`, () => {
-      const { order: o } = stripSubscriptionPricing(normalOrder, orderItems, role);
+      const { order: o, items: it } = stripSubscriptionPricing(normalOrder, orderItems, role);
       expect(o.totalAmount).toBe(5000);
+      expect(o.finalTotal).toBe(5000);
       expect(o.totalMargin).toBe(1000);
+      expect(o.totalCost).toBe(4000);
+      expect(it[0].unitPrice).toBe(2500);
+      expect(it[0].lineTotal).toBe(5000);
+      expect(it[0].lineMargin).toBe(500);
+      expect(it[0].lineCost).toBe(2000);
     });
   }
 
