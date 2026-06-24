@@ -20,6 +20,7 @@ import {
   Save,
 } from "lucide-react";
 import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
+import { useQuery } from "convex/react";
 import { toast } from "sonner";
 
 import { api } from "../../../convex/_generated/api";
@@ -114,7 +115,9 @@ export function SubscriptionSchedulePage() {
     weekStart: weekStartMs,
   });
 
-  const products = useSessionQuery(api.menuProducts.queries.list, { activeOnly: true });
+  // menuProducts.queries.list is a public `query` (no sessionId arg) — must use plain
+  // useQuery; useSessionQuery injects sessionId and Convex rejects it (ArgumentValidationError).
+  const products = useQuery(api.menuProducts.queries.list, { activeOnly: true });
 
   // ---------------------------------------------------------------------------
   // Mutations
