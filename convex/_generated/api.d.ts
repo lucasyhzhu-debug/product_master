@@ -283,6 +283,7 @@ import type * as subscriptions_revenueGate from "../subscriptions/revenueGate.js
 import type * as subscriptions_rollover from "../subscriptions/rollover.js";
 import type * as subscriptions_scheduleLine from "../subscriptions/scheduleLine.js";
 import type * as subscriptions_scheduling_confirmWeek from "../subscriptions/scheduling/confirmWeek.js";
+import type * as subscriptions_scheduling_queries from "../subscriptions/scheduling/queries.js";
 import type * as subscriptions_types from "../subscriptions/types.js";
 import type * as subscriptions_weekBounds from "../subscriptions/weekBounds.js";
 import type * as subscriptions_weeks from "../subscriptions/weeks.js";
@@ -587,6 +588,7 @@ declare const fullApi: ApiFromModules<{
   "subscriptions/rollover": typeof subscriptions_rollover;
   "subscriptions/scheduleLine": typeof subscriptions_scheduleLine;
   "subscriptions/scheduling/confirmWeek": typeof subscriptions_scheduling_confirmWeek;
+  "subscriptions/scheduling/queries": typeof subscriptions_scheduling_queries;
   "subscriptions/types": typeof subscriptions_types;
   "subscriptions/weekBounds": typeof subscriptions_weekBounds;
   "subscriptions/weeks": typeof subscriptions_weeks;
