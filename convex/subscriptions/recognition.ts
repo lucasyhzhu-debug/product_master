@@ -66,30 +66,18 @@ export async function recognizeSubscriptionDelivery(
 
   // 2. P&L revenue seam — B2B Wholesale revenue recognition.
   // -------------------------------------------------------------------------
-  // TODO(B-followup): recognize B2B Wholesale sales revenue in the income
-  // statement at this point, bucketed on the CUSTOMER'S customerType
-  // ("b2b_wholesale"), kept OUT of externalRevenue/per-channel analytics (C1).
+  // RESOLVED (Task B9b): the drawdown row written above IS the system-of-record for
+  // recognized B2B Wholesale revenue, and the income statement now surfaces it in the
+  // gross-revenue TOTAL as its own distinct "B2B Wholesale" source. No extra write here:
   //
-  // INVESTIGATION (Task B9): the income statement
-  // (convex/reports/incomeStatement.ts → fetchAndAggregate/aggregateWeek)
-  // derives ALL revenue (totalGross/netRevenue) EXCLUSIVELY from `externalRevenue`
-  // records + `consignmentSettlements`. Its journal-line aggregation
-  // (aggregateJournalLines via journalHelpers.ts) targets ONLY `type:"opex"` and
-  // `type:"other"` account sets — it feeds OpEx and Other Income/Expense (below
-  // gross profit). There is NO revenue-from-journal path: a journal entry posted
-  // to a revenue account would be silently ignored by the P&L total.
+  //   convex/reports/incomeStatement.ts → fetchAndAggregate reads creditLedger
+  //   `drawdown` rows, resolves order → customer, and (for customerType ===
+  //   "b2b_wholesale") attributes Math.abs(amount) to the period by the order's
+  //   deliveryDate, feeding it into totalGross/netRevenue via aggregateWeek's
+  //   B2B_WHOLESALE_SOURCE channel (sumB2BWholesaleInPeriod).
   //
-  // Therefore neither available mechanism cleanly recognizes this revenue in the
-  // P&L total without a new seam:
-  //   (a) write an `externalRevenue` row — violates C1 (subscription orders are
-  //       deliberately excluded from externalRevenue / per-channel dashboards), and
-  //   (b) post a GL/journal revenue line — would not surface in totalGross at all.
-  //
-  // DECISION NEEDED (do NOT fabricate a GL API here): the income statement must
-  // grow an explicit "B2B Wholesale" revenue source that reads recognized
-  // subscription drawdowns (this ledger) bucketed by customers.customerType, OR a
-  // dedicated wholesale-revenue table the P&L aggregates alongside externalRevenue.
-  // Until that lands, the drawdown above is the system-of-record for the recognized
-  // amount and customers.customerType carries the B2B classification; the figure is
-  // simply not yet rolled into the income-statement total.
+  // C1 holds: this revenue lives ONLY in the P&L total, never in externalRevenue /
+  // per-channel dashboards / getDailySalesSummary (subscription orders are excluded
+  // there via isSubscriptionOrder — convex/subscriptions/revenueGate.ts). The drawdown
+  // is the single recognition path, so there is no double-count.
 }

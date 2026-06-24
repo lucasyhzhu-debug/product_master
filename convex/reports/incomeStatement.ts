@@ -121,6 +121,45 @@ function computeDelta(
   return { amount, percent };
 }
 
+// ─── B2B Wholesale revenue source (Task B9b / C1) ───
+//
+// Recognized subscription-delivery revenue lands in the P&L as its OWN gross-revenue
+// source — NOT an externalRevenue row, NOT a per-channel retail bucket (C1). Source of
+// record is the `creditLedger` `drawdown` row written by recognizeSubscriptionDelivery
+// (one per delivered subscription order; amount is signed negative = -order.totalAmount).
+// Recognized revenue per drawdown = Math.abs(amount); attributed to the period by the
+// delivered order's deliveryDate (the day the sale is recognized — same "recognition by
+// the sale's own date" convention externalRevenue uses via periodStart), and bucketed
+// where the order's customer has customerType === "b2b_wholesale". The B2B aggregation is
+// pure (no ctx); the I/O (fetch drawdowns → resolve order → resolve customer) happens in
+// fetchAndAggregate and is passed in as plain {deliveryDate, amount} records.
+
+export const B2B_WHOLESALE_SOURCE = "b2b_wholesale" as const;
+
+export interface B2BRecognizedRevenue {
+  deliveryDate: number; // epoch ms — attribution date (order.deliveryDate)
+  amount: number; // recognized revenue, positive integer IDR (= Math.abs(drawdown.amount))
+}
+
+/**
+ * Sum recognized B2B Wholesale revenue falling inside [periodStart, periodEnd).
+ * Half-open interval matches the externalRevenue by_period convention used throughout.
+ * Pure — no ctx, no async.
+ */
+function sumB2BWholesaleInPeriod(
+  records: B2BRecognizedRevenue[],
+  periodStart: number,
+  periodEnd: number,
+): number {
+  let total = 0;
+  for (const r of records) {
+    if (r.deliveryDate >= periodStart && r.deliveryDate < periodEnd) {
+      total += r.amount;
+    }
+  }
+  return total;
+}
+
 // ─── Channel confidence rules ───
 
 function getChannelRevenueConfidence(source: string): Confidence {
@@ -132,6 +171,8 @@ function getChannelRevenueConfidence(source: string): Confidence {
     case "grabfood":
     case "consignment":
     case "pos":
+    case B2B_WHOLESALE_SOURCE:
+      // Recognized at the order's partner price — an exact figure, not inferred.
       return "exact";
     case "k3mart":
       return "inferred";
@@ -227,7 +268,10 @@ function aggregateWeek(
   fixedAssets: Doc<"fixedAssets">[],
   missingReversals: GapAnalysis["missingReversals"],
   periodStart: number,
-  periodEnd: number
+  periodEnd: number,
+  // Task B9b: recognized B2B Wholesale revenue (subscription drawdowns), resolved
+  // upstream to {deliveryDate, amount}. Bucketed into its own gross-revenue source.
+  b2bRecognized: B2BRecognizedRevenue[]
 ): WeekData {
   // ── 4a: Per-channel revenue aggregation ──
 
@@ -402,6 +446,35 @@ function aggregateWeek(
       confidence: hasConsignCogsMissing ? "missing" : "exact",
       cogs: consignCogs,
       products: consignProducts,
+    });
+  }
+
+  // ── 4c-bis: B2B Wholesale channel (Task B9b / C1) ──
+  // Recognized subscription-delivery revenue as its own distinct gross-revenue source.
+  // It feeds totalGross/netRevenue via the channels[] reducers below, exactly like any
+  // other channel, but is NEVER an externalRevenue/per-channel retail bucket (the rows
+  // come from creditLedger, not externalRevenue — C1 stays intact). No platform-fee
+  // deductions, no COGS resolution here: the order's BOM COGS is already counted on the
+  // internal-orders side at fulfilment, and double-counting COGS here is avoided by
+  // design (revenue-only line, gross == net).
+  const b2bGross = sumB2BWholesaleInPeriod(b2bRecognized, periodStart, periodEnd);
+  if (b2bGross !== 0) {
+    channels.push({
+      source: B2B_WHOLESALE_SOURCE,
+      displayName: "B2B Wholesale",
+      gross: b2bGross,
+      netRevenue: b2bGross,
+      discount: 0,
+      commission: 0,
+      adBurn: 0,
+      promoBurn: 0,
+      revShare: 0,
+      transactions: b2bRecognized.filter(
+        (r) => r.deliveryDate >= periodStart && r.deliveryDate < periodEnd,
+      ).length,
+      confidence: "exact",
+      cogs: { production: 0, packaging: 0, total: 0 },
+      products: [],
     });
   }
 
@@ -785,6 +858,58 @@ export async function fetchAndAggregate(
     ? buildMissingReversals(previousStart, previousEnd)
     : ([] as GapAnalysis["missingReversals"]);
 
+  // ── Task B9b: resolve recognized B2B Wholesale revenue (subscription drawdowns) ──
+  // Source of record: creditLedger drawdown rows (one per delivered subscription order,
+  // amount signed negative). creditLedger has no date index, so we scan the (small,
+  // subscription-scale) drawdown set once and attribute each by its order's deliveryDate.
+  // The two aggregateWeek calls below share this resolved list; the pure period filter
+  // (sumB2BWholesaleInPeriod) buckets each record into the matching window. Kept entirely
+  // out of externalRevenue (C1): this never touches the per-channel revenue map.
+  const b2bRecognized = await (async (): Promise<B2BRecognizedRevenue[]> => {
+    const drawdowns = await ctx.db
+      .query("creditLedger")
+      .filter((q) => q.eq(q.field("type"), "drawdown"))
+      .collect();
+    if (drawdowns.length === 0) return [];
+
+    // Resolve order → customer for each drawdown (Set-deduped, no N+1).
+    const orderIds = [
+      ...new Set(
+        drawdowns
+          .filter((d) => d.orderId)
+          .map((d) => d.orderId as Id<"orders">),
+      ),
+    ];
+    const orders = await Promise.all(orderIds.map((id) => ctx.db.get(id)));
+    const orderMap = new Map<string, Doc<"orders">>();
+    for (const o of orders) if (o) orderMap.set(o._id as string, o);
+
+    const customerIds = [
+      ...new Set(
+        orders
+          .filter((o): o is Doc<"orders"> => o !== null)
+          .map((o) => o.customerId as Id<"customers">),
+      ),
+    ];
+    const customers = await Promise.all(customerIds.map((id) => ctx.db.get(id)));
+    const customerMap = new Map<string, Doc<"customers">>();
+    for (const c of customers) if (c) customerMap.set(c._id as string, c);
+
+    const records: B2BRecognizedRevenue[] = [];
+    for (const d of drawdowns) {
+      if (!d.orderId) continue;
+      const order = orderMap.get(d.orderId as string);
+      if (!order || order.deliveryDate === undefined) continue; // no attribution date
+      const customer = customerMap.get(order.customerId as string);
+      if (customer?.customerType !== "b2b_wholesale") continue; // durable customerType seam
+      records.push({
+        deliveryDate: order.deliveryDate,
+        amount: Math.abs(d.amount), // drawdown.amount is negative; recognized revenue is positive
+      });
+    }
+    return records;
+  })();
+
   // Build COGS map
   // Filter inactive componentTypes to exclude discontinued items from cost calculations.
   const activeComponentTypes = allComponentTypes.filter((ct) => ct.isActive);
@@ -817,7 +942,8 @@ export async function fetchAndAggregate(
     allFixedAssets,
     currentMissingReversals,
     currentStart,
-    currentEnd
+    currentEnd,
+    b2bRecognized
   );
   const previousPeriod = aggregateWeek(
     previousRevenue,
@@ -830,7 +956,8 @@ export async function fetchAndAggregate(
     allFixedAssets,
     previousMissingReversals,
     previousStart,
-    previousEnd
+    previousEnd,
+    b2bRecognized
   );
 
   // Compute deltas
