@@ -2,7 +2,7 @@ import { stripOrder, stripOrders } from "../stripOrders";
 import { stripSubscriptionPricing } from "../stripSubscriptionPricing";
 import { expect, test } from "vitest";
 
-const sub = { subscriptionId: "s1", totalAmount: 5000 } as any;
+const sub = { _id: "o1", subscriptionId: "s1", totalAmount: 5000 } as any;
 const enriched = [{ unitPrice: 100, lineTotal: 100, production: { balls: 3 }, quantity: 1 }] as any[];
 
 test("stripOrder matches stripSubscriptionPricing for kitchen", () => {

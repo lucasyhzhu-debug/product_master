@@ -10,8 +10,7 @@ export function stripOrder<O extends Record<string, any>, I extends Record<strin
 export function stripOrders<O extends Record<string, any>, I extends Record<string, any>>(
   role: string, orders: O[], itemsByOrder?: Map<Id<"orders">, I[]>,
 ): { orders: O[]; itemsByOrder: Map<Id<"orders">, I[]> } {
-  // Seed outItems from the input map so caller-keyed entries are preserved
-  const outItems = new Map<Id<"orders">, I[]>(itemsByOrder);
+  const outItems = new Map<Id<"orders">, I[]>();
   const outOrders = orders.map((o) => {
     const id = o._id as Id<"orders">;
     const { order, items } = stripSubscriptionPricing(o, itemsByOrder?.get(id) ?? [], role);
