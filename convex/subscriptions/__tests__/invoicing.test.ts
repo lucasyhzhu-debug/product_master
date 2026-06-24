@@ -192,6 +192,7 @@ describe("createSubscriptionWeeklyInvoice — full field shape", () => {
     expect(invoice!.status).toBe("final");
     expect(invoice!.invoiceKind).toBe("subscription_weekly");
     expect(invoice!.paymentStatus).toBe("Unpaid");
+    expect(invoice!.orderId).toBeUndefined(); // subscription invoice spans many orders, not one
 
     // orderNumber has the WEEK- prefix and encodes weekStart date
     expect(invoice!.orderNumber).toMatch(/^WEEK-/);
@@ -285,6 +286,7 @@ describe("createTopupInvoice — full field shape", () => {
     expect(invoice!.status).toBe("final");
     expect(invoice!.invoiceKind).toBe("subscription_topup");
     expect(invoice!.paymentStatus).toBe("Unpaid");
+    expect(invoice!.orderId).toBeUndefined(); // subscription invoice spans many orders, not one
 
     // orderNumber has the TOPUP- prefix
     expect(invoice!.orderNumber).toMatch(/^TOPUP-/);

@@ -210,7 +210,7 @@ function getChannelRevenueConfidence(source: string): Confidence {
 
 // ─── Shared COGS resolution helper ───
 // Extracted to avoid duplication between platform channel (4b) and consignment (4c) loops.
-// Note: does NOT use accumulateOrderCogs — this site also tracks unmapped products and builds ProductDetail[], which the shared helper omits.
+// Note: does NOT use accumulateOrderCogs — this site operates on externalRevenueItems and keys on `linkedMenuProductId` (not orderItems' `menuProductId`), and also tracks unmapped products and builds ProductDetail[], which the shared helper omits.
 function resolveItemsCOGS(
   items: Doc<"externalRevenueItems">[],
   cogsMap: Map<string, { production: number; packaging: number; total: number }>,
