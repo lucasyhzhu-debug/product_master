@@ -6,21 +6,30 @@
  *      deferred credit (drawdowns fire at delivery — B9 Step 3b, recognition.ts), so a
  *      positive remaining balance is credit the cafe paid for but never drew down.
  *   2. Build per-tranche balances from the week's `topup` entries (each carries a
- *      `weeksCarried` age) and call the PURE `reconcileTranches` decision core (B3) to
- *      split them into `expire` vs `carry` per the subscription's rollover policy.
- *   3. For each expired tranche post an `expiry` ledger entry (negative). For each
- *      carried tranche post a carry-forward `topup` on the NEXT open week, tagged with
- *      `rolloverFromWeekId` so its age chains forward.
- *   4. On `shortfallFault === "frollie"`, flag `refundDue = leftover` +
- *      `refundStatus: "pending"` — FLAG ONLY, no payout mutation (I4).
+ *      `weeksCarried` age), then NET delivered drawdowns (and any other pool reductions)
+ *      against them FIFO oldest-first (`allocateLeftoverToTranches`, CR-A) so the surviving
+ *      tranche amounts SUM TO `leftover` — never the GROSS topup total.
+ *   3. Fault gate (CR-C):
+ *      - `frollie`: do NOT expire/carry/recognize. Post a `refund` (−leftover) on THIS week
+ *        so its pool replays to 0 (refund is NOT recognized revenue), and flag
+ *        `refundDue = leftover` + `refundStatus: "pending"` — FLAG ONLY, no payout (I4).
+ *      - `cafe`/`none`: call the PURE `reconcileTranches` decision core (B3) on the NETTED
+ *        tranches → split `expire` vs `carry` per the subscription's rollover policy.
+ *   4. For each expired tranche post an `expiry` ledger entry (negative, recognized as
+ *      breakage). For each carried tranche post BOTH a balancing `adjustment` (−amount,
+ *      NON-recognized) on the SOURCE week AND a carry-forward `topup` (+amount) on the NEXT
+ *      open week tagged `rolloverFromWeekId` — so total liability is CONSERVED (CR-B) and
+ *      age chains forward.
  *   5. Patch the week → `status: "reconciled"`, `shortfall: leftover`, `shortfallFault`.
  *
  * Deferred-revenue accounting at reconcile (user directive 2026-06-23):
- *   - cafe under-ordered → expiry = BREAKAGE → the expired amount is recognized as B2B
- *     Wholesale revenue (Frollie keeps the cash, earns it on forfeiture). The income
+ *   - cafe under-ordered → expiry = BREAKAGE → the NETTED expired amount is recognized as
+ *     B2B Wholesale revenue (Frollie keeps the cash, earns it on forfeiture). The income
  *     statement (incomeStatement.ts, B9b source) reads `expiry` ledger rows for this.
- *   - rollover → carry: deferred revenue stays a liability, no recognition.
- *   - frollie fault → refund: deferred revenue reversed, NO recognition (cash owed back).
+ *   - rollover → carry: deferred revenue stays a liability, no recognition; the source-week
+ *     `adjustment` and next-week `topup` net to zero across weeks (no double-booking).
+ *   - frollie fault → refund: deferred revenue reversed via `refund`, NO recognition (cash
+ *     owed back, not earned).
  *
  * Closed-week guard (C2): refuses if the week is already `closed` (or `reconciled`).
  * reconcileTranches is REUSED, never reimplemented — the FIFO/expiry decision lives in
@@ -31,7 +40,7 @@ import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { reconcileTranches } from "./reconcileMath";
+import { reconcileTranches, allocateLeftoverToTranches } from "./reconcileMath";
 import { deriveCreditPool } from "./creditMath";
 import { postLedgerEntry } from "./ledger";
 
@@ -144,17 +153,11 @@ export const reconcileWeek = protectedMutation({
     const leftover = pool.creditRemaining;
 
     // Build the tranche list with per-tranche ages (carried topups chain age forward).
+    // NOTE (M2/N3): there is NO throwaway priming call here. `buildTranchesFromLedger`
+    // only READS `sourceAgeByWeek` (never writes it), so a discarded first pass would be
+    // dead code. The map is populated by the `ageOfWeekTranches` loop below, then
+    // consumed once by `resolvedTranches`.
     const sourceAgeByWeek = new Map<string, number>();
-    // Initial pass to populate sourceAgeByWeek — result is superseded by resolvedTranches below.
-    buildTranchesFromLedger(
-      entries.map((e) => ({
-        type: e.type,
-        amount: e.amount,
-        rolloverFromWeekId: e.rolloverFromWeekId ?? null,
-      })),
-      args.subscriptionWeekId as string,
-      sourceAgeByWeek,
-    );
 
     // For carried topups, resolve the source week's surviving age so weeksCarried is
     // accurate (buildTranchesFromLedger fell back to age 1 when the source was unknown).
@@ -179,12 +182,10 @@ export const reconcileWeek = protectedMutation({
       sourceAgeByWeek,
     );
 
-    // PURE decision core (B3) — reused, not reimplemented.
-    const { expire, carry } = reconcileTranches({
-      tranches: resolvedTranches,
-      policy: sub.creditRolloverPolicy,
-      rolloverExpiryWeeks: sub.rolloverExpiryWeeks ?? null,
-    });
+    // CR-A: net delivered drawdowns (and any other pool reductions) against the topup
+    // tranches FIFO oldest-first so the per-tranche balances SUM TO `leftover` (the NET
+    // undelivered credit), never the GROSS topup total. Fully-delivered tranches drop.
+    const nettedTranches = allocateLeftoverToTranches(resolvedTranches, leftover);
 
     const base = {
       subscriptionId: week.subscriptionId,
@@ -192,47 +193,89 @@ export const reconcileWeek = protectedMutation({
       createdBy: ctx.user._id,
     };
 
-    // Expire: post a negative `expiry` entry per forfeited tranche. The income
-    // statement recognizes these as B2B Wholesale breakage revenue (B9b extension).
-    for (const e of expire) {
-      if (e.amount <= 0) continue;
-      await postLedgerEntry(ctx, {
-        ...base,
-        type: "expiry",
-        amount: -e.amount,
-        note: "Credit expired at reconcile (breakage)",
-      });
-    }
+    // Default outcome (overwritten per branch below).
+    let expire: { weekId: string; amount: number }[] = [];
+    let carry: { weekId: string; amount: number }[] = [];
+    let refundDue = 0;
 
-    // Carry: post a carry-forward `topup` onto the next open week, tagged with this
-    // week as the rollover source so its age chains forward next reconcile.
-    if (carry.length > 0) {
-      const nextWeek = await findNextOpenWeek(
-        ctx,
-        week.subscriptionId,
-        week.weekStart,
-      );
-      if (!nextWeek) {
-        throw new ConvexError(
-          "No open next week to carry credit into — seed the next week before reconciling",
-        );
-      }
-      for (const c of carry) {
-        if (c.amount <= 0) continue;
+    if (args.shortfallFault === "frollie") {
+      // CR-C: frollie-fault leftover is owed back as CASH — do NOT expire/carry/recognize.
+      // Reverse the leftover with a `refund` (−leftover) so THIS week's pool replays to 0.
+      // `refund` is NOT recognized as breakage revenue by incomeStatement (only `expiry`/
+      // `drawdown` are) — correct, since this is cash owed back, not earned. FLAG ONLY: we
+      // set refundDue + refundStatus:"pending" but post NO payout mutation (I4).
+      if (leftover > 0) {
         await postLedgerEntry(ctx, {
-          subscriptionId: week.subscriptionId,
-          subscriptionWeekId: nextWeek._id,
-          type: "topup",
-          amount: c.amount,
-          createdBy: ctx.user._id,
-          rolloverFromWeekId: args.subscriptionWeekId,
-          note: "Credit carried forward from prior week (rollover)",
+          ...base,
+          type: "refund",
+          amount: -leftover,
+          note: "Frollie-fault leftover reversed for refund (no recognition)",
         });
       }
-    }
+      refundDue = leftover;
+    } else {
+      // cafe / none: run the PURE decision core (B3) on the NETTED tranches — reused, not
+      // reimplemented.
+      const decision = reconcileTranches({
+        tranches: nettedTranches,
+        policy: sub.creditRolloverPolicy,
+        rolloverExpiryWeeks: sub.rolloverExpiryWeeks ?? null,
+      });
+      expire = decision.expire;
+      carry = decision.carry;
 
-    // Refund flag (I4): frollie-fault leftover is owed back. FLAG ONLY — no payout.
-    const refundDue = args.shortfallFault === "frollie" ? leftover : 0;
+      // Expire: post a negative `expiry` entry per forfeited tranche. The income
+      // statement recognizes these as B2B Wholesale breakage revenue (B9b extension).
+      // These are NETTED amounts (CR-A) — only the undelivered remainder is breakage.
+      for (const e of expire) {
+        if (e.amount <= 0) continue;
+        await postLedgerEntry(ctx, {
+          ...base,
+          type: "expiry",
+          amount: -e.amount,
+          note: "Credit expired at reconcile (breakage)",
+        });
+      }
+
+      // Carry (CR-B): liability must be CONSERVED. Post the carry-forward `topup` onto the
+      // next open week AND a balancing `adjustment` (−amount) on THIS (source) week. The
+      // adjustment reduces the source pool by the carried amount but is NOT recognized as
+      // breakage revenue (only `expiry` is) — without it the source week's pool would stay
+      // positive forever while the same money is also counted on the next week (double-book).
+      if (carry.length > 0) {
+        const nextWeek = await findNextOpenWeek(
+          ctx,
+          week.subscriptionId,
+          week.weekStart,
+        );
+        if (!nextWeek) {
+          throw new ConvexError(
+            "No open next week to carry credit into — seed the next week before reconciling",
+          );
+        }
+        for (const c of carry) {
+          if (c.amount <= 0) continue;
+          // Balancing entry on the SOURCE week (non-recognized) — conserves liability.
+          await postLedgerEntry(ctx, {
+            ...base,
+            type: "adjustment",
+            amount: -c.amount,
+            rolloverFromWeekId: nextWeek._id,
+            note: "Credit carried forward to next week (source-week balancing)",
+          });
+          // Carry-forward topup on the NEXT open week, tagged with this week as source.
+          await postLedgerEntry(ctx, {
+            subscriptionId: week.subscriptionId,
+            subscriptionWeekId: nextWeek._id,
+            type: "topup",
+            amount: c.amount,
+            createdBy: ctx.user._id,
+            rolloverFromWeekId: args.subscriptionWeekId,
+            note: "Credit carried forward from prior week (rollover)",
+          });
+        }
+      }
+    }
 
     await ctx.db.patch(week._id, {
       status: "reconciled",
