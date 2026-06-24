@@ -1,8 +1,11 @@
 import { query } from "../_generated/server";
+import { protectedQuery } from "../lib/functions";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { fetchOrdersWithItemsAndProduction } from "./helpers/batchFetching";
+import { stripSubscriptionPricing } from "./helpers/stripSubscriptionPricing";
+import { isSubscriptionOrder } from "../subscriptions/revenueGate";
 import {
   calculateBallStatsFromItems,
   calculateProductionStatsByType,
@@ -59,7 +62,13 @@ export const getOrderProductionRecords = query({
  * This query is retained for backward compatibility with multi-status category filters
  * (e.g., KitchenView, category tabs) where paginate() cannot be used with array filters.
  */
-export const list = query({
+export const list = protectedQuery({
+  // gap#2 (residual): ALL kanban/list-viewing roles (Pitfall #19 — omitting
+  // kitchen/order_staff crashes any list surface for them on mount). This list
+  // emitted subscription-order money (totalAmount/finalTotal/totalMargin/
+  // totalCost + per-item lineTotal/unitPrice/lineMargin) unstripped. Confidential
+  // partner pricing is now stripped server-side per order (D11: strip, don't hide).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {
     status: v.optional(v.union(
       v.literal("Draft"),
@@ -96,10 +105,12 @@ export const list = query({
         orders = orders.filter((o) => (args.status as string[]).includes(o.status));
         orders = orders.slice(0, limit);
       } else {
-        // Single status - use index
+        // Single status - use index. Narrowed past the Array.isArray guard, so
+        // args.status is a single status literal here.
+        const singleStatus = args.status;
         orders = await ctx.db
           .query("orders")
-          .withIndex("by_status", (q) => q.eq("status", args.status as any))
+          .withIndex("by_status", (q) => q.eq("status", singleStatus))
           .order("desc")
           .take(limit);
       }
@@ -134,9 +145,13 @@ export const list = query({
 
         const customer = await ctx.db.get(order.customerId);
 
+        // gap#2 (residual): strip confidential partner pricing for non-managers
+        // on subscription orders, PER ORDER (every element of the list).
+        const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+
         return {
-          ...order,
-          items,
+          ...stripped.order,
+          items: stripped.items,
           customer,
         };
       })
@@ -171,7 +186,11 @@ const orderStatusLiteral = v.union(
  * Returns denormalized fields (itemCount, totalAmount, customerName)
  * already on the orders table -- no per-order item fetch needed for list view.
  */
-export const listPaginated = query({
+export const listPaginated = protectedQuery({
+  // gap#2 (residual): ALL list-viewing roles (Pitfall #19). This emitted the
+  // denormalized subscription-order money (totalAmount/finalTotal/totalMargin/
+  // totalCost) unstripped. Stripped server-side per page element (D11).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {
     paginationOpts: paginationOptsValidator,
     status: v.optional(orderStatusLiteral),
@@ -192,10 +211,16 @@ export const listPaginated = query({
     // For list view, use denormalized fields already on orders table:
     // - order.itemCount, order.totalAmount, order.customerName, order.customerPhone
     // No additional queries needed -- avoids N+1 item fetches entirely.
-    const enrichedPage = paginatedResult.page.map((order) => ({
-      ...order,
-      customer: null,
-    }));
+    const enrichedPage = paginatedResult.page.map((order) => {
+      // gap#2 (residual): strip confidential partner pricing for non-managers on
+      // subscription orders, PER PAGE ELEMENT. No items are fetched for the list
+      // view, so the strip only nulls the order-level money fields.
+      const stripped = stripSubscriptionPricing(order, [], ctx.user.role);
+      return {
+        ...stripped.order,
+        customer: null,
+      };
+    });
 
     return { ...paginatedResult, page: enrichedPage };
   },
@@ -227,7 +252,11 @@ export const countOrders = query({
 /**
  * Get a single order with items and customer.
  */
-export const get = query({
+export const get = protectedQuery({
+  // gap#2: ALL kanban-viewing roles (Pitfall #19 — omitting kitchen/order_staff
+  // crashes the board for them on mount). Confidential subscription pricing is
+  // stripped server-side below for non-managers (D11: strip, don't hide).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: { id: v.id("orders") },
   handler: async (ctx, args): Promise<(OrderWithItems & { creatorName: string }) | null> => {
     const order = await ctx.db.get(args.id);
@@ -247,9 +276,12 @@ export const get = query({
       if (user) creatorName = user.name;
     }
 
+    // gap#2: strip confidential partner pricing for non-managers on subscription orders.
+    const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+
     return {
-      ...order,
-      items,
+      ...stripped.order,
+      items: stripped.items,
       customer,
       creatorName,
     };
@@ -259,7 +291,9 @@ export const get = query({
 /**
  * Get order by order number.
  */
-export const getByOrderNumber = query({
+export const getByOrderNumber = protectedQuery({
+  // gap#2: ALL kanban-viewing roles (Pitfall #19). Strip applied below.
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: { orderNumber: v.string() },
   handler: async (ctx, args): Promise<OrderWithItems | null> => {
     const order = await ctx.db
@@ -276,9 +310,12 @@ export const getByOrderNumber = query({
 
     const customer = await ctx.db.get(order.customerId);
 
+    // gap#2: strip confidential partner pricing for non-managers on subscription orders.
+    const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+
     return {
-      ...order,
-      items,
+      ...stripped.order,
+      items: stripped.items,
       customer,
     };
   },
@@ -293,7 +330,9 @@ export const getByOrderNumber = query({
  *
  * REFACTORED (Phase 2): Optimized to reduce queries from 6 + N + N*M to 3 total.
  */
-export const getKitchenOrders = query({
+export const getKitchenOrders = protectedQuery({
+  // gap#2: kitchen board roles (Pitfall #19). Strip applied per enriched order below.
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {},
   handler: async (ctx) => {
     // OPTIMIZED: Single indexed lookup for active kitchen-visible orders
@@ -330,8 +369,9 @@ export const getKitchenOrders = query({
       const orderData = orderDataMap.get(order._id);
       if (!orderData) {
         // Fallback for orders without items
+        const strippedOrder = stripSubscriptionPricing(order, [], ctx.user.role).order;
         return {
-          ...order,
+          ...strippedOrder,
           items: [] as Array<Doc<"orderItems"> & { productionRecords: Doc<"orderItemProduction">[] }>,
           bigBallsNeeded: 0,
           midBallsNeeded: 0,
@@ -354,9 +394,13 @@ export const getKitchenOrders = query({
         productionUnitTypes
       );
 
+      // gap#2: strip confidential partner pricing for non-managers on subscription
+      // orders. Production records / qty are preserved (kitchen needs them).
+      const stripped = stripSubscriptionPricing(order, itemsWithProduction, ctx.user.role);
+
       return {
-        ...order,
-        items: itemsWithProduction,
+        ...stripped.order,
+        items: stripped.items,
         bigBallsNeeded,
         midBallsNeeded,
         productionByType,
@@ -399,7 +443,11 @@ export const getOrderEvents = query({
 /**
  * Get orders by customer.
  */
-export const getByCustomer = query({
+export const getByCustomer = protectedQuery({
+  // gap#2 (residual): ALL order-viewing roles (Pitfall #19). Emitted per-order
+  // subscription money (totalAmount/finalTotal/totalMargin/totalCost) unstripped.
+  // Stripped server-side per order (D11: strip, don't hide).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: { customerId: v.id("customers") },
   handler: async (ctx, args) => {
     const orders = await ctx.db
@@ -408,7 +456,11 @@ export const getByCustomer = query({
       .order("desc")
       .collect();
 
-    return orders;
+    // gap#2 (residual): strip confidential partner pricing for non-managers on
+    // subscription orders, PER ORDER. No items fetched — strips order money only.
+    return orders.map(
+      (order) => stripSubscriptionPricing(order, [], ctx.user.role).order
+    );
   },
 });
 
@@ -416,15 +468,36 @@ export const getByCustomer = query({
  * Get product suggestions based on previous orders.
  * Returns unique product names with their last used price/cost.
  */
-export const getProductSuggestions = query({
+export const getProductSuggestions = protectedQuery({
+  // gap#2 (residual): order-creation surface (Pitfall #19). This aggregates
+  // per-item unitPrice/unitCost as "last used price" suggestions keyed by product
+  // name. Subscription order items carry the CONFIDENTIAL partner price in
+  // unitPrice, so for non-managers we must EXCLUDE items belonging to subscription
+  // orders from the suggestion pool (D11: strip server-side, don't leak).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 50;
+    const isManagerial = ctx.user.role === "manager" || ctx.user.role === "admin";
 
     // Get recent order items (bounded to avoid scanning entire history)
     const allItems = await ctx.db.query("orderItems").order("desc").take(500);
+
+    // gap#2 (residual): for non-managers, drop any item whose parent order is a
+    // subscription order so the confidential partner price never surfaces as a
+    // suggestion. Parent-order lookups are memoized to avoid duplicate reads.
+    const subscriptionOrderCache = new Map<string, boolean>();
+    const isSubscriptionItem = async (orderId: Id<"orders">) => {
+      const key = orderId.toString();
+      const cached = subscriptionOrderCache.get(key);
+      if (cached !== undefined) return cached;
+      const order = await ctx.db.get(orderId);
+      const result = order ? isSubscriptionOrder(order) : false;
+      subscriptionOrderCache.set(key, result);
+      return result;
+    };
 
     // Group by product name + variant, keep latest
     const suggestions = new Map<
@@ -441,6 +514,9 @@ export const getProductSuggestions = query({
     for (const item of allItems) {
       const key = `${item.productName}|${item.productVariant ?? ""}`;
       if (!suggestions.has(key)) {
+        if (!isManagerial && (await isSubscriptionItem(item.orderId))) {
+          continue;
+        }
         suggestions.set(key, {
           productName: item.productName,
           productVariant: item.productVariant,
@@ -590,7 +666,12 @@ export const getKitchenStats = query({
  * Get orders ready for packaging (ProductionComplete status).
  * PRD-5: For packaging view - shows orders that need to be packed.
  */
-export const getPackagingOrders = query({
+export const getPackagingOrders = protectedQuery({
+  // gap#2 (residual): packaging surface is reachable by ALL roles
+  // (canAccessPackaging — Pitfall #19). It returned full orders + items with
+  // subscription money (totalAmount/finalTotal/totalMargin/totalCost +
+  // lineTotal/unitPrice/lineMargin) unstripped. Stripped server-side per order (D11).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {},
   handler: async (ctx) => {
     // Phase 14: Get BeingPrepared orders (replaces ProductionComplete)
@@ -648,9 +729,14 @@ export const getPackagingOrders = query({
           })
         );
 
+        // gap#2 (residual): strip confidential partner pricing for non-managers on
+        // subscription orders, PER ORDER. menuProduct/productionComponents on each
+        // item are preserved (packaging needs them); only the money fields are nulled.
+        const stripped = stripSubscriptionPricing(order, enrichedItems, ctx.user.role);
+
         return {
-          ...order,
-          items: enrichedItems,
+          ...stripped.order,
+          items: stripped.items,
         };
       })
     );
@@ -785,7 +871,12 @@ export const getTrayInventory = query({
   },
 });
 
-export const getCompletedToday = query({
+export const getCompletedToday = protectedQuery({
+  // gap#2 (residual): KITCHEN surface (Pitfall #19 — omitting kitchen/order_staff
+  // crashes the kitchen history view for them on mount). Emitted subscription-order
+  // money (order totals + per-item lineTotal/unitPrice/lineMargin) unstripped.
+  // Stripped server-side per order (D11: strip, don't hide).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {},
   handler: async (ctx) => {
     // Get midnight today
@@ -838,9 +929,13 @@ export const getCompletedToday = query({
       // Calculate ball counts from orderItemProduction records
       const { bigBalls, midBalls } = calculateOrderBallCounts(items, productionByItem);
 
+      // gap#2 (residual): strip confidential partner pricing for non-managers on
+      // subscription orders, PER ORDER. Ball counts / qty preserved (kitchen needs them).
+      const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+
       return {
-        ...order,
-        items,
+        ...stripped.order,
+        items: stripped.items,
         customer,
         bigBalls,
         midBalls,
@@ -863,7 +958,13 @@ export const getCompletedToday = query({
  *
  * Phase 14: Core query powering the Kanban UI (Plan 04).
  */
-export const listForKanban = query({
+export const listForKanban = protectedQuery({
+  // CR-D: ALL kanban-viewing roles (Pitfall #19 — omitting kitchen/order_staff
+  // crashes the board for them on mount). This is the PRIMARY kanban board query;
+  // it emitted subscription-order money (totalAmount/finalTotal/totalMargin/
+  // totalCost + per-item lineTotal) unstripped to kitchen/order_staff. Confidential
+  // partner pricing is now stripped server-side per card (D11: strip, don't hide).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {},
   handler: async (ctx) => {
     const result: Record<string, KanbanOrderCard[]> = {};
@@ -895,7 +996,11 @@ export const listForKanban = query({
             if (user) creatorName = user.name;
           }
 
-          return buildKanbanCard(order, items, creatorName);
+          // CR-D: strip confidential partner pricing BEFORE building the card so
+          // the card inherits the nulled money fields (non-managers on subscription
+          // orders). buildKanbanCard copies order.totalAmount/etc + item.lineTotal.
+          const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+          return buildKanbanCard(stripped.order, stripped.items, creatorName);
         })
       );
 

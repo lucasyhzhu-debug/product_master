@@ -439,10 +439,12 @@ export interface OrderItem {
   product_name: string;
   product_variant: string | null;
   quantity: number;
-  unit_price: number;
+  // gap#2: unit_price / line_total are stripped server-side (→ undefined) for
+  // non-managers on subscription orders. UI must render "—" when absent.
+  unit_price: number | undefined;
   unit_cost: number;
   discount_amount: number;
-  line_total: number;
+  line_total: number | undefined;
   line_cost: number;
   line_margin: number;
   created_at: string;
@@ -476,9 +478,12 @@ export interface OrderSummary {
   channel: string | null;
   sold_by: string | null;
   due_date: string | null;
-  total_amount: number;
-  total_cost: number;
-  total_margin: number;
+  // gap#2 (residual): money fields are stripped to undefined for non-managers on
+  // subscription orders (D11: strip server-side, don't hide). Optional here so
+  // list/summary surfaces can render "—" / guard when undefined.
+  total_amount?: number;
+  total_cost?: number;
+  total_margin?: number;
   total_discount: number;
   item_count: number;
   delivery_type?: string | null;
@@ -498,9 +503,11 @@ export interface OrderDetail {
   payment_method: string | null;
   order_date: string;
   due_date: string | null;
-  total_amount: number;
-  total_cost: number;
-  total_margin: number;
+  // gap#2: total_amount / total_cost / total_margin / final_total are stripped
+  // server-side (→ undefined) for non-managers on subscription orders.
+  total_amount: number | undefined;
+  total_cost: number | undefined;
+  total_margin: number | undefined;
   total_discount: number;
   margin_pct: number | null;
   // Voucher tracking
@@ -521,6 +528,9 @@ export interface OrderDetail {
   cancellation_reason: string | null;
   created_at: string;
   created_by: string;
+  // Phase B (gap#2 / Pitfall #20): subscription linkage for read-only kanban rendering.
+  subscription_id: string | null;
+  customer_id_raw: string | null; // raw Convex customer id for scheduler deep-link
   items: OrderItem[];
   // WhatsApp templates for different stages
   whatsapp_text: string;
@@ -730,6 +740,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
   canAccessInvoices: boolean;  // Invoice generation (manager + admin)
   canAccessAssets: boolean;  // Asset Register (manager + admin)
   canAccessTelegramChats: boolean;  // Phase 85: Telegram chats registry (manager + admin)
+  canAccessCrm: boolean;  // Phase B: CRM / subscription schedule calendar (manager + admin)
 }> = {
   kitchen: {
     canAccessDashboard: false,
@@ -754,6 +765,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: false,
     canAccessAssets: false,
     canAccessTelegramChats: false,
+    canAccessCrm: false,
   },
   order_staff: {
     canAccessDashboard: false,
@@ -778,6 +790,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: false,
     canAccessAssets: false,
     canAccessTelegramChats: false,
+    canAccessCrm: false,
   },
   manager: {
     canAccessDashboard: true,
@@ -802,6 +815,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: true,
     canAccessAssets: true,
     canAccessTelegramChats: true,
+    canAccessCrm: true,
   },
   admin: {
     canAccessDashboard: true,
@@ -826,6 +840,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, {
     canAccessInvoices: true,
     canAccessAssets: true,
     canAccessTelegramChats: true,
+    canAccessCrm: true,
   },
 };
 

@@ -2588,6 +2588,117 @@ In-person QRIS charging via Xendit. Files: `convex/qrisPayments/{actions,mutatio
 
 Match priority: globally-unique `xenditQrId` (indexed) first, then active row by `externalId`. Payment detection is webhook-only (no polling).
 
+### Subscriptions & CRM (Phase B — weekly cycle, 2026-06-24)
+
+All functions require `token: v.string()` and `protectedQuery`/`protectedMutation` from `convex/lib/functions`. All roles: **manager + admin** unless noted.
+
+#### Scheduling queries (`convex/subscriptions/scheduling/queries.ts`)
+
+```typescript
+subscriptions.scheduling.queries.getPlanningWeek({ subscriptionId, weekStart })
+  // Returns { week: subscriptionWeeks | null, subscription } for the given ISO week.
+
+subscriptions.scheduling.queries.listWeeks({ subscriptionId })
+  // All weeks for a subscription, most-recent first (bounded by subscriptionId index).
+
+subscriptions.scheduling.queries.getFundingDashboard()
+  // Weeks in "invoiced" + "confirmed" status enriched with subscriptionLabel + customerName.
+  // Returns: Array<{ week, subscriptionId, subscriptionLabel, customerId, customerName }>
+```
+
+#### Week mutations (`convex/subscriptions/weeks.ts`)
+
+```typescript
+subscriptions.weeks.seedWeek({ subscriptionId, weekStart, source? })
+  // Idempotent: creates the subscriptionWeeks row if absent.
+  // source: "template" (default) | "previousWeek" | "blank"
+
+subscriptions.weeks.saveWeekPlan({ subscriptionWeekId, days })
+  // Persists calendar edits. Guard: week.status must be "planned".
+  // days: Array<{ date: number, items: Array<{ menuProductId, qty }> }>
+```
+
+#### Confirm week (`convex/subscriptions/scheduling/confirmWeek.ts`)
+
+```typescript
+subscriptions.scheduling.confirmWeek.confirmWeek({ subscriptionWeekId })
+  // Generates one order per planned day (at partner price), flips week planned → confirmed.
+  // Idempotent: refuses if week.status !== "planned".
+```
+
+#### Invoicing (`convex/subscriptions/invoicing.ts`)
+
+```typescript
+subscriptions.invoicing.createSubscriptionWeeklyInvoice({ subscriptionWeekId })
+  // Builds a "subscription_weekly" invoice; invoiceNumber = bank-transfer reference.
+  // Idempotent: returns existing weeklyInvoiceId if already created.
+
+subscriptions.invoicing.markWeeklyInvoicePaid({ subscriptionWeekId })
+  // Cash event: funds deferred-revenue pool (topup ledger entry), transitions orders
+  // AwaitingPayment → PaymentReceived (paid from credit), week → "delivering".
+  // Idempotent via creditLedger.by_invoice.
+
+subscriptions.invoicing.createTopupInvoice({ subscriptionWeekId, addedLines })
+  // Builds a "subscription_topup" invoice for mid-week delta lines.
+  // addedLines: Array<{ productName, qty, unitPrice, lineTotal }>
+
+subscriptions.invoicing.markTopupInvoicePaid({ invoiceId })
+  // Cash event for a topup invoice: additional topup ledger entry on the week's pool.
+```
+
+#### Reconcile (`convex/subscriptions/reconcile.ts`)
+
+```typescript
+subscriptions.reconcile.reconcileWeek({ subscriptionWeekId, shortfallFault })
+  // Per-tranche FIFO rollover/expiry/carry at week-end.
+  // shortfallFault: "none" | "cafe" | "frollie"
+  // Expired credit → expiry ledger entries (recognized as B2B Wholesale breakage in P&L).
+  // Carried credit → topup on next open week tagged with rolloverFromWeekId.
+  // frollie-fault → sets refundDue (FLAG ONLY — no payout mutation).
+  // Closed-week guard: refuses if status === "closed" or "reconciled".
+  // Returns: { weekId, leftover, expired, carried, refundDue }
+```
+
+#### Out-of-credit (`convex/subscriptions/outOfCredit.ts`)
+
+```typescript
+subscriptions.outOfCredit.splitScheduledOrderOnCredit({ orderId })
+  // Path A: splits a single-item scheduled order when credit is insufficient.
+  // Covered qty stays on credit drawdown; uncovered remainder → subscription_topup invoice.
+  // Returns: { coveredOrderId, topupInvoiceId | null, drawdownAmount }
+
+subscriptions.outOfCredit.applyPartialCreditToAdHocOrder({ orderId })
+  // Path B: applies min(remainingCredit, orderTotal) as a drawdown on an ad-hoc order.
+  // Order stays AwaitingPayment; remainder collected via QRIS/bank.
+  // Returns: { coveredAmount, remainderAmount }
+```
+
+#### Pure cores (internal, no ctx — unit-tested)
+
+| File | Exports |
+|------|---------|
+| `convex/subscriptions/reconcileMath.ts` | `reconcileTranches({ tranches, policy, rolloverExpiryWeeks })` |
+| `convex/subscriptions/weekBounds.ts` | `computeWeekBounds(weekStart)`, `isAlignedWeekStart(ts)` |
+| `convex/subscriptions/scheduleLine.ts` | `makeScheduleLine(...)`, `validateScheduleTemplate(...)` |
+| `convex/subscriptions/revenueGate.ts` | `isSubscriptionOrder(order)` |
+
+#### Shared order helpers added
+
+| File | Export | Purpose |
+|------|--------|---------|
+| `convex/orders/helpers/insertOrder.ts` | `insertOrderWithItems({ orderFields, items })` | Shared typed write path (orders + orderItems + production records). Used by `confirmWeek`. |
+| `convex/orders/helpers/stripSubscriptionPricing.ts` | `stripSubscriptionPricing(order, items, role)` | Strips 6 confidential money fields from subscription orders for non-manager callers (D11). |
+
+#### Frontend CRM routes (`src/App.tsx`)
+
+| Route | Component | Permission |
+|-------|-----------|------------|
+| `/crm/customers/:cid/subscriptions/:subId/week` | `SubscriptionSchedulePage` | `canAccessCrm` (manager+admin) |
+| `/crm/customers/:cid/subscriptions/:subId/week/invoice` | `SubscriptionWeeklyInvoicePage` | `canAccessCrm` |
+| `/crm/funding` | `CrmFundingDashboardPage` | `canAccessCrm` |
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |

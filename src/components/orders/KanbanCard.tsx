@@ -21,7 +21,8 @@ export interface KanbanOrderItem {
   productName: string;
   productVariant?: string;
   quantity: number;
-  lineTotal: number;
+  // CR-D: stripped (undefined) for non-managers on subscription orders.
+  lineTotal?: number;
 }
 
 export interface KanbanOrder {
@@ -31,9 +32,11 @@ export interface KanbanOrder {
   customerPhone?: string;
   status: string;
   dueDate?: number;
-  totalAmount: number;
-  totalCost: number;
-  totalMargin: number;
+  // CR-D: money fields are stripped (undefined) for non-managers on subscription
+  // orders (server-side strip). Card renders "—" when undefined.
+  totalAmount?: number;
+  totalCost?: number;
+  totalMargin?: number;
   orderLevelDiscount?: number;
   orderLevelDiscountType?: 'amount' | 'percentage';
   voucherDiscountValue?: number;
@@ -111,15 +114,21 @@ export function KanbanCard({
     highlightClass = 'ring-1 ring-amber-300';
   }
 
+  // CR-D: money may be stripped (undefined) for non-managers on subscription
+  // orders. When stripped, skip discount math and render "—" for the total.
+  const moneyStripped = order.totalAmount === undefined && order.finalTotal === undefined;
+
   // Calculate discount (order-level + voucher)
-  const orderDiscount = order.orderLevelDiscount && order.orderLevelDiscountType
+  const orderDiscount = order.orderLevelDiscount && order.orderLevelDiscountType && order.totalAmount !== undefined
     ? order.orderLevelDiscountType === 'percentage'
       ? order.totalAmount * (order.orderLevelDiscount / 100)
       : order.orderLevelDiscount
     : 0;
   const voucherDiscount = order.voucherDiscountValue ?? 0;
-  const discount = orderDiscount + voucherDiscount;
-  const discountedTotal = order.finalTotal ?? (order.totalAmount - discount);
+  const discount = moneyStripped ? 0 : orderDiscount + voucherDiscount;
+  const discountedTotal = moneyStripped
+    ? undefined
+    : order.finalTotal ?? ((order.totalAmount ?? 0) - discount);
 
   // Format due date
   const dueDateStr = order.dueDate

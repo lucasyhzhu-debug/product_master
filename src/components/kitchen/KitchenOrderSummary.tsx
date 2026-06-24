@@ -7,7 +7,7 @@
  * Shows order notes below items when present (Gap 11).
  */
 
-import { useQuery } from "convex/react";
+import { useSessionQuery } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 
@@ -39,7 +39,8 @@ const STATUS_COLUMNS = [
 ] as const;
 
 export function KitchenOrderSummary() {
-  const kanban = useQuery(api.orders.queries.listForKanban);
+  // CR-D: listForKanban is a protectedQuery — subscribe with a session.
+  const kanban = useSessionQuery(api.orders.queries.listForKanban, {});
 
   if (kanban === undefined) {
     return (

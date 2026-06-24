@@ -24,7 +24,9 @@ export interface CancellationImpact {
   itemCount: number;
   productionUnitsAffected: number;
   hasProductionStarted: boolean;
-  totalAmount: number;
+  // IMP-6: undefined when the order total is stripped (non-manager on a
+  // subscription order). formatCurrency renders "—" for undefined.
+  totalAmount?: number;
 }
 
 interface EnhancedCancellationDialogProps {
@@ -142,7 +144,9 @@ function CategoryStep({
 
 // Step 2: Impact Review
 function ImpactStep({ impact }: { impact: CancellationImpact }) {
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined) => {
+    // IMP-6: stripped total renders "—" (em-dash), not "IDR 0".
+    if (amount == null) return '—';
     return `IDR ${amount.toLocaleString('id-ID')}`;
   };
 

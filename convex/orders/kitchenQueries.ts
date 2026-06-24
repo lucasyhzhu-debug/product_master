@@ -1,4 +1,4 @@
-import { query } from "../_generated/server";
+import { protectedQuery } from "../lib/functions";
 import type { Id } from "../_generated/dataModel";
 import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
 
@@ -8,7 +8,13 @@ import { aggregateForProduct, getResetsMap } from "../productionLog/helpers";
  * - Product line items with needed qty and pack status
  * - Packaging materials (consumptionStage="none") for each order
  */
-export const getKitchenPackingOrders = query({
+export const getKitchenPackingOrders = protectedQuery({
+  // gap#2: kitchen board roles (Pitfall #19 — kitchen/order_staff must be able to
+  // call this or the packing board crashes for them on mount). The returned shape
+  // (productItems = name/qty/packStatus, packagingMaterials) carries NO money
+  // fields, so no pricing strip is needed here — converting the auth wrapper is
+  // what keeps it callable by non-managers.
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {},
   handler: async (ctx) => {
     // Get orders in packable statuses (Phase 14: simplified)

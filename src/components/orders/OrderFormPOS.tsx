@@ -160,9 +160,12 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
         productName: item.product_name,
         grams: matchedProduct?.grams ?? 0,
         quantity: item.quantity,
-        unitPrice: item.unit_price,
+        // gap#2: unit_price/line_total are number|undefined (stripped for non-managers
+        // on subscription orders). This edit path only handles normal orders, where
+        // the values are always present — coalesce to satisfy the OrderLineItem shape.
+        unitPrice: item.unit_price ?? 0,
         unitCost: item.unit_cost || 0,
-        lineTotal: item.line_total,
+        lineTotal: item.line_total ?? 0,
       };
     });
     setItems(orderItems);

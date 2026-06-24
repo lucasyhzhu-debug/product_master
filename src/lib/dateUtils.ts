@@ -116,6 +116,27 @@ export function strictWibDateStrToUtcMs(dateStr: string): number {
   return utcMs - WIB_OFFSET_MS;
 }
 
+/**
+ * Format a Monday epoch-ms as "DD MMM – DD MMM YYYY" (en-GB, Asia/Jakarta tz).
+ *
+ * Single source of truth for subscription week range labels. Replaces the
+ * identical local copies in SubscriptionSchedulePage, SubscriptionWeeklyInvoicePage,
+ * and CrmFundingDashboardPage.
+ */
+export function formatSubscriptionWeekLabel(weekStartMs: number): string {
+  const DAY_MS = 86_400_000;
+  const monDate = new Date(weekStartMs);
+  const sunDate = new Date(weekStartMs + 6 * DAY_MS);
+  const opts: Intl.DateTimeFormatOptions = {
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  };
+  const mon = monDate.toLocaleDateString("en-GB", opts);
+  const sun = sunDate.toLocaleDateString("en-GB", { ...opts, year: "numeric" });
+  return `${mon} – ${sun}`;
+}
+
 /** Format as Indonesian locale date string (e.g. "6 Mar 2026") */
 export function formatDateId(utcMs: number): string {
   return new Date(utcMs).toLocaleDateString("id-ID", {

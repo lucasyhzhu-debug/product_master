@@ -3,6 +3,7 @@
  * Combines multiple kitchen-related queries into a single interface.
  */
 import { useQuery } from "convex/react";
+import { useSessionQuery } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 
 // ============================================
@@ -165,7 +166,8 @@ export function useKitchenProduction(): KitchenProductionData {
 
   // INFRA-03: Production counts now derived from productionLog aggregation
   const productionCounts = useQuery(api.productionLog.queries.getAggregatedCounts, {});
-  const packingOrders = useQuery(
+  // gap#2: getKitchenPackingOrders is now a protectedQuery — supply the session.
+  const packingOrders = useSessionQuery(
     api.orders.kitchenQueries.getKitchenPackingOrders,
     {}
   );

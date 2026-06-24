@@ -7,6 +7,17 @@ vi.mock('convex/react', () => ({
   useMutation: vi.fn(() => vi.fn()),
 }));
 
+// gap#2: useOrder / useOrderByNumber / useKitchenOrders now use useSessionQuery
+// (protectedQuery — server strips confidential subscription pricing).
+// gap#2 (residual): useOrders / useOrdersPaginated / useOrdersByCustomer /
+// useProductSuggestions / useCompletedToday also moved to useSessionQuery for
+// the same reason (list/listPaginated/getByCustomer/getProductSuggestions/
+// getCompletedToday are now protectedQueries).
+vi.mock('convex-helpers/react/sessions', () => ({
+  useSessionQuery: vi.fn(),
+  useSessionMutation: vi.fn(() => vi.fn()),
+}));
+
 // Mock sonner toast
 vi.mock('sonner', () => ({
   toast: {
@@ -50,7 +61,8 @@ vi.mock('../../../convex/_generated/api', () => ({
   },
 }));
 
-import { useQuery, useMutation } from 'convex/react';
+import { useMutation } from 'convex/react';
+import { useSessionQuery } from 'convex-helpers/react/sessions';
 import {
   useOrders,
   useOrder,
@@ -60,7 +72,7 @@ import {
 } from '../convex/useOrders';
 import type { Id } from '../../../convex/_generated/dataModel';
 
-const mockUseQuery = vi.mocked(useQuery);
+const mockUseSessionQuery = vi.mocked(useSessionQuery);
 const mockUseMutation = vi.mocked(useMutation);
 
 describe('useOrders hooks', () => {
@@ -69,8 +81,10 @@ describe('useOrders hooks', () => {
   });
 
   describe('useOrders', () => {
+    // gap#2 (residual): `list` is now a protectedQuery, so useOrders subscribes
+    // via useSessionQuery (not useQuery).
     it('returns isLoading true while data is undefined', () => {
-      mockUseQuery.mockReturnValue(undefined);
+      mockUseSessionQuery.mockReturnValue(undefined);
 
       const { result } = renderHook(() => useOrders());
 
@@ -95,7 +109,7 @@ describe('useOrders hooks', () => {
           itemCount: 2,
         },
       ];
-      mockUseQuery.mockReturnValue(mockOrders);
+      mockUseSessionQuery.mockReturnValue(mockOrders);
 
       const { result } = renderHook(() => useOrders());
 
@@ -106,7 +120,7 @@ describe('useOrders hooks', () => {
     });
 
     it('handles empty orders list', () => {
-      mockUseQuery.mockReturnValue([]);
+      mockUseSessionQuery.mockReturnValue([]);
 
       const { result } = renderHook(() => useOrders());
 
@@ -115,18 +129,18 @@ describe('useOrders hooks', () => {
     });
 
     it('passes filter parameters to query', () => {
-      mockUseQuery.mockReturnValue([]);
+      mockUseSessionQuery.mockReturnValue([]);
       const filters = { status: 'Draft', limit: 10 };
 
       renderHook(() => useOrders(filters));
 
-      expect(mockUseQuery).toHaveBeenCalledWith('orders.queries.list', filters);
+      expect(mockUseSessionQuery).toHaveBeenCalledWith('orders.queries.list', filters);
     });
   });
 
   describe('useOrder', () => {
     it('returns isLoading true when id is provided but data is undefined', () => {
-      mockUseQuery.mockReturnValue(undefined);
+      mockUseSessionQuery.mockReturnValue(undefined);
       const orderId = 'order123' as Id<'orders'>;
 
       const { result } = renderHook(() => useOrder(orderId));
@@ -136,7 +150,7 @@ describe('useOrders hooks', () => {
     });
 
     it('returns null when order not found', () => {
-      mockUseQuery.mockReturnValue(null);
+      mockUseSessionQuery.mockReturnValue(null);
       const orderId = 'order123' as Id<'orders'>;
 
       const { result } = renderHook(() => useOrder(orderId));
@@ -146,11 +160,11 @@ describe('useOrders hooks', () => {
     });
 
     it('skips query when id is undefined', () => {
-      mockUseQuery.mockReturnValue(undefined);
+      mockUseSessionQuery.mockReturnValue(undefined);
 
       renderHook(() => useOrder(undefined));
 
-      expect(mockUseQuery).toHaveBeenCalledWith('orders.queries.get', 'skip');
+      expect(mockUseSessionQuery).toHaveBeenCalledWith('orders.queries.get', 'skip');
     });
   });
 
@@ -172,7 +186,7 @@ describe('useOrders hooks', () => {
           itemCount: 5,
         },
       ];
-      mockUseQuery.mockReturnValue(mockOrders);
+      mockUseSessionQuery.mockReturnValue(mockOrders);
 
       const { result } = renderHook(() => useKitchenOrders());
 

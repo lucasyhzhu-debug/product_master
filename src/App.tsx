@@ -176,6 +176,19 @@ const TelegramChatsManager = lazyWithPreload(() =>
   import('./pages/TelegramChatsManager').then(m => ({ default: m.TelegramChatsManager }))
 );
 
+// Phase B (Subscriptions): /crm/customers/:customerId/subscriptions/:subId/week
+const SubscriptionSchedulePage = lazyWithPreload(() =>
+  import('./pages/crm/SubscriptionSchedulePage').then(m => ({ default: m.SubscriptionSchedulePage }))
+);
+// Phase B (Subscriptions): /crm/customers/:customerId/subscriptions/:subId/week/invoice
+const SubscriptionWeeklyInvoicePage = lazyWithPreload(() =>
+  import('./pages/crm/SubscriptionWeeklyInvoicePage').then(m => ({ default: m.SubscriptionWeeklyInvoicePage }))
+);
+// Phase B (Subscriptions): /crm/funding — operator funding dashboard
+const CrmFundingDashboardPage = lazyWithPreload(() =>
+  import('./pages/crm/CrmFundingDashboardPage').then(m => ({ default: m.CrmFundingDashboardPage }))
+);
+
 function App() {
   return (
     <TooltipProvider>
@@ -703,6 +716,34 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessDashboard">
                         <GrabFoodMenuSimulator />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Phase B (Subscriptions) — CRM schedule calendar (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/subscriptions/:subId/week"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <SubscriptionSchedulePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase B (Subscriptions) — Weekly invoice page (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/subscriptions/:subId/week/invoice"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <SubscriptionWeeklyInvoicePage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase B (Subscriptions) — Funding dashboard (manager + admin) */}
+                  <Route
+                    path="crm/funding"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <CrmFundingDashboardPage />
                       </ProtectedRoute>
                     }
                   />

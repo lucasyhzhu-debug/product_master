@@ -2183,11 +2183,13 @@ export default defineSchema({
     jeDebitAccountId: v.optional(v.id("accounts")),
     jeCreditAccountId: v.optional(v.id("accounts")),
     // Polymorphic record linkage (D-02)
+    // Phase B (gap#1): "subscriptionWeeklyInvoice" → invoices (subscription weekly).
     matchedType: v.optional(v.union(
       v.literal("expense"),
       v.literal("revenue"),
       v.literal("reimbursement"),
       v.literal("payroll"),
+      v.literal("subscriptionWeeklyInvoice"),
     )),
     matchedId: v.optional(v.string()),                 // stringified Convex Id; polymorphic (D-02)
     // Revenue attribution (D-23)

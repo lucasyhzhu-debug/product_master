@@ -268,7 +268,7 @@ export function useRevenueGap(
 // Phase 73 — Reconciliation mutations (manager + admin per D-23)
 // ---------------------------------------------------------------------------
 
-export type MatchedType = "expense" | "revenue" | "reimbursement" | "payroll";
+export type MatchedType = "expense" | "revenue" | "reimbursement" | "payroll" | "subscriptionWeeklyInvoice";
 
 /** Link a bank line to an expense / revenue / reimbursement / payroll record. */
 export function useManualMatch() {

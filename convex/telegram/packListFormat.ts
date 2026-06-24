@@ -51,7 +51,10 @@ function formatDaysLate(n: number): string {
 
 // Indonesian thousands separator is ".", e.g. 150000 → "Rp 150.000". Precise (not
 // abbreviated like salesSummary) because this is an actionable amount-owed for chasing.
-function formatIdr(n: number): string {
+function formatIdr(n: number | undefined): string {
+  // KanbanOrderCard money fields are optional (stripped for non-managers on
+  // subscription orders). Pack-list cards are never stripped, but guard anyway.
+  if (n === undefined) return "—";
   return "Rp " + Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 

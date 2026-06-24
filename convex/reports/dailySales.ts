@@ -1,4 +1,5 @@
 import { query } from "../_generated/server";
+import { isSubscriptionOrder } from "../subscriptions/revenueGate";
 
 /**
  * Daily sales summary report.
@@ -10,8 +11,9 @@ export const getDailySalesSummary = query({
   handler: async (ctx) => {
     // Fetch all orders (excluding Draft and Cancelled)
     const allOrders = await ctx.db.query("orders").collect();
+    // C1: subscription orders excluded from channel revenue — see isSubscriptionOrder
     const validOrders = allOrders.filter(
-      (o) => o.status !== "Draft" && o.status !== "Cancelled"
+      (o) => o.status !== "Draft" && o.status !== "Cancelled" && !isSubscriptionOrder(o)
     );
 
     // Build order map for fast lookup (id -> { date, channel })

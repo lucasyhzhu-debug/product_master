@@ -38,9 +38,10 @@ export function formatOrderItem(item: {
   product_name: string;
   product_variant: string | null;
   quantity: number;
-  unit_price: number;
+  // gap#2: stripped to undefined for non-managers on subscription orders.
+  unit_price: number | undefined;
 }): string {
-  const priceK = item.unit_price / 1000;
+  const priceK = (item.unit_price ?? 0) / 1000;
   let desc = item.product_name;
   if (item.product_variant) {
     desc += ` (${item.product_variant})`;
@@ -284,7 +285,7 @@ export function generateTemplate(
     '{customer_name}': order.customer_name || 'Customer',
     '{order_number}': order.order_number || '',
     '{items_list}': formatOrderItemsList(order.items),
-    '{total_amount}': formatCurrency(order.total_amount),
+    '{total_amount}': formatCurrency(order.total_amount ?? 0),
     '{delivery_info}': deliveryInfo,
     '{due_date_line}': dueDateLine,
     '{shipping_agency}': order.shipping_agency || '-',

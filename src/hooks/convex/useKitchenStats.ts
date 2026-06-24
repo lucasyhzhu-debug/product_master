@@ -4,6 +4,7 @@
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
 import { useQuery, useMutation } from "convex/react";
+import { useSessionQuery } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -216,7 +217,8 @@ export function useKitchenStats() {
  * PRD-1: For production queue display.
  */
 export function useKitchenOrdersWithBalls() {
-  const data = useQuery(api.orders.queries.getKitchenOrders, {});
+  // gap#2: getKitchenOrders is now a protectedQuery — supply the session.
+  const data = useSessionQuery(api.orders.queries.getKitchenOrders, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
     data: (data as ConvexKitchenOrder[]).map(transformOrderToKitchenOrder),
@@ -229,7 +231,9 @@ export function useKitchenOrdersWithBalls() {
  * PRD-1: For kitchen view history.
  */
 export function useCompletedToday() {
-  const data = useQuery(api.orders.queries.getCompletedToday, {});
+  // gap#2 (residual): getCompletedToday is now a protectedQuery (server strips
+  // confidential subscription pricing for non-managers) — supply the session.
+  const data = useSessionQuery(api.orders.queries.getCompletedToday, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
     data: (data as ConvexCompletedOrder[]).map(transformOrderToKitchenOrder),

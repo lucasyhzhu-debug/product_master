@@ -26,8 +26,15 @@ import { similarityScore } from "../lib/fuzzyMatch";
 
 export type BankKeywordRule = Doc<"bankKeywordRules">;
 
-/** Polymorphic link target for bankStatementLines.matchedType (schema D-02). */
-export type BankMatchedType = "expense" | "revenue" | "reimbursement" | "payroll";
+/** Polymorphic link target for bankStatementLines.matchedType (schema D-02).
+ *  Phase B (gap#1): "subscriptionWeeklyInvoice" links a credit line to an unpaid
+ *  subscription weekly invoice (the customer's Monday transfer reference). */
+export type BankMatchedType =
+  | "expense"
+  | "revenue"
+  | "reimbursement"
+  | "payroll"
+  | "subscriptionWeeklyInvoice";
 
 export interface ClassifyContext {
   rawDescription: string;
@@ -45,6 +52,10 @@ export type LinkageResult = {
   matchedType: BankMatchedType;
   matchedId: string;
   fuzzyScore: number;
+  // Phase B (gap#1): surfaced only for subscriptionWeeklyInvoice matches so the
+  // operator sees WHICH week's credit a transfer funds.
+  invoiceNumber?: string;
+  subscriptionWeekId?: string;
 };
 
 /**
@@ -78,6 +89,37 @@ const FUZZY_MATCH_THRESHOLD = 0.8;
 const EXPENSE_DATE_WINDOW_DAYS = 3;
 const PAYROLL_DATE_WINDOW_DAYS = 14;
 const DAY_MS = 24 * 3600 * 1000;
+
+// ---------------------------------------------------------------------------
+// Reference (invoiceNumber) token match — gap#1 hardening (IMP-7 / M1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if `invoiceNumber` appears as a WHOLE TOKEN in `description`,
+ * not merely as a substring.
+ *
+ * The naive `description.includes(invoiceNumber)` false-positives because a
+ * shorter invoiceNumber is a substring of a longer one that shares its prefix:
+ * `INV-2606-1` is a substring of `INV-2606-10`, so a transfer memo referencing
+ * INV-2606-10 would wrongly match invoice INV-2606-1.
+ *
+ * Fix: require that the character immediately before and after the match is NOT
+ * a token-continuation character (alphanumeric or `-`). Invoice numbers contain
+ * hyphens (INV-YYMM-NNN), so a hyphen on either flank means we're inside a longer
+ * token and must NOT match. Case-insensitive. The invoiceNumber is regex-escaped
+ * so any metacharacters are treated literally.
+ */
+export function referenceTokenMatch(
+  description: string,
+  invoiceNumber: string,
+): boolean {
+  if (!invoiceNumber) return false;
+  const escaped = invoiceNumber.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // (?<![A-Za-z0-9-]) / (?![A-Za-z0-9-]) = token boundaries that also reject a
+  // trailing/leading hyphen-digit continuation (the INV-2606-1 vs -10 case).
+  const re = new RegExp(`(?<![A-Za-z0-9-])${escaped}(?![A-Za-z0-9-])`, "i");
+  return re.test(description);
+}
 
 // ---------------------------------------------------------------------------
 // Layer A — classifyLine
@@ -299,6 +341,61 @@ export async function findLinkedRecord(
     }
     if (bestId && bestScore >= FUZZY_MATCH_THRESHOLD) {
       return { matchedType: "expense", matchedId: bestId, fuzzyScore: bestScore };
+    }
+  }
+
+  // 1b. Subscription weekly invoices — credit lines only (gap#1).
+  //     The customer puts the weekly invoiceNumber (INV-YYMM-NNN) on the Monday
+  //     transfer memo, so try an EXACT reference match first (description contains
+  //     the invoiceNumber), then fall back to amount+date fuzzy in the same ±3-day
+  //     window. Scanned via by_kind_paymentStatus (NOT a full invoices scan).
+  //     Runs BEFORE the externalRevenue scan: subscription orders are excluded
+  //     from externalRevenue (C1), so a weekly transfer would otherwise match
+  //     nothing and sit unreconciled.
+  if (scanInflows) {
+    const candidates = await ctx.db
+      .query("invoices")
+      .withIndex("by_kind_paymentStatus", (q) =>
+        q.eq("invoiceKind", "subscription_weekly").eq("paymentStatus", "Unpaid"),
+      )
+      .collect();
+
+    // 1. Reference match: bank line description contains the invoiceNumber as a
+    //    WHOLE TOKEN → exact. IMP-7/M1: token match (not substring) so a shorter
+    //    invoiceNumber (INV-2606-1) doesn't false-match inside a longer one
+    //    (INV-2606-10).
+    const byRef = candidates.find(
+      (inv) =>
+        inv.invoiceNumber &&
+        referenceTokenMatch(line.rawDescription, inv.invoiceNumber),
+    );
+    if (byRef) {
+      return {
+        matchedType: "subscriptionWeeklyInvoice",
+        matchedId: byRef._id,
+        fuzzyScore: 1.0,
+        invoiceNumber: byRef.invoiceNumber,
+        subscriptionWeekId: byRef.subscriptionWeekId,
+      };
+    }
+
+    // 2. Amount + date fuzzy fallback over the same candidates (±3-day window).
+    //    Match on finalTotal (the invoice total = the expected transfer amount)
+    //    and orderDate (= week start) within the expense date window.
+    const byAmount = candidates.find(
+      (inv) =>
+        inv.finalTotal === line.amountIdr &&
+        inv.orderDate >= dateMin &&
+        inv.orderDate <= dateMax,
+    );
+    if (byAmount) {
+      return {
+        matchedType: "subscriptionWeeklyInvoice",
+        matchedId: byAmount._id,
+        fuzzyScore: FUZZY_MATCH_THRESHOLD,
+        invoiceNumber: byAmount.invoiceNumber,
+        subscriptionWeekId: byAmount.subscriptionWeekId,
+      };
     }
   }
 

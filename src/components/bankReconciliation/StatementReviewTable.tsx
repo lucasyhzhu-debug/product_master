@@ -38,7 +38,7 @@ type BankStatementLineDoc = {
   matchedRuleId?: Id<"bankKeywordRules">;
   jeDebitAccountId?: Id<"accounts">;
   jeCreditAccountId?: Id<"accounts">;
-  matchedType?: "expense" | "revenue" | "reimbursement" | "payroll";
+  matchedType?: "expense" | "revenue" | "reimbursement" | "payroll" | "subscriptionWeeklyInvoice";
   matchedId?: string;
   overrideCategoryAccountId?: Id<"accounts">;
   confidence: "exact" | "strong" | "suggested" | "none";

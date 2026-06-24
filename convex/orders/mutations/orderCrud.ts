@@ -9,6 +9,9 @@ import type { Id } from "../../_generated/dataModel";
 // Pure calculation helpers (no ctx dependency)
 import { parseDeliveryAddress } from "../helpers";
 
+// Shared write path: order + items + production records
+import { insertOrderWithItems } from "../helpers/insertOrder";
+
 // Ctx-dependent helpers from helpers/ directory
 import {
   distributeBallsToOrders,
@@ -33,6 +36,9 @@ import {
 
 // Auth helper for token -> userId resolution
 import { getSessionUser } from "../../lib/auth";
+
+// Phase B (Task B9): recognize subscription sale at delivery (AwaitingDelivery).
+import { recognizeSubscriptionDelivery } from "../../subscriptions/recognition";
 
 // Shared validators
 import { orderItemInput } from "../validators";
@@ -207,64 +213,45 @@ export const create = mutation({
 
     const finalTotal = finalPrice;
 
-    // Create order
-    const orderId = await ctx.db.insert("orders", {
-      orderNumber,
-      customerId,
-      customerName,
-      customerPhone,
-      status: "Draft",
-      isKitchenVisible: true,
-      paymentStatus: "Unpaid",
-      orderDate: Date.now(),
-      dueDate: args.dueDate,
-      totalAmount,
-      totalCost,
-      totalMargin: totalAmount - totalCost,
-      // Manual discount (only used if no voucher)
-      orderLevelDiscount: voucherInfo ? undefined : args.orderLevelDiscount,
-      orderLevelDiscountType: voucherInfo ? undefined : args.orderLevelDiscountType,
-      finalTotal,
-      // Voucher info (if applied)
-      voucherId: voucherInfo?.voucherId,
-      voucherCode: voucherInfo?.voucherCode,
-      voucherDiscountValue: voucherInfo?.voucherDiscountValue,
-      lowPriceConfirmed: isLowPrice ? args.lowPriceConfirmed : undefined,
-      // Other fields
-      soldBy: args.soldBy,
-      createdByUserId: args.createdByUserId,
-      ...parseDeliveryAddress(args.deliveryAddress ?? ''),
-      deliveryAddress: args.deliveryAddress,
-      contactWa: args.contactWa,
-      contactIg: args.contactIg,
-      notes: args.notes,
-      createdBy: args.createdBy ?? "admin",
-      itemCount: args.items.length,
+    // Create order + items + production records via shared write path (I1)
+    const orderId = await insertOrderWithItems(ctx, {
+      orderFields: {
+        orderNumber,
+        customerId,
+        customerName,
+        customerPhone,
+        status: "Draft",
+        isKitchenVisible: true,
+        paymentStatus: "Unpaid",
+        orderDate: Date.now(),
+        dueDate: args.dueDate,
+        totalAmount,
+        totalCost,
+        totalMargin: totalAmount - totalCost,
+        // Manual discount (only used if no voucher)
+        orderLevelDiscount: voucherInfo ? undefined : args.orderLevelDiscount,
+        orderLevelDiscountType: voucherInfo ? undefined : args.orderLevelDiscountType,
+        finalTotal,
+        // Voucher info (if applied)
+        voucherId: voucherInfo?.voucherId,
+        voucherCode: voucherInfo?.voucherCode,
+        voucherDiscountValue: voucherInfo?.voucherDiscountValue,
+        lowPriceConfirmed: isLowPrice ? args.lowPriceConfirmed : undefined,
+        // Other fields
+        soldBy: args.soldBy,
+        createdByUserId: args.createdByUserId,
+        ...parseDeliveryAddress(args.deliveryAddress ?? ''),
+        deliveryAddress: args.deliveryAddress,
+        contactWa: args.contactWa,
+        contactIg: args.contactIg,
+        notes: args.notes,
+        createdBy: args.createdBy ?? "admin",
+        itemCount: args.items.length,
+      },
+      // BOM-02: itemsToCreate no longer stamps productionType/productionUnits.
+      // Ball composition is tracked via orderItemProduction records created by insertOrderWithItems.
+      items: itemsToCreate,
     });
-
-    // Create order items and production tracking records
-    for (const item of itemsToCreate) {
-      const orderItemId = await ctx.db.insert("orderItems", {
-        orderId,
-        productName: item.productName,
-        productVariant: item.productVariant,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        unitCost: item.unitCost,
-        discountAmount: item.discountAmount,
-        lineTotal: item.lineTotal,
-        lineCost: item.lineCost,
-        lineMargin: item.lineMargin,
-        menuProductId: item.menuProductId,
-        // BOM-02: productionType/productionUnits no longer stamped.
-        // Ball composition is tracked via orderItemProduction records (below).
-      });
-
-      // PRD-5: Create orderItemProduction records (new production tracking system)
-      if (item.menuProductId) {
-        await createProductionRecordsForItem(ctx, orderItemId, item.menuProductId, item.quantity);
-      }
-    }
 
     // Record voucher usage if voucher was applied
     if (voucherInfo) {
@@ -449,6 +436,9 @@ export const completeOrder = mutation({
 
     // PRD-5: Mark production complete using NEW system (orderItemProduction)
     await markOrderProductionComplete(ctx, args.orderId);
+
+    // Task B9: recognize subscription sale on entry to AwaitingDelivery (idempotent).
+    await recognizeSubscriptionDelivery(ctx, args.orderId);
 
     return args.orderId;
   },
