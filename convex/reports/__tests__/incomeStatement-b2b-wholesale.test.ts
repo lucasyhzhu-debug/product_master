@@ -128,6 +128,66 @@ async function seedDeliveredSubscriptionOrder(
   });
 }
 
+/**
+ * Task B11 — seed an `expiry` ledger row (breakage at reconcile, cafe-fault forfeiture).
+ * Expiry rows carry NO orderId; the report resolves the customer via subscriptionId →
+ * subscription → customer and attributes the amount by the week's `weekEnd`.
+ */
+async function seedExpiredCredit(
+  t: TestT,
+  customerId: Id<"customers">,
+  weekEnd: number,
+  expiredAmount: number,
+  createdBy: Id<"users">,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    const subscriptionId = await ctx.db.insert("subscriptions", {
+      customerId,
+      label: "Cafe Co Weekly",
+      status: "active",
+      billingModel: "prepaid_weekly_credit",
+      unitPrice: 0,
+      confidentialPrice: true,
+      baselineDailyQty: 0,
+      weeklyQty: 0,
+      deliverByTime: "09:00",
+      creditRolloverPolicy: "expire",
+      changeCutoffHour: 13,
+      changeCutoffDayOffset: -1,
+      permanentChangeNoticeDays: 14,
+      terminationNoticeDays: 30,
+      cogsBasis: 0,
+      startDate: weekEnd,
+      scheduleTemplate: [],
+      createdBy,
+    } as never);
+    const subscriptionWeekId = await ctx.db.insert("subscriptionWeeks", {
+      subscriptionId,
+      weekStart: weekEnd - 6 * 24 * 60 * 60 * 1000,
+      weekEnd,
+      status: "reconciled",
+      plannedDays: [],
+      creditIssued: 0,
+      creditConsumed: 0,
+      creditRemaining: 0,
+      creditExpired: expiredAmount,
+      shortfall: expiredAmount,
+      shortfallFault: "cafe",
+      refundDue: 0,
+    } as never);
+    // Expiry: amount negative = -expiredAmount; NO orderId.
+    await ctx.db.insert("creditLedger", {
+      subscriptionId,
+      subscriptionWeekId,
+      type: "expiry",
+      amount: -expiredAmount,
+      balanceAfter: 0,
+      createdBy,
+      note: "Credit expired at reconcile (breakage)",
+    } as never);
+  });
+}
+
 function findChannel(stmt: any, source: string) {
   const channels = stmt?.current?.channels ?? [];
   return Array.isArray(channels)
@@ -199,5 +259,32 @@ describe("incomeStatement — B2B Wholesale revenue source (Task B9b / C1)", () 
 
     expect(findChannel(stmt, "b2b_wholesale")).toBeUndefined();
     expect(stmt.current.totalGross).toBe(0);
+  });
+
+  it("Task B11: an expiry (breakage) row is recognized as B2B Wholesale revenue, attributed by weekEnd", async () => {
+    const t = convexTest(schema);
+    const user = await seedUser(t);
+    const customer = await seedCustomer(t, "b2b_wholesale");
+
+    const weekEnd = Date.now() - 2 * 24 * 60 * 60 * 1000;
+    await seedExpiredCredit(t, customer, weekEnd, 120_000, user);
+
+    const stmt = await t.query(api.reports.incomeStatement.getIncomeStatement, {
+      periodStart: weekEnd - 60 * 60 * 1000,
+      periodEnd: weekEnd + 60 * 60 * 1000,
+    });
+
+    const b2b = findChannel(stmt, "b2b_wholesale");
+    expect(b2b).toBeDefined();
+    expect(b2b.gross).toBe(120_000);
+    expect(stmt.current.totalGross).toBe(120_000);
+
+    // Out-of-window: a query window before weekEnd excludes the breakage.
+    const stmtOut = await t.query(api.reports.incomeStatement.getIncomeStatement, {
+      periodStart: weekEnd - 14 * 24 * 60 * 60 * 1000,
+      periodEnd: weekEnd - 7 * 24 * 60 * 60 * 1000,
+    });
+    expect(findChannel(stmtOut, "b2b_wholesale")).toBeUndefined();
+    expect(stmtOut.current.totalGross).toBe(0);
   });
 });

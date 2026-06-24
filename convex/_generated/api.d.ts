@@ -276,6 +276,7 @@ import type * as subscriptions_ledger from "../subscriptions/ledger.js";
 import type * as subscriptions_mutations from "../subscriptions/mutations.js";
 import type * as subscriptions_queries from "../subscriptions/queries.js";
 import type * as subscriptions_recognition from "../subscriptions/recognition.js";
+import type * as subscriptions_reconcile from "../subscriptions/reconcile.js";
 import type * as subscriptions_reconcileMath from "../subscriptions/reconcileMath.js";
 import type * as subscriptions_revenueGate from "../subscriptions/revenueGate.js";
 import type * as subscriptions_rollover from "../subscriptions/rollover.js";
@@ -578,6 +579,7 @@ declare const fullApi: ApiFromModules<{
   "subscriptions/mutations": typeof subscriptions_mutations;
   "subscriptions/queries": typeof subscriptions_queries;
   "subscriptions/recognition": typeof subscriptions_recognition;
+  "subscriptions/reconcile": typeof subscriptions_reconcile;
   "subscriptions/reconcileMath": typeof subscriptions_reconcileMath;
   "subscriptions/revenueGate": typeof subscriptions_revenueGate;
   "subscriptions/rollover": typeof subscriptions_rollover;

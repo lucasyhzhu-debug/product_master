@@ -133,6 +133,16 @@ function computeDelta(
 // where the order's customer has customerType === "b2b_wholesale". The B2B aggregation is
 // pure (no ctx); the I/O (fetch drawdowns → resolve order → resolve customer) happens in
 // fetchAndAggregate and is passed in as plain {deliveryDate, amount} records.
+//
+// Task B11 (breakage): `expiry` ledger rows are ALSO recognized here as B2B Wholesale
+// revenue. When a cafe under-orders and the week reconciles with `shortfallFault:"cafe"`,
+// the leftover deferred credit is forfeited (non-refundable) — Frollie earns it as
+// breakage. Expiry rows carry no orderId, so the customer is resolved via the row's
+// `subscriptionId` → subscription → customer (customerType === "b2b_wholesale"), and the
+// amount (Math.abs(expiry.amount)) is attributed by the row's week `weekEnd` (the
+// breakage-recognition date — same "recognition by the event's own date" convention).
+// rollover→carry posts a `topup` (not expiry) and frollie-fault refunds are `refund`/
+// `adjustment` rows, so neither is recognized here — only `expiry` is breakage revenue.
 
 export const B2B_WHOLESALE_SOURCE = "b2b_wholesale" as const;
 
@@ -870,43 +880,95 @@ export async function fetchAndAggregate(
       .query("creditLedger")
       .filter((q) => q.eq(q.field("type"), "drawdown"))
       .collect();
-    if (drawdowns.length === 0) return [];
-
-    // Resolve order → customer for each drawdown (Set-deduped, no N+1).
-    const orderIds = [
-      ...new Set(
-        drawdowns
-          .filter((d) => d.orderId)
-          .map((d) => d.orderId as Id<"orders">),
-      ),
-    ];
-    const orders = await Promise.all(orderIds.map((id) => ctx.db.get(id)));
-    const orderMap = new Map<string, Doc<"orders">>();
-    for (const o of orders) if (o) orderMap.set(o._id as string, o);
-
-    const customerIds = [
-      ...new Set(
-        orders
-          .filter((o): o is Doc<"orders"> => o !== null)
-          .map((o) => o.customerId as Id<"customers">),
-      ),
-    ];
-    const customers = await Promise.all(customerIds.map((id) => ctx.db.get(id)));
-    const customerMap = new Map<string, Doc<"customers">>();
-    for (const c of customers) if (c) customerMap.set(c._id as string, c);
+    // Task B11: expiry rows = breakage revenue (cafe-fault forfeiture at reconcile).
+    const expiries = await ctx.db
+      .query("creditLedger")
+      .filter((q) => q.eq(q.field("type"), "expiry"))
+      .collect();
+    if (drawdowns.length === 0 && expiries.length === 0) return [];
 
     const records: B2BRecognizedRevenue[] = [];
-    for (const d of drawdowns) {
-      if (!d.orderId) continue;
-      const order = orderMap.get(d.orderId as string);
-      if (!order || order.deliveryDate === undefined) continue; // no attribution date
-      const customer = customerMap.get(order.customerId as string);
-      if (customer?.customerType !== "b2b_wholesale") continue; // durable customerType seam
-      records.push({
-        deliveryDate: order.deliveryDate,
-        amount: Math.abs(d.amount), // drawdown.amount is negative; recognized revenue is positive
-      });
+
+    // ── Drawdowns: attributed by the delivered order's deliveryDate ──
+    if (drawdowns.length > 0) {
+      // Resolve order → customer for each drawdown (Set-deduped, no N+1).
+      const orderIds = [
+        ...new Set(
+          drawdowns
+            .filter((d) => d.orderId)
+            .map((d) => d.orderId as Id<"orders">),
+        ),
+      ];
+      const orders = await Promise.all(orderIds.map((id) => ctx.db.get(id)));
+      const orderMap = new Map<string, Doc<"orders">>();
+      for (const o of orders) if (o) orderMap.set(o._id as string, o);
+
+      const customerIds = [
+        ...new Set(
+          orders
+            .filter((o): o is Doc<"orders"> => o !== null)
+            .map((o) => o.customerId as Id<"customers">),
+        ),
+      ];
+      const customers = await Promise.all(customerIds.map((id) => ctx.db.get(id)));
+      const customerMap = new Map<string, Doc<"customers">>();
+      for (const c of customers) if (c) customerMap.set(c._id as string, c);
+
+      for (const d of drawdowns) {
+        if (!d.orderId) continue;
+        const order = orderMap.get(d.orderId as string);
+        if (!order || order.deliveryDate === undefined) continue; // no attribution date
+        const customer = customerMap.get(order.customerId as string);
+        if (customer?.customerType !== "b2b_wholesale") continue; // durable customerType seam
+        records.push({
+          deliveryDate: order.deliveryDate,
+          amount: Math.abs(d.amount), // drawdown.amount is negative; recognized revenue is positive
+        });
+      }
     }
+
+    // ── Expiry (breakage): resolve customer via subscriptionId → customer; attribute
+    //    by the row's week `weekEnd` (breakage-recognition date at reconcile) ──
+    if (expiries.length > 0) {
+      const subIds = [
+        ...new Set(expiries.map((e) => e.subscriptionId as Id<"subscriptions">)),
+      ];
+      const subs = await Promise.all(subIds.map((id) => ctx.db.get(id)));
+      const subMap = new Map<string, Doc<"subscriptions">>();
+      for (const s of subs) if (s) subMap.set(s._id as string, s);
+
+      const subCustomerIds = [
+        ...new Set(
+          subs
+            .filter((s): s is Doc<"subscriptions"> => s !== null)
+            .map((s) => s.customerId as Id<"customers">),
+        ),
+      ];
+      const subCustomers = await Promise.all(subCustomerIds.map((id) => ctx.db.get(id)));
+      const subCustomerMap = new Map<string, Doc<"customers">>();
+      for (const c of subCustomers) if (c) subCustomerMap.set(c._id as string, c);
+
+      const weekIds = [
+        ...new Set(expiries.map((e) => e.subscriptionWeekId as Id<"subscriptionWeeks">)),
+      ];
+      const weeks = await Promise.all(weekIds.map((id) => ctx.db.get(id)));
+      const weekMap = new Map<string, Doc<"subscriptionWeeks">>();
+      for (const w of weeks) if (w) weekMap.set(w._id as string, w);
+
+      for (const e of expiries) {
+        const sub = subMap.get(e.subscriptionId as string);
+        if (!sub) continue;
+        const customer = subCustomerMap.get(sub.customerId as string);
+        if (customer?.customerType !== "b2b_wholesale") continue; // durable customerType seam
+        const week = weekMap.get(e.subscriptionWeekId as string);
+        if (!week) continue; // no attribution date
+        records.push({
+          deliveryDate: week.weekEnd, // breakage recognized at week end / reconcile
+          amount: Math.abs(e.amount), // expiry.amount is negative; recognized revenue is positive
+        });
+      }
+    }
+
     return records;
   })();
 
