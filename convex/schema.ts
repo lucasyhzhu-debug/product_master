@@ -199,6 +199,8 @@ export default defineSchema({
     storeAddress: v.optional(v.string()),
     otherAddresses: v.optional(v.array(v.string())),
     altPhone: v.optional(v.string()),
+    // Phase B: CRM revenue-category seam (§7.x)
+    customerType: v.optional(v.union(v.literal("direct_b2c"), v.literal("b2b_wholesale"))),
   })
     // OI-03: removed by_name -- zero withIndex references
     .index("by_phone", ["phone"]),
@@ -350,7 +352,9 @@ export default defineSchema({
     .index("by_kitchen_visible", ["isKitchenVisible", "dueDate"])
     .index("by_completed_at", ["completedAt"])
     .index("by_order_date", ["orderDate"])
-    .index("by_subscriptionWeek", ["subscriptionWeekId"]),
+    .index("by_subscriptionWeek", ["subscriptionWeekId"])
+    // Phase B: drawdown partition + timeline (spans weeks for one subscription)
+    .index("by_subscription", ["subscriptionId"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),
@@ -2290,6 +2294,8 @@ export default defineSchema({
     orderId: v.optional(v.id("orders")),
     // Phase A: Subscription invoice linkage
     subscriptionWeekId: v.optional(v.id("subscriptionWeeks")),
+    // Phase B: CRM customer link (gap#1 bank-match + activity timeline)
+    customerId: v.optional(v.id("customers")),
     invoiceKind: v.optional(
       v.union(
         v.literal("standard"),
@@ -2341,7 +2347,11 @@ export default defineSchema({
   })
     .index("by_order", ["orderId"])
     .index("by_status_number", ["status", "invoiceNumber"])
-    .index("by_date", ["generatedAt"]),
+    .index("by_date", ["generatedAt"])
+    // Phase B: CRM customer link + gap#1 bank-match engine
+    .index("by_customer", ["customerId"])
+    .index("by_subscriptionWeek", ["subscriptionWeekId"])
+    .index("by_kind_paymentStatus", ["invoiceKind", "paymentStatus"]),
 
   // Payroll entries — contractor and staff salary records
   payrollEntries: defineTable({
@@ -2589,7 +2599,9 @@ export default defineSchema({
   })
     .index("by_subscriptionWeek", ["subscriptionWeekId"])
     .index("by_subscription", ["subscriptionId"])
-    .index("by_order", ["orderId"]),
+    .index("by_order", ["orderId"])
+    // Phase B: gap#1 topup idempotency + "which topup funded this invoice"
+    .index("by_invoice", ["invoiceId"]),
 
   supplyAgreements: defineTable({
     customerId: v.id("customers"),
@@ -2634,4 +2646,35 @@ export default defineSchema({
   })
     .index("by_customer", ["customerId"])
     .index("by_subscription", ["subscriptionId"]),
+
+  // ============================================
+  // PHASE B: CRM ACTIVITY LOG
+  // Polymorphic timeline event log per customer.
+  // `at` = explicit WIB ms business-event time (NOT _creationTime).
+  // Extend `type` in lockstep with src/lib/crmActivityTaxonomy.ts.
+  // ============================================
+
+  customerActivity: defineTable({
+    customerId: v.id("customers"),
+    type: v.union(
+      v.literal("whatsapp_drafted"),
+      v.literal("note"),
+      v.literal("manual_milestone"),
+      // extend in lockstep with src/lib/crmActivityTaxonomy.ts (single ActivityType union)
+    ),
+    subtype: v.optional(v.string()),
+    direction: v.optional(
+      v.union(v.literal("inbound"), v.literal("outbound"), v.literal("system")),
+    ),
+    at: v.number(), // explicit WIB ms — business event time, NOT _creationTime
+    actor: v.id("users"),
+    summary: v.optional(v.string()),
+    note: v.optional(v.string()),
+    // polymorphic subject-refs (the event's linked object):
+    subscriptionId: v.optional(v.id("subscriptions")),
+    invoiceId: v.optional(v.id("invoices")),
+    orderId: v.optional(v.id("orders")),
+    agreementId: v.optional(v.id("supplyAgreements")),
+  })
+    .index("by_customer_at", ["customerId", "at"]),
 });
