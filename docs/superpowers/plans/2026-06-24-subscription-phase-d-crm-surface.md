@@ -45,6 +45,7 @@ Complete, flat index of every task. Detail sections below use these IDs. The Exe
 | T16 | `SubscriptionPage.tsx` (read-only, links parent) + `CreditLedgerStatement.tsx` | `src/pages/crm/SubscriptionPage.tsx`, `src/components/crm/CreditLedgerStatement.tsx`, `src/App.tsx` | 1 | T8,T10 |
 | T17 | `WeekBackReferences.tsx` on B-built week/invoice page | `src/components/crm/WeekBackReferences.tsx`, `src/pages/crm/SubscriptionSchedulePage.tsx` | 1 | T8,T10 |
 | T18 | Customer-name link on order surfaces (dual surface + kanban) | `src/components/orders/OrderSlideOver.tsx`, `src/pages/OrderDetail.tsx`, kanban | 1 | T10,T12 |
+| T18b | Phase B UAT UX nits — U1 lock confirmed week · U3 suppress edit affordances on read-only sub orders · U4 dayOfWeek doc | `SubscriptionSchedulePage.tsx`, `OrderDetail.tsx`, `OrderSlideOver.tsx`, `convex/subscriptions/weeks.ts`/template validator | 1 | T17,T18 |
 | T19 | `logCustomerInteraction` mutation | `convex/crm/timeline.ts` | 2 | T9 |
 | T20 | `buildCustomerTimeline` pure fn + taxonomy coverage test | `convex/crm/helpers/timelineMerge.ts` | 2 | T1 |
 | T21 | `getCustomerTimeline` query (derived source map + actor Map) | `convex/crm/timeline.ts` | 2 | T19,T20,T3 |
@@ -610,6 +611,35 @@ export const getWeekBackReferences = protectedQuery({
 
 - [ ] **Step 1: Failing test** — OrderSlideOver renders customer name as anchor to `/crm/customers/:id`; OrderDetail same.
 - [ ] **Step 2–4: TDD.** → **Step 5: Commit** `feat(crm): link customer name to /crm/customers/:id on order surfaces (dual surface)`
+
+---
+
+### Task T18b: Phase B UAT UX nits (U1 / U3 / U4)
+
+Folds the three open Phase-B UAT findings that land on files this plan already edits (`docs/reviews/uat-subscription-phase-b-findings-2026-06-24.md`). The bigger findings U2 (operator "Mark delivered") and U5 (top-up/reconcile/out-of-credit UI) are a SEPARATE subsystem — own spec+plan pipeline, NOT here.
+
+**Files:**
+- Modify: `src/pages/crm/SubscriptionSchedulePage.tsx` (U1)
+- Modify: `src/components/orders/OrderSlideOver.tsx` + `src/pages/OrderDetail.tsx` (U3, dual-surface — Pitfall #20)
+- Modify: `convex/subscriptions/weeks.ts` + the schedule-template validator (U4 doc/validator comment)
+- Test: RTL on the scheduler page + both order surfaces
+
+**U1 — lock confirmed/invoiced weeks (🟡):** when `week.status` is not `planned` (i.e. `confirmed|invoiced|paid|delivering|reconciled|closed`), render the schedule grid truly read-only — disable quantity spinboxes, product dropdowns, Add/Remove-line buttons; show a "This week is confirmed — locked" banner. (Today the inputs stay interactive with no Save, so a non-tech user thinks edits stuck.)
+- [ ] **Step 1: Failing test** — render `SubscriptionSchedulePage` with a `confirmed` week → quantity inputs are `disabled`, Remove button absent, locked banner present; a `planned` week stays editable.
+- [ ] **Step 2: Run, verify FAIL.**
+- [ ] **Step 3: Implement** — derive `const locked = week.status !== "planned"`; pass `disabled={locked}` to `DayPlanCell`/`ProductLineEditor`; gate Add/Remove on `!locked`; render the banner when `locked`.
+- [ ] **Step 4: Run, verify PASS.**
+
+**U3 — suppress edit affordances on read-only subscription orders (🔵):** on a subscription order (`order.subscriptionId` set) that the surface already declares read-only, hide the "Generate Invoice" action and the delivery-fee "Edit" on BOTH `OrderDetail` and `OrderSlideOver`.
+- [ ] **Step 5: Failing test** — a subscription order in OrderDetail does NOT render "Generate Invoice" / fee "Edit"; a normal order still does. Mirror for OrderSlideOver.
+- [ ] **Step 6: Run, verify FAIL.**
+- [ ] **Step 7: Implement** — gate those affordances on `!isSubscriptionOrder(order)` (reuse the existing `isSubscriptionOrder`/`subscriptionId` check the strip seam uses); mirror in both files.
+- [ ] **Step 8: Run, verify PASS.**
+
+**U4 — document the `scheduleTemplate.dayOfWeek` 0=Monday convention (🟡):** add a one-line comment at the create/validate boundary (`createSubscription` / `validateScheduleTemplate`) and in `weeks.ts` stating `dayOfWeek` is 0-based-from-Monday (0=Mon…6=Sun), contradicting the JS Sun=0 convention used by `weekBounds.ts`. (No behavior change — comment only; the named-day picker is for the future create-subscription UI.)
+- [ ] **Step 9: Implement** — add the comment; no test (doc-only).
+
+- [ ] **Step 10: Commit** — `git commit -m "fix(subscriptions): Phase B UAT nits — lock confirmed week (U1), suppress read-only edit affordances (U3, dual surface), document dayOfWeek convention (U4)"`
 
 ---
 
