@@ -18,8 +18,8 @@
 
 import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
-import type { Id } from "../_generated/dataModel";
-import type { Doc, MutationCtx } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { getNextInvoiceNumber } from "../invoices/mutations";
 import { getWibDateStr } from "../lib/periodRange";
 import { isTerminalStatus } from "../orders/helpers/statusTransitions";

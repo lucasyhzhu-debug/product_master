@@ -14,6 +14,7 @@
 
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
+import type { SessionId } from "convex-helpers/server/sessions";
 import schema from "../../schema";
 import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
@@ -28,8 +29,8 @@ async function createSession(
   t: TestT,
   role: "admin" | "manager",
   name: string,
-): Promise<{ sessionId: string; userId: Id<"users"> }> {
-  const token = `${role}-token-${Date.now()}-${Math.random()}`;
+): Promise<{ sessionId: SessionId; userId: Id<"users"> }> {
+  const token = `${role}-token-${Date.now()}-${Math.random()}` as SessionId;
   const userId = await t.run(async (ctx) => {
     const uid = await ctx.db.insert("users", {
       name,
@@ -52,7 +53,7 @@ async function createSession(
 
 /** Minimal funded-week fixture: customer → subscription → subscriptionWeek (planned status). */
 async function seedFundedWeek(t: TestT): Promise<{
-  sessionId: string;
+  sessionId: SessionId;
   userId: Id<"users">;
   customerId: Id<"customers">;
   subscriptionId: Id<"subscriptions">;
