@@ -29,6 +29,15 @@ All five refactors are covered by characterization/golden tests: strip matrix, i
 
 ---
 
+## Fixed — Two render-on-mount crashes (Phase B UAT) — 2026-06-25
+
+**For the team:** Two pages that crashed to a "Something went wrong" screen now load correctly — the subscription week scheduler (for managers) and any order opened by kitchen staff. Both were caught during manual UAT of Subscription Phase B.
+
+### Fixed
+- **Subscription scheduler crashed on open** — `SubscriptionSchedulePage` called the public `menuProducts.queries.list` via `useSessionQuery`, which injects a `sessionId` arg the plain `query` validator rejects (`ArgumentValidationError`), crashing the page into the error boundary. Switched to plain `useQuery`. Blocked the whole confirm→invoice flow.
+- **Kitchen crashed opening any order** — `getQrisConfig` + `getActiveQrisPayment` (`qrisPayments/queries.ts`) excluded `kitchen`, but the `/orders/:id` route allows kitchen and `OrderDetail`/`OrderSlideOver` mount these reads unconditionally → `Unauthorized` → error boundary. Added `kitchen` to both read-only queries (charge action stays strict). Pre-existing Phase 84 bug; 3rd recurrence of Pitfall #19.
+- **Files:** `src/pages/crm/SubscriptionSchedulePage.tsx`, `convex/qrisPayments/queries.ts`. PR #194.
+
 ## [Unreleased] — Subscription & Credit System (Phase B — full weekly cycle) — 2026-06-24
 
 **For the team:** Subscription customers can now be managed end-to-end from planning to settlement. Managers schedule a week's delivery calendar, confirm it to auto-generate orders at the partner price, issue a weekly invoice (the INV-YYMM-NNN number is the customer's bank-transfer reference), mark it paid to fund the credit pool, and reconcile at week-end (FIFO rollover/expiry per agreement policy). Subscription orders flow into the kitchen automatically but are excluded from per-channel sales analytics; their revenue is recognized separately under B2B Wholesale in the P&L.
