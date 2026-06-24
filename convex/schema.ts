@@ -2603,7 +2603,10 @@ export default defineSchema({
     .index("by_subscription", ["subscriptionId"])
     .index("by_order", ["orderId"])
     // Phase B: gap#1 topup idempotency + "which topup funded this invoice"
-    .index("by_invoice", ["invoiceId"]),
+    .index("by_invoice", ["invoiceId"])
+    // Phase D Slice 0 (R3): narrow incomeStatement drawdown/expiry scans from full-table to type-bucket.
+    // No _creationTime range — revenue is attributed by deliveryDate, not _creationTime.
+    .index("by_type", ["type"]),
 
   supplyAgreements: defineTable({
     customerId: v.id("customers"),

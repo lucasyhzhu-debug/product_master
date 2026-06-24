@@ -18,12 +18,86 @@
 
 import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { getNextInvoiceNumber } from "../invoices/mutations";
 import { getWibDateStr } from "../lib/periodRange";
 import { isTerminalStatus } from "../orders/helpers/statusTransitions";
 import { postLedgerEntry } from "./ledger";
+
+// ---------------------------------------------------------------------------
+// Pure snapshot builder — shared by both weekly and topup invoice builders.
+// Reads businessSettings + default bankAccount internally. Returns the full
+// insert object for "invoices" WITHOUT writing to the DB and WITHOUT allocating
+// an invoiceNumber (caller does both before calling this).
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the full invoice insert object (minus _id and _creationTime).
+ *
+ * Does NO db.insert. Does NOT call getNextInvoiceNumber.
+ * The caller is responsible for allocating invoiceNumber before passing it in.
+ *
+ * Field set is identical for both kinds; only invoiceKind/orderNumber/generatedBy differ.
+ */
+export async function buildInvoiceSnapshot(
+  ctx: MutationCtx,
+  args: {
+    week: Doc<"subscriptionWeeks">;
+    sub: Doc<"subscriptions">;
+    customer: Doc<"customers"> | null;
+    invoiceKind: "subscription_weekly" | "subscription_topup";
+    orderNumber: string;
+    invoiceNumber: string;
+    items: Array<{ productName: string; qty: number; unitPrice: number; lineTotal: number; date?: number }>;
+    generatedBy: Id<"users">;
+    now: number;
+  },
+): Promise<Omit<Doc<"invoices">, "_id" | "_creationTime">> {
+  const { week, sub, customer, invoiceKind, orderNumber, invoiceNumber, items, generatedBy, now } = args;
+
+  const settings = await ctx.db.query("businessSettings").first();
+  const bank = settings?.defaultBankAccountId
+    ? await ctx.db.get(settings.defaultBankAccountId)
+    : null;
+
+  const subtotal = items.reduce((s, it) => s + it.lineTotal, 0);
+
+  return {
+    status: "final",
+    invoiceNumber,
+    invoiceKind,
+    subscriptionWeekId: week._id,
+    customerId: sub.customerId,
+    // orderId intentionally omitted — a subscription invoice has no single order.
+    orderNumber,
+    orderDate: week.weekStart,
+    generatedAt: now,
+    generatedBy,
+    updatedAt: now,
+    // Seller snapshot
+    sellerName: settings?.businessName ?? "Frollie",
+    sellerAddress: settings?.address,
+    sellerPhone: settings?.phone,
+    sellerEmail: settings?.email,
+    sellerNpwp: settings?.npwp,
+    sellerLogoStorageId: settings?.logoStorageId,
+    // Bank snapshot
+    bankName: bank?.bankName ?? "",
+    bankAccountNumber: bank?.accountNumber ?? "",
+    bankAccountName: bank?.name ?? "",
+    // Buyer snapshot
+    buyerName: customer?.name ?? "Customer",
+    buyerCompany: customer?.companyName,
+    buyerNpwp: customer?.npwp,
+    buyerAddress: customer?.billingAddress ?? customer?.defaultAddress,
+    buyerPhone: customer?.phone,
+    items,
+    subtotal,
+    finalTotal: subtotal, // required field; there is no separate `total`
+    paymentStatus: "Unpaid",
+  };
+}
 
 /**
  * Build a `final` subscription weekly invoice from a confirmed/planned week.
@@ -56,53 +130,22 @@ export const createSubscriptionWeeklyInvoice = protectedMutation({
         date: d.date,
       })),
     );
-    const subtotal = items.reduce((s, it) => s + it.lineTotal, 0);
 
     const invoiceNumber = await getNextInvoiceNumber(ctx);
-
-    // Mirror createDraft's seller/bank snapshot. Field names grounded against
-    // businessSettings (businessName/address/...) and bankAccounts (bankName/
-    // accountNumber/name) — NOT the brief's pseudocode names.
-    const settings = await ctx.db.query("businessSettings").first();
-    const bank = settings?.defaultBankAccountId
-      ? await ctx.db.get(settings.defaultBankAccountId)
-      : null;
-
     const now = Date.now();
-    const invoiceId = await ctx.db.insert("invoices", {
-      status: "final",
-      invoiceNumber,
+
+    const snapshot = await buildInvoiceSnapshot(ctx, {
+      week,
+      sub,
+      customer,
       invoiceKind: "subscription_weekly",
-      subscriptionWeekId: week._id,
-      customerId: sub.customerId,
-      // orderId intentionally omitted — a subscription invoice has no single order.
       orderNumber: `WEEK-${getWibDateStr(week.weekStart)}`,
-      orderDate: week.weekStart,
-      generatedAt: now,
-      generatedBy: ctx.user._id,
-      updatedAt: now,
-      // Seller snapshot
-      sellerName: settings?.businessName ?? "Frollie",
-      sellerAddress: settings?.address,
-      sellerPhone: settings?.phone,
-      sellerEmail: settings?.email,
-      sellerNpwp: settings?.npwp,
-      sellerLogoStorageId: settings?.logoStorageId,
-      // Bank snapshot
-      bankName: bank?.bankName ?? "",
-      bankAccountNumber: bank?.accountNumber ?? "",
-      bankAccountName: bank?.name ?? "",
-      // Buyer snapshot
-      buyerName: customer?.name ?? "Customer",
-      buyerCompany: customer?.companyName,
-      buyerNpwp: customer?.npwp,
-      buyerAddress: customer?.billingAddress ?? customer?.defaultAddress,
-      buyerPhone: customer?.phone,
+      invoiceNumber,
       items,
-      subtotal,
-      finalTotal: subtotal, // required field is finalTotal (there is no `total`)
-      paymentStatus: "Unpaid",
+      generatedBy: ctx.user._id,
+      now,
     });
+    const invoiceId = await ctx.db.insert("invoices", snapshot);
 
     await ctx.db.patch(week._id, { weeklyInvoiceId: invoiceId, status: "invoiced" });
     return invoiceId;
@@ -247,50 +290,21 @@ export async function buildTopupInvoice(
   if (!sub) throw new ConvexError("Subscription not found");
   const customer = await ctx.db.get(sub.customerId);
 
-  const subtotal = args.items.reduce((s, it) => s + it.lineTotal, 0);
-
   const invoiceNumber = await getNextInvoiceNumber(ctx);
-
-  const settings = await ctx.db.query("businessSettings").first();
-  const bank = settings?.defaultBankAccountId
-    ? await ctx.db.get(settings.defaultBankAccountId)
-    : null;
-
   const now = Date.now();
-  return ctx.db.insert("invoices", {
-    status: "final",
-    invoiceNumber,
+
+  const snapshot = await buildInvoiceSnapshot(ctx, {
+    week,
+    sub,
+    customer,
     invoiceKind: "subscription_topup",
-    subscriptionWeekId: week._id,
-    customerId: sub.customerId,
-    // orderId intentionally omitted — top-up spans the week, not a single order
     orderNumber: `TOPUP-${getWibDateStr(week.weekStart)}`,
-    orderDate: week.weekStart,
-    generatedAt: now,
-    generatedBy: args.generatedBy,
-    updatedAt: now,
-    // Seller snapshot
-    sellerName: settings?.businessName ?? "Frollie",
-    sellerAddress: settings?.address,
-    sellerPhone: settings?.phone,
-    sellerEmail: settings?.email,
-    sellerNpwp: settings?.npwp,
-    sellerLogoStorageId: settings?.logoStorageId,
-    // Bank snapshot
-    bankName: bank?.bankName ?? "",
-    bankAccountNumber: bank?.accountNumber ?? "",
-    bankAccountName: bank?.name ?? "",
-    // Buyer snapshot
-    buyerName: customer?.name ?? "Customer",
-    buyerCompany: customer?.companyName,
-    buyerNpwp: customer?.npwp,
-    buyerAddress: customer?.billingAddress ?? customer?.defaultAddress,
-    buyerPhone: customer?.phone,
+    invoiceNumber,
     items: args.items,
-    subtotal,
-    finalTotal: subtotal,
-    paymentStatus: "Unpaid",
+    generatedBy: args.generatedBy,
+    now,
   });
+  return ctx.db.insert("invoices", snapshot);
 }
 
 /**

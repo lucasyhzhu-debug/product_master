@@ -136,6 +136,10 @@ creditLedger: defineTable({
   .index("by_subscriptionWeek", ["subscriptionWeekId"])
   .index("by_subscription", ["subscriptionId"])
   .index("by_order", ["orderId"])
+  .index("by_invoice", ["invoiceId"])
+  .index("by_type", ["type"])
+  // by_type: narrows incomeStatement drawdown/expiry scans to the type bucket;
+  // no _creationTime range — recognition attributes by deliveryDate, not insert time.
 ```
 
 ### New table: `supplyAgreements`

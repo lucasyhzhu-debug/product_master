@@ -4,6 +4,7 @@ import {
   normalizeToBaseUnit,
   calculateCostPerBaseUnit,
   calculateLineCost,
+  accumulateOrderCogs,
 } from "../costCalculator";
 
 // ============================================
@@ -145,4 +146,20 @@ describe("calculateLineCost", () => {
     const result = calculateLineCost(100, 25, "pcs");
     expect(result).toBeCloseTo(2500, 5);
   });
+});
+
+// ============================================
+// accumulateOrderCogs() Tests
+// ============================================
+const cogsMapFixture = new Map([
+  ["p1", { production: 100, packaging: 20, total: 120 }],
+]);
+it("sums mapped items, skips cancelled/unmapped/missing-id", () => {
+  const items = [
+    { menuProductId: "p1", quantity: 2 },
+    { menuProductId: "p1", quantity: 1, isCancelled: true },
+    { menuProductId: "p2", quantity: 5 },        // not in map → skip
+    { quantity: 9 },                              // no id → skip
+  ] as any[];
+  expect(accumulateOrderCogs(items, cogsMapFixture)).toEqual({ production: 200, packaging: 40, total: 240 });
 });

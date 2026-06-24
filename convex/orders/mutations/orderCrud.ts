@@ -38,7 +38,7 @@ import {
 import { getSessionUser } from "../../lib/auth";
 
 // Phase B (Task B9): recognize subscription sale at delivery (AwaitingDelivery).
-import { recognizeSubscriptionDelivery } from "../../subscriptions/recognition";
+import { recognizeOnDelivery } from "../../subscriptions/recognition";
 
 // Shared validators
 import { orderItemInput } from "../validators";
@@ -438,7 +438,7 @@ export const completeOrder = mutation({
     await markOrderProductionComplete(ctx, args.orderId);
 
     // Task B9: recognize subscription sale on entry to AwaitingDelivery (idempotent).
-    await recognizeSubscriptionDelivery(ctx, args.orderId);
+    await recognizeOnDelivery(ctx, args.orderId);
 
     return args.orderId;
   },

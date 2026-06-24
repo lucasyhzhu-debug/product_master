@@ -12,7 +12,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { buildProductCOGSMap } from "../lib/costCalculator";
+import { accumulateOrderCogs, buildProductCOGSMap } from "../lib/costCalculator";
 import { calculateWeekRange } from "../lib/periodRange";
 import { type Confidence, worstConfidence } from "../lib/confidence";
 import type { ExternalSource } from "../lib/externalSource";
@@ -210,7 +210,7 @@ function getChannelRevenueConfidence(source: string): Confidence {
 
 // ─── Shared COGS resolution helper ───
 // Extracted to avoid duplication between platform channel (4b) and consignment (4c) loops.
-
+// Note: does NOT use accumulateOrderCogs — this site operates on externalRevenueItems and keys on `linkedMenuProductId` (not orderItems' `menuProductId`), and also tracks unmapped products and builds ProductDetail[], which the shared helper omits.
 function resolveItemsCOGS(
   items: Doc<"externalRevenueItems">[],
   cogsMap: Map<string, { production: number; packaging: number; total: number }>,
@@ -925,12 +925,12 @@ export async function fetchAndAggregate(
     const [drawdowns, expiries] = await Promise.all([
       ctx.db
         .query("creditLedger")
-        .filter((q) => q.eq(q.field("type"), "drawdown"))
+        .withIndex("by_type", (q) => q.eq("type", "drawdown"))
         .collect(),
       // Task B11: expiry rows = breakage revenue (cafe-fault forfeiture at reconcile).
       ctx.db
         .query("creditLedger")
-        .filter((q) => q.eq(q.field("type"), "expiry"))
+        .withIndex("by_type", (q) => q.eq("type", "expiry"))
         .collect(),
     ]);
     if (drawdowns.length === 0 && expiries.length === 0) return [];
@@ -976,26 +976,6 @@ export async function fetchAndAggregate(
         orderItemsByOrder.set(orderIds[i] as string, orderItemsLists[i]);
       }
 
-      // CR-F: resolve BOM COGS for one order via cogsMap (same path as resolveItemsCOGS).
-      // Skips cancelled items; missing menuProductId / unmapped product contributes 0.
-      const resolveOrderCogs = (
-        orderId: string,
-      ): { production: number; packaging: number; total: number } => {
-        const cogs = { production: 0, packaging: 0, total: 0 };
-        const items = orderItemsByOrder.get(orderId) ?? [];
-        for (const item of items) {
-          if (item.isCancelled) continue;
-          const productCogs = item.menuProductId
-            ? cogsMap.get(item.menuProductId as string) ?? null
-            : null;
-          if (!productCogs) continue;
-          cogs.production += productCogs.production * item.quantity;
-          cogs.packaging += productCogs.packaging * item.quantity;
-          cogs.total += productCogs.total * item.quantity;
-        }
-        return cogs;
-      };
-
       for (const d of drawdowns) {
         if (!d.orderId) continue;
         const order = orderMap.get(d.orderId as string);
@@ -1005,7 +985,7 @@ export async function fetchAndAggregate(
         records.push({
           deliveryDate: order.deliveryDate,
           amount: Math.abs(d.amount), // drawdown.amount is negative; recognized revenue is positive
-          cogs: resolveOrderCogs(d.orderId as string), // CR-F: matched BOM COGS for delivered order
+          cogs: accumulateOrderCogs(orderItemsByOrder.get(d.orderId as string) ?? [], cogsMap), // CR-F: matched BOM COGS for delivered order
         });
       }
     }

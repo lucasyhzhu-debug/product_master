@@ -4,7 +4,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { fetchOrdersWithItemsAndProduction } from "./helpers/batchFetching";
-import { stripSubscriptionPricing } from "./helpers/stripSubscriptionPricing";
+import { stripOrder } from "./helpers/stripOrders";
 import { isSubscriptionOrder } from "../subscriptions/revenueGate";
 import {
   calculateBallStatsFromItems,
@@ -147,7 +147,7 @@ export const list = protectedQuery({
 
         // gap#2 (residual): strip confidential partner pricing for non-managers
         // on subscription orders, PER ORDER (every element of the list).
-        const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+        const stripped = stripOrder(ctx.user.role, order, items);
 
         return {
           ...stripped.order,
@@ -215,7 +215,7 @@ export const listPaginated = protectedQuery({
       // gap#2 (residual): strip confidential partner pricing for non-managers on
       // subscription orders, PER PAGE ELEMENT. No items are fetched for the list
       // view, so the strip only nulls the order-level money fields.
-      const stripped = stripSubscriptionPricing(order, [], ctx.user.role);
+      const stripped = stripOrder(ctx.user.role, order);
       return {
         ...stripped.order,
         customer: null,
@@ -277,7 +277,7 @@ export const get = protectedQuery({
     }
 
     // gap#2: strip confidential partner pricing for non-managers on subscription orders.
-    const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+    const stripped = stripOrder(ctx.user.role, order, items);
 
     return {
       ...stripped.order,
@@ -311,7 +311,7 @@ export const getByOrderNumber = protectedQuery({
     const customer = await ctx.db.get(order.customerId);
 
     // gap#2: strip confidential partner pricing for non-managers on subscription orders.
-    const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+    const stripped = stripOrder(ctx.user.role, order, items);
 
     return {
       ...stripped.order,
@@ -369,7 +369,7 @@ export const getKitchenOrders = protectedQuery({
       const orderData = orderDataMap.get(order._id);
       if (!orderData) {
         // Fallback for orders without items
-        const strippedOrder = stripSubscriptionPricing(order, [], ctx.user.role).order;
+        const strippedOrder = stripOrder(ctx.user.role, order).order;
         return {
           ...strippedOrder,
           items: [] as Array<Doc<"orderItems"> & { productionRecords: Doc<"orderItemProduction">[] }>,
@@ -396,7 +396,7 @@ export const getKitchenOrders = protectedQuery({
 
       // gap#2: strip confidential partner pricing for non-managers on subscription
       // orders. Production records / qty are preserved (kitchen needs them).
-      const stripped = stripSubscriptionPricing(order, itemsWithProduction, ctx.user.role);
+      const stripped = stripOrder(ctx.user.role, order, itemsWithProduction);
 
       return {
         ...stripped.order,
@@ -459,7 +459,7 @@ export const getByCustomer = protectedQuery({
     // gap#2 (residual): strip confidential partner pricing for non-managers on
     // subscription orders, PER ORDER. No items fetched — strips order money only.
     return orders.map(
-      (order) => stripSubscriptionPricing(order, [], ctx.user.role).order
+      (order) => stripOrder(ctx.user.role, order).order
     );
   },
 });
@@ -732,7 +732,7 @@ export const getPackagingOrders = protectedQuery({
         // gap#2 (residual): strip confidential partner pricing for non-managers on
         // subscription orders, PER ORDER. menuProduct/productionComponents on each
         // item are preserved (packaging needs them); only the money fields are nulled.
-        const stripped = stripSubscriptionPricing(order, enrichedItems, ctx.user.role);
+        const stripped = stripOrder(ctx.user.role, order, enrichedItems);
 
         return {
           ...stripped.order,
@@ -931,7 +931,7 @@ export const getCompletedToday = protectedQuery({
 
       // gap#2 (residual): strip confidential partner pricing for non-managers on
       // subscription orders, PER ORDER. Ball counts / qty preserved (kitchen needs them).
-      const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+      const stripped = stripOrder(ctx.user.role, order, items);
 
       return {
         ...stripped.order,
@@ -999,7 +999,7 @@ export const listForKanban = protectedQuery({
           // CR-D: strip confidential partner pricing BEFORE building the card so
           // the card inherits the nulled money fields (non-managers on subscription
           // orders). buildKanbanCard copies order.totalAmount/etc + item.lineTotal.
-          const stripped = stripSubscriptionPricing(order, items, ctx.user.role);
+          const stripped = stripOrder(ctx.user.role, order, items);
           return buildKanbanCard(stripped.order, stripped.items, creatorName);
         })
       );
