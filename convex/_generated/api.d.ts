@@ -274,6 +274,7 @@ import type * as subscriptions_creditMath from "../subscriptions/creditMath.js";
 import type * as subscriptions_invoicing from "../subscriptions/invoicing.js";
 import type * as subscriptions_ledger from "../subscriptions/ledger.js";
 import type * as subscriptions_mutations from "../subscriptions/mutations.js";
+import type * as subscriptions_outOfCredit from "../subscriptions/outOfCredit.js";
 import type * as subscriptions_queries from "../subscriptions/queries.js";
 import type * as subscriptions_recognition from "../subscriptions/recognition.js";
 import type * as subscriptions_reconcile from "../subscriptions/reconcile.js";
@@ -577,6 +578,7 @@ declare const fullApi: ApiFromModules<{
   "subscriptions/invoicing": typeof subscriptions_invoicing;
   "subscriptions/ledger": typeof subscriptions_ledger;
   "subscriptions/mutations": typeof subscriptions_mutations;
+  "subscriptions/outOfCredit": typeof subscriptions_outOfCredit;
   "subscriptions/queries": typeof subscriptions_queries;
   "subscriptions/recognition": typeof subscriptions_recognition;
   "subscriptions/reconcile": typeof subscriptions_reconcile;
