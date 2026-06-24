@@ -2699,6 +2699,51 @@ subscriptions.outOfCredit.applyPartialCreditToAdHocOrder({ orderId })
 
 ---
 
+### Subscription & CRM — Phase D Slice 0 shared helpers (2026-06-25)
+
+Behavior-preserving refactors. No new public API surface — these are internal shared helpers consumed by existing Phase B call sites. All proven bit-identical by characterization tests.
+
+#### `recognizeOnDelivery` (`convex/subscriptions/recognition.ts`)
+
+```typescript
+recognizeOnDelivery(ctx: MutationCtx, orderId: Id<"orders">, actingUserId?: Id<"users">): Promise<void>
+```
+
+Single delivery-recognition entry point. Wraps `recognizeSubscriptionDelivery`: posts a `drawdown` ledger entry against the week's credit pool and recognizes B2B Wholesale revenue. Idempotent via `creditLedger.by_order`. Token-less callers (packaging.ts, two statusUpdates.ts edges) pass `undefined` → falls back to `order.createdByUserId`. Five call sites repointed from inline `recognizeSubscriptionDelivery` calls.
+
+#### `stripOrder` / `stripOrders` (`convex/orders/helpers/stripOrders.ts`)
+
+```typescript
+stripOrder(order: OrderWithItems, role: UserRole): OrderWithItems
+stripOrders(orders: OrderWithItems[], role: UserRole): OrderWithItems[]
+```
+
+Forward seam over `stripSubscriptionPricing` (which strips 6 confidential money fields from subscription orders for non-manager roles, server-side per D11). Ten inline call sites in `convex/orders/queries.ts` repointed to `stripOrders`. `stripOrders` (batch form) is the documented seam for upcoming Phase D CRM list and timeline queries — kept intentionally even though not yet consumed by a new call site.
+
+#### `buildInvoiceSnapshot` (`convex/subscriptions/invoicing.ts`)
+
+```typescript
+buildInvoiceSnapshot(
+  ctx: QueryCtx,
+  args: { subscriptionId, subscriptionWeekId, invoiceNumber, kind, lines, dueDate? }
+): Promise<Omit<Doc<"invoices">, "_id" | "_creationTime">>
+```
+
+Shared invoice-snapshot builder returning the full insert object for an `invoices` row. Does **no** db write and **no** invoice-number allocation — the caller allocates `invoiceNumber` and passes it in. Consumed by both `createSubscriptionWeeklyInvoice` (kind `subscription_weekly`) and `createTopupInvoice` (kind `subscription_topup`). Behavior-preserving: golden tests assert full-shape equality per kind.
+
+#### `accumulateOrderCogs` (`convex/lib/costCalculator.ts`)
+
+```typescript
+accumulateOrderCogs(
+  items: Array<{ menuProductId?: Id<"menuProducts"> | null; quantity: number; status?: string }>,
+  cogsMap: Map<string, number>
+): number
+```
+
+Shared order-COGS accumulation. Skips cancelled items, items with no `menuProductId`, and items not present in `cogsMap`; multiplies unit COGS by quantity; returns integer IDR total. Adopted at `incomeStatement.ts` Site B (subscription B2B Wholesale COGS). Site A (`resolveItemsCOGS`) left as-is — it keys on `linkedMenuProductId` and builds `ProductDetail[]`, a different shape.
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |

@@ -14,6 +14,21 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription backend consolidation (Phase D Slice 0) — 2026-06-25
+
+**For the team:** Internal cleanup — no user-visible change. Consolidates five duplicated backend patterns into single shared helpers so the upcoming CRM screens (Phase D) build on clean, consistent APIs and the P&L income statement is no longer doing unbounded index scans.
+
+### Changed (behavior-preserving refactors)
+- **R1 — `recognizeOnDelivery`** (`convex/subscriptions/recognition.ts`): single delivery-recognition entry point wrapping `recognizeSubscriptionDelivery`. Five call sites in `orderCrud.ts`, `packaging.ts`, and `statusUpdates.ts` repointed. Token-less callers pass `undefined` → `order.createdByUserId` fallback preserved.
+- **R2 — `stripOrder` / `stripOrders`** (`convex/orders/helpers/stripOrders.ts`, new file): documented forward seam over `stripSubscriptionPricing`. Ten inline call sites in `convex/orders/queries.ts` repointed. `stripOrders` (batch) is the intended seam for upcoming Phase D CRM list/timeline queries.
+- **R3 — `creditLedger.by_type` index** (`convex/schema.ts`): new additive index. The two `incomeStatement.ts` drawdown/expiry scans switched from post-scan `.filter` to `.withIndex("by_type", ...)` for scan-narrowing (same rows returned).
+- **R4 — `buildInvoiceSnapshot`** (`convex/subscriptions/invoicing.ts`): shared invoice-snapshot builder used by both the weekly and topup invoice builders. Does no db write and no invoice-number allocation — caller allocates `invoiceNumber` and passes it in.
+- **R5 — `accumulateOrderCogs`** (`convex/lib/costCalculator.ts`): shared order-COGS accumulation (skip cancelled / missing menuProductId / unmapped; multiply by quantity; integer IDR). Adopted at `incomeStatement.ts` Site B; Site A left as-is (different keying strategy).
+
+All five refactors are covered by characterization/golden tests: strip matrix, income-statement B2B Wholesale total + COGS bit-identical, invoice full-shape per kind, recognition idempotency/fallback. No new ledger type, invoice kind, order status, or recognition trigger.
+
+---
+
 ## [Unreleased] — Subscription & Credit System (Phase B — full weekly cycle) — 2026-06-24
 
 **For the team:** Subscription customers can now be managed end-to-end from planning to settlement. Managers schedule a week's delivery calendar, confirm it to auto-generate orders at the partner price, issue a weekly invoice (the INV-YYMM-NNN number is the customer's bank-transfer reference), mark it paid to fund the credit pool, and reconcile at week-end (FIFO rollover/expiry per agreement policy). Subscription orders flow into the kitchen automatically but are excluded from per-channel sales analytics; their revenue is recognized separately under B2B Wholesale in the P&L.
