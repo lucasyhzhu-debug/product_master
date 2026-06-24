@@ -1,5 +1,6 @@
 import { v, ConvexError } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Id, Doc } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { protectedMutation } from "../lib/functions";
 import { computeLineTotal } from "./creditMath";
 import type { PlannedDay } from "./types";
@@ -29,6 +30,27 @@ export function buildPlannedDays(args: {
         lineTotal: computeLineTotal(it.qty, args.unitPrice),
       })),
     }));
+}
+
+/** Resolve product names from the subscription's scheduleTemplate and call buildPlannedDays. */
+async function seedFromTemplate(
+  ctx: MutationCtx,
+  sub: Doc<"subscriptions">,
+  weekStart: number,
+): Promise<PlannedDay[]> {
+  const productIds = [...new Set(sub.scheduleTemplate.flatMap((t) => t.items.map((i) => i.menuProductId)))];
+  const productNames: Record<Id<"menuProducts">, string> = {};
+  const products = await Promise.all(productIds.map((pid) => ctx.db.get(pid)));
+  products.forEach((p, i) => {
+    if (p) productNames[productIds[i]] = p.name;
+  });
+  return buildPlannedDays({
+    weekStart,
+    template: sub.scheduleTemplate,
+    unitPrice: sub.unitPrice,
+    deliverByTime: sub.deliverByTime,
+    productNames,
+  });
 }
 
 export const seedWeek = protectedMutation({
@@ -69,19 +91,7 @@ export const seedWeek = protectedMutation({
 
       if (!prev) {
         // No prior week — fall back to template path.
-        const productIds = [...new Set(sub.scheduleTemplate.flatMap((t) => t.items.map((i) => i.menuProductId)))];
-        const productNames: Record<Id<"menuProducts">, string> = {};
-        const products = await Promise.all(productIds.map((pid) => ctx.db.get(pid)));
-        products.forEach((p, i) => {
-          if (p) productNames[productIds[i]] = p.name;
-        });
-        plannedDays = buildPlannedDays({
-          weekStart: args.weekStart,
-          template: sub.scheduleTemplate,
-          unitPrice: sub.unitPrice,
-          deliverByTime: sub.deliverByTime,
-          productNames,
-        });
+        plannedDays = await seedFromTemplate(ctx, sub, args.weekStart);
       } else {
         // Re-date onto the new week by ordinal position; re-price at live unitPrice.
         plannedDays = prev.plannedDays.map((d, i) => ({
@@ -95,19 +105,7 @@ export const seedWeek = protectedMutation({
       }
     } else {
       // source === "template" (default)
-      const productIds = [...new Set(sub.scheduleTemplate.flatMap((t) => t.items.map((i) => i.menuProductId)))];
-      const productNames: Record<Id<"menuProducts">, string> = {};
-      const products = await Promise.all(productIds.map((pid) => ctx.db.get(pid)));
-      products.forEach((p, i) => {
-        if (p) productNames[productIds[i]] = p.name;
-      });
-      plannedDays = buildPlannedDays({
-        weekStart: args.weekStart,
-        template: sub.scheduleTemplate,
-        unitPrice: sub.unitPrice,
-        deliverByTime: sub.deliverByTime,
-        productNames,
-      });
+      plannedDays = await seedFromTemplate(ctx, sub, args.weekStart);
     }
 
     return await ctx.db.insert("subscriptionWeeks", {

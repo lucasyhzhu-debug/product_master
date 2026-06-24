@@ -38,26 +38,12 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
-import { utcToWibDateStr, formatIndonesianDate } from "@/lib/dateUtils";
+import { utcToWibDateStr, formatIndonesianDate, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const DAY_MS = 86_400_000;
-
-function formatWeekLabel(weekStartMs: number): string {
-  const monDate = new Date(weekStartMs);
-  const sunDate = new Date(weekStartMs + 6 * DAY_MS);
-  const opts: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-    timeZone: "Asia/Jakarta",
-  };
-  const mon = monDate.toLocaleDateString("en-GB", opts);
-  const sun = sunDate.toLocaleDateString("en-GB", { ...opts, year: "numeric" });
-  return `${mon} – ${sun}`;
-}
 
 type InvoiceItem = {
   productName: string;
@@ -85,6 +71,30 @@ const PAYMENT_STATUS_BADGE: Record<string, string> = {
   Partial: "bg-blue-100 text-blue-700",
   Void: "bg-gray-100 text-gray-500",
 };
+
+// ---------------------------------------------------------------------------
+// Shared sub-component
+// ---------------------------------------------------------------------------
+
+/** "Mark paid → fund credit" button — used in action bar and bottom CTA. */
+function MarkPaidInvoiceButton({
+  marking,
+  onClick,
+}: {
+  marking: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button size="sm" onClick={onClick} disabled={marking} className="text-xs">
+      {marking ? (
+        <RefreshCw className="h-4 w-4 mr-1.5 animate-spin" />
+      ) : (
+        <CheckCircle2 className="h-4 w-4 mr-1.5" />
+      )}
+      Mark paid &rarr; fund credit
+    </Button>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -211,7 +221,7 @@ export function SubscriptionWeeklyInvoicePage() {
     bankAccountName,
   } = invoiceDoc;
 
-  const weekLabel = formatWeekLabel(weekStartMs);
+  const weekLabel = formatSubscriptionWeekLabel(weekStartMs);
   const statusClass =
     PAYMENT_STATUS_BADGE[paymentStatus ?? "Unpaid"] ?? "bg-gray-100 text-gray-500";
   const isPaid = paymentStatus === "Paid";
@@ -330,14 +340,7 @@ export function SubscriptionWeeklyInvoicePage() {
             </Button>
           )}
           {!isPaid && (
-            <Button size="sm" onClick={handleMarkPaid} disabled={marking} className="text-xs">
-              {marking ? (
-                <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-              )}
-              Mark paid &rarr; fund credit
-            </Button>
+            <MarkPaidInvoiceButton marking={marking} onClick={handleMarkPaid} />
           )}
         </div>
       </div>
@@ -471,14 +474,7 @@ export function SubscriptionWeeklyInvoicePage() {
       {/* Bottom CTA — only visible when unpaid and there are items */}
       {!isPaid && sortedDates.length > 0 && (
         <div className="flex justify-end print:hidden">
-          <Button onClick={handleMarkPaid} disabled={marking} size="sm">
-            {marking ? (
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-            )}
-            Mark paid &rarr; fund credit
-          </Button>
+          <MarkPaidInvoiceButton marking={marking} onClick={handleMarkPaid} />
         </div>
       )}
     </div>

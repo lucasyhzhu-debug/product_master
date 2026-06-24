@@ -195,19 +195,22 @@ export const markWeeklyInvoicePaid = protectedMutation({
       .query("orders")
       .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
       .collect();
-    for (const order of orders) {
-      // IMP-2: never revive a terminal-status order. A split-cancelled order (e.g.
-      // outOfCredit Path A) is already Cancelled; patching it to PaymentReceived/Paid
-      // would resurrect a dead order into the active pipeline. isTerminalStatus covers
-      // both Cancelled and Complete (an already-delivered+completed order must also not
-      // be reset to PaymentReceived).
-      if (isTerminalStatus(order.status)) continue;
-      await ctx.db.patch(order._id, {
-        paymentStatus: "Paid",
-        paymentMethod: "subscription_credit",
-        status: "PaymentReceived",
-      });
-    }
+    // IMP-2: never revive a terminal-status order. A split-cancelled order (e.g.
+    // outOfCredit Path A) is already Cancelled; patching it to PaymentReceived/Paid
+    // would resurrect a dead order into the active pipeline. isTerminalStatus covers
+    // both Cancelled and Complete (an already-delivered+completed order must also not
+    // be reset to PaymentReceived).
+    await Promise.all(
+      orders
+        .filter((order) => !isTerminalStatus(order.status))
+        .map((order) =>
+          ctx.db.patch(order._id, {
+            paymentStatus: "Paid",
+            paymentMethod: "subscription_credit",
+            status: "PaymentReceived",
+          }),
+        ),
+    );
     await ctx.db.patch(week._id, { status: "delivering", paymentReceivedAt: Date.now() });
     return week._id;
   },
@@ -319,13 +322,8 @@ export const createTopupInvoice = protectedMutation({
 
     const invoiceId = await buildTopupInvoice(ctx, {
       subscriptionWeekId: args.subscriptionWeekId,
-      items: args.addedLines.map((it) => ({
-        productName: it.productName,
-        qty: it.qty,
-        unitPrice: it.unitPrice,
-        lineTotal: it.lineTotal,
-        // date intentionally omitted — topup lines are not tied to a specific delivery date
-      })),
+      // date intentionally omitted from addedLines shape — topup lines are not tied to a specific delivery date
+      items: args.addedLines,
       generatedBy: ctx.user._id,
     });
 

@@ -922,15 +922,17 @@ export async function fetchAndAggregate(
   // channel. This populates the B2B channel cogs so delivered subscription revenue carries
   // its offsetting COGS. Expiry (breakage) rows carry COGS 0 (no goods shipped).
   const b2bRecognized = await (async (): Promise<B2BRecognizedRevenue[]> => {
-    const drawdowns = await ctx.db
-      .query("creditLedger")
-      .filter((q) => q.eq(q.field("type"), "drawdown"))
-      .collect();
-    // Task B11: expiry rows = breakage revenue (cafe-fault forfeiture at reconcile).
-    const expiries = await ctx.db
-      .query("creditLedger")
-      .filter((q) => q.eq(q.field("type"), "expiry"))
-      .collect();
+    const [drawdowns, expiries] = await Promise.all([
+      ctx.db
+        .query("creditLedger")
+        .filter((q) => q.eq(q.field("type"), "drawdown"))
+        .collect(),
+      // Task B11: expiry rows = breakage revenue (cafe-fault forfeiture at reconcile).
+      ctx.db
+        .query("creditLedger")
+        .filter((q) => q.eq(q.field("type"), "expiry"))
+        .collect(),
+    ]);
     if (drawdowns.length === 0 && expiries.length === 0) return [];
 
     const records: B2BRecognizedRevenue[] = [];

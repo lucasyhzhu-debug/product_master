@@ -40,7 +40,7 @@ import {
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { getErrorMessage } from "@/lib/utils";
-import { utcToWibDateStr } from "@/lib/dateUtils";
+import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Types mirroring getFundingDashboard return shape
@@ -64,20 +64,6 @@ type FundingRow = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const DAY_MS = 86_400_000;
-
-function formatWeekLabel(weekStartMs: number): string {
-  const monDate = new Date(weekStartMs);
-  const sunDate = new Date(weekStartMs + 6 * DAY_MS);
-  const opts: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-    timeZone: "Asia/Jakarta",
-  };
-  const mon = monDate.toLocaleDateString("en-GB", opts);
-  const sun = sunDate.toLocaleDateString("en-GB", { ...opts, year: "numeric" });
-  return `${mon} – ${sun}`;
-}
 
 const STATUS_BADGE: Record<string, string> = {
   confirmed: "bg-amber-100 text-amber-700",
@@ -216,7 +202,7 @@ export function CrmFundingDashboardPage() {
               <TableBody>
                 {sorted.map((row) => {
                   const { week, customerId, customerName, subscriptionId, subscriptionLabel } = row;
-                  const weekLabel = formatWeekLabel(week.weekStart);
+                  const weekLabel = formatSubscriptionWeekLabel(week.weekStart);
                   const weekDateStr = utcToWibDateStr(week.weekStart);
                   const statusBadge =
                     STATUS_BADGE[week.status] ?? "bg-gray-100 text-gray-500";

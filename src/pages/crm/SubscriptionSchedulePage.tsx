@@ -33,7 +33,7 @@ import { WeekCalendarGrid } from "@/components/crm/WeekCalendarGrid";
 import type { LocalWeekPlan } from "@/components/crm/WeekCalendarGrid";
 import type { ScheduleLineLocal } from "@/components/crm/ProductLineEditor";
 import { formatCurrency } from "@/lib/utils";
-import { utcToWibDateStr } from "@/lib/dateUtils";
+import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 import { getErrorMessage } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -42,22 +42,6 @@ import { getErrorMessage } from "@/lib/utils";
 
 const DAY_MS = 86_400_000;
 
-/** Format a Monday epoch-ms as "Wk DD MMM – DD MMM YYYY" */
-function formatWeekLabel(weekStartMs: number): string {
-  const monDate = new Date(weekStartMs);
-  const sunDate = new Date(weekStartMs + 6 * DAY_MS);
-  const opts: Intl.DateTimeFormatOptions = {
-    day: "numeric",
-    month: "short",
-    timeZone: "Asia/Jakarta",
-  };
-  const mon = monDate.toLocaleDateString("en-GB", opts);
-  const sun = sunDate.toLocaleDateString("en-GB", {
-    ...opts,
-    year: "numeric",
-  });
-  return `${mon} – ${sun}`;
-}
 
 /** Status badge colours */
 const STATUS_BADGE: Record<string, string> = {
@@ -309,7 +293,7 @@ export function SubscriptionSchedulePage() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
-  const weekLabel = formatWeekLabel(weekStartMs);
+  const weekLabel = formatSubscriptionWeekLabel(weekStartMs);
   const statusLabel = week?.status ?? "unseeded";
   const statusClass = STATUS_BADGE[statusLabel] ?? "bg-gray-100 text-gray-500";
 
