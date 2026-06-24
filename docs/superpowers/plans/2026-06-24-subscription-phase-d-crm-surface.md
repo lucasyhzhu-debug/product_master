@@ -8,6 +8,8 @@
 
 **Tech Stack:** Convex (serverless DB + reactive queries), React 19 + TypeScript, Vite, shadcn/ui + Tailwind CSS 4, Recharts (drawdown chart — already a project dep via analytics), Vitest + convex-test, Playwright/`/browse` (UX-UAT).
 
+**Deferred to Phase E (NOT in this plan — decided 2026-06-25):** the **operator credit-flow UI** — U2 "Mark delivered" affordance to recognize the sale, and U5 top-up (§5) / reconcile (§6) / out-of-credit frontend (`createTopupInvoice`, `markTopupInvoicePaid`, `reconcileWeek`, `splitScheduledOrder`, `applyPartialCredit` — backend exists + unit-tested, zero UI). These are a distinct subsystem with their own UAT; they ship alongside Phase E (Telegram/rule-enforcement) via their own spec+plan pipeline. This plan covers ONLY the CRM record surface + the small Phase-B UX nits (T18b: U1/U3/U4).
+
 ## Global Constraints
 
 - **NO schema change.** `customerActivity` (+ `by_customer_at`), `invoices.customerId`/`by_customer`/`by_subscriptionWeek`/`by_kind_paymentStatus`, `orders.by_subscription`/`by_subscriptionWeek`, `creditLedger.by_invoice`, `crmActivityTaxonomy.ts` all already exist (Phase B foundational PR). Any need for a new field/index → STOP and flag, do not add.
