@@ -6,6 +6,8 @@
 **Predecessor reviews:** spec staffreview (I4, I5, §11); Phase A staffreview (M1/M2/M3, N1/N2).
 **Companion visual proof:** `2026-06-23-subscription-cde-visual-mockups.html` (⑦ kanban treatment, ⑨ reminder copy).
 
+> **Rev-5 change log (founders daily delivery-progress summary — new feature, confirmed 2026-06-24):** added a **6th daily cron** — a pieces-denominated `weekly-delivery-progress` summary to a NEW **`founders`** Telegram role (delivered product **pcs** vs the week's plan, one block per active account, **~18:00 WIB**). Same `subscriptionReminders` module + resilient-send/watchdog. **B-dependent** (delivered pcs derive from B's delivered subscription orders + `orders.by_subscription`, audit #5). Confirmed decisions: pcs = **product pieces, NOT BOM balls**; `founders` is a **distinct** role from `subscription-ops`.
+>
 > **Rev-2 change log:** Phase C → Phase B everywhere (C folded into B). **COGS-rise alerting DROPPED entirely** (Lucas, proofing c12/c13): removed `detectCogsRise`, AC10, EC10, Q10, Q16, T5. Folded resolved decisions: human-nudge crons (Q3), warn+flag cutoff (Q6), day-total above-baseline (Q14), stop-future-weeks termination (Q15), one-action triad (Q1), cron offset (Q4), no inbound command (Q5), guard-in-B (Q9), deleted-product warning (Q13).
 >
 > **Rev-4 change log (folds in the CRM principles conformance audit `docs/superpowers/specs/2026-06-23-crm-principles-conformance-audit.md`):** E was found mostly conformant; light edits only —
@@ -26,9 +28,10 @@
 Phase E is the **operational + enforcement layer** on top of the merged backend spine (A) and schedule/order-generation/invoicing/reconciliation (B). It adds:
 
 1. **A `subscription-ops` Telegram delivery channel** — the 3rd known role, registered like `pack-list`/`sales-updates` (Pitfall #21: extend `KNOWN_TELEGRAM_ROLES`, no new env var; operator assigns the group via `/admin/telegram-chats`).
-2. **5 WIB recurring reminder crons** (+ watchdogs), each reusing the `convex/telegram/salesSummary/` resilient-send playbook. **All 5 are pure human-nudges (Q3 resolved)** — they prompt a manager to act in-app; they perform **no** unattended confirm/mark-paid/credit writes. The watchdog only re-sends the notification.
+2. **5 WIB recurring reminder crons** (+ watchdogs), each reusing the `convex/telegram/salesSummary/` resilient-send playbook. **All 5 are pure human-nudges (Q3 resolved)** — they prompt a manager to act in-app; they perform **no** unattended confirm/mark-paid/credit writes. The watchdog only re-sends the notification. *(These 5 go to `subscription-ops`. A **6th** cron — the `founders` weekly-delivery-progress summary — is item 5 below: same machinery, different audience + a pieces metric.)*
 3. **A rule-enforcement layer** for contract clauses 3–5, 10: per-day 13:00 prior-day lock (**warn+flag**, Q6), above-baseline supplier-confirmation flag (**day-total**, Q14), effective-dated permanent baseline change, effective-dated termination that stops **future** week generation (Q15), confidential-price hiding from non-managers. *(Clause 8 COGS-rise alerting is **dropped** — handled as a manual contract-renegotiation journey.)*
 4. **(No kanban deliverable.)** The read-only "🔒 Subscription" rendering is **Phase B (Task B16)**, and the confidential-price strip is now a **B Task B16 amendment (gap #2)**. Phase E only *verifies* both landed; it builds neither.
+5. **A daily weekly-delivery-progress summary to the `founders` chat** *(new — the pieces-denominated sibling of the credit drawdown)* — a separate daily cron (the 6th) that posts **one block per active subscription account**: how many **product pieces** (pcs — **NOT BOM balls**, since the plan is denominated in product pcs) have been delivered this week vs the account's weekly plan, and the remainder. Format: `Week of DD/MM/YY — <Account> / <delivered> out of <plan> / <remaining> pcs remaining in quota`. Destination is a **new `founders` Telegram role** (Pitfall #21), distinct from `subscription-ops`. **B-dependent** (delivered pcs derive from Phase B's delivered subscription orders — see §8).
 
 ### Explicitly OUT (belongs elsewhere)
 - Order generation, `confirmWeek`, drawdown-on-funded, schedule calendar UI, **weekly/top-up invoice builders, `reconcileWeek`, funding dashboard, AND the read-only "🔒 Subscription" kanban rendering (Task B16)** — **Phase B** (includes former-C invoicing+reconciliation). Phase E only *reminds* about and *links to* these; it never owns the reconcile/credit math or the kanban rendering.
@@ -43,7 +46,7 @@ Phase E is the **operational + enforcement layer** on top of the merged backend 
 
 | Artifact | Source | Use in Phase E |
 |---|---|---|
-| `KNOWN_TELEGRAM_ROLES`, `TelegramRole`, `isKnownTelegramRole`, `TELEGRAM_ADMIN_URL`, `TELEGRAM_BOT_USERNAME` | `convex/telegram/config.ts` | add `"subscription-ops"` |
+| `KNOWN_TELEGRAM_ROLES`, `TelegramRole`, `isKnownTelegramRole`, `TELEGRAM_ADMIN_URL`, `TELEGRAM_BOT_USERNAME` | `convex/telegram/config.ts` | add `"subscription-ops"` **and `"founders"`** |
 | `getChatIdByRole`, `getChatAuth`, `parseCommand`, `TelegramCommand` | `convex/telegram/chatRegistry.ts` | resolve destination; (no new command — Q5) |
 | `COMMAND_POLICY`, `decideWebhookOutcome` | `convex/telegram/webhook.ts` | unchanged (no new command) |
 | `sendSalesSummaryResilient`/`watchdogSalesSummary`, `RESILIENT_MAX_ATTEMPTS`, `resilientRetryDelayMs`, `isTransientError` | `convex/telegram/salesSummary/sendSalesSummary.ts`, `cronRetry.ts` | template for the reminder triad |
@@ -54,6 +57,8 @@ Phase E is the **operational + enforcement layer** on top of the merged backend 
 | `subscriptions.baselineDailyQty`, `confidentialPrice`, `unitPrice` | Phase A | above-baseline check; price hiding |
 | `subscriptions.terminationNoticeDate`/`endDate`, `permanentChangeNoticeDays`, `terminationNoticeDays` | Phase A | effective-dated termination / permanent-change |
 | `orders.subscriptionId`/`subscriptionWeekId`/`fundingSource` | Phase A | identify subscription orders on the kanban |
+| `subscriptions.weeklyQty` + `subscriptionWeeks.plannedDays` | Phase A | weekly-delivery-progress **plan total** = the **week's live `plannedDays` pcs sum** (use this, not the static `weeklyQty`, so mid-week top-ups reflect) |
+| Delivered subscription orders — `orders.subscriptionId`/`status`/qty + **`orders.by_subscription`** index | Phase A fields + **Phase B** order-gen/delivery + **audit #5** index | weekly-delivery-progress **delivered pcs this week** = Σ product qty of this week's subscription orders in a terminal-delivered `status` (`Complete`/`CompleteShipped`/`PickedUp`) — same "delivered" definition as Phase D AC13 (resolve once, reuse) |
 | `confirmWeek`, week status transitions, order-gen, **`markWeeklyInvoicePaid`, `reconcileWeek`** | `convex/subscriptions/scheduling/`, `convex/invoices/` **(Phase B — incl. former C)** | reminders link to / reference these actions |
 | `OrderSlideOver.tsx`, `OrderDetail.tsx` Actions | `src/components/orders/`, `src/pages/` | read-only subscription treatment |
 | `<ProtectedRoute requiredPermission>` + `ROLE_PERMISSIONS` | `src/App.tsx`, `src/lib/types.ts` | `canAccessCrm` (from Phase D) — the route the kanban link respects |
@@ -61,20 +66,20 @@ Phase E is the **operational + enforcement layer** on top of the merged backend 
 
 ### 2.2 Adds
 
-**Telegram config** — append `"subscription-ops"` to `KNOWN_TELEGRAM_ROLES`. No env var (Pitfall #21).
+**Telegram config** — append `"subscription-ops"` **and `"founders"`** to `KNOWN_TELEGRAM_ROLES`. No env var (Pitfall #21); operator assigns each group via `/admin/telegram-chats`.
 
 **Reminder send-actions** — new module `convex/telegram/subscriptionReminders/`, mirroring `salesSummary/`. **Q1 resolved: ONE action parameterized by `kind`** (matches the `sendSalesSummary` cadence-arg precedent; keeps the `scheduler.runAfter` concrete-self-reference invariant):
-- `sendSubscriptionReminder(internalAction, { kind: ReminderKind })` — resolves `getChatIdByRole({ role: "subscription-ops" })`, builds the per-kind message from a pure formatter, sends via `sendTelegramHtml`, records a receipt. **Human-nudge only** — reads + presents; performs no confirm/mark-paid/ledger write.
+- `sendSubscriptionReminder(internalAction, { kind: ReminderKind })` — resolves the destination role **from `kind`** via `getChatIdByRole` (the 5 ops nudges → `subscription-ops`; **`weekly-delivery-progress` → `founders`**), builds the per-kind message from a pure formatter, sends via `sendTelegramHtml`, records a receipt. **Human-info only** — reads + presents; performs no confirm/mark-paid/ledger write.
 - `sendSubscriptionReminderResilient(internalAction, { kind, attempt? })` — transient-retry wrapper.
 - `watchdogSubscriptionReminder(internalAction, { kind })` — re-sends the **notification** only if no receipt for the slot.
-- `ReminderKind = "confirm-next-week" | "invoice-due" | "today-deliveries" | "change-cutoff" | "reconcile"`.
-- Pure formatters (TDD): `formatConfirmReminder`, `formatInvoiceDueReminder`, `formatTodayDeliveries` (per-product split), `formatChangeCutoffReminder`, `formatReconcileReminder`. **Draft copy in the visual proof ⑨** (Q2 — refine there; locked via formatter unit tests).
+- `ReminderKind = "confirm-next-week" | "invoice-due" | "today-deliveries" | "change-cutoff" | "reconcile" | "weekly-delivery-progress"`.
+- Pure formatters (TDD): `formatConfirmReminder`, `formatInvoiceDueReminder`, `formatTodayDeliveries` (per-product split), `formatChangeCutoffReminder`, `formatReconcileReminder`, **`formatWeeklyDeliveryProgress`** (one block per active account: `Week of DD/MM/YY — <Account>` / `<delivered> out of <plan>` / `<remaining> pcs remaining in quota`; integer pcs). **Draft copy in the visual proof ⑨** (Q2 — refine there; locked via formatter unit tests).
 
 **Slot keys + read queries**
 - `subscriptionSlotKey(kind, nowMs)` in `deliveryReceipts.ts` (WIB day/week keyed).
-- Read-only `internalQuery`s feeding formatters (`getWeeksToConfirm`, `getWeeklyInvoicesDue`, `getTodaySubscriptionDeliveries`, `getTomorrowChangeCutoffDays`, `getWeeksToReconcile`) under `convex/subscriptions/reminders/` — read-only, cron context.
+- Read-only `internalQuery`s feeding formatters (`getWeeksToConfirm`, `getWeeklyInvoicesDue`, `getTodaySubscriptionDeliveries`, `getTomorrowChangeCutoffDays`, `getWeeksToReconcile`, **`getWeeklyDeliveryProgress`**) under `convex/subscriptions/reminders/` — read-only, cron context. `getWeeklyDeliveryProgress` returns, per active subscription with a current week: `{ account, weekStart, weekPlannedPcs (Σ plannedDays qty), deliveredPcs (Σ delivered subscription-order product qty via orders.by_subscription), remaining = max(0, plan − delivered), overBy }`.
 
-**Cron registrations** (`convex/crons.ts`) — 5 primary + 5 watchdog, WIB (UTC = WIB − 7h). **Q4 resolved: the daily-deliveries slot is offset off the pack-list 00:00/00:15 UTC convoy.**
+**Cron registrations** (`convex/crons.ts`) — 6 primary + 6 watchdog, WIB (UTC = WIB − 7h). **Q4 resolved: the daily-deliveries slot is offset off the pack-list 00:00/00:15 UTC convoy.**
 | Reminder | WIB | UTC | Watchdog UTC |
 |---|---|---|---|
 | confirm next week | Sun 17:00 | Sun 10:00 | Sun 10:15 |
@@ -82,6 +87,7 @@ Phase E is the **operational + enforcement layer** on top of the merged backend 
 | today's deliveries | **daily 07:05** | **daily 00:05** | **daily 00:20** |
 | change cutoff (tomorrow) | daily 12:30 | daily 05:30 | daily 05:45 |
 | prior-week reconcile | Mon 09:00 | Mon 02:00 | Mon 02:15 |
+| weekly delivery progress → `founders` | daily 18:00 | daily 11:00 | daily 11:15 |
 
 > **AC (Q4):** no two **primary** cron launches share an exact UTC minute, and no two **watchdog** launches share an exact UTC minute — verified against `crons.ts` (existing pack-list 00:00/00:15, sales-summary Mon 00:00) at plan time. The daily slot moved to 00:05/00:20 UTC to avoid piling onto the pack-list transient window.
 
@@ -108,7 +114,8 @@ Phase E **never constructs** `ScheduleLine`s/invoices/ledger entries — that in
 - [ ] **AC1** `KNOWN_TELEGRAM_ROLES` includes `"subscription-ops"`; no env var; assignable via `/admin/telegram-chats` (Pitfall #21).
 - [ ] **AC2** 5 primary crons fire at the WIB times above (daily deliveries at 07:05/00:05 UTC); each points at the `*Resilient` wrapper reusing `cronRetry.ts` — no re-rolled retry logic.
 - [ ] **AC3** Each reminder has a watchdog 15 min later that re-sends **only the notification** when no `deliveryReceipts` receipt exists for the slot (no double-post on a healthy run; no action re-performed — they're nudges).
-- [ ] **AC4** Send resolves via `getChatIdByRole({ role: "subscription-ops" })` and fails fast (logged, recoverable) when no chat is assigned (matches `sales-updates`).
+- [ ] **AC4** Send resolves via `getChatIdByRole({ role })` (role from `kind`) and fails fast (logged, recoverable) when no chat is assigned (matches `sales-updates`).
+- [ ] **AC4b (founders weekly-delivery-progress, B-dependent)** A 6th daily cron (18:00 WIB / 11:00 UTC; watchdog 11:15) posts to the **`founders`** role **one block per active subscription account**: `Week of DD/MM/YY — <Account>` / `<deliveredPcs> out of <weekPlannedPcs>` / `<remaining> pcs remaining in quota`. **`deliveredPcs` counts product pieces, NOT BOM balls**; `weekPlannedPcs` = the week's live `plannedDays` total (reflects top-ups); `remaining = max(0, plan − delivered)` with an over-plan flag (never negative); accounts with no active current week are **skipped**. `founders` is in `KNOWN_TELEGRAM_ROLES`, assignable via `/admin/telegram-chats`. Delivered count uses `orders.by_subscription` + the terminal-delivered `status` set (B-dependent — §8).
 - [ ] **AC5 → N/A** No inbound command added (Q5). Recorded explicitly in the acceptance log (not left unchecked).
 - [ ] **AC6** The 12:30 cutoff cron flips `plannedDays[].locked = true` for tomorrow's day on every active, non-ended week; **lock is metadata only** — no change to `items`/`lineTotal`/credit; Phase B's edit mutation is unchanged (warn+flag, Q6). **The visible "past 13:00 cutoff" warning banner is a Phase B render concern (audit #26 / D12):** when `plannedDays[].locked` is true, **Phase B's `DayPlanCell` (Task B14, which owns the scheduler render) shows the banner.** Phase E only flips the flag — it owns no page and renders no banner. AC6 verifies the flag flips; the banner appearance is verified against B14.
 - [ ] **AC7a (schema)** `needsSupplierConfirmation` field added to `plannedDays[]` entry + codegen committed (gateable now).
@@ -154,7 +161,7 @@ Phase E **never constructs** `ScheduleLine`s/invoices/ledger entries — that in
 ## 6. Access control + rollback / ship-dark
 
 - **Access:** reminder data queries + enforcement mutations are `roles:["manager","admin"]` (or internal/cron). `canAccessCrm` is added by **Phase B (Task B14)** — Q17 resolved; E aligns to it, does not invent a key. The only deliberately staff-reachable read is the price-suppression fix IF it's owned by E (AC11).
-- **Ship-dark:** crons register dark — until an operator assigns a `subscription-ops` chat, every reminder fails fast harmlessly (EC1). The kanban treatment only triggers when `order.subscriptionId` is set (Phase-B-generated orders).
+- **Ship-dark:** crons register dark — until an operator assigns the `subscription-ops` **and `founders`** chats, those sends fail fast harmlessly (EC1). The kanban treatment only triggers when `order.subscriptionId` is set (Phase-B-generated orders).
 - **Rollback:** Phase E **IS a schema change** — 2 additive fields (`needsSupplierConfirmation` on `plannedDays[]`, `subscriptions.pendingBaselineChange`) + codegen, NOT pure-additive-code. Otherwise additive (new module, new cron entries, additive frontend branches). Revert = revert commits. Check `gh run list` after merge (split-brain guard).
 
 ---
@@ -167,6 +174,8 @@ Phase E **adds 2 fields** (its first task: schema delta + `npx convex codegen` +
 2. **`subscriptions.pendingBaselineChange: v.optional(v.object({ newQty: v.number(), effectiveDate: v.number() }))`** — stages a permanent baseline change before its `noticeDate+14d` effective date; a daily cron applies it (Q8).
 
 `plannedDays[].locked` (AC6), `terminationNoticeDate`/`endDate` (AC9), `unitPrice`/`confidentialPrice` (AC11) already exist in Phase A. *(The former COGS-rise de-dupe field is dropped with the feature.)*
+
+The **`founders` role** is a `KNOWN_TELEGRAM_ROLES` config entry (no schema change). The **`orders.by_subscription`** index needed by the delivery-progress count lands in **Phase B's** schema PR (audit #5), not E — no E schema field for cron #6.
 
 ---
 
@@ -181,6 +190,7 @@ Confirm at plan time against **merged Phase B** (paths from the B plan; signatur
 - **(B)** `reconcileWeek` — `convex/subscriptions/reconcile.ts`; `shortfall`/`shortfallFault`/`refundDue` populated; per-tranche FIFO via `reconcileMath.ts` (M1/C2). Mon-09:00 reminder reads them; E does not compute.
 - **(B)** read-only kanban "🔒 Subscription" rendering (Task B16, both order surfaces) — E verifies the price-suppression gap (AC11), does not rebuild.
 - **(B)** `canAccessCrm` in `ROLE_PERMISSIONS` (Task B14) — link target + access alignment.
+- **(B) — for the founders weekly-delivery-progress summary (cron #6):** B must (a) generate subscription orders + advance them to a terminal-delivered `status`, and (b) land the **`orders.by_subscription`** index (audit #5). Without delivered orders there are zero pcs to count; the "delivered" status set must match Phase D AC13's delivered-vs-planned definition (resolve once, reuse). The plan total reads the week's `plannedDays` sum (Phase A), so it's available pre-B, but the delivered count is fully B-dependent.
 
 ---
 
