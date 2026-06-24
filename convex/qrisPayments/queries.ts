@@ -28,7 +28,10 @@ import { requireRole } from "../lib/auth";
  * reactively (staffreview I2). Returns null if none.
  */
 export const getActiveQrisPayment = protectedQuery({
-  roles: ["order_staff", "manager", "admin"],
+  // kitchen is included because OrderDetail (/orders/:id) allows kitchen and mounts
+  // this read unconditionally; excluding it crashes the page (pitfall #19). Read-only
+  // status; the charge ACTION (createQrisInvoice) keeps the stricter requireRole.
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: { orderId: v.id("orders") },
   handler: async (ctx, args) => {
     return await resolveActiveRow(ctx, args.orderId);
@@ -55,7 +58,9 @@ export const getActiveQrisPaymentInternal = internalQuery({
  * order_staff — pitfall #19).
  */
 export const getQrisConfig = protectedQuery({
-  roles: ["order_staff", "manager", "admin"],
+  // kitchen included — OrderDetail (kitchen-allowed route) mounts useQrisConfig
+  // unconditionally; excluding kitchen crashes the page on mount (pitfall #19, 3rd recurrence).
+  roles: ["kitchen", "order_staff", "manager", "admin"],
   args: {},
   handler: async (ctx) => {
     const settings = await ctx.db.query("businessSettings").first();
