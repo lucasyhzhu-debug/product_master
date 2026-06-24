@@ -14,6 +14,26 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription & Credit System (Phase B — full weekly cycle) — 2026-06-24
+
+**For the team:** Subscription customers can now be managed end-to-end from planning to settlement. Managers schedule a week's delivery calendar, confirm it to auto-generate orders at the partner price, issue a weekly invoice (the INV-YYMM-NNN number is the customer's bank-transfer reference), mark it paid to fund the credit pool, and reconcile at week-end (FIFO rollover/expiry per agreement policy). Subscription orders flow into the kitchen automatically but are excluded from per-channel sales analytics; their revenue is recognized separately under B2B Wholesale in the P&L.
+
+### Added
+- **Backend — scheduling:** `confirmWeek` (protectedMutation) generates one order per planned delivery day at partner price, flips week `planned → confirmed`, idempotent. `saveWeekPlan` (protectedMutation) persists calendar edits while week is still planned. `seedWeek` gains `source` arg (`template` | `previousWeek` | `blank`). `getPlanningWeek`, `listWeeks`, `getFundingDashboard` (protectedQuery, mgr+admin).
+- **Backend — invoicing (deferred-revenue model):** `createSubscriptionWeeklyInvoice` builds the weekly `final` invoice; `markWeeklyInvoicePaid` is the cash event (funds deferred-revenue pool via `topup` ledger entry, no drawdown). `createTopupInvoice` + `markTopupInvoicePaid` handle mid-week schedule deltas. Shared `buildTopupInvoice` helper.
+- **Backend — delivery recognition:** `recognizeSubscriptionDelivery` (internal helper) fires at `AwaitingDelivery` status edge — posts `drawdown` against the credit pool + recognizes B2B Wholesale revenue. Idempotent via `creditLedger.by_order`. Wired into order status transitions.
+- **Backend — reconcile:** `reconcileWeek` (protectedMutation) runs per-tranche FIFO rollover/expiry/carry at week-end via pure `reconcileTranches` core. Expired credit = breakage revenue (recognized in P&L). Frollie-fault leftover flags `refundDue` (no payout mutation). Closed-week guard.
+- **Backend — out-of-credit:** `splitScheduledOrderOnCredit` (Path A — scheduler-time split when planned order exceeds remaining credit), `applyPartialCreditToAdHocOrder` (Path B — partial credit drawdown on an ad-hoc order, leaves remainder on normal billing).
+- **Backend — helpers:** `insertOrderWithItems` (shared typed write path for `orders` + `orderItems` + production records). `stripSubscriptionPricing` (strips 6 confidential money fields from subscription orders for non-manager callers, server-side per D11).
+- **Backend — analytics gates (C1):** Subscription orders excluded from per-channel integration queries and `dailySales`; B2B Wholesale revenue recognized in `incomeStatement.ts` from ledger drawdowns/expiries keyed on `customerType`. Bank-statement match engine extended to match incoming credit lines to unpaid `subscription_weekly` invoices by `invoiceNumber` reference.
+- **Schema additions (B0, PR #191):** `customerActivity` table (`by_customer_at`); `invoices` gains `customerId` + indexes `by_customer`, `by_subscriptionWeek`, `by_kind_paymentStatus`; `orders` gains `by_subscription` index; `creditLedger` gains `by_invoice`; `customers.customerType` (`direct_b2c` | `b2b_wholesale`); `bankStatements.matchedType` += `subscriptionWeeklyInvoice`; `src/lib/crmActivityTaxonomy.ts` stub.
+- **Frontend — CRM routes** (`/crm`, gated `canAccessCrm` = manager+admin): `SubscriptionSchedulePage` (week calendar, 3 seed sources, edit+Save, confirm→orders+invoice), `SubscriptionWeeklyInvoicePage` (day-by-day lines, mark-paid→fund, wa.me/mailto/print), `CrmFundingDashboardPage` (funding list, mark-paid→fund). Read-only subscription rendering in `OrderSlideOver` + `OrderDetail`.
+
+### Changed
+- The 4 kanban order-read queries (`get`, `getKitchenOrders`, `getByOrderNumber`, `getKitchenPackingOrders`) converted to `protectedQuery` (roles: kitchen+order_staff+manager+admin) to support server-side price-stripping for subscription orders.
+
+---
+
 ## [Unreleased] — Subscription & Credit System (Phase A)
 ### Added
 - Schema: `subscriptions`, `subscriptionWeeks`, `creditLedger`, `supplyAgreements` tables.
