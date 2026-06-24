@@ -220,3 +220,35 @@ export function buildProductCOGSMap(
 
   return result;
 }
+
+/**
+ * Accumulate BOM COGS for a list of order items against a pre-built cogsMap.
+ *
+ * Skips: cancelled items, items without menuProductId, products not in cogsMap.
+ * Multiplies per-unit {production, packaging, total} by item.quantity and sums.
+ *
+ * Used at income-statement Site B (B2B Wholesale drawdown COGS) where the calling
+ * site owns the orderItemsByOrder map lookup; Site A (resolveItemsCOGS) cannot adopt
+ * this helper because it also tracks unmapped products and builds ProductDetail[].
+ *
+ * @param items     - Order items (orderItems rows or compatible shape)
+ * @param cogsMap   - Per-product COGS map from buildProductCOGSMap
+ * @returns         - Summed { production, packaging, total } in integer IDR
+ */
+export function accumulateOrderCogs(
+  items: Array<{ menuProductId?: string; quantity: number; isCancelled?: boolean }>,
+  cogsMap: Map<string, { production: number; packaging: number; total: number }>,
+): { production: number; packaging: number; total: number } {
+  const cogs = { production: 0, packaging: 0, total: 0 };
+  for (const item of items) {
+    if (item.isCancelled) continue;
+    const id = item.menuProductId;
+    if (!id) continue;
+    const pc = cogsMap.get(id);
+    if (!pc) continue;
+    cogs.production += pc.production * item.quantity;
+    cogs.packaging += pc.packaging * item.quantity;
+    cogs.total += pc.total * item.quantity;
+  }
+  return cogs;
+}
