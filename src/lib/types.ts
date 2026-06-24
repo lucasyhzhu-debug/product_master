@@ -478,9 +478,12 @@ export interface OrderSummary {
   channel: string | null;
   sold_by: string | null;
   due_date: string | null;
-  total_amount: number;
-  total_cost: number;
-  total_margin: number;
+  // gap#2 (residual): money fields are stripped to undefined for non-managers on
+  // subscription orders (D11: strip server-side, don't hide). Optional here so
+  // list/summary surfaces can render "—" / guard when undefined.
+  total_amount?: number;
+  total_cost?: number;
+  total_margin?: number;
   total_discount: number;
   item_count: number;
   delivery_type?: string | null;

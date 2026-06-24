@@ -14,9 +14,10 @@ export interface ConvexOrderBase {
   awaitingPaymentSince?: number;
   paymentStatus: string;
   dueDate?: number;
-  totalAmount: number;
-  totalCost: number;
-  totalMargin: number;
+  // gap#2 (residual): stripped to undefined for non-managers on subscription orders.
+  totalAmount?: number;
+  totalCost?: number;
+  totalMargin?: number;
   itemCount: number;
   channel?: string;
   soldBy?: string;
@@ -55,8 +56,10 @@ export function transformToOrderSummary(order: ConvexOrderBase): OrderSummary {
     total_amount: order.totalAmount,
     total_cost: order.totalCost,
     total_margin: order.totalMargin,
+    // gap#2 (residual): totalAmount may be stripped (undefined) for non-managers
+    // on subscription orders — percentage discounts can't be derived, so report 0.
     total_discount: calculateTotalDiscount(
-      order.totalAmount,
+      order.totalAmount ?? 0,
       order.orderLevelDiscount,
       order.orderLevelDiscountType
     ),

@@ -3,8 +3,12 @@
  * Convex query/mutation hooks for order management.
  * Transforms Convex camelCase to frontend snake_case for compatibility.
  */
-import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
-import { useSessionMutation, useSessionQuery } from "convex-helpers/react/sessions";
+import { useQuery, useMutation } from "convex/react";
+import {
+  useSessionMutation,
+  useSessionQuery,
+  useSessionPaginatedQuery,
+} from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import type { Id, Doc } from "../../../convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -264,7 +268,9 @@ export function useKanbanOrders() {
  * Pass `"skip"` to disable the query (e.g., when using paginated hook instead).
  */
 export function useOrders(filters?: OrderFilters | "skip") {
-  const data = useQuery(
+  // gap#2 (residual): `list` is now a protectedQuery (server strips confidential
+  // subscription pricing for non-managers) — must subscribe with a session.
+  const data = useSessionQuery(
     api.orders.queries.list,
     filters === "skip" ? "skip" : (filters ?? {})
   );
@@ -291,13 +297,22 @@ export function useOrdersPaginated(options?: { status?: OrderStatusType; skip?: 
   const paginatedArgs = skip ? "skip" as const : (status ? { status } : {});
   const countArgs = skip ? "skip" as const : (status ? { status } : {});
 
-  const { results, status: paginationStatus, loadMore, isLoading } = usePaginatedQuery(
+  // gap#2 (residual): listPaginated is now a protectedQuery (server strips
+  // confidential subscription pricing for non-managers) — subscribe with a session.
+  // useSessionPaginatedQuery returns undefined until the session is ready (or in
+  // SSR), so fall back to a loading-shaped result.
+  const paginated = useSessionPaginatedQuery(
     api.orders.queries.listPaginated,
     paginatedArgs,
     { initialNumItems: 25 }
   );
+  const results = paginated?.results ?? [];
+  const paginationStatus = paginated?.status ?? "LoadingFirstPage";
+  const loadMore = paginated?.loadMore ?? (() => {});
+  const isLoading = paginated?.isLoading ?? true;
 
-  // Separate count query for "remaining" display
+  // Separate count query for "remaining" display. countOrders returns only a
+  // length (no money) so it stays a plain query.
   const totalCount = useQuery(api.orders.queries.countOrders, countArgs);
 
   const loadedCount = results.length;
@@ -362,7 +377,8 @@ export function useKitchenOrders() {
  * Get orders by customer.
  */
 export function useOrdersByCustomer(customerId: Id<"customers"> | undefined) {
-  const data = useQuery(
+  // gap#2 (residual): getByCustomer is now a protectedQuery — supply the session.
+  const data = useSessionQuery(
     api.orders.queries.getByCustomer,
     customerId ? { customerId } : "skip"
   );
@@ -377,7 +393,10 @@ export function useOrdersByCustomer(customerId: Id<"customers"> | undefined) {
  * Get product suggestions for order creation.
  */
 export function useProductSuggestions(limit?: number) {
-  const data = useQuery(api.orders.queries.getProductSuggestions, { limit });
+  // gap#2 (residual): getProductSuggestions is now a protectedQuery (server
+  // excludes subscription-order items from the pool for non-managers) — supply
+  // the session.
+  const data = useSessionQuery(api.orders.queries.getProductSuggestions, { limit });
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
     data: data.map(transformProductSuggestion),

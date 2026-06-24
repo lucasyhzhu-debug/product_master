@@ -231,7 +231,9 @@ export function useKitchenOrdersWithBalls() {
  * PRD-1: For kitchen view history.
  */
 export function useCompletedToday() {
-  const data = useQuery(api.orders.queries.getCompletedToday, {});
+  // gap#2 (residual): getCompletedToday is now a protectedQuery (server strips
+  // confidential subscription pricing for non-managers) — supply the session.
+  const data = useSessionQuery(api.orders.queries.getCompletedToday, {});
   if (data === undefined) return { data: undefined, isLoading: true };
   return {
     data: (data as ConvexCompletedOrder[]).map(transformOrderToKitchenOrder),

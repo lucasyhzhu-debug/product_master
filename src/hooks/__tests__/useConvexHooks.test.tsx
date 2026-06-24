@@ -9,6 +9,10 @@ vi.mock('convex/react', () => ({
 
 // gap#2: useOrder / useOrderByNumber / useKitchenOrders now use useSessionQuery
 // (protectedQuery — server strips confidential subscription pricing).
+// gap#2 (residual): useOrders / useOrdersPaginated / useOrdersByCustomer /
+// useProductSuggestions / useCompletedToday also moved to useSessionQuery for
+// the same reason (list/listPaginated/getByCustomer/getProductSuggestions/
+// getCompletedToday are now protectedQueries).
 vi.mock('convex-helpers/react/sessions', () => ({
   useSessionQuery: vi.fn(),
   useSessionMutation: vi.fn(() => vi.fn()),
@@ -57,7 +61,7 @@ vi.mock('../../../convex/_generated/api', () => ({
   },
 }));
 
-import { useQuery, useMutation } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { useSessionQuery } from 'convex-helpers/react/sessions';
 import {
   useOrders,
@@ -68,7 +72,6 @@ import {
 } from '../convex/useOrders';
 import type { Id } from '../../../convex/_generated/dataModel';
 
-const mockUseQuery = vi.mocked(useQuery);
 const mockUseSessionQuery = vi.mocked(useSessionQuery);
 const mockUseMutation = vi.mocked(useMutation);
 
@@ -78,8 +81,10 @@ describe('useOrders hooks', () => {
   });
 
   describe('useOrders', () => {
+    // gap#2 (residual): `list` is now a protectedQuery, so useOrders subscribes
+    // via useSessionQuery (not useQuery).
     it('returns isLoading true while data is undefined', () => {
-      mockUseQuery.mockReturnValue(undefined);
+      mockUseSessionQuery.mockReturnValue(undefined);
 
       const { result } = renderHook(() => useOrders());
 
@@ -104,7 +109,7 @@ describe('useOrders hooks', () => {
           itemCount: 2,
         },
       ];
-      mockUseQuery.mockReturnValue(mockOrders);
+      mockUseSessionQuery.mockReturnValue(mockOrders);
 
       const { result } = renderHook(() => useOrders());
 
@@ -115,7 +120,7 @@ describe('useOrders hooks', () => {
     });
 
     it('handles empty orders list', () => {
-      mockUseQuery.mockReturnValue([]);
+      mockUseSessionQuery.mockReturnValue([]);
 
       const { result } = renderHook(() => useOrders());
 
@@ -124,12 +129,12 @@ describe('useOrders hooks', () => {
     });
 
     it('passes filter parameters to query', () => {
-      mockUseQuery.mockReturnValue([]);
+      mockUseSessionQuery.mockReturnValue([]);
       const filters = { status: 'Draft', limit: 10 };
 
       renderHook(() => useOrders(filters));
 
-      expect(mockUseQuery).toHaveBeenCalledWith('orders.queries.list', filters);
+      expect(mockUseSessionQuery).toHaveBeenCalledWith('orders.queries.list', filters);
     });
   });
 

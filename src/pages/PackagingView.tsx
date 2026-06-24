@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/layout';
 import { LoadingCards } from '@/components/shared';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery, useMutation } from 'convex/react';
+import { useMutation } from 'convex/react';
+import { useSessionQuery } from 'convex-helpers/react/sessions';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { formatCurrency } from '@/lib/utils';
@@ -52,7 +53,8 @@ interface PackagingOrder {
   customerName: string;
   customerPhone?: string;
   dueDate?: number;
-  totalAmount: number;
+  // gap#2 (residual): stripped to undefined for non-managers on subscription orders.
+  totalAmount?: number;
   itemCount: number;
   items: PackagingOrderItem[];
 }
@@ -68,7 +70,9 @@ export function PackagingView() {
   const canEditKitchen = hasPermission('canEditKitchen');
 
   // Fetch packaging orders
-  const packagingOrders = useQuery(api.orders.queries.getPackagingOrders, {});
+  // gap#2 (residual): getPackagingOrders is now a protectedQuery (server strips
+  // confidential subscription pricing for non-managers) — subscribe with a session.
+  const packagingOrders = useSessionQuery(api.orders.queries.getPackagingOrders, {});
   const updateStatus = useMutation(api.orders.mutations.index.updateStatus);
 
   const isLoading = packagingOrders === undefined;
@@ -212,7 +216,10 @@ function PackagingOrderCard({ order, onMarkAsPackaged, onViewOrder, disabled }: 
         {/* Total */}
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="text-sm text-muted-foreground">Total</span>
-          <span className="font-semibold">{formatCurrency(order.totalAmount)}</span>
+          {/* gap#2 (residual): money stripped for non-managers on subscription orders. */}
+          <span className="font-semibold">
+            {order.totalAmount != null ? formatCurrency(order.totalAmount) : "—"}
+          </span>
         </div>
 
         {/* Actions */}
