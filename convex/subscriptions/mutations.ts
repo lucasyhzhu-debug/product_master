@@ -29,6 +29,12 @@ export const createSubscription = protectedMutation({
   handler: async (ctx, args) => {
     const customer = await ctx.db.get(args.customerId);
     if (!customer) throw new ConvexError("Customer not found");
+    // Task B9: a subscription customer is, by definition, B2B wholesale. Set the
+    // durable revenue-category seam if unset (survives if the subscription later
+    // ends). The at-delivery revenue bucket (recognition.ts) keys on this field.
+    if (!customer.customerType) {
+      await ctx.db.patch(customer._id, { customerType: "b2b_wholesale" });
+    }
     return await ctx.db.insert("subscriptions", {
       ...args,
       weeklyQty: deriveWeeklyQty(args.scheduleTemplate),

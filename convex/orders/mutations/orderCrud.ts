@@ -37,6 +37,9 @@ import {
 // Auth helper for token -> userId resolution
 import { getSessionUser } from "../../lib/auth";
 
+// Phase B (Task B9): recognize subscription sale at delivery (AwaitingDelivery).
+import { recognizeSubscriptionDelivery } from "../../subscriptions/recognition";
+
 // Shared validators
 import { orderItemInput } from "../validators";
 
@@ -433,6 +436,9 @@ export const completeOrder = mutation({
 
     // PRD-5: Mark production complete using NEW system (orderItemProduction)
     await markOrderProductionComplete(ctx, args.orderId);
+
+    // Task B9: recognize subscription sale on entry to AwaitingDelivery (idempotent).
+    await recognizeSubscriptionDelivery(ctx, args.orderId);
 
     return args.orderId;
   },

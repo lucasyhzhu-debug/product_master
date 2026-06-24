@@ -111,7 +111,7 @@ export function computeCustomerWriteBack(
  * Format: INV-YYMM-NNN (e.g., INV-2603-001)
  * Uses invoiceCounters table with OCC-safe read-increment-write.
  */
-async function getNextInvoiceNumber(ctx: MutationCtx): Promise<string> {
+export async function getNextInvoiceNumber(ctx: MutationCtx): Promise<string> {
   const prefix = buildInvoicePrefix(Date.now());
 
   // Use .first() instead of .unique() for safety (gracefully handles duplicates)
@@ -395,6 +395,12 @@ export const finalize = protectedMutation({
     // 4. Customer write-back (standard order invoices only — subscription invoices have no order)
     const order = invoice.orderId ? await ctx.db.get(invoice.orderId) : null;
     if (order) {
+      // Phase B (Task B9): backfill the denormalized customerId so the invoice is
+      // reachable by customer (CRM activity timeline + gap#1 bank-match). Only set
+      // when missing — never overwrite an existing link.
+      if (!invoice.customerId) {
+        await ctx.db.patch(invoice._id, { customerId: order.customerId });
+      }
       const customer = await ctx.db.get(order.customerId);
       if (customer) {
         const patch = computeCustomerWriteBack(invoice, customer);

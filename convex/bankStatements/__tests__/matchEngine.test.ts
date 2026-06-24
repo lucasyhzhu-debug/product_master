@@ -682,3 +682,144 @@ describe("findLinkedRecord — Layer B linkage", () => {
     expect(result).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Layer B — subscription weekly invoice matching (gap#1)
+// ---------------------------------------------------------------------------
+
+describe("findLinkedRecord — subscription weekly invoice (gap#1)", () => {
+  const NOW = Date.UTC(2026, 5, 22); // Mon Jun 22, 2026
+  const DAY = 24 * 3600 * 1000;
+
+  async function seedUser(t: ReturnType<typeof convexTest>) {
+    return await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        name: "test-user",
+        role: "admin",
+        pinHash: "salt:hash",
+        isActive: true,
+        failedAttempts: 0,
+        createdAt: NOW,
+      } as never);
+    });
+  }
+
+  async function seedWeeklyInvoice(
+    t: ReturnType<typeof convexTest>,
+    userId: Id<"users">,
+    opts: { invoiceNumber: string; finalTotal: number; paymentStatus: "Unpaid" | "Paid"; orderDate?: number },
+  ) {
+    return await t.run(async (ctx) => {
+      return await ctx.db.insert("invoices", {
+        status: "final",
+        invoiceNumber: opts.invoiceNumber,
+        invoiceKind: "subscription_weekly",
+        generatedBy: userId,
+        updatedAt: NOW,
+        sellerName: "Frollie",
+        bankName: "BCA",
+        bankAccountNumber: "123",
+        bankAccountName: "Frollie",
+        buyerName: "Cafe Customer",
+        orderNumber: "WEEK-2026-06-22",
+        orderDate: opts.orderDate ?? NOW,
+        items: [],
+        subtotal: opts.finalTotal,
+        finalTotal: opts.finalTotal,
+        paymentStatus: opts.paymentStatus,
+      } as never);
+    });
+  }
+
+  it("matches by invoiceNumber in description → confidence exact (fuzzyScore 1.0)", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const invoiceId = await seedWeeklyInvoice(t, userId, {
+      invoiceNumber: "INV-2606-001",
+      finalTotal: 700000,
+      paymentStatus: "Unpaid",
+    });
+
+    const result = await t.run(async (ctx) => {
+      return await findLinkedRecord(ctx, {
+        amountIdr: 700000,
+        direction: "credit",
+        date: NOW,
+        rawDescription: "TRANSFER FROM CAFE INV-2606-001 WEEKLY",
+      });
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.matchedType).toBe("subscriptionWeeklyInvoice");
+    expect(result!.matchedId).toBe(invoiceId);
+    expect(result!.invoiceNumber).toBe("INV-2606-001");
+    expect(result!.fuzzyScore).toBe(1.0);
+  });
+
+  it("matches by amount + date when invoiceNumber absent from description → fuzzy fallback", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    const invoiceId = await seedWeeklyInvoice(t, userId, {
+      invoiceNumber: "INV-2606-002",
+      finalTotal: 850000,
+      paymentStatus: "Unpaid",
+    });
+
+    const result = await t.run(async (ctx) => {
+      return await findLinkedRecord(ctx, {
+        amountIdr: 850000,
+        direction: "credit",
+        date: NOW + 1 * DAY, // within ±3-day window of orderDate
+        rawDescription: "TRANSFER FROM SOME CAFE no reference given",
+      });
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.matchedType).toBe("subscriptionWeeklyInvoice");
+    expect(result!.matchedId).toBe(invoiceId);
+    expect(result!.fuzzyScore).toBe(0.8);
+  });
+
+  it("never matches a Paid weekly invoice (by_kind_paymentStatus is Unpaid-only)", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    await seedWeeklyInvoice(t, userId, {
+      invoiceNumber: "INV-2606-003",
+      finalTotal: 900000,
+      paymentStatus: "Paid",
+    });
+
+    const result = await t.run(async (ctx) => {
+      return await findLinkedRecord(ctx, {
+        amountIdr: 900000,
+        direction: "credit",
+        date: NOW,
+        rawDescription: "TRANSFER FROM CAFE INV-2606-003 already paid",
+      });
+    });
+
+    // Paid invoices are out of the candidate set → no subscription match.
+    expect(result?.matchedType === "subscriptionWeeklyInvoice").toBe(false);
+  });
+
+  it("does NOT scan subscription invoices on a debit line", async () => {
+    const t = convexTest(schema);
+    const userId = await seedUser(t);
+    await seedWeeklyInvoice(t, userId, {
+      invoiceNumber: "INV-2606-004",
+      finalTotal: 600000,
+      paymentStatus: "Unpaid",
+    });
+
+    const result = await t.run(async (ctx) => {
+      return await findLinkedRecord(ctx, {
+        amountIdr: 600000,
+        direction: "debit", // outflow — subscription credit scan must be skipped
+        date: NOW,
+        rawDescription: "PAYMENT OUT INV-2606-004",
+      });
+    });
+
+    expect(result?.matchedType === "subscriptionWeeklyInvoice").toBe(false);
+  });
+});

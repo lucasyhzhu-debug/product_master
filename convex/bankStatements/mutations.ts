@@ -283,6 +283,7 @@ export const manualMatch = mutation({
       v.literal("revenue"),
       v.literal("reimbursement"),
       v.literal("payroll"),
+      v.literal("subscriptionWeeklyInvoice"),
     ),
     matchedId: v.string(),
   },
@@ -306,6 +307,7 @@ export const manualMatch = mutation({
       revenue: "externalRevenue",
       reimbursement: "reimbursementBatches",
       payroll: "payrollEntries",
+      subscriptionWeeklyInvoice: "invoices",
     } as const;
     const tableName = tableForType[args.matchedType];
     const normalizedId = ctx.db.normalizeId(tableName, args.matchedId);

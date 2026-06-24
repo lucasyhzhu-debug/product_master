@@ -26,8 +26,15 @@ import { similarityScore } from "../lib/fuzzyMatch";
 
 export type BankKeywordRule = Doc<"bankKeywordRules">;
 
-/** Polymorphic link target for bankStatementLines.matchedType (schema D-02). */
-export type BankMatchedType = "expense" | "revenue" | "reimbursement" | "payroll";
+/** Polymorphic link target for bankStatementLines.matchedType (schema D-02).
+ *  Phase B (gap#1): "subscriptionWeeklyInvoice" links a credit line to an unpaid
+ *  subscription weekly invoice (the customer's Monday transfer reference). */
+export type BankMatchedType =
+  | "expense"
+  | "revenue"
+  | "reimbursement"
+  | "payroll"
+  | "subscriptionWeeklyInvoice";
 
 export interface ClassifyContext {
   rawDescription: string;
@@ -45,6 +52,10 @@ export type LinkageResult = {
   matchedType: BankMatchedType;
   matchedId: string;
   fuzzyScore: number;
+  // Phase B (gap#1): surfaced only for subscriptionWeeklyInvoice matches so the
+  // operator sees WHICH week's credit a transfer funds.
+  invoiceNumber?: string;
+  subscriptionWeekId?: string;
 };
 
 /**
@@ -299,6 +310,56 @@ export async function findLinkedRecord(
     }
     if (bestId && bestScore >= FUZZY_MATCH_THRESHOLD) {
       return { matchedType: "expense", matchedId: bestId, fuzzyScore: bestScore };
+    }
+  }
+
+  // 1b. Subscription weekly invoices — credit lines only (gap#1).
+  //     The customer puts the weekly invoiceNumber (INV-YYMM-NNN) on the Monday
+  //     transfer memo, so try an EXACT reference match first (description contains
+  //     the invoiceNumber), then fall back to amount+date fuzzy in the same ±3-day
+  //     window. Scanned via by_kind_paymentStatus (NOT a full invoices scan).
+  //     Runs BEFORE the externalRevenue scan: subscription orders are excluded
+  //     from externalRevenue (C1), so a weekly transfer would otherwise match
+  //     nothing and sit unreconciled.
+  if (scanInflows) {
+    const candidates = await ctx.db
+      .query("invoices")
+      .withIndex("by_kind_paymentStatus", (q) =>
+        q.eq("invoiceKind", "subscription_weekly").eq("paymentStatus", "Unpaid"),
+      )
+      .collect();
+
+    // 1. Reference match: bank line description contains the invoiceNumber → exact.
+    const byRef = candidates.find(
+      (inv) => inv.invoiceNumber && line.rawDescription.includes(inv.invoiceNumber),
+    );
+    if (byRef) {
+      return {
+        matchedType: "subscriptionWeeklyInvoice",
+        matchedId: byRef._id,
+        fuzzyScore: 1.0,
+        invoiceNumber: byRef.invoiceNumber,
+        subscriptionWeekId: byRef.subscriptionWeekId,
+      };
+    }
+
+    // 2. Amount + date fuzzy fallback over the same candidates (±3-day window).
+    //    Match on finalTotal (the invoice total = the expected transfer amount)
+    //    and orderDate (= week start) within the expense date window.
+    const byAmount = candidates.find(
+      (inv) =>
+        inv.finalTotal === line.amountIdr &&
+        inv.orderDate >= dateMin &&
+        inv.orderDate <= dateMax,
+    );
+    if (byAmount) {
+      return {
+        matchedType: "subscriptionWeeklyInvoice",
+        matchedId: byAmount._id,
+        fuzzyScore: FUZZY_MATCH_THRESHOLD,
+        invoiceNumber: byAmount.invoiceNumber,
+        subscriptionWeekId: byAmount.subscriptionWeekId,
+      };
     }
   }
 

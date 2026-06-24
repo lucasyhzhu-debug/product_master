@@ -47,6 +47,9 @@ import {
   releaseReservationInternal,
 } from "./inventoryIntegration";
 
+// Phase B (Task B9): recognize subscription sale at delivery (AwaitingDelivery).
+import { recognizeSubscriptionDelivery } from "../../subscriptions/recognition";
+
 // ============================================
 // Type-safe Update Interfaces
 // ============================================
@@ -217,6 +220,11 @@ export const updateStatus = mutation({
         // Log error but don't revert (cancellation should succeed)
         console.error("Error releasing reservations:", error);
       }
+    }
+
+    // Task B9: recognize subscription sale on entry to AwaitingDelivery (idempotent).
+    if (newStatus === "AwaitingDelivery" && oldStatus !== "AwaitingDelivery") {
+      await recognizeSubscriptionDelivery(ctx, args.orderId, args.userId);
     }
 
     return args.orderId;
@@ -520,6 +528,12 @@ export const moveForward = mutation({
         "user",
         userId
       );
+    }
+
+    // Task B9: recognize the subscription sale when the order goes out for delivery.
+    // No-op for non-subscription orders; idempotent on repeat.
+    if (nextStatus === "AwaitingDelivery") {
+      await recognizeSubscriptionDelivery(ctx, args.orderId, userId);
     }
 
     return args.orderId;

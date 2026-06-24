@@ -11,6 +11,9 @@ import { calculatePackageStatus } from "../helpers";
 // Ctx-dependent helpers
 import { logOrderEvent, computeIsKitchenVisible, isTerminalStatus } from "../helpers/index";
 
+// Phase B (Task B9): recognize subscription sale at delivery (AwaitingDelivery).
+import { recognizeSubscriptionDelivery } from "../../subscriptions/recognition";
+
 // ============================================
 // Production record helpers for packaging
 // ============================================
@@ -227,6 +230,9 @@ export const completePackaging = mutation({
       reason: "Packaging completed - ready for delivery",
       triggeredBy: "kitchen",
     });
+
+    // Task B9: recognize subscription sale on entry to AwaitingDelivery (idempotent).
+    await recognizeSubscriptionDelivery(ctx, args.orderId);
 
     return {
       orderId: args.orderId,
