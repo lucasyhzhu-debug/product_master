@@ -6,8 +6,7 @@
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { ProductLineEditor } from "./ProductLineEditor";
 import type { MenuProductOption, ScheduleLineLocal } from "./ProductLineEditor";
 import type { Id } from "../../../convex/_generated/dataModel";

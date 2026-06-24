@@ -153,6 +153,20 @@ export function SubscriptionSchedulePage() {
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
+  // C1: hoisted above ALL early returns so Rules of Hooks is satisfied.
+  // Uses functional updater — no dependency on post-guard `displayPlan`.
+  const handleDayChange = useCallback(
+    (dayIndex: number, lines: ScheduleLineLocal[]) => {
+      setLocalDays((prev) => {
+        const base: LocalWeekPlan = prev ?? [[], [], [], [], [], [], []];
+        const next = [...base] as LocalWeekPlan;
+        next[dayIndex] = lines;
+        return next;
+      });
+    },
+    [], // stable — only depends on setLocalDays (stable setter)
+  );
+
   // Loading guard (D12)
   if (planningData === undefined || products === undefined) {
     return <LoadingPage />;
@@ -192,22 +206,13 @@ export function SubscriptionSchedulePage() {
   }));
 
   // ---------------------------------------------------------------------------
-  // Seed actions
+  // Seed actions — only valid when week === null (unseeded)
   // ---------------------------------------------------------------------------
   async function handleSeed(source: "template" | "previousWeek" | "blank") {
-    if (week !== null) {
-      // Week already exists — just reset local view
-      if (source === "blank") {
-        setLocalDays([[], [], [], [], [], [], []]);
-      } else if (source === "template") {
-        setLocalDays(null); // will re-derive from subscription.scheduleTemplate
-        // For template reset on existing week: show toast — full re-seed not supported once row exists
-        toast.info("To fully reset to template, delete the week first.");
-      } else {
-        toast.info("Copy last week is only available when seeding a new week.");
-      }
-      return;
-    }
+    // Guard: seedWeek is create-only; calling it on an existing week is a no-op.
+    // The buttons are only rendered when week === null, so this is a safety net.
+    if (week !== null) return;
+
     setSeeding(true);
     try {
       await seedWeekMutation({ subscriptionId, weekStart: weekStartMs, source });
@@ -229,7 +234,7 @@ export function SubscriptionSchedulePage() {
   // ---------------------------------------------------------------------------
   // Save plan — persist localDays to Convex plannedDays
   // ---------------------------------------------------------------------------
-  async function handleSave(plan: LocalWeekPlan, weekId: string): Promise<boolean> {
+  async function handleSave(plan: LocalWeekPlan, weekId: Id<"subscriptionWeeks">): Promise<boolean> {
     setSaving(true);
     try {
       // Convert LocalWeekPlan (7-element array indexed Mon→Sun) into the
@@ -243,7 +248,7 @@ export function SubscriptionSchedulePage() {
         .filter((d) => d.items.length > 0);
 
       await saveWeekPlanMutation({
-        subscriptionWeekId: weekId as Id<"subscriptionWeeks">,
+        subscriptionWeekId: weekId,
         days,
       });
       setLocalDays(null); // let Convex data repopulate (edits now persisted)
@@ -329,14 +334,15 @@ export function SubscriptionSchedulePage() {
 
         {/* Action bar */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Seed actions — only when not locked */}
-          {!isLocked && (
+          {/* Seed source buttons — only when week is unseeded (week === null).
+              seedWeek is create-only; these buttons have no effect on an existing week. */}
+          {week === null && (
             <>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleSeed("template")}
-                disabled={seeding || saving || confirming}
+                disabled={seeding}
                 className="text-xs"
               >
                 <LayoutTemplate className="h-3.5 w-3.5 mr-1.5" />
@@ -346,7 +352,7 @@ export function SubscriptionSchedulePage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleSeed("previousWeek")}
-                disabled={seeding || saving || confirming}
+                disabled={seeding}
                 className="text-xs"
               >
                 <Copy className="h-3.5 w-3.5 mr-1.5" />
@@ -356,7 +362,7 @@ export function SubscriptionSchedulePage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleSeed("blank")}
-                disabled={seeding || saving || confirming}
+                disabled={seeding}
                 className="text-xs"
               >
                 <Minus className="h-3.5 w-3.5 mr-1.5" />
@@ -364,39 +370,46 @@ export function SubscriptionSchedulePage() {
               </Button>
 
               <Separator orientation="vertical" className="h-6" />
+            </>
+          )}
 
-              {/* Save plan — only visible when there are unsaved local edits */}
-              {localDays !== null && week !== null && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleSave(localDays, week._id)}
-                  disabled={saving || confirming}
-                  className="text-xs"
-                >
-                  {saving ? (
-                    <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  ) : (
-                    <Save className="h-3.5 w-3.5 mr-1.5" />
-                  )}
-                  Save plan
-                </Button>
-              )}
-
+          {/* Save plan — only visible when there are unsaved local edits on an existing week */}
+          {!isLocked && localDays !== null && week !== null && (
+            <>
               <Button
+                variant="secondary"
                 size="sm"
-                onClick={handleConfirm}
-                disabled={confirming || saving || !week || week.status !== "planned"}
+                onClick={() => handleSave(localDays, week._id)}
+                disabled={saving || confirming}
                 className="text-xs"
               >
-                {confirming ? (
+                {saving ? (
                   <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
                 ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
                 )}
-                Confirm &rarr; orders + invoice
+                Save plan
               </Button>
+
+              <Separator orientation="vertical" className="h-6" />
             </>
+          )}
+
+          {/* Confirm — only when week exists and is still planned */}
+          {!isLocked && (
+            <Button
+              size="sm"
+              onClick={handleConfirm}
+              disabled={confirming || saving || !week || week.status !== "planned"}
+              className="text-xs"
+            >
+              {confirming ? (
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Confirm &rarr; orders + invoice
+            </Button>
           )}
 
           {/* Week total */}
@@ -423,17 +436,7 @@ export function SubscriptionSchedulePage() {
           products={productOptions}
           unitPrice={unitPrice}
           locked={isLocked}
-          onChange={useCallback(
-            (dayIndex: number, lines: ScheduleLineLocal[]) => {
-              setLocalDays((prev) => {
-                const next = prev ? [...prev] : [...displayPlan];
-                next[dayIndex] = lines;
-                return next as LocalWeekPlan;
-              });
-            },
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-            [displayPlan],
-          )}
+          onChange={handleDayChange}
         />
       )}
 

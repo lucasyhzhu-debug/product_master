@@ -175,6 +175,20 @@ export const saveWeekPlan = protectedMutation({
     const sub = await ctx.db.get(week.subscriptionId);
     if (!sub) throw new ConvexError("Subscription not found");
 
+    // Validate dates: each day must fall within [weekStart, weekEnd] and be unique.
+    const seenDates = new Set<number>();
+    for (const day of args.days) {
+      if (day.date < week.weekStart || day.date > week.weekEnd) {
+        throw new ConvexError(
+          `Day date ${day.date} is outside the week range [${week.weekStart}, ${week.weekEnd}]`,
+        );
+      }
+      if (seenDates.has(day.date)) {
+        throw new ConvexError(`Duplicate day date ${day.date} in submitted plan`);
+      }
+      seenDates.add(day.date);
+    }
+
     // Validate items: qty must be a positive integer.
     for (const day of args.days) {
       for (const it of day.items) {
