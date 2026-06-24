@@ -15,12 +15,18 @@ The timeline's **logged** half (derived events project from existing tables; the
 ```ts
   customerActivity: defineTable({
     customerId: v.id("customers"),
+    // CATEGORY axis — the SINGLE source-of-truth union, shared with crmActivityTaxonomy.ActivityType.
+    // Derived events (orders/invoices/ledger) project into this SAME set; facets + visuals key on it.
     type: v.union(
-      v.literal("whatsapp_drafted"),
-      v.literal("note"),
-      v.literal("manual_milestone"),
-      // extend in lockstep with src/lib/crmActivityTaxonomy.ts (single ActivityType union)
+      v.literal("order"),
+      v.literal("finance"),
+      v.literal("message"),
+      v.literal("document"),
+      v.literal("schedule"),
+      v.literal("milestone"),
+      // OPEN: "note" may fold under "message" or become a 7th category — finalize in the Phase D timeline task.
     ),
+    // SPECIFIC logged kind (drives per-subtype icon/behaviour override): whatsapp_drafted | note | manual_milestone | …
     subtype: v.optional(v.string()),
     direction: v.optional(
       v.union(v.literal("inbound"), v.literal("outbound"), v.literal("system")),
@@ -38,7 +44,7 @@ The timeline's **logged** half (derived events project from existing tables; the
     .index("by_customer_at", ["customerId", "at"]), // windowed feed (B8)
 ```
 
-> The `type` union is the **derived+logged** contract; keep it identical to the `ActivityType` union in the shared taxonomy lib (§7). Derived events (orders/invoices/ledger) are NOT stored here — they're projected into the same shape at read time by `getCustomerTimeline`.
+> **Reconciliation (flagged by the Phase B review — two granularities were conflated; corrected here).** There is **ONE** source-of-truth union: the **category** axis `ActivityType` (`order | finance | message | document | schedule | milestone`, §7), shared by `customerActivity.type` AND the derived-event mapper. The **specific logged kinds** (`whatsapp_drafted`, `note`, `manual_milestone`) are **NOT a second `type` union** — they live in **`subtype`**, with per-subtype icon overrides (✓ funded / ⚖ reconcile). Derived events (orders/invoices/ledger) are NOT stored here — they project into the same `{ type, subtype }` shape at read time by `getCustomerTimeline`. **Open membership Q (finalize in the Phase D timeline task, where the spec says the taxonomy is locked):** whether `note` folds under `message` or becomes a 7th category, plus the exact `subtype` enumeration. Until then, modelling both as landed is correct — just route them through `type` (category) + `subtype` (kind), not two parallel `type` unions.
 
 ## 2. `invoices` — `customerId` + `by_customer` (audit #3 — Important, A4/B8)
 
