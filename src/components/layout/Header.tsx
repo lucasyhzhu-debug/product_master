@@ -43,6 +43,7 @@ import {
   Database,
   Split,
   Send,
+  Contact,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -152,6 +153,8 @@ const financeItems: NavItem[] = [
 // Config dropdown - Help + configuration + admin items (separators between groups)
 const configItems: NavItem[] = [
   { path: '/help', label: 'Help', icon: CircleHelp },
+  { kind: 'separator' },
+  { path: '/crm', label: 'CRM', icon: Contact, permission: 'canAccessCrm' },
   { kind: 'separator' },
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
   { path: '/ingredients', label: 'Ingredients', icon: Leaf, permission: 'canAccessIngredients' },

@@ -176,6 +176,10 @@ const TelegramChatsManager = lazyWithPreload(() =>
   import('./pages/TelegramChatsManager').then(m => ({ default: m.TelegramChatsManager }))
 );
 
+// Phase D: /crm — CRM home shell
+const CrmHome = lazyWithPreload(() =>
+  import('./pages/crm/CrmHome').then(m => ({ default: m.CrmHome }))
+);
 // Phase B (Subscriptions): /crm/customers/:customerId/subscriptions/:subId/week
 const SubscriptionSchedulePage = lazyWithPreload(() =>
   import('./pages/crm/SubscriptionSchedulePage').then(m => ({ default: m.SubscriptionSchedulePage }))
@@ -187,6 +191,22 @@ const SubscriptionWeeklyInvoicePage = lazyWithPreload(() =>
 // Phase B (Subscriptions): /crm/funding — operator funding dashboard
 const CrmFundingDashboardPage = lazyWithPreload(() =>
   import('./pages/crm/CrmFundingDashboardPage').then(m => ({ default: m.CrmFundingDashboardPage }))
+);
+// Phase D: /crm/customers/:customerId — customer hub (two-pane)
+const CustomerDashboard = lazyWithPreload(() =>
+  import('./pages/crm/CustomerDashboard').then(m => ({ default: m.CustomerDashboard }))
+);
+// Phase D: /crm/customers/:customerId/agreements — agreement page (T15)
+const AgreementPage = lazyWithPreload(() =>
+  import('./pages/crm/AgreementPage').then(m => ({ default: m.AgreementPage }))
+);
+// Phase D: /crm/customers/:customerId/subscriptions/:subId — subscription detail (T16)
+const SubscriptionPage = lazyWithPreload(() =>
+  import('./pages/crm/SubscriptionPage').then(m => ({ default: m.SubscriptionPage }))
+);
+// Phase D: /crm/customers/:customerId/activity — customer activity timeline (T22)
+const CustomerActivityPage = lazyWithPreload(() =>
+  import('./pages/crm/CustomerActivityPage').then(m => ({ default: m.CustomerActivityPage }))
 );
 
 function App() {
@@ -720,6 +740,51 @@ function App() {
                     }
                   />
 
+                  {/* Phase D — CRM home shell (manager + admin) */}
+                  <Route
+                    path="crm"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <CrmHome />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase D — Customer hub (two-pane) (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <CustomerDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase D — Agreement page (T15) (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/agreements"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <AgreementPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase D — Subscription detail page (T16) (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/subscriptions/:subId"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <SubscriptionPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase D — Customer activity timeline (T22) (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/activity"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <CustomerActivityPage />
+                      </ProtectedRoute>
+                    }
+                  />
                   {/* Phase B (Subscriptions) — CRM schedule calendar (manager + admin) */}
                   <Route
                     path="crm/customers/:customerId/subscriptions/:subId/week"

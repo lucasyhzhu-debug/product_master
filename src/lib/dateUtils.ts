@@ -137,6 +137,19 @@ export function formatSubscriptionWeekLabel(weekStartMs: number): string {
   return `${mon} – ${sun}`;
 }
 
+/**
+ * Compact Indonesian locale date-time (no year), e.g. "19 Jun 14.30".
+ * Used by the CRM activity timeline rows for dense display.
+ */
+export function formatDateTimeIdCompact(utcMs: number): string {
+  return new Date(utcMs).toLocaleString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 /** Format as Indonesian locale date string (e.g. "6 Mar 2026") */
 export function formatDateId(utcMs: number): string {
   return new Date(utcMs).toLocaleDateString("id-ID", {

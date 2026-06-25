@@ -28,6 +28,7 @@ export interface KanbanOrderCard {
   orderNumber: string;
   status: string;
   customerName: string;
+  customerId?: Id<"customers">;
   customerPhone?: string;
   contactWa?: string;
   dueDate?: number;
@@ -89,6 +90,7 @@ export function buildKanbanCard(
     orderNumber: order.orderNumber,
     status: order.status,
     customerName: order.customerName,
+    customerId: order.customerId,
     customerPhone: order.customerPhone,
     contactWa: order.contactWa,
     dueDate: order.dueDate,

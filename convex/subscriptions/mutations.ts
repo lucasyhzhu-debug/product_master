@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { deriveWeeklyQty } from "./creditMath";
 
+// dayOfWeek is 0-based-from-Monday (0=Mon … 6=Sun) — NOT the JS Sun=0 convention used by weekBounds.ts.
 const scheduleTemplateArg = v.array(
   v.object({
     dayOfWeek: v.number(),

@@ -77,6 +77,7 @@ const moreItems: TabItem[] = [
   { path: '/components/production', icon: Circle, label: 'Production', permission: 'canAccessInventory' },
   { path: '/whatsapp-templates', icon: MessageSquare, label: 'WhatsApp', permission: 'canManageWhatsAppTemplates' },
   { path: '/menu-products', icon: Tag, label: 'Products', permission: 'canAccessMenuProducts' },
+  { path: '/crm', icon: Contact, label: 'CRM', permission: 'canAccessCrm' },
   { path: '/customers', icon: Contact, label: 'Customers', permission: 'canAccessOrders' },
   { path: '/vouchers', icon: Ticket, label: 'Vouchers', permission: 'canAccessVouchers' },
   { path: '/users', icon: Users, label: 'Users', permission: 'canAccessUsers' },
