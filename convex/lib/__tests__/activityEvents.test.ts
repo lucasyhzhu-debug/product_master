@@ -3,7 +3,7 @@ import { eventTypeToCategory, EVENT_TYPES, ActivityCategory } from "../activityE
 
 describe("activityEvents pure mapper", () => {
   it("every EventType maps to a valid ActivityCategory", () => {
-    const validCategories: ActivityCategory[] = ["order", "finance", "message", "document", "schedule", "milestone"];
+    const validCategories = ["order", "finance", "message", "document", "schedule", "milestone"] satisfies ActivityCategory[];
     for (const et of EVENT_TYPES) {
       const cat = eventTypeToCategory(et);
       expect(validCategories).toContain(cat);

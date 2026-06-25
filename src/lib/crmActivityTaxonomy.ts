@@ -27,6 +27,7 @@ const SUBTYPE_ICON: Record<string, string> = {
 
 export function getActivityVisual(category: ActivityType, subtype?: string): ActivityVisual {
   const base = ACTIVITY_TAXONOMY[category];
+  if (!base) throw new Error(`Unknown activity category: ${category}`);
   if (subtype && SUBTYPE_ICON[subtype]) return { ...base, icon: SUBTYPE_ICON[subtype] };
   return base;
 }
