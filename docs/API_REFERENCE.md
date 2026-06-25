@@ -2872,10 +2872,10 @@ crm.timeline.getCustomerTimeline({
   customerId: Id<"customers">,
   sinceDays?: number,   // default 14; extend to show older events ("Load older")
   types?: string[],     // category filter: "order"|"finance"|"message"|"document"|"schedule"|"milestone"
-  cursor?: string,      // reserved for future pagination
 })
 // Returns: { items: TimelineItem[] }
-// TimelineItem: { id, eventType, at, actor?, title, detail?, linkTo: { kind, id } }
+// TimelineItem: { id, eventType, at, actor?, title, detail?, subtype?, linkTo: { kind, id } }
+// subtype drives the icon override (payment_funded → "funded" ✓; logged rows pass their own subtype)
 // eventTypes projected: order_placed, order_delivered, invoice_sent, payment_funded,
 //   subscription_started, subscription_ended, subscription_terminated, topup,
 //   agreement_uploaded, agreement_signed, whatsapp_drafted, note, manual_milestone
