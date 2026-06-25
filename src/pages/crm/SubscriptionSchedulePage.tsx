@@ -31,6 +31,7 @@ import { Separator } from "@/components/ui/separator";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { WeekCalendarGrid } from "@/components/crm/WeekCalendarGrid";
+import { WeekBackReferences } from "@/components/crm/WeekBackReferences";
 import type { LocalWeekPlan } from "@/components/crm/WeekCalendarGrid";
 import type { ScheduleLineLocal } from "@/components/crm/ProductLineEditor";
 import { formatCurrency } from "@/lib/utils";
@@ -85,7 +86,7 @@ function toLocalWeekPlan(
 // ---------------------------------------------------------------------------
 
 export function SubscriptionSchedulePage() {
-  const { subId } = useParams<{ customerId: string; subId: string }>();
+  const { customerId, subId } = useParams<{ customerId: string; subId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -445,6 +446,16 @@ export function SubscriptionSchedulePage() {
           This week is <span className="font-medium">{statusLabel}</span> and cannot be
           edited. Navigate to a planned week to make changes.
         </p>
+      )}
+
+      {/* Back-references — bidirectional links to related objects (CRM A4).
+          Only shown when a week row exists (week._id required for the query). */}
+      {week !== null && (
+        <WeekBackReferences
+          subscriptionWeekId={week._id}
+          customerId={customerId as Id<"customers">}
+          subscriptionId={subscriptionId}
+        />
       )}
     </div>
   );
