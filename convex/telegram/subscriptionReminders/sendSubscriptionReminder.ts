@@ -25,8 +25,8 @@ const KIND = v.union(
   v.literal("weekly-delivery-progress"),
 );
 
-/** Run the kind's read query and render its message. One switch keeps the map total. */
-async function buildMessage(ctx: ActionCtx, kind: ReminderKind): Promise<string> {
+/** Run the kind's read query and render its message chunks. One switch keeps the map total. */
+async function buildMessage(ctx: ActionCtx, kind: ReminderKind): Promise<string[]> {
   const q = internal.subscriptions.reminders.queries;
   switch (kind) {
     case "confirm-next-week":        return formatConfirmReminder(await ctx.runQuery(q.getWeeksToConfirm, {}));
@@ -58,8 +58,27 @@ export const sendSubscriptionReminder = internalAction({
       internal.telegram.chatRegistry.getChatIdByRole,
       { role: roleForKind(args.kind) },
     );
-    const html = await buildMessage(ctx, args.kind);
-    await sendTelegramHtml(token, chatId, html);
+    const chunks = await buildMessage(ctx, args.kind);
+    let sent = 0;
+    try {
+      for (const chunk of chunks) {
+        await sendTelegramHtml(token, chatId, chunk);
+        sent++;
+      }
+    } catch (err) {
+      if (sent > 0) {
+        try {
+          await sendTelegramHtml(
+            token,
+            chatId,
+            `<i>⚠️ Subscription reminder (${args.kind}) send failed after ${sent}/${chunks.length} chunks. Check Convex logs.</i>`,
+          );
+        } catch {
+          /* best-effort breadcrumb — ignore secondary failure */
+        }
+      }
+      throw err;
+    }
     try {
       await ctx.runMutation(internal.telegram.deliveryReceipts.recordDelivery, {
         slotKey: subscriptionSlotKey(args.kind, Date.now()),
