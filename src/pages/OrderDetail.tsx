@@ -546,8 +546,9 @@ export function OrderDetail() {
             />
           )}
 
-          {/* Invoice Sidebar Card (manager/admin, PaymentReceived+ orders) */}
-          {isManagerOrAdmin && orderId && (
+          {/* Invoice Sidebar Card (manager/admin, non-subscription orders — Pitfall #20). MIRROR in OrderSlideOver.tsx.
+              Subscription orders have their own invoice via the weekly invoice flow; suppress here. */}
+          {isManagerOrAdmin && !isSubscriptionOrder && orderId && (
             <InvoiceSidebarCard
               orderId={orderId}
               orderStatus={order.status}
@@ -564,7 +565,7 @@ export function OrderDetail() {
             finalTotal={order.final_total}
             deliveryFee={order.delivery_fee}
             orderId={orderId}
-            canEditDeliveryFee={!['Cancelled', 'Complete'].includes(order.status)}
+            canEditDeliveryFee={!isSubscriptionOrder && !['Cancelled', 'Complete'].includes(order.status)}
           />
 
           {/* Edit Order Items Button — hidden for subscription orders (Pitfall #20). */}

@@ -99,6 +99,7 @@ export function DayPlanCell({
                 line={line}
                 products={products}
                 unitPrice={unitPrice}
+                locked={locked}
                 onChange={(updated) => updateLine(idx, updated)}
                 onRemove={() => removeLine(idx)}
               />

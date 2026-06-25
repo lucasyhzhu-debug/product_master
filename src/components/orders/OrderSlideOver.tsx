@@ -421,7 +421,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                 finalTotal={order.finalTotal}
                 deliveryFee={order.deliveryFee}
                 orderId={orderId ?? undefined}
-                canEditDeliveryFee={!['Cancelled', 'Complete'].includes(order.status)}
+                canEditDeliveryFee={!isSubscriptionOrder && !['Cancelled', 'Complete'].includes(order.status)}
               />
 
               {/* Edit Order Items (Draft / AwaitingPayment) — hidden for subscription orders (Pitfall #20). */}

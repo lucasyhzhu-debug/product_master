@@ -11,6 +11,7 @@ const DAY_MS = 86400000;
 
 export function buildPlannedDays(args: {
   weekStart: number;
+  // dayOfWeek is 0-based-from-Monday (0=Mon … 6=Sun) — NOT the JS Sun=0 convention used by weekBounds.ts.
   template: { dayOfWeek: number; items: { menuProductId: Id<"menuProducts">; qty: number }[] }[];
   unitPrice: number;
   deliverByTime: string;

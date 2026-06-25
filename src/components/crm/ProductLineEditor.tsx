@@ -32,6 +32,8 @@ interface ProductLineEditorProps {
   products: MenuProductOption[];
   /** Partner price — read only, displayed per-line */
   unitPrice: number;
+  /** When true the row is read-only — inputs and Remove are disabled (confirmed week). */
+  locked?: boolean;
   onChange: (updated: ScheduleLineLocal) => void;
   onRemove: () => void;
 }
@@ -40,6 +42,7 @@ export function ProductLineEditor({
   line,
   products,
   unitPrice,
+  locked = false,
   onChange,
   onRemove,
 }: ProductLineEditorProps) {
@@ -54,6 +57,7 @@ export function ProductLineEditor({
           onValueChange={(val) =>
             onChange({ ...line, menuProductId: val as Id<"menuProducts"> })
           }
+          disabled={locked}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue placeholder="Select product…" />
@@ -78,6 +82,7 @@ export function ProductLineEditor({
         }
         className="w-16 h-8 text-xs text-center"
         aria-label="Quantity"
+        disabled={locked}
       />
 
       {/* Line total */}
@@ -85,17 +90,19 @@ export function ProductLineEditor({
         {formatCurrency(lineTotal)}
       </span>
 
-      {/* Remove */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={onRemove}
-        aria-label="Remove line"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      {/* Remove — hidden when locked (confirmed week) */}
+      {!locked && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={onRemove}
+          aria-label="Remove line"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
     </div>
   );
 }

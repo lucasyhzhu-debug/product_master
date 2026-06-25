@@ -11,6 +11,7 @@ export function makeScheduleLine(
   return { menuProductId, productName, qty, unitPrice, lineTotal: computeLineTotal(qty, unitPrice) };
 }
 
+// NOTE: dayOfWeek is 0-based-from-Monday (0=Mon … 6=Sun), NOT the JS Sun=0 convention used by weekBounds.ts.
 export function validateScheduleTemplate(
   template: { dayOfWeek: number; items: { menuProductId: Id<"menuProducts">; qty: number }[] }[],
 ): { ok: true } | { ok: false; error: string } {
