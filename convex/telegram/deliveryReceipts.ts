@@ -50,6 +50,16 @@ export function salesSlotKey(cadence: SalesCadence, nowMs: number): string {
   return `sales:${cadence}:${getWibDateStr(nowMs)}`;
 }
 
+/**
+ * Subscription-reminder slot key. Keyed by WIB calendar day of the send. For the
+ * weekly kinds (confirm Sun / invoice+reconcile Mon) the key is the firing day's
+ * WIB date — a stable, unambiguous week id. None of the six slots sit near WIB
+ * midnight, so the +15min watchdog never crosses a WIB-day boundary.
+ */
+export function subscriptionSlotKey(kind: string, nowMs: number): string {
+  return `sub:${kind}:${getWibDateStr(nowMs)}`;
+}
+
 /** True if a successful send was already recorded for this slot. */
 export const wasDelivered = internalQuery({
   args: { slotKey: v.string() },
