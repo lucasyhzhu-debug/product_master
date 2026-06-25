@@ -1,5 +1,7 @@
-export type ActivityType =
-  | "order" | "finance" | "message" | "document" | "schedule" | "milestone";
+import type { ActivityCategory } from "../../convex/lib/activityEvents";
+
+// ActivityType IS the visual key — a coarse category, one step up from EventType.
+export type ActivityType = ActivityCategory;
 
 export type ActivityVisual = {
   icon: string;
@@ -17,6 +19,17 @@ export const ACTIVITY_TAXONOMY: Record<ActivityType, ActivityVisual> = {
   milestone: { icon: "🏁", colorClass: "text-rose-500",   label: "Milestone", direction: "system" },
 };
 
-export function getActivityVisual(type: ActivityType, _subtype?: string): ActivityVisual {
-  return ACTIVITY_TAXONOMY[type]; // subtype icon overrides layered in the Phase D timeline task
+// Subtype icon overrides — layered on top of the category base visual.
+const SUBTYPE_ICON: Record<string, string> = {
+  funded:     "✓",
+  reconcile:  "⚖",
+};
+
+export function getActivityVisual(category: ActivityType, subtype?: string): ActivityVisual {
+  const base = ACTIVITY_TAXONOMY[category];
+  if (subtype && SUBTYPE_ICON[subtype]) return { ...base, icon: SUBTYPE_ICON[subtype] };
+  return base;
 }
+
+// Re-export for downstream consumers who need the category type.
+export type { ActivityCategory };
