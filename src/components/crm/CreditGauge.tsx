@@ -61,8 +61,11 @@ export function CreditGauge({ pool, subscriptionLabel }: CreditGaugeProps) {
 function CreditGaugeFilled({ pool }: { pool: CreditPoolShape }) {
   const { creditIssued, creditConsumed, creditRemaining } = pool;
 
-  // Guard divide-by-zero (C9)
-  const pct = creditIssued > 0 ? Math.min(creditRemaining / creditIssued, 1) : 0;
+  // Guard divide-by-zero (C9) and clamp to [0,1] (negative creditRemaining → 0%).
+  const pct =
+    creditIssued > 0
+      ? Math.max(0, Math.min(creditRemaining / creditIssued, 1))
+      : 0;
   const pctDisplay = Math.round(pct * 100);
 
   return (
