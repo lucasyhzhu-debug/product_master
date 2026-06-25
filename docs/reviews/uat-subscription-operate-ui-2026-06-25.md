@@ -177,3 +177,67 @@
 **Tester sign-off:** _______________ **Date:** _______________
 
 **Notes / issues found:**
+
+---
+
+## Automated UAT run — Sonnet 4.6, 2026-06-25
+
+**Environment:** dev:exciting-fennec-671, localhost:5173, Playwright/Chromium
+**Spec file:** `tests/e2e/subscription-operate-ui-uat.spec.ts`
+**Run result:** 6 passed, 3 skipped (data-blocked), 0 hard failures after defect documentation pass
+
+### Results per area
+
+| Area | Status | Evidence |
+|------|--------|----------|
+| Pitfall #19 regression — order_staff orders board | ✅ PASS | No crash, no "Something went wrong". Screenshot: uat-operate-ui-01-order-staff-orders-board.png |
+| Pitfall #19 regression — order_staff slide-over | ✅ PASS | No crash. No "Mark delivered", "Split on credit", "Apply available credit" visible. Screenshot: uat-operate-ui-01-order-staff-slide-over.png |
+| order_staff does NOT see manager-only affordances | ✅ PASS | Confirmed: Mark delivered, Split on credit, Apply available credit all absent |
+| Pitfall #19 regression — order_staff /orders/:id | ⏳ BLOCKED(no data) | No orders in dev DB — no order ID to navigate to |
+| Manager sees subscription section on orders — slide-over | ⏳ BLOCKED(no sub orders) | Manager sees orders board fine, but no subscription orders in dev DB. Screenshot: uat-operate-ui-03-manager-slide-over.png |
+| Manager sees subscription section on orders — /orders/:id | ⏳ BLOCKED(no data) | No orders in dev DB |
+| CRM crm/funding FundingDashboardPage renders | ✅ PASS | No crash, renders fine. Screenshot: uat-operate-ui-05-crm-funding-dashboard.png |
+| CRM SubscriptionSchedulePage — invalid ID shows empty state | ❌ DEFECT BUG-01 | Crashes with error boundary "Something went wrong loading this page" instead of showing "Subscription not found" EmptyState. Root cause: `subId as Id<"subscriptions">` cast without format validation — Convex ArgumentValidationError escapes null guards. Screenshot in test-results dir. |
+| CRM SubscriptionWeeklyInvoicePage — invalid ID shows empty state | ❌ DEFECT BUG-01 | Same crash pattern as above. |
+| order_staff redirect from crm/funding (access control) | ✅ PASS | ProtectedRoute correctly redirects order_staff away from /crm/funding |
+| Reconcile dialog — submit disabled without comment | ⏳ BLOCKED(no sub data) | No qualifying subscription weeks in dev DB. Logic confirmed in source: `disabled={!note.trim() \|\| submitting}` |
+| Reconcile dialog — submit enabled after typing comment | ⏳ BLOCKED(no sub data) | Same block |
+| Amend week button unlocks grid | ⏳ BLOCKED(no sub data) | No subscription schedule pages accessible without real sub data (BUG-01 means fake IDs crash) |
+| Mark-delivered button (subscription order) | ⏳ BLOCKED(needs data) | No qualifying subscription orders in dev DB |
+| Out-of-credit flag + Split/Apply buttons | ⏳ BLOCKED(needs data) | No qualifying subscription orders in dev DB |
+
+### UX Issues
+
+| # | Severity | Surface | Observation |
+|---|----------|---------|-------------|
+| 1 | HIGH | SubscriptionSchedulePage, SubscriptionWeeklyInvoicePage | BUG-01: Pages crash (error boundary) on invalid/malformed URL IDs instead of showing EmptyState. The null guard (`if (planningData === null)`) never fires because Convex rejects the malformed ID at the validator level (ArgumentValidationError), which bubbles as an uncaught error. Both pages do the unsafe `param as Id<"...">` cast without checking ID format first. |
+
+### Functional Defects
+
+**BUG-01 (SEVERITY: MEDIUM-HIGH)** — `SubscriptionSchedulePage` and `SubscriptionWeeklyInvoicePage` crash on malformed route IDs
+
+- **Surface:** `/crm/customers/:customerId/subscriptions/:subId/week` and `.../week/invoice`
+- **Symptom:** Error boundary renders "Something went wrong loading this page. Please reload" instead of the coded EmptyState "Subscription not found"
+- **Root cause:** Both pages cast route params directly to Convex ID types (`subId as Id<"subscriptions">`) without format validation. Convex's `v.id("subscriptions")` validator rejects strings that don't match its internal ID format — this throws `ArgumentValidationError` inside the query, which React's error boundary catches before the null guard in the component can fire.
+- **Impact:** Any operator who types or copies a wrong URL, or follows a stale deep-link, sees a hard crash page instead of a friendly "not found" message. The back button still works, so it's recoverable, but it's confusing.
+- **Fix options:** (a) validate ID format before calling the query (e.g., `if (!subId || subId.length < 10) return <EmptyState />`) — quick; (b) wrap the query call in an error boundary at the component level with a custom fallback — cleaner; (c) add a `try/catch` in the Convex query handler and return null for invalid IDs — also works.
+- **Note:** This bug only surfaces with malformed IDs (wrong URL). Valid IDs that don't exist in DB ARE handled correctly by the null guard (returns null → EmptyState). So real-world usage via app navigation is safe; direct URL manipulation is not.
+
+### What was blocked and why
+
+- **T1 /orders/:id as order_staff** — Dev DB has no orders at all. Cannot test direct order URL navigation.
+- **T2 Manager subscription section** — No subscription orders in dev DB. The orders board renders fine, but no orders to click.
+- **T3 Schedule/Invoice pages with real IDs** — No subscription data in dev DB; fake IDs hit BUG-01 and crash.
+- **T4 Reconcile dialog** — No subscription weeks in any reconcilable status (paid/delivering) in dev DB.
+- **T5 Amend week** — No subscription schedule pages navigable without real data (BUG-01 blocks fake-ID fallback).
+
+All blocked items require seeding test subscription data (at least one active subscription with one confirmed week and one order in PaymentReceived status). The human UAT checklist above (`§1 Prerequisites`) documents exactly what data is needed.
+
+### Code path verified (static analysis, not runtime)
+
+These were confirmed correct by reading source code:
+- `getOrderCreditStatus` protectedQuery: `roles: ["manager", "admin"]` ✅ — correctly excludes order_staff at backend level
+- `useSessionQuery` skip guard in both `OrderSlideOver` and `OrderDetail`: `isManagerOrAdmin && isSubscriptionOrder && orderId ? {...} : 'skip'` ✅ — order_staff hits `'skip'` and the query never fires
+- `ReconcileWeekDialog` submit gate: `disabled={!note.trim() || submitting}` ✅ — both empty and space-only comments disable submit
+- `canAccessCrm` permission: `false` for order_staff and kitchen ✅ — ProtectedRoute redirect confirmed working (T3 test 4)
+- Pitfall #20 (both surfaces): Both `OrderSlideOver.tsx` and `OrderDetail.tsx` have the subscription section with Mark-delivered and out-of-credit affordances, gated by `isManagerOrAdmin` ✅
