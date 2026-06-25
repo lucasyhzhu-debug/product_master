@@ -2573,6 +2573,7 @@ export default defineSchema({
     shortfallFault: v.union(v.literal("none"), v.literal("cafe"), v.literal("frollie")),
     refundDue: v.number(),
     refundStatus: v.optional(v.string()),
+    reconcileNote: v.optional(v.string()),
     confirmedAt: v.optional(v.number()),
     confirmedBy: v.optional(v.id("users")),
     weeklyInvoiceId: v.optional(v.id("invoices")),
