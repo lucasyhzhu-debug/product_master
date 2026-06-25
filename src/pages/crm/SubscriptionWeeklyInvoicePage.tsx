@@ -25,6 +25,7 @@ import {
   Receipt,
   RefreshCw,
 } from "lucide-react";
+import { ReconcileWeekDialog } from "@/components/crm/ReconcileWeekDialog";
 import { useQuery } from "convex/react";
 import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
 import { toast } from "sonner";
@@ -107,6 +108,7 @@ export function SubscriptionWeeklyInvoicePage() {
 
   const [marking, setMarking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showReconcile, setShowReconcile] = useState(false);
 
   // ---------------------------------------------------------------------------
   // All hooks before any early returns (Pitfall #9, Rules of Hooks)
@@ -342,8 +344,26 @@ export function SubscriptionWeeklyInvoicePage() {
           {!isPaid && (
             <MarkPaidInvoiceButton marking={marking} onClick={handleMarkPaid} />
           )}
+          {(['paid', 'delivering'] as const).includes(week.status as 'paid' | 'delivering') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowReconcile(true)}
+              className="text-xs"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              Reconcile week
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Reconcile-week dialog — mounted here so it has access to week._id */}
+      <ReconcileWeekDialog
+        subscriptionWeekId={week._id}
+        open={showReconcile}
+        onOpenChange={setShowReconcile}
+      />
 
       {/* Bank transfer reference — PROMINENT (gap#1 A3, customer copies into memo) */}
       <Card className="border-2 border-primary/30 print:border print:border-gray-400">
