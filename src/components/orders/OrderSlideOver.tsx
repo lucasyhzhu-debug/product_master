@@ -10,7 +10,7 @@
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
 import { useMutation } from 'convex/react';
 import { useSessionQuery } from 'convex-helpers/react/sessions';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import {
@@ -335,9 +335,18 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
               {/* ── Customer ─────────────────────────────── */}
               <div>
                 <h4 className="text-sm font-semibold mb-2">Customer</h4>
-                <p className="text-sm font-medium">
-                  {order.customerName ?? (order as any).customer_name}
-                </p>
+                {order.customerId ? (
+                  <Link
+                    to={`/crm/customers/${order.customerId}`}
+                    className="text-sm font-medium hover:underline"
+                  >
+                    {order.customerName ?? (order as any).customer_name}
+                  </Link>
+                ) : (
+                  <p className="text-sm font-medium">
+                    {order.customerName ?? (order as any).customer_name}
+                  </p>
+                )}
                 {getField(order, 'customerPhone', 'customer_phone') && (
                   <div className="flex items-center gap-2 mt-1">
                     <Phone className="h-3 w-3 text-muted-foreground" />

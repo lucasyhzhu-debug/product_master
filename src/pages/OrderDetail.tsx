@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode, Lock, ExternalLink } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useQuery } from 'convex/react';
@@ -244,7 +244,16 @@ export function OrderDetail() {
                 <div>
                   <CardTitle className="font-mono text-xl">{order.order_number}</CardTitle>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {order.customer_name}
+                    {order.customer_id_raw ? (
+                      <Link
+                        to={`/crm/customers/${order.customer_id_raw}`}
+                        className="hover:underline"
+                      >
+                        {order.customer_name}
+                      </Link>
+                    ) : (
+                      order.customer_name
+                    )}
                     {order.created_by && (
                       <span className="text-xs ml-2">Created by {order.created_by}</span>
                     )}

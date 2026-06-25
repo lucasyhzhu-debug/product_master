@@ -8,6 +8,7 @@
  * Quick 23: highlight my orders and orders with notes.
  */
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
@@ -29,6 +30,7 @@ export interface KanbanOrder {
   _id: string;
   orderNumber: string;
   customerName: string;
+  customerId?: string;
   customerPhone?: string;
   status: string;
   dueDate?: number;
@@ -146,7 +148,17 @@ export function KanbanCard({
         {/* Header: Customer name + price, order by + discount */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm">{order.customerName}</p>
+            {order.customerId ? (
+              <Link
+                to={`/crm/customers/${order.customerId}`}
+                className="font-semibold text-sm hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {order.customerName}
+              </Link>
+            ) : (
+              <p className="font-semibold text-sm">{order.customerName}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               <span className="font-mono">{order.orderNumber}</span>
               {order.creatorName && <span> &middot; by {order.creatorName}</span>}
