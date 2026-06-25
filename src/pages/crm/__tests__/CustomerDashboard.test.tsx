@@ -78,6 +78,15 @@ vi.mock("@/components/crm/ContactLinks", () => ({
   ContactLinks: () => <div data-testid="contact-links">ContactLinks</div>,
 }));
 
+// Mock T27 components so they don't fire additional useSessionQuery calls that
+// would confuse the single-value mockQueryReturnValue used in these tests.
+vi.mock("@/components/crm/DrawdownChart", () => ({
+  DrawdownChart: () => <div data-testid="drawdown-chart" />,
+}));
+vi.mock("@/components/crm/SubscriptionSelector", () => ({
+  SubscriptionSelector: () => <div data-testid="subscription-selector" />,
+}));
+
 vi.mock("@/components/crm/LinkableObject", () => ({
   LinkableObject: ({
     children,

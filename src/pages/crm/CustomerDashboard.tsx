@@ -56,6 +56,8 @@ import { ContactLinks } from "@/components/crm/ContactLinks";
 import { DraftWhatsAppButton } from "@/components/crm/DraftWhatsAppButton";
 import { LinkableObject } from "@/components/crm/LinkableObject";
 import { CreditGauge } from "@/components/crm/CreditGauge";
+import { SubscriptionSelector } from "@/components/crm/SubscriptionSelector";
+import { DrawdownChart } from "@/components/crm/DrawdownChart";
 import { getErrorMessage } from "@/lib/utils";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
@@ -389,6 +391,9 @@ interface RightPaneProps {
   subscriptions: SubscriptionDoc[];
   currentWeekPoolBySubscription: Record<string, WeekPool>;
   unpaidInvoices: { _id: Id<"invoices">; paymentStatus: string }[];
+  /** Selected subscription for the drawdown chart (T27). */
+  selectedSubscriptionId: Id<"subscriptions"> | undefined;
+  onSelectSubscription: (id: Id<"subscriptions">) => void;
 }
 
 function FinancialPane({
@@ -398,7 +403,13 @@ function FinancialPane({
   subscriptions,
   currentWeekPoolBySubscription,
   unpaidInvoices,
+  selectedSubscriptionId,
+  onSelectSubscription,
 }: RightPaneProps) {
+  // Derive effective selected subscription (fallback to first if unset).
+  const effectiveSelectedId = selectedSubscriptionId ?? subscriptions[0]?._id;
+  const selectedSub = subscriptions.find((s) => s._id === effectiveSelectedId);
+
   return (
     <div className="space-y-6">
       {/* Credit gauge — T26: per-subscription pool gauge */}
@@ -472,6 +483,25 @@ function FinancialPane({
         )}
       </section>
 
+      {/* Credit drawdown chart — T27: one subscription at a time, no roll-up (C4) */}
+      {subscriptions.length > 0 && effectiveSelectedId !== undefined && (
+        <section aria-label="Credit drawdown" className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Credit drawdown
+          </h2>
+          <SubscriptionSelector
+            subscriptions={subscriptions}
+            value={effectiveSelectedId}
+            onChange={onSelectSubscription}
+          />
+          <DrawdownChart
+            subscriptionId={effectiveSelectedId}
+            subscriptionLabel={selectedSub?.label}
+            customerId={customerId}
+          />
+        </section>
+      )}
+
       {/* Unpaid invoices summary */}
       {unpaidInvoices.length > 0 && (
         <section aria-label="Unpaid invoices" className="space-y-2">
@@ -525,6 +555,11 @@ function FinancialPane({
 export function CustomerDashboard() {
   const { customerId } = useParams<{ customerId: string }>();
   const [editOpen, setEditOpen] = useState(false);
+  // T27: selected subscription for the drawdown chart. Undefined = fallback to first sub.
+  // useState before early returns (Pitfall #9).
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<
+    Id<"subscriptions"> | undefined
+  >(undefined);
 
   // All hooks before any early returns (Pitfall #9).
   const record = useSessionQuery(
@@ -643,6 +678,8 @@ export function CustomerDashboard() {
             subscriptions={subscriptions}
             currentWeekPoolBySubscription={currentWeekPoolBySubscription}
             unpaidInvoices={unpaidInvoices}
+            selectedSubscriptionId={selectedSubscriptionId}
+            onSelectSubscription={setSelectedSubscriptionId}
           />
         </div>
       </div>
