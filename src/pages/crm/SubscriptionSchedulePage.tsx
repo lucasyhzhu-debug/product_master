@@ -16,6 +16,7 @@ import {
   FileText,
   LayoutTemplate,
   Minus,
+  Pencil,
   RefreshCw,
   Save,
 } from "lucide-react";
@@ -131,6 +132,9 @@ export function SubscriptionSchedulePage() {
     api.subscriptions.invoicing.createSubscriptionWeeklyInvoice,
   );
 
+  // Amend mutation (T3 backend)
+  const amendWeek = useSessionMutation(api.subscriptions.amend.amendConfirmedWeek);
+
   // ---------------------------------------------------------------------------
   // Local editable plan (derived from Convex week.plannedDays)
   // Convex is the source of truth; localDays shadows changes before seedWeek is called.
@@ -139,6 +143,7 @@ export function SubscriptionSchedulePage() {
   const [seeding, setSeeding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [amending, setAmending] = useState(false);
 
   // Ref holds the latest server-derived display plan so handleDayChange can
   // seed from it on the FIRST edit (when prev is null) without adding
@@ -181,6 +186,11 @@ export function SubscriptionSchedulePage() {
 
   const { week, subscription } = planningData;
   const isLocked = week !== null && week.status !== "planned";
+  const amendable =
+    week !== null &&
+    (["confirmed", "invoiced", "paid", "delivering"] as string[]).includes(week.status);
+  // Grid is editable when: planned week (existing) OR operator opted into amend mode.
+  const gridLocked = isLocked && !amending;
   const unitPrice = subscription.unitPrice;
 
   // Display plan: prefer localDays (unsaved edits) otherwise derive from week
@@ -411,6 +421,50 @@ export function SubscriptionSchedulePage() {
             </Button>
           )}
 
+          {/* Amend week toggle — only for amendable statuses (confirmed/invoiced/paid/delivering) */}
+          {amendable && !amending && (
+            <Button variant="outline" size="sm" onClick={() => setAmending(true)} className="text-xs">
+              <Pencil className="h-4 w-4 mr-1.5" /> Amend week
+            </Button>
+          )}
+
+          {/* Save amendments button — visible while amend mode is active */}
+          {amending && week !== null && (
+            <Button
+              size="sm"
+              className="text-xs"
+              onClick={async () => {
+                // Reuse the SAME LocalWeekPlan → days conversion as saveWeekPlan (handleSave).
+                // plan = displayPlan (the grid's current state, including any local edits).
+                const days = displayPlan
+                  .map((lines, i) => ({
+                    date: weekStartMs + i * DAY_MS,
+                    items: lines.map((l) => ({ menuProductId: l.menuProductId, qty: l.qty })),
+                  }))
+                  .filter((d) => d.items.length > 0);
+                try {
+                  const r = await amendWeek({ subscriptionWeekId: week._id, days });
+                  toast.success(
+                    `Amended — top-up invoice for ${r.deltaTotal.toLocaleString("id-ID")} IDR created. Mark it paid to fund the credit.`,
+                  );
+                  setAmending(false);
+                  setLocalDays(null);
+                } catch (err) {
+                  toast.error(getErrorMessage(err, "Failed to amend week"));
+                }
+              }}
+            >
+              Save amendments &rarr; bill top-up
+            </Button>
+          )}
+
+          {/* Cancel amend */}
+          {amending && (
+            <Button variant="ghost" size="sm" className="text-xs" onClick={() => { setAmending(false); setLocalDays(null); }}>
+              Cancel amend
+            </Button>
+          )}
+
           {/* Week total */}
           <div className="flex items-center gap-1.5 ml-2">
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -434,16 +488,16 @@ export function SubscriptionSchedulePage() {
           localDays={displayPlan}
           products={productOptions}
           unitPrice={unitPrice}
-          locked={isLocked}
+          locked={gridLocked}
           onChange={handleDayChange}
         />
       )}
 
-      {/* Locked notice */}
-      {isLocked && (
+      {/* Locked notice — hidden while amend mode is active */}
+      {gridLocked && (
         <p className="text-xs text-muted-foreground text-center">
           This week is <span className="font-medium">{statusLabel}</span> and cannot be
-          edited. Navigate to a planned week to make changes.
+          edited. Navigate to a planned week to make changes, or use &ldquo;Amend week&rdquo; above.
         </p>
       )}
     </div>
