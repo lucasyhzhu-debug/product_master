@@ -78,11 +78,11 @@ export const getTodaySubscriptionDeliveries = internalQuery({
       for (const pd of week.plannedDays) {
         const c = getWibComponents(pd.date);
         if (c.year !== year || c.month !== month || c.day !== day) continue;
-        const lines: DeliveryLine[] = [];
-        for (const item of pd.items) {
-          const prod = await ctx.db.get(item.menuProductId);
-          lines.push({ productName: item.productName, qty: item.qty, missingProduct: prod === null });
-        }
+        // Independent product reads — fetch them concurrently rather than one at a time.
+        const prods = await Promise.all(pd.items.map((item) => ctx.db.get(item.menuProductId)));
+        const lines: DeliveryLine[] = pd.items.map((item, i) => ({
+          productName: item.productName, qty: item.qty, missingProduct: prods[i] === null,
+        }));
         if (lines.length) out.push({ account: sub.label, deliverByTime: pd.deliverByTime, lines });
       }
     }
@@ -147,12 +147,16 @@ export const getWeeklyDeliveryProgress = internalQuery({
         .query("orders")
         .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
         .collect();
-      let deliveredPcs = 0;
-      for (const o of orders) {
-        if (o.status !== TERMINAL_DELIVERED) continue;
-        const items = await ctx.db.query("orderItems").withIndex("by_order", (q) => q.eq("orderId", o._id)).collect();
-        deliveredPcs += items.reduce((s: number, it) => s + it.quantity, 0);
-      }
+      // Delivered orders are independent — fetch their items concurrently, then sum.
+      const completeOrders = orders.filter((o) => o.status === TERMINAL_DELIVERED);
+      const itemLists = await Promise.all(
+        completeOrders.map((o) =>
+          ctx.db.query("orderItems").withIndex("by_order", (q) => q.eq("orderId", o._id)).collect(),
+        ),
+      );
+      const deliveredPcs = itemLists
+        .flat()
+        .reduce((s: number, it) => s + it.quantity, 0);
       out.push({
         account: sub.label, weekStart: week.weekStart, weekPlannedPcs, deliveredPcs,
         remaining: Math.max(0, weekPlannedPcs - deliveredPcs),
