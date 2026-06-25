@@ -126,6 +126,8 @@ async function insertWeek(
     paymentReceivedAt?: number;
     shortfall?: number;
     refundDue?: number;
+    /** When true, the first planned day is inserted with locked:true (for getDaysApproachingCutoff tests). */
+    lockedFirstDay?: boolean;
   } = {},
 ) {
   const items: any[] = [
@@ -137,11 +139,11 @@ async function insertWeek(
   if (opts.deletedProductId) {
     items.push({ menuProductId: opts.deletedProductId, productName: "Deleted Product", qty: 2, unitPrice: 29000, lineTotal: 58000 });
   }
-  const plannedDays = dayTimestamps.map((date) => ({
+  const plannedDays = dayTimestamps.map((date, i) => ({
     date,
     deliverByTime: "09:00",
     items,
-    locked: false,
+    locked: i === 0 && (opts.lockedFirstDay ?? false),
   }));
 
   return ctx.db.insert("subscriptionWeeks", {
@@ -554,6 +556,36 @@ describe("getWeeksToReconcile", () => {
     const rows = await t.query(internal.subscriptions.reminders.queries.getWeeksToReconcile, {});
     expect(rows).toEqual([]);
   });
+
+  // I2 regression — current in-progress delivering week must NOT appear
+  it("excludes a delivering week whose weekEnd >= now (current in-progress week)", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      const userId = await insertUser(ctx);
+      const customerId = await insertCustomer(ctx, "Reconcile I2 Cafe");
+      const mpA = await insertMenuProduct(ctx, "ORI-I2", "Original I2");
+      const subId = await insertSubscription(ctx, userId, customerId, mpA, "Reconcile I2 Cafe", "active");
+
+      // Current week: weekEnd is in the future → must be EXCLUDED from reconcile
+      const currentWStart = now - 3 * DAY_MS;
+      const currentWEnd = now + 4 * DAY_MS;
+      await insertWeek(ctx, subId, currentWStart, currentWEnd, "delivering",
+        [now - DAY_MS], mpA, { shortfall: 0, refundDue: 0 });
+
+      // Prior week: weekEnd is in the past → must be INCLUDED
+      const priorWStart = now - 10 * DAY_MS;
+      const priorWEnd = now - 3 * DAY_MS - 1;
+      await insertWeek(ctx, subId, priorWStart, priorWEnd, "delivering",
+        [priorWStart + DAY_MS], mpA, { shortfall: 29000, refundDue: 0 });
+    });
+
+    const rows = await t.query(internal.subscriptions.reminders.queries.getWeeksToReconcile, {});
+    expect(rows).toHaveLength(1);
+    expect(rows[0].account).toBe("Reconcile I2 Cafe");
+    expect(rows[0].shortfall).toBe(29000); // only the prior week
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -589,5 +621,42 @@ describe("getDaysApproachingCutoff", () => {
     const t = convexTest(schema, modules);
     const rows = await t.query(internal.subscriptions.reminders.queries.getDaysApproachingCutoff, {});
     expect(rows).toEqual([]);
+  });
+
+  // Locked-day coverage — getDaysApproachingCutoff must EXCLUDE a locked planned day
+  it("excludes tomorrow's planned day when locked:true; includes it when locked:false", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+    const tomorrow = now + DAY_MS;
+    const wStart = now - 3 * DAY_MS;
+    const wEnd = now + 4 * DAY_MS;
+
+    // --- Locked: true → must be excluded ---
+    await t.run(async (ctx) => {
+      const userId = await insertUser(ctx);
+      const customerId = await insertCustomer(ctx, "Locked Cafe");
+      const mpA = await insertMenuProduct(ctx, "ORI-LCK", "Original LCK");
+      const subId = await insertSubscription(ctx, userId, customerId, mpA, "Locked Cafe", "active");
+      await insertWeek(ctx, subId, wStart, wEnd, "delivering",
+        [tomorrow], mpA, { lockedFirstDay: true });
+    });
+
+    const rowsLocked = await t.query(internal.subscriptions.reminders.queries.getDaysApproachingCutoff, {});
+    expect(rowsLocked).toEqual([]); // locked day → NOT returned
+
+    // --- Flip to locked:false in a fresh test instance → must be included ---
+    const t2 = convexTest(schema, modules);
+    await t2.run(async (ctx) => {
+      const userId = await insertUser(ctx);
+      const customerId = await insertCustomer(ctx, "Unlocked Cafe");
+      const mpA = await insertMenuProduct(ctx, "ORI-ULCK", "Original ULCK");
+      const subId = await insertSubscription(ctx, userId, customerId, mpA, "Unlocked Cafe", "active");
+      await insertWeek(ctx, subId, wStart, wEnd, "delivering",
+        [tomorrow], mpA, { lockedFirstDay: false });
+    });
+
+    const rowsUnlocked = await t2.query(internal.subscriptions.reminders.queries.getDaysApproachingCutoff, {});
+    expect(rowsUnlocked).toHaveLength(1);
+    expect(rowsUnlocked[0].account).toBe("Unlocked Cafe");
   });
 });

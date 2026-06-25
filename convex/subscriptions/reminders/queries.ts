@@ -16,11 +16,14 @@ async function activeSubscriptions(ctx: QueryCtx) {
 
 /** The subscriptionWeek whose [weekStart, weekEnd] contains nowMs, for a sub. */
 async function currentWeek(ctx: QueryCtx, subscriptionId: Id<"subscriptions">, nowMs: number) {
-  const weeks = await ctx.db
+  const week = await ctx.db
     .query("subscriptionWeeks")
-    .withIndex("by_subscription_weekStart", (q) => q.eq("subscriptionId", subscriptionId))
-    .collect();
-  return weeks.find((w) => w.weekStart <= nowMs && nowMs <= w.weekEnd) ?? null;
+    .withIndex("by_subscription_weekStart", (q) =>
+      q.eq("subscriptionId", subscriptionId).lte("weekStart", nowMs),
+    )
+    .order("desc")
+    .first();
+  return week && nowMs <= week.weekEnd ? week : null;
 }
 
 // Kind 1 — planned weeks (next week) awaiting confirm.
@@ -109,12 +112,17 @@ export const getDaysApproachingCutoff = internalQuery({
 });
 
 // Kind 5 — prior week still in delivering / unreconciled.
+// Only weeks whose delivery window has ended (weekEnd < now) need reconciliation.
+// Intentionally does NOT filter by sub.status — a terminated sub's final delivering week still
+// needs reconciliation even if the subscription is no longer active.
 export const getWeeksToReconcile = internalQuery({
   args: {},
   handler: async (ctx): Promise<ReconcileRow[]> => {
+    const now = Date.now();
     const weeks = await ctx.db.query("subscriptionWeeks").withIndex("by_status", (q) => q.eq("status", "delivering")).collect();
     const out: ReconcileRow[] = [];
     for (const w of weeks) {
+      if (w.weekEnd >= now) continue; // current in-progress week — not yet reconcilable
       const sub = await ctx.db.get(w.subscriptionId);
       if (!sub) continue;
       out.push({ account: sub.label, weekStart: w.weekStart, shortfall: w.shortfall, refundDue: w.refundDue });
