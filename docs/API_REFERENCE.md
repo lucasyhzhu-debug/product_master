@@ -2744,6 +2744,185 @@ Shared order-COGS accumulation. Skips cancelled items, items with no `menuProduc
 
 ---
 
+### CRM (Phase D — CRM surface, 2026-06-26)
+
+All functions are `protectedQuery` / `protectedMutation` from `convex/lib/functions`. All roles: **manager + admin** (Pitfall #19 superset of `canAccessCrm`). All require `token: v.string()`.
+
+#### Customers (`convex/crm/customers.ts`)
+
+```typescript
+crm.customers.updateCustomerCrmFields({
+  customerId: Id<"customers">,
+  // All fields optional — only provided fields are patched:
+  keyContactName?: string,
+  keyContactRole?: string,
+  whatsapp?: string,
+  email?: string,
+  instagram?: string,
+  otherSocials?: Array<{ platform: string, handle: string, url?: string }>,
+  deliveryAddress?: string,
+  storeAddress?: string,
+  otherAddresses?: string[],
+  altPhone?: string,
+  notes?: string,
+})
+// Returns: Id<"customers">
+
+crm.customers.getCustomerRecord({ customerId: Id<"customers"> })
+// Returns: {
+//   customer: Doc<"customers">,
+//   subscriptions: Doc<"subscriptions">[],
+//   agreements: Doc<"supplyAgreements">[],
+//   currentWeekPoolBySubscription: Record<string,
+//     { week: Doc<"subscriptionWeeks">, pool: CreditPool } | null
+//   >,
+//   unpaidInvoices: Doc<"invoices">[],    // paymentStatus !== "Paid"
+// } | null
+
+crm.customers.getCrmHomeActiveSubscriptions()
+// Returns: Array<{
+//   subscription: Doc<"subscriptions">,
+//   customerId: Id<"customers">,
+//   customerName: string | null,
+//   currentWeek: Doc<"subscriptionWeeks"> | null,
+// }>
+```
+
+#### Agreements (`convex/crm/agreements.ts`)
+
+```typescript
+crm.agreements.generateAgreementUploadUrl()
+// Returns: string  (Convex storage upload URL)
+
+crm.agreements.createSupplyAgreement({
+  customerId: Id<"customers">,
+  subscriptionId?: Id<"subscriptions">,
+  fileStorageId: Id<"_storage">,
+  fileName: string,
+  fileSize: number,
+  status: "draft" | "signed" | "expired" | "terminated",
+  signedDate?: number,
+  governingLaw?: string,
+  signatories?: string,
+  keyTerms?: {
+    weeklyQty: number, unitPrice: number, weeklyCreditAmount: number,
+    baselineDailyQty: number, deliverByTime: string,
+    permanentChangeNoticeDays: number, terminationNoticeDays: number,
+    creditRolloverPolicy: "expire" | "rollover", termType: string,
+  },
+  lang: "id" | "en",
+})
+// Returns: Id<"supplyAgreements">
+
+crm.agreements.addAgreementVersion({
+  agreementId: Id<"supplyAgreements">,
+  fileStorageId: Id<"_storage">,
+  fileName: string,
+  lang: "id" | "en",
+})
+// Returns: Id<"supplyAgreements">
+
+crm.agreements.linkAgreementToSubscription({
+  agreementId: Id<"supplyAgreements">,
+  subscriptionId: Id<"subscriptions">,
+})
+// Returns: void  (patches both supplyAgreements.subscriptionId + subscriptions.agreementId)
+
+crm.agreements.getAgreement({ agreementId: Id<"supplyAgreements"> })
+// Returns: Doc<"supplyAgreements"> | null
+
+crm.agreements.listAgreementsByCustomer({ customerId: Id<"customers"> })
+// Returns: Doc<"supplyAgreements">[]
+
+crm.agreements.getFileUrl({ storageId: Id<"_storage"> })
+// Returns: string | null  (signed URL for browser open)
+```
+
+#### Ledger (`convex/crm/ledger.ts`)
+
+```typescript
+crm.ledger.getCreditLedgerStatement({ subscriptionWeekId: Id<"subscriptionWeeks"> })
+// Returns: LedgerStatement[]  (signed amount + running balance rows via buildLedgerStatement)
+
+crm.ledger.getWeekBackReferences({ subscriptionWeekId: Id<"subscriptionWeeks"> })
+// Returns: {
+//   orders: Doc<"orders">[],
+//   ledgerEntries: Doc<"creditLedger">[],
+//   fundingInvoice: Doc<"invoices"> | null,
+// }
+```
+
+#### Timeline (`convex/crm/timeline.ts`)
+
+```typescript
+crm.timeline.logCustomerInteraction({
+  customerId: Id<"customers">,
+  type: "whatsapp_drafted" | "note" | "manual_milestone",
+  subtype?: string,
+  note?: string,
+  summary?: string,
+  subscriptionId?: Id<"subscriptions">,
+  invoiceId?: Id<"invoices">,
+  orderId?: Id<"orders">,
+  agreementId?: Id<"supplyAgreements">,
+})
+// Returns: Id<"customerActivity">
+
+crm.timeline.getCustomerTimeline({
+  customerId: Id<"customers">,
+  sinceDays?: number,   // default 14; extend to show older events ("Load older")
+  types?: string[],     // category filter: "order"|"finance"|"message"|"document"|"schedule"|"milestone"
+  cursor?: string,      // reserved for future pagination
+})
+// Returns: { items: TimelineItem[] }
+// TimelineItem: { id, eventType, at, actor?, title, detail?, linkTo: { kind, id } }
+// eventTypes projected: order_placed, order_delivered, invoice_sent, payment_funded,
+//   subscription_started, subscription_ended, subscription_terminated, topup,
+//   agreement_uploaded, agreement_signed, whatsapp_drafted, note, manual_milestone
+// NOTE: types filter is in-memory post-scan (category is derived from eventType, not indexed).
+```
+
+#### Drawdown (`convex/crm/drawdown.ts`)
+
+```typescript
+crm.drawdown.getCustomerDrawdown({
+  subscriptionId: Id<"subscriptions">,
+  weekStart?: number,   // epoch ms; omit to resolve current week
+})
+// Returns: {
+//   week: Doc<"subscriptionWeeks">,
+//   series: DrawdownSeriesResult,
+// } | null
+// DrawdownSeriesResult: per-planned-day trajectory of creditRemaining + delivered pcs.
+// Reads orders via by_subscriptionWeek (C9); reads ledger via by_subscriptionWeek; never re-keys balanceAfter (C10).
+```
+
+#### Additive schema indexes (C9 windowing)
+
+Three new compound indexes added to `convex/schema.ts` — no behavior change, scan-bound only:
+
+| Table | Index name | Fields |
+|-------|-----------|--------|
+| `orders` | `by_customer_orderDate` | `["customerId", "orderDate"]` |
+| `invoices` | `by_customer_generatedAt` | `["customerId", "generatedAt"]` |
+| `creditLedger` | `by_subscription_creationTime` | `["subscriptionId", "_creationTime"]` |
+
+#### `getFundingDashboard` additive field
+
+`convex/subscriptions/scheduling/queries.ts` — response now includes `customerPhone: string | null` (resolves `customer.whatsapp ?? customer.phone`). Powers the Draft-WhatsApp button on `CrmFundingDashboardPage` without an extra frontend query.
+
+#### Frontend CRM routes (Phase D)
+
+| Route | Component | Permission |
+|-------|-----------|------------|
+| `/crm` | `CrmHome` | `canAccessCrm` (manager+admin) |
+| `/crm/customers/:customerId` | `CustomerDashboard` | `canAccessCrm` |
+| `/crm/customers/:customerId/activity` | `CustomerActivityPage` | `canAccessCrm` |
+| `/crm/customers/:customerId/agreements` | `AgreementPage` | `canAccessCrm` |
+| `/crm/customers/:customerId/subscriptions/:subId` | `SubscriptionPage` | `canAccessCrm` |
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |

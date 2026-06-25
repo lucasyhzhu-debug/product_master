@@ -14,6 +14,60 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — CRM Surface (Phase D) — 2026-06-26
+
+**For the team:** Managers and admins now have a full customer relationship view under `/crm`. Open any B2B customer to see their credit balance, payment history, a drawdown chart, unpaid invoices, and a pre-drafted WhatsApp reminder. Supply agreements (PDFs) can be uploaded and versioned. A merged activity timeline shows orders, invoices, top-ups, and manual notes in one scrollable feed. The CRM home lists all active subscriptions and weeks needing attention.
+
+### Added
+
+- **CRM routes (all `canAccessCrm` = manager + admin):**
+  - `/crm` — `CrmHome`: active subscription list + needs-funding list with Draft-WhatsApp button.
+  - `/crm/customers/:customerId` — `CustomerDashboard`: identity + contact fields, credit gauge (current week pool), drawdown chart, unpaid invoices, Draft-WhatsApp reminder.
+  - `/crm/customers/:customerId/activity` — `CustomerActivityPage`: merged timeline feed; 14-day window default; type-category filter; "Load older" (extends window).
+  - `/crm/customers/:customerId/agreements` — `AgreementPage`: supply agreement upload (Convex storage), version history, link to subscription.
+  - `/crm/customers/:customerId/subscriptions/:subId` — `SubscriptionPage`: subscription detail hub.
+
+- **Backend — `convex/crm/customers.ts`:**
+  - `updateCustomerCrmFields` (mutation, manager+admin) — patches any provided subset of CRM contact fields (`keyContactName`, `whatsapp`, `email`, `instagram`, `otherSocials`, `deliveryAddress`, `storeAddress`, `otherAddresses`, `altPhone`, `notes`).
+  - `getCustomerRecord` (query, manager+admin) — customer hub: subscriptions, agreements, `currentWeekPoolBySubscription` (derived credit pools per subscription, C10), unpaid/partial invoices.
+  - `getCrmHomeActiveSubscriptions` (query, manager+admin) — all active subscriptions enriched with `customerName` and `currentWeek` for the CRM home list.
+
+- **Backend — `convex/crm/agreements.ts`:**
+  - `generateAgreementUploadUrl` (mutation) — `ctx.storage.generateUploadUrl()` wrapper for direct-to-Convex file upload.
+  - `createSupplyAgreement` (mutation) — inserts `supplyAgreements` row seeded with `versions[0]` (file + lang).
+  - `addAgreementVersion` (mutation) — appends a version entry to `supplyAgreements.versions`.
+  - `linkAgreementToSubscription` (mutation) — atomically patches `supplyAgreements.subscriptionId` + `subscriptions.agreementId`.
+  - `getAgreement`, `listAgreementsByCustomer`, `getFileUrl` (queries — `getFileUrl` resolves a `_storage` id to a signed browser-open URL).
+
+- **Backend — `convex/crm/ledger.ts`:**
+  - `getCreditLedgerStatement` (query) — fetches `creditLedger` entries for a week and pipes through `buildLedgerStatement` (signed delta + running balance rows per C10).
+  - `getWeekBackReferences` (query) — collects all objects linked to a `subscriptionWeekId` (orders, ledger entries, funding invoice) for bidirectional cross-linking (CRM principle A4).
+
+- **Backend — `convex/crm/timeline.ts`:**
+  - `logCustomerInteraction` (mutation) — inserts a `customerActivity` row; types: `whatsapp_drafted`, `note`, `manual_milestone`; derives direction via `eventTypeToCategory`.
+  - `getCustomerTimeline` (query) — merged windowed feed (`sinceDays` default 14, optional `types` category filter); projects orders, invoices, subscriptions, credit top-ups, supply agreements, and logged activity rows into a unified `TimelineItem[]`.
+
+- **Backend — `convex/crm/drawdown.ts`:**
+  - `getCustomerDrawdown` (query) — per-subscription-week credit drawdown series. Accepts optional `weekStart` (resolves current week if omitted). Reads delivered orders via `by_subscriptionWeek` (C9 fix), builds pool trajectory from `creditLedger.by_subscriptionWeek`. Returns `{ week, series } | null`.
+
+- **Additive schema indexes (C9 windowing — no behavior change):**
+  - `orders.by_customer_orderDate` — `["customerId", "orderDate"]`: bounds timeline order scan at the DB layer.
+  - `invoices.by_customer_generatedAt` — `["customerId", "generatedAt"]`: bounds timeline invoice scan at the DB layer.
+  - `creditLedger.by_subscription_creationTime` — `["subscriptionId", "_creationTime"]`: bounds per-subscription ledger scan to the `sinceDays` window.
+
+- **`getFundingDashboard` additive field:** `customerPhone: string | null` (resolves `customer.whatsapp ?? customer.phone`) — powers Draft-WhatsApp button on `CrmFundingDashboardPage` without a separate frontend lookup (`convex/subscriptions/scheduling/queries.ts`).
+
+- **Dual-surface order customer link (Pitfall #20):** `OrderSlideOver.tsx`, `OrderDetail.tsx`, and `KanbanCard.tsx` now render the customer name as a `<Link to="/crm/customers/:customerId">` when `customerId` is set.
+
+- **Shared libs:** `src/lib/contactLinks.ts` (buildWaMeUrl etc.), `convex/lib/activityEvents.ts` (eventTypeToCategory — shared backend/frontend taxonomy), `src/lib/crmActivityTaxonomy.ts` (type → icon/color/direction, extended).
+
+- **Frontend components (`src/components/crm/`):** `ActivityTimeline`, `TimelineItem`, `CreditGauge`, `DrawdownChart`, `CreditLedgerStatement`, `AgreementUpload`, `WeekBackReferences`, `DraftWhatsAppButton`, `ContactLinks`, `Breadcrumbs`, `LinkableObject`, `SubscriptionSelector`, `ProductLineEditor`, `DayPlanCell`.
+
+### Files
+`convex/crm/` (new dir: customers.ts, agreements.ts, ledger.ts, timeline.ts, drawdown.ts + helpers/), `convex/lib/activityEvents.ts`, `convex/schema.ts` (3 additive indexes), `convex/subscriptions/scheduling/queries.ts` (customerPhone), `src/pages/crm/` (CrmHome, CustomerDashboard, CustomerActivityPage, AgreementPage, SubscriptionPage), `src/components/crm/` (14 components), `src/lib/contactLinks.ts`, `src/components/orders/OrderSlideOver.tsx`, `src/pages/OrderDetail.tsx`, `src/components/orders/KanbanCard.tsx`.
+
+---
+
 ## [Unreleased] — Subscription backend consolidation (Phase D Slice 0) — 2026-06-25
 
 **For the team:** Internal cleanup — no user-visible change. Consolidates five duplicated backend patterns into single shared helpers so the upcoming CRM screens (Phase D) build on clean, consistent APIs and the P&L income statement is no longer doing unbounded index scans.

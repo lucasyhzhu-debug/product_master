@@ -230,6 +230,32 @@ Implementation: `convex/subscriptions/` module (creditMath, ledger, CRUD, weekSe
 
 ---
 
+## CRM surface (Phase D, 2026-06-26) — additive indexes only
+
+No new tables or fields. Three compound indexes added to support C9-windowed scans in `getCustomerTimeline` and `getCustomerDrawdown`. All are purely additive — no behavior change to existing queries.
+
+**`orders`** (Phase D windowing):
+```typescript
+// New index — bounds getCustomerTimeline order scan to customer + date window:
+.index("by_customer_orderDate", ["customerId", "orderDate"])
+```
+
+**`invoices`** (Phase D windowing):
+```typescript
+// New index — bounds getCustomerTimeline invoice scan to customer + generatedAt window:
+.index("by_customer_generatedAt", ["customerId", "generatedAt"])
+// Note: generatedAt is optional; rows where it is undefined sort below any number in
+// Convex indexes and are naturally excluded by the .gte("generatedAt", cutoff) bound.
+```
+
+**`creditLedger`** (Phase D windowing):
+```typescript
+// New index — bounds per-subscription ledger scan in getCustomerTimeline to sinceDays window:
+.index("by_subscription_creationTime", ["subscriptionId", "_creationTime"])
+```
+
+---
+
 ## POS sales sync (2026-06-18) — source #9 schema additions
 
 Adds POS as the 9th external revenue source. Three schema changes (see `docs/CHANGELOG.md` for the full feature entry):
