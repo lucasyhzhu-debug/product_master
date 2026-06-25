@@ -354,7 +354,9 @@ export default defineSchema({
     .index("by_order_date", ["orderDate"])
     .index("by_subscriptionWeek", ["subscriptionWeekId"])
     // Phase B: drawdown partition + timeline (spans weeks for one subscription)
-    .index("by_subscription", ["subscriptionId"]),
+    .index("by_subscription", ["subscriptionId"])
+    // Phase D: CRM timeline window — order events scoped to (customer, orderDate) range (C9).
+    .index("by_customer_orderDate", ["customerId", "orderDate"]),
 
   orderItems: defineTable({
     orderId: v.id("orders"),
@@ -2353,7 +2355,10 @@ export default defineSchema({
     // Phase B: CRM customer link + gap#1 bank-match engine
     .index("by_customer", ["customerId"])
     .index("by_subscriptionWeek", ["subscriptionWeekId"])
-    .index("by_kind_paymentStatus", ["invoiceKind", "paymentStatus"]),
+    .index("by_kind_paymentStatus", ["invoiceKind", "paymentStatus"])
+    // Phase D: CRM timeline window — invoice events scoped to (customer, generatedAt) range (C9).
+    // generatedAt is optional in schema but always set for subscription invoices.
+    .index("by_customer_generatedAt", ["customerId", "generatedAt"]),
 
   // Payroll entries — contractor and staff salary records
   payrollEntries: defineTable({
@@ -2606,7 +2611,9 @@ export default defineSchema({
     .index("by_invoice", ["invoiceId"])
     // Phase D Slice 0 (R3): narrow incomeStatement drawdown/expiry scans from full-table to type-bucket.
     // No _creationTime range — revenue is attributed by deliveryDate, not _creationTime.
-    .index("by_type", ["type"]),
+    .index("by_type", ["type"])
+    // Phase D: CRM timeline window — ledger events per subscription bounded by creation time (C9).
+    .index("by_subscription_creationTime", ["subscriptionId", "_creationTime"]),
 
   supplyAgreements: defineTable({
     customerId: v.id("customers"),
