@@ -31,22 +31,63 @@ the deferred-revenue liability accumulates un-reconciled (U5), and mid-week chan
 
 Surface the existing, tested backend through operator UI so the full weekly cycle —
 plan → confirm → invoice → fund → **deliver/recognize** → **top-up** → **reconcile** — is completable
-by a manager/admin without touching the Convex dashboard. **No backend logic changes** beyond thin
-wiring; the mutations are correct and unit-tested.
+by a manager/admin without touching the Convex dashboard. The credit math, ledger ops, and deferred-revenue
+model are final + unit-tested and are **not** touched. **Three thin, additive backend changes** are required
+(see "Thin backend additions" below) — they expose existing logic through a properly-gated seam, compute the
+top-up delta server-side, and persist the operator's reconcile comment; none change any credit/ledger calculation.
+
+## Resolved decisions (clarify phase, 2026-06-25)
+
+1. **Mark delivered** → a single guarded "Mark delivered" button on **both** order surfaces
+   (`OrderSlideOver` + `OrderDetail`, Pitfall #20), backed by a thin `markSubscriptionDelivered`
+   `protectedMutation` (not the unguarded generic `moveForward`). See backend addition #1.
+2. **Top-up** → "Amend week" mode re-opens the confirmed week's scheduler; the delta vs. funded credit is
+   computed **server-side** (CRM C10 — never re-key a total client-side) and billed as a `subscription_topup`.
+   See backend addition #2.
+3. **Reconcile** → a manual per-week "Reconcile" button + fault selector (`none`/`cafe`/`frollie`) **with a
+   compulsory comment/reason** (required textarea, submit disabled until non-empty). The comment is persisted
+   (backend addition #3). Entry point is the **per-week surface** (`SubscriptionWeeklyInvoicePage` /
+   `SubscriptionSchedulePage`), **not** the funding dashboard — `getFundingDashboard` only returns
+   `confirmed|invoiced` weeks and never the `paid`/`delivering` weeks that are actually reconcilable.
+4. **Out-of-credit** → operator-initiated: surface an over-credit **flag** (order `finalTotal` >
+   `deriveCreditPool().creditRemaining`) and an explicit button to split (scheduled) / apply partial credit
+   (ad-hoc); show the resulting outcome (toast + links/badges).
+
+## Thin backend additions (the only backend changes — additive, no credit-math change)
+
+1. **`markSubscriptionDelivered({ orderId })`** — new `protectedMutation`, `roles: ["manager","admin"]`.
+   Asserts the order is a subscription order (`order.subscriptionId` present) in a deliverable status,
+   transitions it to `AwaitingDelivery` via the existing recognition path, and calls the existing internal
+   helper `recognizeSubscriptionDelivery` (idempotent via `creditLedger.by_order` — re-press is a no-op).
+   Rationale: `recognizeSubscriptionDelivery` is an internal helper today, fired only as a side-effect of
+   the **bare, unguarded, single-step** `moveForward` mutation (`statusUpdates.ts:535`); a manager-gated
+   single-press action needs its own properly-authorized seam.
+2. **`amendConfirmedWeek` / `computeTopupDelta` server helper** — diffs the amended plan against the funded
+   weekly total **server-side** and produces the `addedLines` for `createTopupInvoice` (then settle via
+   `markTopupInvoicePaid({ invoiceId })`). Keeps money math in the unit-tested backend (C10). No change to
+   `createTopupInvoice`/`markTopupInvoicePaid` themselves.
+3. **`subscriptionWeeks.reconcileNote: v.optional(v.string())`** schema field + **required `reconcileNote:
+   v.string()`** arg on `reconcileWeek`; persist it in the existing `ctx.db.patch(week._id, …)` (and stamp
+   onto the reconcile ledger note for traceability). Update `docs/SCHEMA.md`.
+
+(Optional, deferred: an over-credit selector query so the flag in decision 4 isn't ad-hoc client math — see
+acceptance criteria; client-side `finalTotal > creditRemaining` is acceptable for v1.)
 
 ## In scope
 
-- **A. Deliver / recognize (U2).** A subscription-aware "Mark delivered" affordance that advances an
-  order into `AwaitingDelivery` (firing `recognizeSubscriptionDelivery` via the existing status path),
-  without re-enabling generic edit/cancel on the read-only order. Idempotent; safe to re-press.
-- **B. Top-up (U5).** An explicit way to issue + settle a top-up when a week's planned total exceeds
-  funded credit (e.g. re-open the schedule for a confirmed week into an "amend" mode, or a dedicated
-  "Add top-up" action on the invoice/funding surface) → `createTopupInvoice` → `markTopupInvoicePaid`.
-- **C. Reconcile (U5).** A week-end "Reconcile" action (funding dashboard or week page) → `reconcileWeek`
-  with a fault selector (`none`/`cafe`/`frollie`); shows resulting rollover/expiry/refund outcome.
-- **D. Out-of-credit (U5).** Surface `splitScheduledOrderOnCredit` (scheduled day over remaining credit →
-  split: covered draws down, remainder → top-up) and `applyPartialCreditToAdHocOrder` (ad-hoc order →
-  `min(remaining,total)` as deposit credit, remainder left `AwaitingPayment`).
+- **A. Deliver / recognize (U2).** A scoped "Mark delivered" button on both order surfaces that calls the
+  new `markSubscriptionDelivered` mutation (→ `AwaitingDelivery` + `recognizeSubscriptionDelivery`), without
+  re-enabling generic edit/cancel on the read-only order. Idempotent; safe to re-press. Manager+admin only.
+- **B. Top-up (U5).** "Amend week" mode on `SubscriptionSchedulePage` (flips the `WeekCalendarGrid` `locked`
+  prop for a confirmed/invoiced week); on save, the server computes the delta vs. funded credit and bills it
+  as a `subscription_topup` via `createTopupInvoice` → `markTopupInvoicePaid` (server-side delta, C10).
+- **C. Reconcile (U5).** A per-week "Reconcile" action (on the week / weekly-invoice surface — NOT the
+  funding dashboard) → `reconcileWeek` with a fault selector (`none`/`cafe`/`frollie`) **and a compulsory
+  comment**; shows resulting rollover/expiry/refund outcome from the mutation return.
+- **D. Out-of-credit (U5).** Surface an over-credit flag, then operator buttons:
+  `splitScheduledOrderOnCredit` (scheduled day over remaining credit → split: covered draws down, remainder →
+  top-up; order cancelled if covered=0) and `applyPartialCreditToAdHocOrder` (ad-hoc order →
+  `min(remaining,total)` as deposit credit, remainder left `AwaitingPayment`). Surface the result to the operator.
 - Designed empty / loading / error states on every new surface (CRM principle D12); server-side price
   strip already covers confidential price (D11). Manager+admin gated.
 
@@ -58,45 +99,45 @@ wiring; the mutations are correct and unit-tested.
 - Re-enabling generic order edit/cancel on subscription orders (keep read-only; add only the scoped
   "Mark delivered" action).
 
-## Backend API (all exist, unit-tested — wire, don't rewrite)
+## Backend API
 
-| Capability | Function | Args |
+**Exist today, unit-tested — wire, don't rewrite:**
+
+| Capability | Function | Args (verified against code) |
 |---|---|---|
-| Deliver/recognize | order status mutation → `recognizeSubscriptionDelivery` fires on entry to `AwaitingDelivery` (idempotent via `creditLedger.by_order`) | order status transition to `AwaitingDelivery` |
-| Top-up create | `subscriptions/invoicing.ts:createTopupInvoice` | `{ subscriptionWeekId, addedLines: {productName,qty,unitPrice,lineTotal}[] }` |
-| Top-up pay | `subscriptions/invoicing.ts:markTopupInvoicePaid` | `{ … invoiceId/weekId }` (posts another `topup`) |
-| Reconcile | `subscriptions/reconcile.ts:reconcileWeek` | `{ subscriptionWeekId, shortfallFault: "none"|"cafe"|"frollie" }` |
-| Out-of-credit (scheduled) | `subscriptions/outOfCredit.ts:splitScheduledOrderOnCredit` | `{ orderId }` |
-| Out-of-credit (ad-hoc) | `subscriptions/outOfCredit.ts:applyPartialCreditToAdHocOrder` | `{ orderId }` |
-| Pool (read) | `subscriptions/queries.ts:getWeekPool` (derived via `deriveCreditPool` — authoritative) | `{ subscriptionWeekId }` |
-| Funding list | `subscriptions/scheduling/queries.ts:getFundingDashboard`, `listWeeks` | — |
+| Recognition helper | `subscriptions/recognition.ts:recognizeSubscriptionDelivery` (internal helper, idempotent via `creditLedger.by_order`) | `(ctx, orderId, createdBy?)` — called by the new mutation below |
+| Top-up create | `subscriptions/invoicing.ts:createTopupInvoice` | `{ subscriptionWeekId, addedLines: {productName,qty,unitPrice,lineTotal}[] }` → returns `Id<"invoices">` |
+| Top-up pay | `subscriptions/invoicing.ts:markTopupInvoicePaid` | `{ invoiceId }` **only** (resolves week internally; posts another `topup`) |
+| Reconcile | `subscriptions/reconcile.ts:reconcileWeek` | `{ subscriptionWeekId, shortfallFault: "none"|"cafe"|"frollie" }` → **gains required `reconcileNote`** (see additions) |
+| Out-of-credit (scheduled) | `subscriptions/outOfCredit.ts:splitScheduledOrderOnCredit` | `{ orderId }` → `{ coveredOrderId, topupInvoiceId, drawdownAmount }` |
+| Out-of-credit (ad-hoc) | `subscriptions/outOfCredit.ts:applyPartialCreditToAdHocOrder` | `{ orderId }` → `{ coveredAmount, remainderAmount }` |
+| Pool (read) | `subscriptions/queries.ts:getWeekPool` (derives `deriveCreditPool` — authoritative) | `{ subscriptionWeekId }` → `{ week, pool, entries }` |
+| Funding list | `subscriptions/scheduling/queries.ts:getFundingDashboard` (only `confirmed|invoiced` weeks), `listWeeks` | — |
 
-Existing surfaces to extend (not greenfield): `SubscriptionSchedulePage.tsx`,
-`SubscriptionWeeklyInvoicePage.tsx`, `CrmFundingDashboardPage.tsx`, `OrderSlideOver.tsx` / `OrderDetail.tsx`.
+**New (thin additions — see "Thin backend additions"):** `markSubscriptionDelivered({ orderId })`,
+`amendConfirmedWeek`/`computeTopupDelta` helper, `reconcileNote` arg+field.
 
-## Open decisions (resolve in pipeline clarify phase)
-
-1. **Where does "Mark delivered" live**, given order surfaces are read-only? Options: (a) a scoped action
-   on the read-only order panel (allow this ONE status action), (b) a per-day "Delivered" toggle on the
-   scheduler week, (c) the kitchen/packaging flow (which already calls the helper) — confirm it's reachable
-   for `PaymentReceived` subscription orders. **Recommendation:** (a) a single guarded "Mark delivered"
-   button on both order surfaces, since recognition is per-order.
-2. **Top-up trigger:** explicit "Amend week" mode that re-opens the confirmed schedule and computes the
-   delta, vs. a manual "Add top-up line" action. Ties into fixing U1 (read-only week).
-3. **Reconcile entry point + who triggers it** (manual per-week vs. a week-end prompt on the dashboard).
-4. **Out-of-credit:** is it operator-initiated (button when an order is flagged over-credit) or automatic
-   on confirm/delivery with a UI surfacing the result? Backend mutations are operator-callable today.
+Existing surfaces to extend (not greenfield): `src/pages/crm/SubscriptionSchedulePage.tsx`,
+`src/pages/crm/SubscriptionWeeklyInvoicePage.tsx`, `src/pages/crm/CrmFundingDashboardPage.tsx`,
+`src/components/orders/OrderSlideOver.tsx`, `src/pages/OrderDetail.tsx`.
 
 ## Acceptance criteria (maps to UAT §4–§6 that couldn't be operator-tested)
 
-- [ ] Manager can mark a funded subscription order **delivered** from the app → exactly one `drawdown`
-      posts, `creditConsumed` rises, B2B Wholesale revenue recognized; re-press is a no-op (§4).
-- [ ] A mid-week increase above funded credit can be **billed + settled** as a `subscription_topup`
-      (delta lines only); pool = weekly + top-ups (§5).
-- [ ] Out-of-credit scheduled day **splits** (covered draws down, remainder → top-up); ad-hoc order gets
-      `min(remaining,total)` credit (`fundingSource:"deposit"`), remainder `AwaitingPayment` (§5).
-- [ ] A week can be **reconciled** from the app with fault = none/cafe/frollie → rollover carry-forward
-      (`rolloverFromWeekId`), cafe-fault expiry recognized as B2B revenue, frollie-fault sets `refundDue`
-      + `refundStatus:"pending"` (no payout); reconciling a closed/reconciled week is rejected (§6).
-- [ ] All surfaces manager+admin gated, with empty/loading/error states; no confidential price leak.
-- [ ] `npm run build` green; existing 52 subscription + 60 matchEngine unit tests still pass.
+- [ ] Manager can mark a funded subscription order **delivered** from **both** order surfaces via
+      `markSubscriptionDelivered` → exactly one `drawdown` posts, `creditConsumed` rises, B2B Wholesale
+      revenue recognized; re-press is a no-op; non-subscription order / non-manager rejected (§4).
+- [ ] "Amend week" mode re-opens a confirmed/invoiced week; a mid-week increase above funded credit is
+      **billed + settled** as a `subscription_topup` with the delta computed **server-side**; pool =
+      weekly + top-ups (§5).
+- [ ] Out-of-credit flag appears when order `finalTotal` > `creditRemaining`; scheduled day **splits**
+      (covered draws down, remainder → top-up; order cancelled if covered=0); ad-hoc order gets
+      `min(remaining,total)` credit (`fundingSource:"deposit"`), remainder `AwaitingPayment`; operator sees
+      the result (§5).
+- [ ] A week can be **reconciled** from the per-week surface with fault = none/cafe/frollie **and a
+      compulsory comment** (submit disabled until non-empty; persisted to `subscriptionWeeks.reconcileNote`)
+      → rollover carry-forward (`rolloverFromWeekId`), cafe-fault expiry recognized as B2B revenue,
+      frollie-fault sets `refundDue` + `refundStatus:"pending"` (no payout); reconciling a
+      closed/reconciled week is rejected (§6).
+- [ ] All surfaces manager+admin gated, with empty/loading/error states (D12); no confidential price leak (D11).
+- [ ] `npm run build` green; existing 52 subscription + 60 matchEngine unit tests still pass (update the
+      reconcile test call sites for the new required `reconcileNote` arg); new backend fns have unit tests.
