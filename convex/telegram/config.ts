@@ -8,6 +8,8 @@
 export const KNOWN_TELEGRAM_ROLES = [
   "pack-list",
   "sales-updates",
+  "subscription-ops", // Phase E Slice 1 — weekly-cycle ops nudges
+  "founders",         // Phase E Slice 1 — daily delivery-progress summary
 ] as const;
 
 export type TelegramRole = (typeof KNOWN_TELEGRAM_ROLES)[number];
