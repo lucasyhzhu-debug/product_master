@@ -33,14 +33,6 @@ const WEEK_MS = 7 * DAY_MS;
 // A fixed Monday 00:00 UTC that is safely in the past and well-known.
 // Monday 2026-06-15 00:00:00 UTC  (WIB = 2026-06-15 07:00)
 const WEEK_START_CURRENT = Date.UTC(2026, 5, 15, 0, 0, 0); // ms
-const WEEK_END_CURRENT = WEEK_START_CURRENT + WEEK_MS - 1;
-
-// "Now" = mid-week, Wednesday 2026-06-17 12:00 UTC (WIB = 2026-06-17 19:00)
-const NOW_MID_WEEK = Date.UTC(2026, 5, 17, 12, 0, 0);
-
-// "Today" in WIB for kind-3 test: use Date.now() so the test always fires correctly
-// (pd.date must fall in the same WIB-day as Date.now() at test runtime).
-const NOW_REALTIME = Date.now();
 
 // A planned "next" week (starts next Monday)
 const WEEK_START_NEXT = WEEK_START_CURRENT + WEEK_MS;

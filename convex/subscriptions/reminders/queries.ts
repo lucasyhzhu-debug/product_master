@@ -1,6 +1,6 @@
 // convex/subscriptions/reminders/queries.ts
 import { internalQuery } from "../../_generated/server";
-import { getWibComponents, calculateWeekRange } from "../../lib/periodRange";
+import { getWibComponents } from "../../lib/periodRange";
 import type {
   ConfirmRow, InvoiceDueRow, TodayDeliveriesRow, ReconcileRow, DeliveryProgressRow, DeliveryLine,
 } from "./types";
