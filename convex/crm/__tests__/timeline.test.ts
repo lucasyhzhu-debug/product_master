@@ -428,6 +428,162 @@ describe("getCustomerTimeline", () => {
     expect(hasOld).toBe(false);
   });
 
+  it("DB-layer window: old order + old invoice excluded by index bounds", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId, userId } = await createSession(t, "manager", "Mgr DbWindow");
+
+    const NOW = Date.now();
+    // Events within the 14d window
+    const RECENT_ORDER = NOW - 5 * 86_400_000;
+    const RECENT_INV   = NOW - 3 * 86_400_000;
+    // Events outside the 14d window (orderDate / generatedAt are explicit fields we control)
+    const OLD_ORDER    = NOW - 20 * 86_400_000;
+    const OLD_INV      = NOW - 20 * 86_400_000;
+
+    const { customerId } = await t.run(async (ctx) => {
+      const cid = await ctx.db.insert("customers", {
+        name: "Cafe DbWindow",
+        createdBy: "test",
+      } as never);
+
+      // Recent order — within 14d; must appear in result
+      await ctx.db.insert("orders", {
+        orderNumber: "0625-RECENT",
+        customerId: cid,
+        customerName: "Cafe DbWindow",
+        status: "Draft",
+        orderDate: RECENT_ORDER,
+        paymentStatus: "Unpaid",
+        totalAmount: 50000,
+        totalCost: 0,
+        totalMargin: 50000,
+        finalTotal: 50000,
+        itemCount: 1,
+        deliveryType: "Pickup",
+        createdBy: "mgr",
+      } as never);
+
+      // Old order — orderDate 20d ago; by_customer_orderDate bound must exclude it
+      await ctx.db.insert("orders", {
+        orderNumber: "0605-OLD",
+        customerId: cid,
+        customerName: "Cafe DbWindow",
+        status: "Complete",
+        orderDate: OLD_ORDER,
+        paymentStatus: "Paid",
+        totalAmount: 100000,
+        totalCost: 0,
+        totalMargin: 100000,
+        finalTotal: 100000,
+        itemCount: 1,
+        deliveryType: "Pickup",
+        createdBy: "mgr",
+      } as never);
+
+      // Recent invoice — within 14d; must appear in result
+      await ctx.db.insert("invoices", {
+        status: "final",
+        customerId: cid,
+        generatedBy: userId,
+        generatedAt: RECENT_INV,
+        updatedAt: RECENT_INV,
+        sellerName: "PT Frollie",
+        bankName: "BCA",
+        bankAccountNumber: "123",
+        bankAccountName: "BCA Frollie",
+        buyerName: "Cafe DbWindow",
+        orderNumber: "INV-RECENT",
+        orderDate: RECENT_INV,
+        items: [],
+        subtotal: 50000,
+        finalTotal: 50000,
+        paymentStatus: "Unpaid",
+      } as never);
+
+      // Old invoice — generatedAt 20d ago; by_customer_generatedAt bound must exclude it
+      await ctx.db.insert("invoices", {
+        status: "final",
+        customerId: cid,
+        generatedBy: userId,
+        generatedAt: OLD_INV,
+        updatedAt: OLD_INV,
+        sellerName: "PT Frollie",
+        bankName: "BCA",
+        bankAccountNumber: "123",
+        bankAccountName: "BCA Frollie",
+        buyerName: "Cafe DbWindow",
+        orderNumber: "INV-OLD",
+        orderDate: OLD_INV,
+        items: [],
+        subtotal: 100000,
+        finalTotal: 100000,
+        paymentStatus: "Paid",
+      } as never);
+
+      // Subscription + creditLedger topup.
+      // _creationTime is set to actual now by convex-test (system field; cannot be
+      // mocked to be 20d old). We verify the positive case only: a recent topup appears.
+      // The negative case for by_subscription_creationTime is not directly verifiable
+      // in convex-test — we rely on compile-time type correctness for the index shape.
+      const sid = await ctx.db.insert("subscriptions", {
+        ...SUB_DEFAULTS,
+        customerId: cid,
+        status: "active",
+        createdBy: userId,
+      } as never);
+      const wid = await ctx.db.insert("subscriptionWeeks", {
+        subscriptionId: sid,
+        weekStart: NOW - 7 * 86_400_000,
+        weekEnd: NOW,
+        status: "delivering",
+        plannedDays: [],
+        creditIssued: 200000,
+        creditConsumed: 0,
+        creditRemaining: 200000,
+        creditExpired: 0,
+        shortfall: 0,
+        shortfallFault: "none",
+        refundDue: 0,
+      } as never);
+      await ctx.db.insert("creditLedger", {
+        subscriptionId: sid,
+        subscriptionWeekId: wid,
+        type: "topup",
+        amount: 200000,
+        balanceAfter: 200000,
+        createdBy: userId,
+      } as never);
+
+      return { customerId: cid };
+    });
+
+    const result = await t.query(getCustomerTimelineRef, {
+      sessionId,
+      customerId,
+      sinceDays: 14,
+    });
+
+    const orderTitles = result.items
+      .filter((i: { eventType: string }) => i.eventType === "order_placed")
+      .map((i: { title: string }) => i.title);
+
+    const invoiceTitles = result.items
+      .filter((i: { eventType: string }) => i.eventType === "invoice_sent")
+      .map((i: { title: string }) => i.title);
+
+    // Recent order present, old order absent (by_customer_orderDate DB bound)
+    expect(orderTitles.some((s: string) => s.includes("0625-RECENT"))).toBe(true);
+    expect(orderTitles.some((s: string) => s.includes("0605-OLD"))).toBe(false);
+
+    // Recent invoice present, old invoice absent (by_customer_generatedAt DB bound)
+    expect(invoiceTitles.some((s: string) => s.includes("INV-RECENT"))).toBe(true);
+    expect(invoiceTitles.some((s: string) => s.includes("INV-OLD"))).toBe(false);
+
+    // Recent creditLedger topup appears (by_subscription_creationTime positive case)
+    const eventTypes = result.items.map((i: { eventType: string }) => i.eventType);
+    expect(eventTypes).toContain("topup");
+  });
+
   it("types filter narrows to requested category", async () => {
     const t = convexTest(schema, modules);
     const { sessionId, userId } = await createSession(t, "manager", "Mgr Filter");

@@ -50,8 +50,8 @@ export const getCustomerDrawdown = protectedQuery({
     const { plannedDays } = week;
 
     // --- Orders delivered in this week window, partitioned by deliveryDate ---
-    // Subscription orders reliably carry subscriptionWeekId (set at generation in
-    // convex/subscriptions/invoicing.ts). Use by_subscriptionWeek scoped to
+    // Subscription orders reliably carry subscriptionWeekId (set at order creation in
+    // convex/subscriptions/scheduling/confirmWeek.ts). Use by_subscriptionWeek scoped to
     // week._id instead of by_subscription (C9 fix — avoids loading all-time history).
     const weekOrders = await ctx.db
       .query("orders")
@@ -139,9 +139,6 @@ export const getCustomerDrawdown = protectedQuery({
     // For each entry, determine which planned day it belongs to.
     const dayBalances = new Map<number, number>(); // date → last balanceAfter
 
-    // Initial balance before any entries.
-    let runningBalance = 0;
-
     for (const entry of sortedEntries) {
       // Determine attributed date for this entry.
       let attributedDate: number;
@@ -171,7 +168,6 @@ export const getCustomerDrawdown = protectedQuery({
 
       // Update the day balance (last entry within the day wins — monotone).
       dayBalances.set(targetDate, entry.balanceAfter);
-      runningBalance = entry.balanceAfter;
     }
 
     // Build trajectory: for each planned day, carry forward the last known balance
