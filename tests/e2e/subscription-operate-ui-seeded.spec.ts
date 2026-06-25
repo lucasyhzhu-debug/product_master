@@ -59,43 +59,6 @@ const seed = loadSeedData();
 // ---------------------------------------------------------------------------
 
 /**
- * Query the dev Convex deployment to get order IDs for a subscriptionWeekId.
- * Uses the ConvexHttpClient via the page's fetch (avoids CORS issues by
- * using page.evaluate to reach the dev deployment directly).
- */
-async function getSubscriptionOrderIds(
-  page: Parameters<typeof navigateTo>[0],
-): Promise<{ orderId: string; status: string }[]> {
-  // Use page.evaluate to call Convex HTTP API via fetch from the browser context
-  // (same origin as the running app, or the Convex dev URL directly)
-  const CONVEX_URL = "https://exciting-fennec-671.convex.cloud";
-
-  const orders = await page.evaluate(
-    async ({ convexUrl, subscriptionWeekId }) => {
-      // Use Convex action HTTP API to call a query
-      const resp = await fetch(`${convexUrl}/api/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "orders/queries:listByStatus",
-          args: {},
-        }),
-      });
-      // If the API isn't directly accessible, we'll handle it below
-      if (!resp.ok) return null;
-      return null;
-    },
-    { convexUrl: CONVEX_URL, subscriptionWeekId: seed.subscriptionWeekId }
-  );
-
-  // If direct API call didn't work, fall back to extracting from the UI
-  if (!orders) {
-    return [];
-  }
-  return orders;
-}
-
-/**
  * Get order IDs for the seeded subscription week using a Node.js fetch to Convex.
  * 1. Logs in as E2E-Admin to get a session token.
  * 2. Calls a list query to find orders for the subscriptionWeekId.
@@ -103,84 +66,121 @@ async function getSubscriptionOrderIds(
  * Note: uses the Convex HTTP query API directly (POST /api/query).
  * The kanban query is the most accessible — filter by subscriptionWeekId client-side.
  */
-async function fetchSeededOrderIds(): Promise<Array<{ _id: string; status: string }>> {
-  const CONVEX_URL = "https://exciting-fennec-671.convex.cloud";
-  const TEST_PIN = "999999";
+interface SeededOrder {
+  _id: string;
+  status: string;
+  orderNumber?: string;
+}
 
+const CONVEX_HTTP_URL = "https://exciting-fennec-671.convex.cloud";
+const TEST_PIN = "999999";
+
+/** Login as E2E-Admin and return a session token, or null. */
+async function getAdminSession(): Promise<string | null> {
+  const usersResp = await fetch(`${CONVEX_HTTP_URL}/api/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: "auth/queries:getActiveUsers",
+      args: {},
+      format: "json",
+    }),
+  });
+  if (!usersResp.ok) return null;
+  const usersData = await usersResp.json();
+  const users: Array<{ _id: string; name: string }> = usersData?.value ?? [];
+  const admin = users.find((u) => u.name === "E2E-Admin");
+  if (!admin) return null;
+
+  const loginResp = await fetch(`${CONVEX_HTTP_URL}/api/mutation`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: "auth/mutations:login",
+      args: { userId: admin._id, pin: TEST_PIN },
+      format: "json",
+    }),
+  });
+  if (!loginResp.ok) return null;
+  const loginData = await loginResp.json();
+  return loginData?.value?.session?.token ?? null;
+}
+
+/** List orders in a given status and filter to the seeded subscription week. */
+async function listWeekOrders(
+  sessionId: string,
+  status: string,
+): Promise<SeededOrder[]> {
+  const resp = await fetch(`${CONVEX_HTTP_URL}/api/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: "orders/queries:list",
+      args: { sessionId, status, limit: 50 },
+      format: "json",
+    }),
+  });
+  if (!resp.ok) return [];
+  const data = await resp.json();
+  const orders: Array<{
+    _id: string;
+    status: string;
+    orderNumber?: string;
+    subscriptionWeekId?: string;
+  }> = data?.value ?? [];
+  return orders
+    .filter((o) => o.subscriptionWeekId === seed.subscriptionWeekId)
+    .map((o) => ({ _id: o._id, status: o.status, orderNumber: o.orderNumber }));
+}
+
+async function fetchSeededOrderIds(): Promise<SeededOrder[]> {
   try {
-    // Step 1: Get active users to find E2E-Admin
-    const usersResp = await fetch(`${CONVEX_URL}/api/query`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: "auth/queries:getActiveUsers",
-        args: {},
-        format: "json",
-      }),
-    });
-    if (!usersResp.ok) return [];
-    const usersData = await usersResp.json();
-    const users: Array<{ _id: string; name: string }> = usersData?.value ?? [];
-    const admin = users.find((u) => u.name === "E2E-Admin");
-    if (!admin) return [];
-
-    // Step 2: Login to get session token
-    const loginResp = await fetch(`${CONVEX_URL}/api/mutation`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: "auth/mutations:login",
-        args: { userId: admin._id, pin: TEST_PIN },
-        format: "json",
-      }),
-    });
-    if (!loginResp.ok) return [];
-    const loginData = await loginResp.json();
-    const sessionId: string | undefined = loginData?.value?.session?.token;
+    const sessionId = await getAdminSession();
     if (!sessionId) return [];
 
-    // Step 3: Query orders list (PaymentReceived status) and filter by subscriptionWeekId
-    // The list query returns full order docs which include subscriptionWeekId.
-    const listResp = await fetch(`${CONVEX_URL}/api/query`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: "orders/queries:list",
-        args: { sessionId, status: "PaymentReceived", limit: 50 },
-        format: "json",
-      }),
-    });
-    if (!listResp.ok) return [];
-    const listData = await listResp.json();
-    const orders: Array<{ _id: string; status: string; subscriptionWeekId?: string }> =
-      listData?.value ?? [];
-    const weekOrders = orders.filter(
-      (o) => o.subscriptionWeekId === seed.subscriptionWeekId,
-    );
-
-    if (weekOrders.length > 0) return weekOrders.map((o) => ({ _id: o._id, status: o.status }));
-
-    // Also try AwaitingDelivery (in case mark-delivered was already called once)
-    const adResp = await fetch(`${CONVEX_URL}/api/query`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        path: "orders/queries:list",
-        args: { sessionId, status: "AwaitingDelivery", limit: 50 },
-        format: "json",
-      }),
-    });
-    if (!adResp.ok) return [];
-    const adData = await adResp.json();
-    const adOrders: Array<{ _id: string; status: string; subscriptionWeekId?: string }> =
-      adData?.value ?? [];
-    const adWeekOrders = adOrders.filter(
-      (o) => o.subscriptionWeekId === seed.subscriptionWeekId,
-    );
-    return adWeekOrders.map((o) => ({ _id: o._id, status: o.status }));
+    // Sweep every deliverable status — the seeded order may already have
+    // advanced to AwaitingDelivery from a prior run.
+    const statuses = [
+      "PaymentReceived",
+      "BeingPrepared",
+      "AwaitingDelivery",
+    ];
+    for (const status of statuses) {
+      const weekOrders = await listWeekOrders(sessionId, status);
+      if (weekOrders.length > 0) return weekOrders;
+    }
+    return [];
   } catch {
     return [];
   }
+}
+
+/**
+ * Sonner toasts are ephemeral (~4s). Poll the toaster DOM and accumulate all
+ * text seen, so a fast toast isn't missed by a single innerText() read.
+ * Returns a handle; call .stop() to end polling and get the joined text.
+ */
+function captureToasts(page: Parameters<typeof navigateTo>[0]) {
+  const captured: string[] = [];
+  const tick = async () => {
+    try {
+      const txt = await page
+        .locator("[data-sonner-toast]")
+        .allInnerTexts()
+        .catch(() => []);
+      captured.push(...txt);
+    } catch {
+      // ignore
+    }
+  };
+  const interval = setInterval(tick, 200);
+  return {
+    async stop(): Promise<string> {
+      clearInterval(interval);
+      await tick();
+      return Array.from(new Set(captured)).join(" | ");
+    },
+  };
 }
 
 /**
@@ -203,6 +203,7 @@ function invoicePageUrl(seed: SeedData): string {
 
 test.describe("(a) Mark-delivered — OrderDetail surface", () => {
   let orderId: string | null = null;
+  let orderNumber: string | null = null;
 
   test.beforeAll(async () => {
     // Fetch subscription orders for the seeded week via Convex HTTP API
@@ -211,9 +212,11 @@ test.describe("(a) Mark-delivered — OrderDetail surface", () => {
     const deliverable = orders.find((o) =>
       ["PaymentReceived", "BeingPrepared", "AwaitingDelivery"].includes(o.status),
     );
-    orderId = deliverable?._id ?? orders[0]?._id ?? null;
+    const chosen = deliverable ?? orders[0] ?? null;
+    orderId = chosen?._id ?? null;
+    orderNumber = chosen?.orderNumber ?? null;
     console.log(
-      `[UAT a-setup] Seeded orders: ${JSON.stringify(orders)}. Selected orderId: ${orderId}`,
+      `[UAT a-setup] Seeded orders: ${JSON.stringify(orders)}. Selected orderId: ${orderId}, orderNumber: ${orderNumber}`,
     );
   });
 
@@ -221,7 +224,7 @@ test.describe("(a) Mark-delivered — OrderDetail surface", () => {
     await loginAsRole(page, "manager");
 
     if (!orderId) {
-      console.warn("[UAT a1] No subscription orders found on orders board. BLOCKED.");
+      console.warn("[UAT a1] No subscription orders found via Convex HTTP API. BLOCKED.");
       await screenshot(page, "uat-operate-ui-seeded-a1-blocked");
       test.skip();
       return;
@@ -232,29 +235,10 @@ test.describe("(a) Mark-delivered — OrderDetail surface", () => {
 
     await screenshot(page, "uat-operate-ui-seeded-a1-order-detail-before");
 
-    const bodyTextEarly = await page.locator("body").innerText();
-    const pageHasCrash =
-      bodyTextEarly.includes("Something went wrong") ||
-      bodyTextEarly.includes("Server Error") ||
-      bodyTextEarly.includes("ChunkLoadError");
-
-    if (pageHasCrash) {
-      // OrderDetail crashes for subscription orders when the backend deployment is stale.
-      // The feature branch adds getOrderCreditStatus (convex/subscriptions/queries.ts) which
-      // is not deployed to the dev Convex environment (npx convex dev not running here).
-      // This is a deployment gap, not a product bug. The source code is correct.
-      console.warn(
-        "[UAT a1] BLOCKED — OrderDetail crashes for subscription order. " +
-          "Root cause: feature branch backend (getOrderCreditStatus) not deployed to dev Convex. " +
-          "Run `npx convex dev` in this worktree. Screenshot: uat-operate-ui-seeded-a1-order-detail-before",
-      );
-      test.skip();
-      return;
-    }
-
-    // Must not crash
+    // Backend is deployed — the page MUST NOT crash. A crash here is a real defect.
     await expect(page.locator("body")).not.toContainText("Server Error");
     await expect(page.locator("body")).not.toContainText("Something went wrong");
+    await expect(page.locator("body")).not.toContainText("ChunkLoadError");
 
     // Check if this is a subscription order (violet subscription block present)
     const subBlock = page.locator("text=/Subscription order.*read-only/i").first();
@@ -318,32 +302,37 @@ test.describe("(a) Mark-delivered — OrderDetail surface", () => {
       return;
     }
 
-    // Click Mark delivered
+    // Poll the sonner toaster for ephemeral toast text while we click.
+    const toasts = captureToasts(page);
     await markDeliveredBtn.click();
-
-    // Wait for toast
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
+    const allToast = await toasts.stop();
 
     await screenshot(page, "uat-operate-ui-seeded-a2-after-mark-delivered");
 
-    // Assert a success toast appeared (sonner renders in [data-sonner-toaster] or role=status)
     const bodyText = await page.locator("body").innerText();
+    const haystack = `${allToast} ${bodyText}`;
+
+    // Either the first-recognition toast or the idempotent toast is acceptable —
+    // both are success. (If a2 ran after a prior run already recognized the sale,
+    // we'll see the "already recognized earlier" variant.)
     const hasSuccessToast =
-      bodyText.includes("Delivery recognized") ||
-      bodyText.includes("Marked delivered") ||
-      bodyText.includes("sale posted");
+      haystack.includes("Delivery recognized — sale posted.") ||
+      haystack.includes("Delivery recognized") ||
+      haystack.includes("already recognized earlier") ||
+      haystack.includes("sale posted");
 
-    if (hasSuccessToast) {
-      console.log("[UAT a2] PASS — Success toast appeared after Mark delivered.");
-    } else {
-      // Check for error toast
-      const hasErrorToast =
-        bodyText.includes("Failed to mark delivered") ||
-        bodyText.includes("Error");
-      console.warn(`[UAT a2] Toast check: hasSuccess=${hasSuccessToast}, hasError=${hasErrorToast}. Body snippet: ${bodyText.substring(0, 300)}`);
-    }
+    const hasErrorToast =
+      haystack.includes("Failed to mark delivered") ||
+      haystack.includes("Unauthorized");
 
+    console.log(
+      `[UAT a2] toastText="${allToast.substring(0, 200)}". hasSuccess=${hasSuccessToast}, hasError=${hasErrorToast}`,
+    );
+
+    expect(hasErrorToast).toBeFalsy();
     expect(hasSuccessToast).toBeTruthy();
+    console.log("[UAT a2] PASS — Success toast appeared after Mark delivered.");
   });
 
   test("(a3) OrderDetail — re-press Mark delivered → idempotent toast", async ({ page }) => {
@@ -360,88 +349,93 @@ test.describe("(a) Mark-delivered — OrderDetail surface", () => {
 
     await expect(page.locator("body")).not.toContainText("Server Error");
 
+    // After (a2) recognized the sale, the order is in AwaitingDelivery. The button
+    // STAYS visible for AwaitingDelivery (isDeliverableSubscriptionStatus includes it),
+    // so a re-press exercises the idempotent path → "already recognized earlier" toast.
     const markDeliveredBtn = page.locator("button:has-text('Mark delivered')").first();
     const btnVisible = await markDeliveredBtn.isVisible().catch(() => false);
 
     if (!btnVisible) {
-      // Order might already be in AwaitingDelivery (from previous test run) — button hidden
-      // In that case the idempotent path was already exercised. Record as PASS.
-      console.log("[UAT a3] 'Mark delivered' no longer visible — order already delivered. Idempotent guard working (button hidden for AwaitingDelivery). PASS.");
+      // Defensive fallback: if the order somehow advanced past AwaitingDelivery,
+      // the button is gone — the idempotent guard still held (no double-recognition possible).
+      console.log("[UAT a3] 'Mark delivered' not visible — order past AwaitingDelivery. Idempotent guard held (button hidden). PASS.");
       await screenshot(page, "uat-operate-ui-seeded-a3-already-delivered");
       return;
     }
 
-    // Re-press (order already in AwaitingDelivery from (a2) if same session, or fresh)
+    // Re-press → expect the idempotent "already recognized earlier" toast (no new sale).
+    const toasts = captureToasts(page);
     await markDeliveredBtn.click();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
+    const allToast = await toasts.stop();
 
     await screenshot(page, "uat-operate-ui-seeded-a3-idempotent");
 
     const bodyText = await page.locator("body").innerText();
-    const hasIdempotentToast =
-      bodyText.includes("already recognized earlier") ||
-      bodyText.includes("Delivery recognized") ||
-      bodyText.includes("Marked delivered");
+    const haystack = `${allToast} ${bodyText}`;
+
+    // The idempotent re-press should show the "already recognized earlier" variant.
+    const hasIdempotentToast = haystack.includes("already recognized earlier");
+    // Accept the first-recognition variant too in case (a2) ran in a separate worker
+    // and this is genuinely the first recognition of THIS order.
+    const hasAnyDeliveryToast =
+      hasIdempotentToast || haystack.includes("Delivery recognized");
 
     console.log(
-      `[UAT a3] Re-press result: hasIdempotentToast=${hasIdempotentToast}. Body snippet: ${bodyText.substring(0, 200)}`,
+      `[UAT a3] Re-press toast="${allToast.substring(0, 200)}". hasIdempotent=${hasIdempotentToast}, hasAnyDelivery=${hasAnyDeliveryToast}`,
     );
 
-    expect(hasIdempotentToast).toBeTruthy();
+    expect(hasAnyDeliveryToast).toBeTruthy();
+    if (hasIdempotentToast) {
+      console.log("[UAT a3] PASS — idempotent 'already recognized earlier' toast shown on re-press.");
+    } else {
+      console.log("[UAT a3] PASS — delivery recognized (first recognition of this order in this run).");
+    }
   });
 
-  test("(a4) OrderSlideOver — Mark delivered visible for subscription order", async ({ page }) => {
+  test("(a4) OrderSlideOver — Mark delivered visible + idempotent re-press for subscription order", async ({ page }) => {
     await loginAsRole(page, "manager");
 
-    await navigateTo(page, "/orders");
-    await waitForDataLoad(page);
-
-    // Try to click any order card to open the slide-over
-    const cardSelectors = [
-      "a[href*='/orders/']",
-      "[data-order-id]",
-      "div[class*='cursor-pointer']",
-      "text=/\\d{4}-\\d{3}/",
-    ];
-
-    let clicked = false;
-    for (const sel of cardSelectors) {
-      const el = page.locator(sel).first();
-      if ((await el.count()) > 0) {
-        // For links, check if we should click or if it navigates
-        const tagName = await el.evaluate((e) => e.tagName.toLowerCase()).catch(() => "");
-        if (tagName === "a") {
-          // Navigate directly instead of opening slide-over
-          const href = await el.getAttribute("href");
-          if (href?.includes("/orders/") && !href.includes("/orders/new")) {
-            // This is an order link — click to see if slide-over or navigate
-            await el.click({ force: true });
-            clicked = true;
-            break;
-          }
-        } else {
-          await el.click({ force: true });
-          clicked = true;
-          break;
-        }
-      }
-    }
-
-    await page.waitForTimeout(2000);
-    await waitForAppReady(page);
-
-    await screenshot(page, "uat-operate-ui-seeded-a4-slideover");
-
-    if (!clicked) {
-      console.warn("[UAT a4] No order cards found. BLOCKED.");
+    if (!orderNumber) {
+      console.warn("[UAT a4] No seeded order number to locate on the board. BLOCKED.");
+      await screenshot(page, "uat-operate-ui-seeded-a4-no-ordernum");
       test.skip();
       return;
     }
 
+    await navigateTo(page, "/orders");
+    await waitForDataLoad(page);
+
     await expect(page.locator("body")).not.toContainText("Server Error");
     await expect(page.locator("body")).not.toContainText("Something went wrong");
 
-    // Check if subscription block or Mark delivered is visible in slide-over
+    // Locate the seeded subscription order's kanban card by its order number.
+    // Cards use onClick (not <a href>), so we click the element containing the number.
+    const card = page.locator(`text=${orderNumber}`).first();
+    const cardFound = (await card.count()) > 0;
+
+    if (!cardFound) {
+      // The seeded order may be in a kanban column not rendered by default
+      // (e.g. AwaitingDelivery / Boxed lane). Record honestly — slide-over not reachable.
+      console.warn(
+        `[UAT a4] Seeded order ${orderNumber} not found on the default orders board view. ` +
+          "Its kanban lane may be off-screen. BLOCKED (slide-over not reachable for this order).",
+      );
+      await screenshot(page, "uat-operate-ui-seeded-a4-card-not-found");
+      test.skip();
+      return;
+    }
+
+    await card.click({ force: true });
+    await page.waitForTimeout(1500);
+    await waitForAppReady(page);
+
+    await screenshot(page, "uat-operate-ui-seeded-a4-slideover");
+
+    await expect(page.locator("body")).not.toContainText("Server Error");
+    await expect(page.locator("body")).not.toContainText("Something went wrong");
+
+    // The slide-over (dialog/drawer) should show the subscription block + Mark delivered.
     const subBlock = page.locator("text=/Subscription order.*read-only/i").first();
     const markDelivered = page.locator("button:has-text('Mark delivered')").first();
     const hasSubBlock = (await subBlock.count()) > 0;
@@ -451,9 +445,35 @@ test.describe("(a) Mark-delivered — OrderDetail surface", () => {
       `[UAT a4] SlideOver — hasSubBlock=${hasSubBlock}, hasMarkDelivered=${hasMarkDelivered}`,
     );
 
-    // If slide-over has a subscription block, the Mark delivered button should be gated by status
-    // For now we just confirm no crash
-    console.log("[UAT a4] OrderSlideOver rendered without crash — subscription block check complete.");
+    // Pitfall #20: the slide-over MUST mirror OrderDetail's subscription affordances.
+    expect(hasSubBlock).toBeTruthy();
+
+    if (!hasMarkDelivered) {
+      console.warn(
+        "[UAT a4] Subscription block present but Mark delivered button not visible — " +
+          "order may have advanced past AwaitingDelivery. Subscription mirror confirmed (Pitfall #20). PASS.",
+      );
+      return;
+    }
+
+    // Re-press in the slide-over → idempotent "already recognized earlier" toast
+    // (the order is already in AwaitingDelivery after a2/a3 on OrderDetail).
+    const toasts = captureToasts(page);
+    await markDelivered.click();
+    await page.waitForTimeout(4000);
+    const allToast = await toasts.stop();
+
+    await screenshot(page, "uat-operate-ui-seeded-a4-after-mark-delivered");
+
+    const haystack = allToast;
+    const hasDeliveryToast =
+      haystack.includes("already recognized earlier") ||
+      haystack.includes("Delivery recognized");
+
+    console.log(`[UAT a4] SlideOver re-press toast="${allToast.substring(0, 200)}"`);
+
+    expect(hasDeliveryToast).toBeTruthy();
+    console.log("[UAT a4] PASS — OrderSlideOver Mark delivered works (Pitfall #20 mirror confirmed).");
   });
 });
 
@@ -509,279 +529,13 @@ test.describe("(b) Out-of-credit — negative check (within-credit seeded order)
 });
 
 // ---------------------------------------------------------------------------
-// (c) Flow C — Reconcile week
-// ---------------------------------------------------------------------------
-
-test.describe("(c) Reconcile week", () => {
-  test("(c1) Invoice page loads for seeded week (paid/delivering status)", async ({ page }) => {
-    await loginAsRole(page, "manager");
-
-    await navigateTo(page, invoicePageUrl(seed));
-    await waitForDataLoad(page);
-
-    await expect(page.locator("body")).not.toContainText("Server Error");
-    await expect(page.locator("body")).not.toContainText("Something went wrong");
-    await expect(page.locator("body")).not.toContainText("ChunkLoadError");
-
-    await screenshot(page, "uat-operate-ui-seeded-c1-invoice-page");
-
-    const bodyText = await page.locator("body").innerText();
-    const hasInvoiceContent =
-      bodyText.includes("Weekly Invoice") ||
-      bodyText.includes("Bank Transfer Reference") ||
-      bodyText.includes("Invoice marked paid");
-
-    console.log(`[UAT c1] Invoice page loaded. hasInvoiceContent=${hasInvoiceContent}. Text snippet: ${bodyText.substring(0, 300)}`);
-    expect(bodyText.length).toBeGreaterThan(20);
-  });
-
-  test("(c2) Reconcile button visible for paid/delivering week", async ({ page }) => {
-    await loginAsRole(page, "manager");
-
-    await navigateTo(page, invoicePageUrl(seed));
-    await waitForDataLoad(page);
-
-    await expect(page.locator("body")).not.toContainText("Server Error");
-
-    await screenshot(page, "uat-operate-ui-seeded-c2-reconcile-btn-check");
-
-    // The Reconcile week button shows for paid or delivering status
-    const reconcileBtn = page
-      .locator("button:has-text('Reconcile week'), button:has-text('Reconcile')")
-      .first();
-    const btnVisible = await reconcileBtn.isVisible().catch(() => false);
-
-    const bodyText = await page.locator("body").innerText();
-    console.log(
-      `[UAT c2] Reconcile button visible=${btnVisible}. Body snippet: ${bodyText.substring(0, 400)}`,
-    );
-
-    if (!btnVisible) {
-      // Week may not be in paid/delivering status (e.g. already reconciled, or invoice not paid)
-      const alreadyReconciled = bodyText.includes("reconciled");
-      const notPaid =
-        bodyText.includes("No invoice yet") || bodyText.includes("No week");
-      console.warn(
-        `[UAT c2] Reconcile button not visible. alreadyReconciled=${alreadyReconciled}, notPaid=${notPaid}. BLOCKED.`,
-      );
-      test.skip();
-      return;
-    }
-
-    console.log("[UAT c2] PASS — Reconcile week button is visible.");
-  });
-
-  test("(c3) Reconcile dialog — submit disabled without comment, enabled after typing", async ({ page }) => {
-    await loginAsRole(page, "manager");
-
-    await navigateTo(page, invoicePageUrl(seed));
-    await waitForDataLoad(page);
-
-    await expect(page.locator("body")).not.toContainText("Server Error");
-
-    const reconcileBtn = page
-      .locator("button:has-text('Reconcile week'), button:has-text('Reconcile')")
-      .first();
-    const btnVisible = await reconcileBtn.isVisible().catch(() => false);
-
-    if (!btnVisible) {
-      console.warn("[UAT c3] Reconcile button not visible. BLOCKED.");
-      await screenshot(page, "uat-operate-ui-seeded-c3-blocked");
-      test.skip();
-      return;
-    }
-
-    // Click Reconcile week
-    await reconcileBtn.click();
-    await page.waitForTimeout(1000);
-
-    // Dialog should open
-    const dialog = page.getByRole("dialog");
-    const dialogVisible = await dialog.isVisible().catch(() => false);
-
-    if (!dialogVisible) {
-      console.warn("[UAT c3] Dialog did not open. BLOCKED.");
-      await screenshot(page, "uat-operate-ui-seeded-c3-no-dialog");
-      test.skip();
-      return;
-    }
-
-    await screenshot(page, "uat-operate-ui-seeded-c3-dialog-open");
-
-    // The Reconcile submit button inside the dialog should be DISABLED when comment is empty
-    // The button text is "Reconcile" (submitting shows "Reconciling…")
-    const submitBtn = dialog.locator("button:has-text('Reconcile')").first();
-    await expect(submitBtn).toBeDisabled();
-
-    // Space-only — still disabled
-    const textarea = dialog.locator("textarea").first();
-    await textarea.fill("   ");
-    await expect(submitBtn).toBeDisabled();
-
-    // Type a real comment
-    await textarea.fill("Week ended normally, all deliveries confirmed.");
-
-    await screenshot(page, "uat-operate-ui-seeded-c3-dialog-filled");
-
-    // Submit should now be enabled
-    await expect(submitBtn).toBeEnabled();
-
-    console.log("[UAT c3] PASS — Submit disabled without comment, enabled after typing.");
-  });
-
-  test("(c4) Reconcile submit — week transitions to reconciled", async ({ page }) => {
-    await loginAsRole(page, "manager");
-
-    await navigateTo(page, invoicePageUrl(seed));
-    await waitForDataLoad(page);
-
-    await expect(page.locator("body")).not.toContainText("Server Error");
-
-    const reconcileBtn = page
-      .locator("button:has-text('Reconcile week'), button:has-text('Reconcile')")
-      .first();
-    const btnVisible = await reconcileBtn.isVisible().catch(() => false);
-
-    if (!btnVisible) {
-      // Check if already reconciled (button disappears after reconcile)
-      const bodyText = await page.locator("body").innerText();
-      const alreadyReconciled = bodyText.toLowerCase().includes("reconciled");
-      if (alreadyReconciled) {
-        console.log("[UAT c4] Week already reconciled (Reconcile button gone). PASS — reconcile was previously submitted.");
-        await screenshot(page, "uat-operate-ui-seeded-c4-already-reconciled");
-        return;
-      }
-      console.warn("[UAT c4] Reconcile button not visible. BLOCKED.");
-      await screenshot(page, "uat-operate-ui-seeded-c4-blocked");
-      test.skip();
-      return;
-    }
-
-    await reconcileBtn.click();
-    await page.waitForTimeout(1000);
-
-    const dialog = page.getByRole("dialog");
-    const dialogVisible = await dialog.isVisible().catch(() => false);
-
-    if (!dialogVisible) {
-      console.warn("[UAT c4] Dialog did not open. BLOCKED.");
-      test.skip();
-      return;
-    }
-
-    // Select "cafe" fault so expired credit is recognized as revenue (no next-week carry needed).
-    // The default "none" (rollover) requires a next open week — the seeded data only has one week,
-    // so rollover would fail with "No open next week to carry credit into".
-    // Using "cafe" fault exercises the expire path, which is fully self-contained.
-    const faultSelect = dialog.locator("#fault, [id^='fault']").first();
-    if ((await faultSelect.count()) > 0) {
-      await faultSelect.click();
-      await page.waitForTimeout(300);
-      // Click the "Cafe fault" option
-      const cafeOption = page.locator('[role="option"]:has-text("Cafe fault")').first();
-      if ((await cafeOption.count()) > 0) {
-        await cafeOption.click();
-        await page.waitForTimeout(300);
-        console.log("[UAT c4] Selected 'Cafe fault' for reconcile.");
-      } else {
-        console.warn("[UAT c4] 'Cafe fault' option not found in select. Proceeding with default.");
-      }
-    }
-
-    // Fill comment and submit
-    const textarea = dialog.locator("textarea").first();
-    await textarea.fill("Seeded UAT reconcile — cafe fault, automated test run 2026-06-25.");
-
-    const submitBtn = dialog.locator("button:has-text('Reconcile')").first();
-    await expect(submitBtn).toBeEnabled();
-
-    // Start listening for toast text BEFORE clicking submit, so we don't miss it.
-    // Sonner renders: ol[data-sonner-toaster] > li[data-sonner-toast]
-    // We subscribe to all text added to the body during the next 10 seconds.
-    const capturedTexts: string[] = [];
-    const listener = async () => {
-      try {
-        const txt = await page.locator("[data-sonner-toast]").allInnerTexts().catch(() => []);
-        capturedTexts.push(...txt);
-      } catch {
-        // ignore
-      }
-    };
-
-    // Poll for toast text every 200ms for 10 seconds
-    const pollInterval = setInterval(listener, 200);
-
-    await submitBtn.click();
-
-    // Wait for dialog to close (submit succeeded or failed)
-    // If succeeded: dialog unmounts, week data updates reactively
-    // If failed: dialog stays open with error toast
-    await page.waitForTimeout(6000);
-    clearInterval(pollInterval);
-    await listener(); // capture final state
-
-    await screenshot(page, "uat-operate-ui-seeded-c4-after-submit");
-
-    const allToastText = capturedTexts.join(" ");
-    const bodyText = await page.locator("body").innerText();
-
-    // Check if week status changed to reconciled on page
-    const pageShowsReconciled = bodyText.toLowerCase().includes("reconciled") && !bodyText.includes("Reconcile week");
-    const reconcileButtonGone = !(await page.locator("button:has-text('Reconcile week')").isVisible().catch(() => true));
-
-    // Success toast: "Week reconciled — carried N, expired N"
-    const hasSuccessToast =
-      allToastText.includes("Week reconciled") ||
-      allToastText.includes("carried") ||
-      allToastText.includes("expired") ||
-      pageShowsReconciled ||
-      reconcileButtonGone;
-
-    // Check for known error conditions (report as FUNCTIONAL DEFECTS)
-    const hasRolloverError =
-      allToastText.includes("No open next week") ||
-      bodyText.includes("No open next week");
-    const hasOtherError =
-      allToastText.includes("Failed to reconcile") ||
-      bodyText.includes("Failed to reconcile");
-
-    console.log(
-      `[UAT c4] allToastText="${allToastText.substring(0, 200)}". hasSuccessToast=${hasSuccessToast}, pageShowsReconciled=${pageShowsReconciled}, reconcileButtonGone=${reconcileButtonGone}, hasRolloverError=${hasRolloverError}, hasOtherError=${hasOtherError}`,
-    );
-
-    if (hasRolloverError) {
-      // FUNCTIONAL DEFECT: seed policy is "rollover" but no next week seeded.
-      // Should have been avoided by selecting "cafe" fault above.
-      console.warn(
-        "[UAT c4] FUNCTIONAL DEFECT: Reconcile failed — 'No open next week'. Using cafe fault should bypass this. Fault select may not have worked.",
-      );
-    }
-
-    // Check for the known deployment gap: feature branch reconcile.ts adds reconcileNote
-    // to the args, but the dev Convex deployment may be on the main branch (stale).
-    const hasDeploymentGapError =
-      allToastText.includes("extra field") ||
-      allToastText.includes("reconcileNote") ||
-      bodyText.includes("extra field `reconcileNote`");
-
-    if (hasDeploymentGapError) {
-      console.warn(
-        "[UAT c4] BLOCKED — Backend deployment gap: reconcileWeek mutation on dev Convex is stale (missing reconcileNote arg). " +
-          "Run `npx convex dev` in the feature worktree to deploy the updated backend. " +
-          "The source code is correct (convex/subscriptions/reconcile.ts has reconcileNote: v.string()); " +
-          "this is an operational blocker, not a product bug.",
-      );
-      // Mark as BLOCKED, not FAIL — backend deployment is an operational prerequisite
-      test.skip();
-      return;
-    }
-
-    expect(hasSuccessToast).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // (d) Flow D — Amend week
+//
+// NOTE ON ORDERING: (d) Amend runs BEFORE (c) Reconcile on purpose. Reconcile is
+// a TERMINAL transition (week → "reconciled"), after which the week is no longer
+// amendable. Amending first keeps the week in "delivering" (amend only adds a
+// top-up invoice), so reconcile can still close it afterward. Do not move (c)
+// above (d) — that would break the amend flow on a single-week seed.
 // ---------------------------------------------------------------------------
 
 test.describe("(d) Amend week — schedule page grid unlock", () => {

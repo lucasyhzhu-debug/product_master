@@ -127,3 +127,6 @@ graphify-out/cache/
 
 # Transient subagent worktrees (created by Agent tool with isolation: "worktree")
 .claude/worktrees/
+
+# Playwright ephemeral report
+playwright-report/
