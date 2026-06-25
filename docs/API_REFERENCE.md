@@ -2744,6 +2744,47 @@ Shared order-COGS accumulation. Skips cancelled items, items with no `menuProduc
 
 ---
 
+### Subscription Telegram notification layer — Phase E Slice 1 (2026-06-25)
+
+Outbound-only Telegram reminders for subscription operations. **All functions are `internal*` (cron context, no token, no public/staff surface).** Read-only except a `telegramDeliveries` receipt. No schema change. Ship-dark until an operator assigns the `subscription-ops` / `founders` chats via `/admin/telegram-chats`.
+
+#### Read-only queries (`convex/subscriptions/reminders/queries.ts`)
+
+All `internalQuery`, args `{}`, returning typed rows from `convex/subscriptions/reminders/types.ts`. Integer IDR/pcs throughout; delivered = `order.status === "Complete"`.
+
+| Function | Returns | What it lists |
+|----------|---------|---------------|
+| `getWeeksToConfirm` | `ConfirmRow[]` | `planned` weeks of active subs awaiting confirmation. |
+| `getWeeklyInvoicesDue` | `InvoiceDueRow[]` | `confirmed`/`invoiced` unpaid weeks of active subs; `amountDue = Σ plannedDays[].items[].lineTotal` (not `creditIssued`, which is 0 pre-payment). |
+| `getTodaySubscriptionDeliveries` | `TodayDeliveriesRow[]` | Today's (WIB) planned deliveries per active sub, split per product; flags a deleted product (`missingProduct`, EC6). |
+| `getDaysApproachingCutoff` | `ConfirmRow[]` | Active subs with an unlocked planned day landing tomorrow (WIB) — notify only, no lock flip (Slice 2). |
+| `getWeeksToReconcile` | `ReconcileRow[]` | `delivering` weeks whose window has ended (`weekEnd < now`). Intentionally not filtered by sub status (a terminated sub's final week still reconciles). |
+| `getWeeklyDeliveryProgress` | `DeliveryProgressRow[]` | Per active sub: `weekPlannedPcs` vs `deliveredPcs` (Complete orders via `orders.by_subscriptionWeek`, summing `orderItems.quantity`); `remaining`/`overBy` clamped to ≥ 0. |
+
+#### `subscriptionSlotKey` (`convex/telegram/deliveryReceipts.ts`)
+
+```typescript
+subscriptionSlotKey(kind: string, nowMs: number): string  // → `sub:${kind}:${getWibDateStr(nowMs)}`
+```
+
+WIB-day-keyed delivery-receipt slot. Sender and the +15min watchdog compute the same key (no WIB-midnight slot), so the watchdog finds the sender's receipt and skips re-firing.
+
+#### `ReminderKind` / `roleForKind` (`convex/telegram/subscriptionReminders/kinds.ts`)
+
+`REMINDER_KINDS` (6 literals), `ReminderKind` union, and `roleForKind(kind): TelegramRole` — an exhaustive `Record` mapping the 5 ops kinds → `subscription-ops` and `weekly-delivery-progress` → `founders` (a new kind is a compile error until routed).
+
+#### Send triad (`convex/telegram/subscriptionReminders/sendSubscriptionReminder.ts`)
+
+```typescript
+sendSubscriptionReminder({ kind })            // internalAction: build + chunk + send + record receipt
+sendSubscriptionReminderResilient({ kind, attempt? })  // internalAction: transient retry (cronRetry, max 3)
+watchdogSubscriptionReminder({ kind })        // internalAction: re-fire if no receipt for the slot
+```
+
+Reuses `cronRetry.ts` and `deliveryReceipts.ts`. Fails fast (ship-dark) when no chat is assigned for the kind's role. Messages are chunked under Telegram's 4096-char limit with a partial-send breadcrumb (mirrors `sendSalesSummary`). Registered by 12 crons in `convex/crons.ts` (6 primary + 6 watchdog, UTC-minute-unique — asserted by `convex/crons.test.ts`).
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |
