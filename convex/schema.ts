@@ -2614,7 +2614,10 @@ export default defineSchema({
     // No _creationTime range — revenue is attributed by deliveryDate, not _creationTime.
     .index("by_type", ["type"])
     // Phase D: CRM timeline window — ledger events per subscription bounded by creation time (C9).
-    .index("by_subscription_creationTime", ["subscriptionId", "_creationTime"]),
+    // Convex auto-appends `_creationTime` to every index, so listing it explicitly is
+    // rejected at deploy (IndexFieldsContainCreationTime). The index on ["subscriptionId"]
+    // already supports the query's `.eq("subscriptionId", x).gte("_creationTime", cutoff)` range.
+    .index("by_subscription_creationTime", ["subscriptionId"]),
 
   supplyAgreements: defineTable({
     customerId: v.id("customers"),
