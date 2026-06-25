@@ -89,6 +89,7 @@ nul
 # =============================================================================
 scripts/debug-screenshots/
 scripts/.gobiz_creds.json
+tests/e2e/.seed-data.json
 prod-snapshot*.zip
 prod-snapshot-work/
 
@@ -126,3 +127,6 @@ graphify-out/cache/
 
 # Transient subagent worktrees (created by Agent tool with isolation: "worktree")
 .claude/worktrees/
+
+# Playwright ephemeral report
+playwright-report/
