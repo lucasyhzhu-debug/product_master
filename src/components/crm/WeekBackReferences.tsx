@@ -94,9 +94,26 @@ export function WeekBackReferences({
     subscriptionWeekId,
   });
 
-  // D12: loading state — render nothing (skeleton-like silence) until data arrives.
+  // D12: designed loading skeleton — three muted section blocks mirroring the
+  // real layout (heading + a couple of rows) until data arrives.
   if (backRefs === undefined) {
-    return null;
+    return (
+      <div
+        className="space-y-5 pt-2"
+        data-testid="week-backref-skeleton"
+        aria-hidden="true"
+      >
+        {[0, 1, 2].map((s) => (
+          <div key={s} className="space-y-2">
+            <div className="h-3.5 w-52 rounded bg-muted animate-pulse" />
+            <div className="space-y-1 pl-1">
+              <div className="h-4 w-36 rounded bg-muted/70 animate-pulse" />
+              <div className="h-4 w-28 rounded bg-muted/70 animate-pulse" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   const { orders, ledgerEntries, fundingInvoice } = backRefs;

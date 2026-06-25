@@ -145,7 +145,9 @@ describe("WeekBackReferences — loading state", () => {
   it("renders loading skeleton when query returns undefined", () => {
     mockReturn = undefined;
     renderComponent();
-    // Should not render section headings while loading.
+    // Designed skeleton renders while loading (D12)...
+    expect(screen.getByTestId("week-backref-skeleton")).toBeInTheDocument();
+    // ...and no real section headings yet.
     expect(screen.queryByText(/orders that drew down/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/ledger entries/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/invoice that funded/i)).not.toBeInTheDocument();

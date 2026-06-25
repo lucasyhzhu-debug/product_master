@@ -189,8 +189,9 @@ export function DrawdownChart({
   // Today divider: show only when the week has a mix of past and future days.
   // x = label of the first future day (isPast=false), with at least one past day before it.
   const firstFutureIdx = points.findIndex((pt: DrawdownPoint) => !pt.isPast);
-  const showTodayLine =
-    firstFutureIdx > 0 && firstFutureIdx < points.length;
+  // firstFutureIdx > 0 means there's at least one past day before the first
+  // future day (when findIndex is -1 or 0 there's no mid-week divider to draw).
+  const showTodayLine = firstFutureIdx > 0;
   const todayDividerLabel =
     showTodayLine ? (chartData[firstFutureIdx]?.label ?? null) : null;
 
@@ -262,7 +263,6 @@ export function DrawdownChart({
                     fontSize: 10,
                     fill: "#64748b",
                   }}
-                  data-testid="today-line"
                 />
               )}
             </ComposedChart>

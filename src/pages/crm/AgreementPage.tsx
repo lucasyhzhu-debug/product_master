@@ -354,7 +354,9 @@ export function AgreementPage() {
     storageId: Id<"_storage">,
     fileName: string,
     lang: "id" | "en",
-    fileSize: number,
+    // fileSize is not part of addAgreementVersion args (version entries don't
+    // track size independently); the real size is stored on the primary doc.
+    _fileSize: number,
   ) {
     try {
       await addAgreementVersion({
@@ -363,9 +365,6 @@ export function AgreementPage() {
         fileName,
         lang,
       });
-      // fileSize is not part of addAgreementVersion args (version entries don't
-      // track size independently), but the real size is stored on the primary doc.
-      void fileSize;
       toast.success("Version added.");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to add version"));
