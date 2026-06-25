@@ -36,6 +36,23 @@ export function computeTopupDelta(args: {
 }
 
 /**
+ * Product IDs whose amended qty is below the funded qty (a decrease/removal).
+ * v1 amend is increases-only.
+ */
+export function findProductDecreases(
+  currentQtyByProduct: Record<string, number>,
+  newQtyByProduct: Record<string, number>,
+): string[] {
+  const decreased: string[] = [];
+  for (const productId of Object.keys(currentQtyByProduct)) {
+    if ((newQtyByProduct[productId] ?? 0) < (currentQtyByProduct[productId] ?? 0)) {
+      decreased.push(productId);
+    }
+  }
+  return decreased;
+}
+
+/**
  * Amend a confirmed/invoiced/paid week: re-price the plan, persist plannedDays,
  * and bill the positive delta as an UNPAID subscription_topup invoice (settled
  * later via the existing markTopupInvoicePaid flow). Does NOT regenerate per-day
@@ -91,6 +108,14 @@ export const amendConfirmedWeek = protectedMutation({
       }
     }
 
+    const decreases = findProductDecreases(currentQtyByProduct, newQtyByProduct);
+    if (decreases.length > 0) {
+      throw new ConvexError(
+        "Amend supports increases only — one or more products would decrease or be removed. " +
+          "Handle reductions via reconcile/refund, not amend.",
+      );
+    }
+
     const { addedLines, deltaTotal } = computeTopupDelta({
       currentQtyByProduct,
       newQtyByProduct,
@@ -105,7 +130,7 @@ export const amendConfirmedWeek = protectedMutation({
     const plannedDays = args.days
       .map((day) => ({
         date: day.date,
-        deliverByTime: week.plannedDays.find((d) => d.date === day.date)?.deliverByTime ?? "17:00",
+        deliverByTime: week.plannedDays.find((d) => d.date === day.date)?.deliverByTime ?? subscription.deliverByTime ?? "17:00",
         locked: true,
         items: day.items.map((it) => ({
           menuProductId: it.menuProductId,

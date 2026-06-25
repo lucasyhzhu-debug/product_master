@@ -1,8 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { computeTopupDelta } from "../amend";
+import { computeTopupDelta, findProductDecreases } from "../amend";
 
 const NAMES = { p1: "Original 80g", p2: "Bite 45g" };
 const PRICE = 10_000;
+
+describe("findProductDecreases", () => {
+  it("returns [] when all products increase or stay equal", () => {
+    expect(findProductDecreases({ p1: 3, p2: 2 }, { p1: 5, p2: 2 })).toEqual([]);
+  });
+  it("returns the product ID when qty decreases", () => {
+    expect(findProductDecreases({ p1: 5 }, { p1: 3 })).toEqual(["p1"]);
+  });
+  it("returns the product ID when a product is removed from the new plan", () => {
+    expect(findProductDecreases({ p1: 2, p2: 1 }, { p1: 2 })).toEqual(["p2"]);
+  });
+});
 
 describe("computeTopupDelta — server-side delta, integer IDR", () => {
   it("bills only the positive per-product increase", () => {

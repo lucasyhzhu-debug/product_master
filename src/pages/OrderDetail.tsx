@@ -119,11 +119,13 @@ export function OrderDetail() {
   const [markingDelivered, setMarkingDelivered] = useState(false);
 
   // Out-of-credit status + actions (subscription orders, manager/admin — T8)
-  // orderId is undefined before the route resolves; isSubscriptionOrder is derived
-  // AFTER the loading early-return, so we guard on orderId only here (hooks-order: must be before any return).
+  // order may be undefined while loading; subscription_id check is safe via optional-chain.
+  // isSubscriptionOrder (line ~223) is derived AFTER the loading early-return so cannot be
+  // used here (hooks-order, Pitfall #9) — use this pre-return alias instead.
+  const isSubscriptionOrderForQuery = Boolean(order?.subscription_id);
   const creditStatus = useSessionQuery(
     api.subscriptions.queries.getOrderCreditStatus,
-    isManagerOrAdmin && orderId ? { orderId } : 'skip',
+    isManagerOrAdmin && isSubscriptionOrderForQuery && orderId ? { orderId } : 'skip',
   );
   const splitOrder = useSessionMutation(api.subscriptions.outOfCredit.splitScheduledOrderOnCredit);
   const applyCredit = useSessionMutation(api.subscriptions.outOfCredit.applyPartialCreditToAdHocOrder);
@@ -366,8 +368,12 @@ export function OrderDetail() {
                       onClick={async () => {
                         setMarkingDelivered(true);
                         try {
-                          await markDelivered({ orderId: orderId! });
-                          toast.success('Delivery recognized — sale posted.');
+                          const result = await markDelivered({ orderId: orderId! });
+                          if (result.newlyRecognized) {
+                            toast.success('Delivery recognized — sale posted.');
+                          } else {
+                            toast.success('Marked delivered. Sale was already recognized earlier (e.g. at credit split) — no new sale posted.');
+                          }
                         } catch (err) {
                           toast.error(getErrorMessage(err, 'Failed to mark delivered'));
                         } finally {
@@ -405,7 +411,7 @@ export function OrderDetail() {
                       </Button>
                     )}
                     {creditStatus.canSplit && (
-                      <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split), not at delivery.</p>
+                      <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split). A later 'Mark delivered' will NOT post a second sale — recognition is suppressed by the per-order ledger guard.</p>
                     )}
                   </div>
                 )}

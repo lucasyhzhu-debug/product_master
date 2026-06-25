@@ -156,7 +156,7 @@
 
 - [ ] UNTESTED — Confirm the week calendar still shows correctly for a `planned` week (seed/save/confirm flow unchanged).
 - [ ] UNTESTED — Confirm `createSubscriptionWeeklyInvoice` + `markWeeklyInvoicePaid` flow still works for a `confirmed` week.
-- [ ] UNTESTED — Confirm `reconcileWeek` still rejects a non-`paid`/`delivering` week (e.g. `planned` status) with an appropriate error.
+- [ ] UNTESTED — Confirm the Reconcile button only appears for `paid`/`delivering` weeks (UI gate; button visibility is frontend-only). The backend rejects re-reconciling an already-`reconciled`/`closed` week — it does NOT reject other non-paid/delivering statuses at the backend level.
 - [ ] UNTESTED — Confirm `CrmFundingDashboardPage` still lists weeks correctly and mark-paid still works.
 - [ ] UNTESTED — Confirm existing non-subscription orders on the Orders kanban are unaffected (no regression to split/apply-credit buttons or out-of-credit flag appearing for non-subscription orders).
 

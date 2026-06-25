@@ -2756,6 +2756,10 @@ subscriptions.delivery.markSubscriptionDelivered({ orderId, token })
   // Deliverable statuses: PaymentReceived | BeingPrepared | AwaitingDelivery.
   // Calls recognizeSubscriptionDelivery — idempotent via creditLedger.by_order (no double drawdown).
   // Throws ConvexError if order is not a subscription order or not in a deliverable status.
+  // Returns: { orderId: Id<"orders">, recognized: boolean, newlyRecognized: boolean }
+  //   recognized: true if a creditLedger row exists for this order after the call.
+  //   newlyRecognized: true only if recognition happened THIS call (false when recognition
+  //   already fired at split time — split-then-deliver no-op is correct, not an error).
 ```
 
 Pure helper (unit-tested, no ctx):
@@ -2770,14 +2774,27 @@ isDeliverableSubscriptionStatus(status: string): boolean
 subscriptions.amend.amendConfirmedWeek({ subscriptionWeekId, days, token })
   // Re-prices plannedDays for a confirmed/invoiced/paid/delivering week.
   // Positive quantity delta billed as an UNPAID top-up invoice via buildTopupInvoice.
-  // Increases only — reduction is rejected. Does NOT regenerate per-day orders (R3).
-  // Returns: { topupInvoiceId: Id<"invoices"> | null, delta: number }
+  // Increases only — per-product decrease or removal is rejected (findProductDecreases guard).
+  // Does NOT regenerate per-day orders (R3).
+  // Returns: { topupInvoiceId: Id<"invoices"> | null, deltaTotal: number, addedLines: TopupLine[] }
 ```
 
-Pure helper (unit-tested, no ctx):
+Pure helpers (unit-tested, no ctx):
 ```typescript
-computeTopupDelta(oldDays: PlanDay[], newDays: PlanDay[]): number
-  // Returns the positive IDR delta between old and new planned totals (0 if no increase).
+computeTopupDelta(args: {
+  currentQtyByProduct: Record<string, number>;
+  newQtyByProduct: Record<string, number>;
+  unitPrice: number;
+  productNameByProduct: Record<string, string>;
+}): { addedLines: TopupLine[]; deltaTotal: number }
+  // Per-product positive increase delta, priced at unitPrice. Integer IDR.
+
+findProductDecreases(
+  currentQtyByProduct: Record<string, number>,
+  newQtyByProduct: Record<string, number>,
+): string[]
+  // Returns product IDs whose amended qty is below the funded qty.
+  // Used by amendConfirmedWeek to reject decreases before computing delta.
 ```
 
 #### reconcileWeek — new required arg (`convex/subscriptions/reconcile.ts`)
@@ -2793,8 +2810,9 @@ subscriptions.reconcile.reconcileWeek({ subscriptionWeekId, shortfallFault, reco
 
 Pure helper (unit-tested, no ctx):
 ```typescript
-assertReconcileNote(note: string): void
-  // Trims note; throws ConvexError("reconcileNote is required") if result is empty.
+assertReconcileNote(note: string): string
+  // Trims note; throws ConvexError("A reconcile comment is required") if result is empty.
+  // Returns the trimmed note string (used by the caller to persist).
 ```
 
 #### Out-of-credit status query (`convex/subscriptions/queries.ts`)
@@ -2803,22 +2821,26 @@ assertReconcileNote(note: string): void
 subscriptions.queries.getOrderCreditStatus({ orderId, token })
   // Returns credit status for a subscription order; used to gate Split and Apply-credit buttons.
   // Returns: {
-  //   kind: "subscription" | "non_subscription",
+  //   kind: "scheduled" | "adhoc" | "none",
+  //     // "scheduled" = split path (over credit, single item) or in-credit subscription order
+  //     // "adhoc"     = apply-credit path (AwaitingPayment, creditRemaining > 0)
+  //     // "none"      = not a subscription order (or week/order not found)
+  //     // NOTE: kind is currently advisory/unused by the frontend; buttons use canSplit/canApplyCredit.
   //   isOverCredit: boolean,
-  //   creditRemaining: number,     // IDR
-  //   orderTotal: number,          // IDR
+  //   creditRemaining: number | null,  // IDR; null for "none" rows
+  //   orderTotal: number,              // IDR
   //   subscriptionWeekId: Id<"subscriptionWeeks"> | null,
-  //   canSplit: boolean,            // precondition for splitScheduledOrderOnCredit
-  //   canApplyCredit: boolean,      // precondition for applyPartialCreditToAdHocOrder
+  //   canSplit: boolean,               // precondition for splitScheduledOrderOnCredit
+  //   canApplyCredit: boolean,         // precondition for applyPartialCreditToAdHocOrder
   // }
-  // Skip-guarded with isManagerOrAdmin on the frontend (Pitfall #19) so non-manager callers
-  // on order surfaces do NOT mount the protectedQuery and cannot crash the page.
+  // Skip-guarded with isManagerOrAdmin AND isSubscriptionOrder on the frontend (Pitfall #19)
+  // so non-manager callers or non-subscription orders do NOT mount the protectedQuery.
 ```
 
 Pure helper (unit-tested, no ctx):
 ```typescript
-isOverCredit(creditRemaining: number, orderTotal: number): boolean
-  // Returns true when orderTotal > creditRemaining.
+isOverCredit(orderFinalTotal: number, creditRemaining: number): boolean
+  // Returns true when orderFinalTotal > creditRemaining (strict; exact coverage is NOT over-credit).
 ```
 
 ---

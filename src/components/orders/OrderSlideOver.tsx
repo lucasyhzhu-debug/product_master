@@ -612,8 +612,12 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                         onClick={async () => {
                           setMarkingDelivered(true);
                           try {
-                            await markDelivered({ orderId: orderId! });
-                            toast.success('Delivery recognized — sale posted.');
+                            const result = await markDelivered({ orderId: orderId! });
+                            if (result.newlyRecognized) {
+                              toast.success('Delivery recognized — sale posted.');
+                            } else {
+                              toast.success('Marked delivered. Sale was already recognized earlier (e.g. at credit split) — no new sale posted.');
+                            }
                           } catch (err) {
                             toast.error(getErrorMessage(err, 'Failed to mark delivered'));
                           } finally {
@@ -651,7 +655,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                         </Button>
                       )}
                       {creditStatus.canSplit && (
-                        <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split), not at delivery.</p>
+                        <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split). A later 'Mark delivered' will NOT post a second sale — recognition is suppressed by the per-order ledger guard.</p>
                       )}
                     </div>
                   )}

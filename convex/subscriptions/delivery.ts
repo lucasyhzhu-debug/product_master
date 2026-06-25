@@ -41,14 +41,26 @@ export const markSubscriptionDelivered = protectedMutation({
     if (order.status !== "AwaitingDelivery") {
       await ctx.db.patch(order._id, { status: "AwaitingDelivery" });
     }
-    // Idempotent: returns early if a ledger entry already exists for this order.
-    await recognizeSubscriptionDelivery(ctx, order._id, ctx.user._id);
-    const recognized = Boolean(
+    // Capture whether a ledger entry already existed BEFORE recognition (to detect
+    // the split-then-deliver path where recognition fired at split time).
+    const ledgerExistedBefore = Boolean(
       await ctx.db
         .query("creditLedger")
         .withIndex("by_order", (q) => q.eq("orderId", order._id))
         .first(),
     );
-    return { orderId: order._id, recognized };
+    // Idempotent: returns early if a ledger entry already exists for this order.
+    await recognizeSubscriptionDelivery(ctx, order._id, ctx.user._id);
+    const ledgerExistsAfter = Boolean(
+      await ctx.db
+        .query("creditLedger")
+        .withIndex("by_order", (q) => q.eq("orderId", order._id))
+        .first(),
+    );
+    return {
+      orderId: order._id,
+      recognized: ledgerExistsAfter,
+      newlyRecognized: !ledgerExistedBefore && ledgerExistsAfter,
+    };
   },
 });
