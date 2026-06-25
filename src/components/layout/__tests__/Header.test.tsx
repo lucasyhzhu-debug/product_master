@@ -1,15 +1,19 @@
 /**
  * T12 — Nav smoke tests: CRM link visibility gated by canAccessCrm permission.
  *
- * manager + admin → canAccessCrm true  → "CRM" link visible
- * order_staff     → canAccessCrm false → "CRM" link absent
+ * CRM ships in the "Config" dropdown (configItems). The dropdown must be opened
+ * before querying. Radix DropdownMenu requires pointer events — we use
+ * userEvent.setup() (user-event v14) which emulates them correctly in JSDOM.
  *
- * Auth is mocked at the context level (same pattern as StatementProgressHeader.test.tsx).
- * Router is provided by MemoryRouter; ThemeContext is stubbed to avoid real DOM APIs.
+ * manager → canAccessCrm true  → CRM menuitem present after opening Config
+ * order_staff → canAccessCrm false → CRM menuitem absent even after opening Config
+ *
+ * Auth mocked at context level; Router via MemoryRouter; ThemeContext + useScrollDirection stubbed.
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 
 // Stub ThemeContext so Header doesn't hit matchMedia
@@ -22,7 +26,7 @@ vi.mock("@/hooks/useScrollDirection", () => ({
   useScrollDirection: () => true,
 }));
 
-// We swap out AuthContext per test using factory below
+// Auth mock — swapped per test
 const mockAuth = {
   user: null as { _id: string; name: string; role: string; token: string } | null,
   isAuthenticated: false,
@@ -45,26 +49,36 @@ function renderHeader() {
   );
 }
 
-describe("Header — CRM nav entry (T12)", () => {
-  it("shows the CRM link for a manager (canAccessCrm=true)", () => {
+describe("Header — CRM nav entry in Config dropdown (T12)", () => {
+  it("shows the CRM entry for a manager after opening Config dropdown (canAccessCrm=true)", async () => {
+    const user = userEvent.setup();
+
     mockAuth.user = { _id: "u1", name: "Manager", role: "manager", token: "mgr-token" };
     mockAuth.isAuthenticated = true;
-    // manager has canAccessCrm = true → return true for that permission
     mockAuth.hasPermission.mockImplementation((perm: string) => perm === "canAccessCrm");
 
     renderHeader();
 
-    expect(screen.getByRole("link", { name: /crm/i })).toBeInTheDocument();
+    // Open the Config dropdown
+    const configTrigger = screen.getByRole("button", { name: /config/i });
+    await user.click(configTrigger);
+
+    // CRM should now be present in the dropdown content
+    expect(screen.getByRole("menuitem", { name: /crm/i })).toBeInTheDocument();
   });
 
-  it("hides the CRM link for order_staff (canAccessCrm=false)", () => {
+  it("hides the CRM entry for order_staff even after opening Config dropdown (canAccessCrm=false)", async () => {
+    const user = userEvent.setup();
+
     mockAuth.user = { _id: "u2", name: "Staff", role: "order_staff", token: "staff-token" };
     mockAuth.isAuthenticated = true;
-    // order_staff does NOT have canAccessCrm
     mockAuth.hasPermission.mockImplementation(() => false);
 
     renderHeader();
 
-    expect(screen.queryByRole("link", { name: /crm/i })).not.toBeInTheDocument();
+    const configTrigger = screen.getByRole("button", { name: /config/i });
+    await user.click(configTrigger);
+
+    expect(screen.queryByRole("menuitem", { name: /crm/i })).not.toBeInTheDocument();
   });
 });

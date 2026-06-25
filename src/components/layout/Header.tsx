@@ -109,10 +109,9 @@ const _prefetchInventory = () => import('@/pages/InventoryManager');
 const _prefetchRestock = () => import('@/pages/DispatchPlanner');
 const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 
-// Main nav items - top-level tabs (Orders + CRM)
+// Main nav items - top-level tabs (Orders only)
 const mainNavItems: NavItem[] = [
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
-  { path: '/crm', label: 'CRM', icon: Contact, permission: 'canAccessCrm' },
 ];
 
 // Dashboards dropdown - sales & analytics
@@ -154,6 +153,8 @@ const financeItems: NavItem[] = [
 // Config dropdown - Help + configuration + admin items (separators between groups)
 const configItems: NavItem[] = [
   { path: '/help', label: 'Help', icon: CircleHelp },
+  { kind: 'separator' },
+  { path: '/crm', label: 'CRM', icon: Contact, permission: 'canAccessCrm' },
   { kind: 'separator' },
   { path: '/components/production', label: 'Production', icon: Circle, permission: 'canAccessInventory' },
   { path: '/ingredients', label: 'Ingredients', icon: Leaf, permission: 'canAccessIngredients' },
