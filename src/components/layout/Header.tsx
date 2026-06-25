@@ -43,6 +43,7 @@ import {
   Database,
   Split,
   Send,
+  Contact,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -108,9 +109,10 @@ const _prefetchInventory = () => import('@/pages/InventoryManager');
 const _prefetchRestock = () => import('@/pages/DispatchPlanner');
 const _prefetchGoFood = () => import('@/pages/GoFoodDepotManager');
 
-// Main nav items - top-level tabs (Orders only)
+// Main nav items - top-level tabs (Orders + CRM)
 const mainNavItems: NavItem[] = [
   { path: '/orders', label: 'Orders', icon: ShoppingCart, permission: 'canAccessOrders', preload: _prefetchOrders },
+  { path: '/crm', label: 'CRM', icon: Contact, permission: 'canAccessCrm' },
 ];
 
 // Dashboards dropdown - sales & analytics
