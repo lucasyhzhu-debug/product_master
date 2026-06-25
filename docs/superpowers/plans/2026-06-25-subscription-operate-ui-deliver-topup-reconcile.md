@@ -704,7 +704,7 @@ import userEvent from "@testing-library/user-event";
 import { ReconcileWeekDialog } from "./ReconcileWeekDialog";
 
 // Stub the session mutation hook so the dialog renders without a Convex provider.
-vi.mock("@/hooks/useSessionMutation", () => ({ useSessionMutation: () => vi.fn() }));
+vi.mock("convex-helpers/react/sessions", () => ({ useSessionMutation: () => vi.fn() }));
 
 describe("ReconcileWeekDialog", () => {
   it("disables Reconcile until a comment is entered", async () => {
@@ -719,7 +719,7 @@ describe("ReconcileWeekDialog", () => {
 });
 ```
 
-> **Verify-first:** confirm the session-mutation hook's real import path (the codebase uses `useSessionMutation` — check `src/hooks/` for the exact module to mock). Adjust the `vi.mock` path to match.
+> **Confirmed (plan staffreview):** session hooks import from `convex-helpers/react/sessions` (used by `CrmFundingDashboardPage.tsx:24`). The `vi.mock` target and dialog import both use that path.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -736,7 +736,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useSessionMutation } from "@/hooks/useSessionMutation";
+import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
 import { getErrorMessage } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
