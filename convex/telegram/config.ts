@@ -22,7 +22,7 @@ export function isKnownTelegramRole(s: string): s is TelegramRole {
  * URL the bot includes in `/register` reply — points to the admin UI page.
  * Frollie hardcodes the prod URL; OSS-starter consumers read from env.
  */
-export const TELEGRAM_ADMIN_URL = "https://recipe.frollie.com/admin/telegram-chats";
+export const TELEGRAM_ADMIN_URL = "https://frollie-product.vercel.app/admin/telegram-chats";
 
 /**
  * Bot username (without @). Used in the /start help reply and test-send message.
