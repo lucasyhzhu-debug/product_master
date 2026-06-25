@@ -85,6 +85,16 @@ function toLocalWeekPlan(
 // Page
 // ---------------------------------------------------------------------------
 
+/**
+ * Convex ids are base32-encoded strings (~32 chars of [A-Za-z0-9]).
+ * A missing, empty, or obviously-malformed value will fail v.id() validation
+ * on the server and throw ArgumentValidationError. Detect it client-side so
+ * we can skip the query and show a friendly EmptyState instead of crashing.
+ */
+function isValidConvexId(id: string | undefined): id is string {
+  return typeof id === "string" && id.length >= 20 && /^[A-Za-z0-9_-]+$/.test(id);
+}
+
 export function SubscriptionSchedulePage() {
   const { subId } = useParams<{ customerId: string; subId: string }>();
   const [searchParams] = useSearchParams();
@@ -106,15 +116,18 @@ export function SubscriptionSchedulePage() {
     return nowWib - dow * DAY_MS - (nowWib % DAY_MS) - 7 * 3600_000;
   }, [searchParams]);
 
+  const validSubId = isValidConvexId(subId);
   const subscriptionId = subId as Id<"subscriptions">;
 
   // ---------------------------------------------------------------------------
   // Server data
   // ---------------------------------------------------------------------------
-  const planningData = useSessionQuery(api.subscriptions.scheduling.queries.getPlanningWeek, {
-    subscriptionId,
-    weekStart: weekStartMs,
-  });
+  const planningData = useSessionQuery(
+    api.subscriptions.scheduling.queries.getPlanningWeek,
+    validSubId
+      ? { subscriptionId, weekStart: weekStartMs }
+      : "skip",
+  );
 
   // menuProducts.queries.list is a public `query` (no sessionId arg) — must use plain
   // useQuery; useSessionQuery injects sessionId and Convex rejects it (ArgumentValidationError).
@@ -166,6 +179,18 @@ export function SubscriptionSchedulePage() {
     },
     [], // stable — only depends on setLocalDays (stable) and displayPlanRef (stable ref)
   );
+
+  // Malformed / missing URL param — skip query returns undefined; guard before loading check
+  if (!validSubId) {
+    return (
+      <EmptyState
+        icon={CalendarDays}
+        title="Subscription not found"
+        description="The subscription ID in this URL is invalid. Check the URL and try again."
+        action={{ label: "Go back", onClick: () => navigate(-1) }}
+      />
+    );
+  }
 
   // Loading guard (D12)
   if (planningData === undefined || products === undefined) {

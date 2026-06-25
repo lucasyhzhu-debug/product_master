@@ -73,6 +73,16 @@ const PAYMENT_STATUS_BADGE: Record<string, string> = {
   Void: "bg-gray-100 text-gray-500",
 };
 
+/**
+ * Convex ids are base32-encoded strings (~32 chars of [A-Za-z0-9]).
+ * A missing, empty, or obviously-malformed value will fail v.id() validation
+ * on the server and throw ArgumentValidationError. Detect it client-side so
+ * we can skip the query and show a friendly EmptyState instead of crashing.
+ */
+function isValidConvexId(id: string | undefined): id is string {
+  return typeof id === "string" && id.length >= 20 && /^[A-Za-z0-9_-]+$/.test(id);
+}
+
 // ---------------------------------------------------------------------------
 // Shared sub-component
 // ---------------------------------------------------------------------------
@@ -113,6 +123,7 @@ export function SubscriptionWeeklyInvoicePage() {
   // ---------------------------------------------------------------------------
   // All hooks before any early returns (Pitfall #9, Rules of Hooks)
   // ---------------------------------------------------------------------------
+  const validSubId = isValidConvexId(subId);
   const subscriptionId = subId as Id<"subscriptions">;
   const customerIdTyped = customerId as Id<"customers">;
 
@@ -128,7 +139,7 @@ export function SubscriptionWeeklyInvoicePage() {
   // Load the planning week (subscription + week doc).
   const planningData = useSessionQuery(
     api.subscriptions.scheduling.queries.getPlanningWeek,
-    weekStartMs > 0 ? { subscriptionId, weekStart: weekStartMs } : "skip",
+    validSubId && weekStartMs > 0 ? { subscriptionId, weekStart: weekStartMs } : "skip",
   );
 
   // Load the weekly invoice by ID once we have the week.
@@ -155,6 +166,19 @@ export function SubscriptionWeeklyInvoicePage() {
   // ---------------------------------------------------------------------------
   // Loading guards (D12)
   // ---------------------------------------------------------------------------
+
+  // Malformed / missing subscription ID in URL — skip query already applied above
+  if (!validSubId) {
+    return (
+      <EmptyState
+        icon={Receipt}
+        title="Subscription not found"
+        description="The subscription ID in this URL is invalid. Check the URL and try again."
+        action={{ label: "Go back", onClick: () => navigate(-1) }}
+      />
+    );
+  }
+
   if (weekStartMs === 0) {
     return (
       <EmptyState
