@@ -1,7 +1,9 @@
 // convex/telegram/subscriptionReminders/__tests__/subscriptionRemindersFormat.test.ts
 import { describe, it, expect } from "vitest";
+import type { Id } from "../../../_generated/dataModel";
 import {
   formatWeeklyDeliveryProgress, formatTodayDeliveries, formatInvoiceDueReminder,
+  formatConfirmReminder, formatChangeCutoffReminder, formatReconcileReminder,
 } from "../subscriptionRemindersFormat";
 
 describe("formatWeeklyDeliveryProgress", () => {
@@ -47,5 +49,42 @@ describe("formatInvoiceDueReminder", () => {
       { account: "Crystal Cafe", weekStart: Date.UTC(2026,5,22), amountDue: 1500000, weekStatus: "confirmed" },
     ]);
     expect(html).toContain("1,500,000");
+  });
+});
+
+describe("formatConfirmReminder", () => {
+  it("renders account and week date", () => {
+    const html = formatConfirmReminder([
+      { subscriptionId: "sub1" as unknown as Id<"subscriptions">, account: "Crystal Cafe", weekStart: Date.UTC(2026,5,22) },
+    ]);
+    expect(html).toContain("Crystal Cafe");
+  });
+  it("renders empty state when no rows", () => {
+    expect(formatConfirmReminder([])).toContain("Nothing awaiting confirmation");
+  });
+});
+
+describe("formatChangeCutoffReminder", () => {
+  it("renders account name", () => {
+    const html = formatChangeCutoffReminder([
+      { subscriptionId: "sub1" as unknown as Id<"subscriptions">, account: "Tamtem", weekStart: Date.UTC(2026,5,22) },
+    ]);
+    expect(html).toContain("Tamtem");
+  });
+  it("renders empty state when no rows", () => {
+    expect(formatChangeCutoffReminder([])).toContain("No days approaching cutoff");
+  });
+});
+
+describe("formatReconcileReminder", () => {
+  it("renders account and formatted IDR amounts", () => {
+    const html = formatReconcileReminder([
+      { account: "Crystal Cafe", weekStart: Date.UTC(2026,5,22), shortfall: 500000, refundDue: 250000 },
+    ]);
+    expect(html).toContain("Crystal Cafe");
+    expect(html).toContain("500,000");
+  });
+  it("renders empty state when no rows", () => {
+    expect(formatReconcileReminder([])).toContain("Nothing to reconcile");
   });
 });
