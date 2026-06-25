@@ -272,6 +272,7 @@ import type * as staffAttendance_mutations from "../staffAttendance/mutations.js
 import type * as staffAttendance_queries from "../staffAttendance/queries.js";
 import type * as storageLocations_mutations from "../storageLocations/mutations.js";
 import type * as storageLocations_queries from "../storageLocations/queries.js";
+import type * as subscriptions_amend from "../subscriptions/amend.js";
 import type * as subscriptions_creditMath from "../subscriptions/creditMath.js";
 import type * as subscriptions_delivery from "../subscriptions/delivery.js";
 import type * as subscriptions_invoicing from "../subscriptions/invoicing.js";
@@ -580,6 +581,7 @@ declare const fullApi: ApiFromModules<{
   "staffAttendance/queries": typeof staffAttendance_queries;
   "storageLocations/mutations": typeof storageLocations_mutations;
   "storageLocations/queries": typeof storageLocations_queries;
+  "subscriptions/amend": typeof subscriptions_amend;
   "subscriptions/creditMath": typeof subscriptions_creditMath;
   "subscriptions/delivery": typeof subscriptions_delivery;
   "subscriptions/invoicing": typeof subscriptions_invoicing;
