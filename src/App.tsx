@@ -192,6 +192,10 @@ const SubscriptionWeeklyInvoicePage = lazyWithPreload(() =>
 const CrmFundingDashboardPage = lazyWithPreload(() =>
   import('./pages/crm/CrmFundingDashboardPage').then(m => ({ default: m.CrmFundingDashboardPage }))
 );
+// Phase D: /crm/customers/:customerId — customer hub (two-pane)
+const CustomerDashboard = lazyWithPreload(() =>
+  import('./pages/crm/CustomerDashboard').then(m => ({ default: m.CustomerDashboard }))
+);
 
 function App() {
   return (
@@ -730,6 +734,15 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessCrm">
                         <CrmHome />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase D — Customer hub (two-pane) (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <CustomerDashboard />
                       </ProtectedRoute>
                     }
                   />
