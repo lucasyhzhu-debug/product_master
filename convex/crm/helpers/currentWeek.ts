@@ -1,5 +1,5 @@
-import { QueryCtx } from "../../_generated/server";
-import { Doc, Id } from "../../_generated/dataModel";
+import type { QueryCtx } from "../../_generated/server";
+import type { Doc, Id } from "../../_generated/dataModel";
 
 /**
  * Returns the latest `subscriptionWeeks` row whose `weekStart` is ≤ `now`,

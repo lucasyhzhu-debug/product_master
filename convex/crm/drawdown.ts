@@ -12,7 +12,7 @@ import { protectedQuery } from "../lib/functions";
 import { resolveCurrentWeek } from "./helpers/currentWeek";
 import { buildDrawdownSeries } from "./helpers/drawdownSeries";
 import type { DrawdownSeriesResult } from "./helpers/drawdownSeries";
-import { Doc } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 
 // ---------------------------------------------------------------------------
 // T25: getCustomerDrawdown

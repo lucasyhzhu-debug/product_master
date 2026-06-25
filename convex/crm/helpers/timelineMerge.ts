@@ -1,6 +1,6 @@
 // Pure function — no convex/server imports, no Date.now() calls.
 // Importable by both backend (Convex queries) and frontend.
-import { ActivityCategory, EventType, eventTypeToCategory } from "../../lib/activityEvents";
+import { eventTypeToCategory, type ActivityCategory, type EventType } from "../../lib/activityEvents";
 
 export type TimelineItem = {
   id: string;

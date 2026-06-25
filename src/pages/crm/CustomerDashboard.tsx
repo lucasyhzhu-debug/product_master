@@ -121,10 +121,23 @@ type CustomerRecord = {
 // CRM-fields edit form (dialog)
 // ---------------------------------------------------------------------------
 
+/** Fields the CRM edit dialog may write — all optional strings, never null. */
+type CrmEditableFields = {
+  customerId: Id<"customers">;
+  keyContactName?: string;
+  keyContactRole?: string;
+  whatsapp?: string;
+  email?: string;
+  instagram?: string;
+  deliveryAddress?: string;
+  storeAddress?: string;
+  notes?: string;
+};
+
 interface EditFormProps {
   customer: CustomerDoc;
   onClose: () => void;
-  onSave: (fields: Partial<CustomerDoc> & { customerId: Id<"customers"> }) => Promise<void>;
+  onSave: (fields: CrmEditableFields) => Promise<void>;
 }
 
 function CrmFieldsEditDialog({ customer, onClose, onSave }: EditFormProps) {
@@ -592,9 +605,7 @@ export function CustomerDashboard() {
   const { customer, subscriptions, agreements, currentWeekPoolBySubscription, unpaidInvoices } =
     record as CustomerRecord;
 
-  async function handleSaveCrmFields(
-    fields: Partial<CustomerDoc> & { customerId: Id<"customers"> },
-  ) {
+  async function handleSaveCrmFields(fields: CrmEditableFields) {
     try {
       await updateCrmFields(fields);
       toast.success("Customer updated.");

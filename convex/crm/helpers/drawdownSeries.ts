@@ -1,6 +1,6 @@
 // Pure function — no convex/server imports, no Date.now() calls.
 // Importable by both backend (Convex queries) and frontend.
-import { Doc } from "../../_generated/dataModel";
+import type { Doc } from "../../_generated/dataModel";
 
 export type DrawdownPoint = {
   date: number;
