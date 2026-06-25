@@ -2612,12 +2612,11 @@ export default defineSchema({
     .index("by_invoice", ["invoiceId"])
     // Phase D Slice 0 (R3): narrow incomeStatement drawdown/expiry scans from full-table to type-bucket.
     // No _creationTime range — revenue is attributed by deliveryDate, not _creationTime.
-    .index("by_type", ["type"])
-    // Phase D: CRM timeline window — ledger events per subscription bounded by creation time (C9).
-    // Convex auto-appends `_creationTime` to every index, so listing it explicitly is
-    // rejected at deploy (IndexFieldsContainCreationTime). The index on ["subscriptionId"]
-    // already supports the query's `.eq("subscriptionId", x).gte("_creationTime", cutoff)` range.
-    .index("by_subscription_creationTime", ["subscriptionId"]),
+    .index("by_type", ["type"]),
+    // Phase D CRM timeline windows ledger events per subscription by _creationTime (C9)
+    // via the existing by_subscription index — Convex auto-appends _creationTime, so a
+    // dedicated by_subscription_creationTime index would duplicate by_subscription
+    // (IndexNotUnique at deploy). No separate index needed.
 
   supplyAgreements: defineTable({
     customerId: v.id("customers"),
