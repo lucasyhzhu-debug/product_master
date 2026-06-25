@@ -172,6 +172,14 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   const markDelivered = useSessionMutation(api.subscriptions.delivery.markSubscriptionDelivered);
   const [markingDelivered, setMarkingDelivered] = useState(false);
 
+  // Out-of-credit status + actions (subscription orders, manager/admin — T8)
+  const creditStatus = useSessionQuery(
+    api.subscriptions.queries.getOrderCreditStatus,
+    isSubscriptionOrder && orderId ? { orderId } : 'skip',
+  );
+  const splitOrder = useSessionMutation(api.subscriptions.outOfCredit.splitScheduledOrderOnCredit);
+  const applyCredit = useSessionMutation(api.subscriptions.outOfCredit.applyPartialCreditToAdHocOrder);
+
   // Shipping state
   const [shippingAgency, setShippingAgency] = useState('');
   const [shippingNumber, setShippingNumber] = useState('');
@@ -617,6 +625,36 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                         {markingDelivered ? 'Recognizing…' : 'Mark delivered'}
                       </Button>
                     )}
+                  {/* Out-of-credit flag + split / apply-credit (manager/admin, T8) */}
+                  {isManagerOrAdmin && creditStatus && creditStatus.isOverCredit && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-2 text-xs text-amber-800">
+                      <p className="font-medium">Over remaining credit
+                        ({creditStatus.creditRemaining?.toLocaleString('id-ID')} IDR left, order {creditStatus.orderTotal.toLocaleString('id-ID')} IDR).</p>
+                      {creditStatus.canSplit && (
+                        <Button size="sm" variant="outline" className="w-full"
+                          onClick={async () => {
+                            try { const r = await splitOrder({ orderId: orderId! });
+                              toast.success(r.topupInvoiceId ? 'Split — covered drawn down, remainder billed as top-up.' : 'Full drawdown posted.');
+                            } catch (err) { toast.error(getErrorMessage(err, 'Split failed')); }
+                          }}>
+                          Split on credit (covered now, remainder → top-up)
+                        </Button>
+                      )}
+                      {creditStatus.canApplyCredit && (
+                        <Button size="sm" variant="outline" className="w-full"
+                          onClick={async () => {
+                            try { const r = await applyCredit({ orderId: orderId! });
+                              toast.success(`Applied ${r.coveredAmount.toLocaleString('id-ID')} IDR credit; ${r.remainderAmount.toLocaleString('id-ID')} IDR remains to pay.`);
+                            } catch (err) { toast.error(getErrorMessage(err, 'Apply credit failed')); }
+                          }}>
+                          Apply available credit (deposit)
+                        </Button>
+                      )}
+                      {creditStatus.canSplit && (
+                        <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split), not at delivery.</p>
+                      )}
+                    </div>
+                  )}
                   {order.subscriptionId && order.customerId && (
                     <Button
                       variant="outline"

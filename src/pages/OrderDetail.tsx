@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode, Lock, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useQuery } from 'convex/react';
-import { useSessionMutation } from 'convex-helpers/react/sessions';
+import { useSessionQuery, useSessionMutation } from 'convex-helpers/react/sessions';
 import { toast } from 'sonner';
 import { api } from '../../convex/_generated/api';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -117,6 +117,16 @@ export function OrderDetail() {
   // Mark delivered (subscription orders only — T5)
   const markDelivered = useSessionMutation(api.subscriptions.delivery.markSubscriptionDelivered);
   const [markingDelivered, setMarkingDelivered] = useState(false);
+
+  // Out-of-credit status + actions (subscription orders, manager/admin — T8)
+  // orderId is undefined before the route resolves; isSubscriptionOrder is derived
+  // AFTER the loading early-return, so we guard on orderId only here (hooks-order: must be before any return).
+  const creditStatus = useSessionQuery(
+    api.subscriptions.queries.getOrderCreditStatus,
+    orderId ? { orderId } : 'skip',
+  );
+  const splitOrder = useSessionMutation(api.subscriptions.outOfCredit.splitScheduledOrderOnCredit);
+  const applyCredit = useSessionMutation(api.subscriptions.outOfCredit.applyPartialCreditToAdHocOrder);
 
   // ============================================
   // Handlers
@@ -369,6 +379,36 @@ export function OrderDetail() {
                       {markingDelivered ? 'Recognizing…' : 'Mark delivered'}
                     </Button>
                   )}
+                {/* Out-of-credit flag + split / apply-credit (manager/admin, T8) */}
+                {isManagerOrAdmin && creditStatus && creditStatus.isOverCredit && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-2 text-xs text-amber-800">
+                    <p className="font-medium">Over remaining credit
+                      ({creditStatus.creditRemaining?.toLocaleString('id-ID')} IDR left, order {creditStatus.orderTotal.toLocaleString('id-ID')} IDR).</p>
+                    {creditStatus.canSplit && (
+                      <Button size="sm" variant="outline" className="w-full"
+                        onClick={async () => {
+                          try { const r = await splitOrder({ orderId: orderId! });
+                            toast.success(r.topupInvoiceId ? 'Split — covered drawn down, remainder billed as top-up.' : 'Full drawdown posted.');
+                          } catch (err) { toast.error(getErrorMessage(err, 'Split failed')); }
+                        }}>
+                        Split on credit (covered now, remainder → top-up)
+                      </Button>
+                    )}
+                    {creditStatus.canApplyCredit && (
+                      <Button size="sm" variant="outline" className="w-full"
+                        onClick={async () => {
+                          try { const r = await applyCredit({ orderId: orderId! });
+                            toast.success(`Applied ${r.coveredAmount.toLocaleString('id-ID')} IDR credit; ${r.remainderAmount.toLocaleString('id-ID')} IDR remains to pay.`);
+                          } catch (err) { toast.error(getErrorMessage(err, 'Apply credit failed')); }
+                        }}>
+                        Apply available credit (deposit)
+                      </Button>
+                    )}
+                    {creditStatus.canSplit && (
+                      <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split), not at delivery.</p>
+                    )}
+                  </div>
+                )}
                 {order.subscription_id && order.customer_id_raw && (
                   <Button
                     variant="outline"
