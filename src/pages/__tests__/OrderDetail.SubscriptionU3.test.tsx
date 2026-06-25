@@ -95,6 +95,15 @@ vi.mock("convex/react", () => ({
   useQuery: vi.fn(() => []),
 }));
 
+// Stub session hooks (#200 operate-UI added useSessionQuery/useSessionMutation
+// to OrderDetail for credit status + mark-delivered/split/apply-credit). The U3
+// suite renders without a SessionProvider, so these must be inert: credit status
+// undefined (no out-of-credit flag) keeps the affordance assertions valid.
+vi.mock("convex-helpers/react/sessions", () => ({
+  useSessionQuery: vi.fn(() => undefined),
+  useSessionMutation: vi.fn(() => vi.fn()),
+}));
+
 vi.mock("@/hooks/useDocumentTitle", () => ({
   useDocumentTitle: vi.fn(),
 }));

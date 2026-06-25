@@ -1,7 +1,9 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode, Lock, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode, Lock, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useQuery } from 'convex/react';
+import { useSessionQuery, useSessionMutation } from 'convex-helpers/react/sessions';
+import { toast } from 'sonner';
 import { api } from '../../convex/_generated/api';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
@@ -35,6 +37,7 @@ import {
 import type { Id } from '../../convex/_generated/dataModel';
 import { getStatusColor } from '@/lib/orderConstants';
 import type { CancellationCategory } from '@/lib/types';
+import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -110,6 +113,22 @@ export function OrderDetail() {
   const qrisConfig = useQrisConfig();
   const activeQris = useActiveQrisPayment(orderId);
   const [showQrisDialog, setShowQrisDialog] = useState(false);
+
+  // Mark delivered (subscription orders only — T5)
+  const markDelivered = useSessionMutation(api.subscriptions.delivery.markSubscriptionDelivered);
+  const [markingDelivered, setMarkingDelivered] = useState(false);
+
+  // Out-of-credit status + actions (subscription orders, manager/admin — T8)
+  // order may be undefined while loading; subscription_id check is safe via optional-chain.
+  // isSubscriptionOrder (line ~223) is derived AFTER the loading early-return so cannot be
+  // used here (hooks-order, Pitfall #9) — use this pre-return alias instead.
+  const isSubscriptionOrderForQuery = Boolean(order?.subscription_id);
+  const creditStatus = useSessionQuery(
+    api.subscriptions.queries.getOrderCreditStatus,
+    isManagerOrAdmin && isSubscriptionOrderForQuery && orderId ? { orderId } : 'skip',
+  );
+  const splitOrder = useSessionMutation(api.subscriptions.outOfCredit.splitScheduledOrderOnCredit);
+  const applyCredit = useSessionMutation(api.subscriptions.outOfCredit.applyPartialCreditToAdHocOrder);
 
   // ============================================
   // Handlers
@@ -347,6 +366,64 @@ export function OrderDetail() {
                   This order is managed from the subscription scheduler. Edit, status,
                   and cancel actions are disabled here.
                 </p>
+                {/* Mark delivered — scoped action for manager/admin (T5) */}
+                {isManagerOrAdmin &&
+                  ['PaymentReceived', 'BeingPrepared', 'AwaitingDelivery'].includes(order.status) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
+                      disabled={markingDelivered}
+                      onClick={async () => {
+                        setMarkingDelivered(true);
+                        try {
+                          const result = await markDelivered({ orderId: orderId! });
+                          if (result.newlyRecognized) {
+                            toast.success('Delivery recognized — sale posted.');
+                          } else {
+                            toast.success('Marked delivered. Sale was already recognized earlier (e.g. at credit split) — no new sale posted.');
+                          }
+                        } catch (err) {
+                          toast.error(getErrorMessage(err, 'Failed to mark delivered'));
+                        } finally {
+                          setMarkingDelivered(false);
+                        }
+                      }}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      {markingDelivered ? 'Recognizing…' : 'Mark delivered'}
+                    </Button>
+                  )}
+                {/* Out-of-credit flag + split / apply-credit (manager/admin, T8) */}
+                {isManagerOrAdmin && creditStatus && creditStatus.isOverCredit && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-2 text-xs text-amber-800">
+                    <p className="font-medium">Over remaining credit
+                      ({formatCurrency(creditStatus.creditRemaining)} left, order {formatCurrency(creditStatus.orderTotal)}).</p>
+                    {creditStatus.canSplit && (
+                      <Button size="sm" variant="outline" className="w-full"
+                        onClick={async () => {
+                          try { const r = await splitOrder({ orderId: orderId! });
+                            toast.success(r.topupInvoiceId ? 'Split — covered drawn down, remainder billed as top-up.' : 'Full drawdown posted.');
+                          } catch (err) { toast.error(getErrorMessage(err, 'Split failed')); }
+                        }}>
+                        Split on credit (covered now, remainder → top-up)
+                      </Button>
+                    )}
+                    {creditStatus.canApplyCredit && (
+                      <Button size="sm" variant="outline" className="w-full"
+                        onClick={async () => {
+                          try { const r = await applyCredit({ orderId: orderId! });
+                            toast.success(`Applied ${formatCurrency(r.coveredAmount)} credit; ${formatCurrency(r.remainderAmount)} remains to pay.`);
+                          } catch (err) { toast.error(getErrorMessage(err, 'Apply credit failed')); }
+                        }}>
+                        Apply available credit (deposit)
+                      </Button>
+                    )}
+                    {creditStatus.canSplit && (
+                      <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split). A later 'Mark delivered' will NOT post a second sale — recognition is suppressed by the per-order ledger guard.</p>
+                    )}
+                  </div>
+                )}
                 {order.subscription_id && order.customer_id_raw && (
                   <Button
                     variant="outline"

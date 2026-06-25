@@ -55,6 +55,13 @@ import { postLedgerEntry } from "./ledger";
  * carried topup whose source week age is unknown (e.g. the source week predates this
  * registry), we fall back to 0 + 1 = 1 so it is at least treated as once-carried.
  */
+/** Reconcile requires an operator comment. Trims and rejects empty. */
+export function assertReconcileNote(note: string): string {
+  const trimmed = note.trim();
+  if (!trimmed) throw new ConvexError("A reconcile comment is required");
+  return trimmed;
+}
+
 export function buildTranchesFromLedger(
   entries: { type: string; amount: number; rolloverFromWeekId?: string | null }[],
   weekId: string,
@@ -129,8 +136,10 @@ export const reconcileWeek = protectedMutation({
   args: {
     subscriptionWeekId: v.id("subscriptionWeeks"),
     shortfallFault: v.union(v.literal("none"), v.literal("cafe"), v.literal("frollie")),
+    reconcileNote: v.string(),
   },
   handler: async (ctx, args) => {
+    const note = assertReconcileNote(args.reconcileNote);
     const week = await ctx.db.get(args.subscriptionWeekId);
     if (!week) throw new ConvexError("Subscription week not found");
 
@@ -283,6 +292,7 @@ export const reconcileWeek = protectedMutation({
       shortfallFault: args.shortfallFault,
       refundDue,
       refundStatus: refundDue > 0 ? "pending" : undefined,
+      reconcileNote: note,
     });
 
     return { weekId: week._id, leftover, expired: expire, carried: carry, refundDue };

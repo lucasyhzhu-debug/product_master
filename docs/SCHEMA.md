@@ -105,6 +105,7 @@ subscriptionWeeks: defineTable({
   confirmedBy: v.optional(v.id("users")),
   weeklyInvoiceId: v.optional(v.id("invoices")),
   paymentReceivedAt: v.optional(v.number()),
+  reconcileNote: v.optional(v.string()),  // required when reconcileWeek is called (Phase D operate-UI)
 })
   .index("by_subscription_weekStart", ["subscriptionId", "weekStart"])
   .index("by_status", ["status"])

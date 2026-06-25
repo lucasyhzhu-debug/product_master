@@ -25,6 +25,7 @@ import {
   Receipt,
   RefreshCw,
 } from "lucide-react";
+import { ReconcileWeekDialog } from "@/components/crm/ReconcileWeekDialog";
 import { useQuery } from "convex/react";
 import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
 import { toast } from "sonner";
@@ -72,6 +73,16 @@ const PAYMENT_STATUS_BADGE: Record<string, string> = {
   Void: "bg-gray-100 text-gray-500",
 };
 
+/**
+ * Convex ids are base32-encoded strings (~32 chars of [A-Za-z0-9]).
+ * A missing, empty, or obviously-malformed value will fail v.id() validation
+ * on the server and throw ArgumentValidationError. Detect it client-side so
+ * we can skip the query and show a friendly EmptyState instead of crashing.
+ */
+function isValidConvexId(id: string | undefined): id is string {
+  return typeof id === "string" && id.length >= 20 && /^[A-Za-z0-9_-]+$/.test(id);
+}
+
 // ---------------------------------------------------------------------------
 // Shared sub-component
 // ---------------------------------------------------------------------------
@@ -107,10 +118,12 @@ export function SubscriptionWeeklyInvoicePage() {
 
   const [marking, setMarking] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showReconcile, setShowReconcile] = useState(false);
 
   // ---------------------------------------------------------------------------
   // All hooks before any early returns (Pitfall #9, Rules of Hooks)
   // ---------------------------------------------------------------------------
+  const validSubId = isValidConvexId(subId);
   const subscriptionId = subId as Id<"subscriptions">;
   const customerIdTyped = customerId as Id<"customers">;
 
@@ -126,7 +139,7 @@ export function SubscriptionWeeklyInvoicePage() {
   // Load the planning week (subscription + week doc).
   const planningData = useSessionQuery(
     api.subscriptions.scheduling.queries.getPlanningWeek,
-    weekStartMs > 0 ? { subscriptionId, weekStart: weekStartMs } : "skip",
+    validSubId && weekStartMs > 0 ? { subscriptionId, weekStart: weekStartMs } : "skip",
   );
 
   // Load the weekly invoice by ID once we have the week.
@@ -153,6 +166,19 @@ export function SubscriptionWeeklyInvoicePage() {
   // ---------------------------------------------------------------------------
   // Loading guards (D12)
   // ---------------------------------------------------------------------------
+
+  // Malformed / missing subscription ID in URL — skip query already applied above
+  if (!validSubId) {
+    return (
+      <EmptyState
+        icon={Receipt}
+        title="Subscription not found"
+        description="The subscription ID in this URL is invalid. Check the URL and try again."
+        action={{ label: "Go back", onClick: () => navigate(-1) }}
+      />
+    );
+  }
+
   if (weekStartMs === 0) {
     return (
       <EmptyState
@@ -342,8 +368,26 @@ export function SubscriptionWeeklyInvoicePage() {
           {!isPaid && (
             <MarkPaidInvoiceButton marking={marking} onClick={handleMarkPaid} />
           )}
+          {(['paid', 'delivering'] as const).includes(week.status as 'paid' | 'delivering') && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowReconcile(true)}
+              className="text-xs"
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              Reconcile week
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Reconcile-week dialog — mounted here so it has access to week._id */}
+      <ReconcileWeekDialog
+        subscriptionWeekId={week._id}
+        open={showReconcile}
+        onOpenChange={setShowReconcile}
+      />
 
       {/* Bank transfer reference — PROMINENT (gap#1 A3, customer copies into memo) */}
       <Card className="border-2 border-primary/30 print:border print:border-gray-400">

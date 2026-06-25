@@ -2921,6 +2921,143 @@ Three new compound indexes added to `convex/schema.ts` — no behavior change, s
 | `/crm/customers/:customerId/agreements` | `AgreementPage` | `canAccessCrm` |
 | `/crm/customers/:customerId/subscriptions/:subId` | `SubscriptionPage` | `canAccessCrm` |
 
+### Subscription & CRM — Phase D operate-UI (deliver/recognize, top-up, reconcile, out-of-credit) — 2026-06-25
+
+All new functions are `protectedMutation`/`protectedQuery` with `roles: ["manager","admin"]`. All require `token: v.string()`.
+
+#### Delivery / recognize (`convex/subscriptions/delivery.ts`)
+
+```typescript
+subscriptions.delivery.markSubscriptionDelivered({ orderId, token })
+  // Transitions a funded subscription order to AwaitingDelivery and recognizes the sale.
+  // Deliverable statuses: PaymentReceived | BeingPrepared | AwaitingDelivery.
+  // Calls recognizeSubscriptionDelivery — idempotent via creditLedger.by_order (no double drawdown).
+  // Throws ConvexError if order is not a subscription order or not in a deliverable status.
+  // Returns: { orderId: Id<"orders">, recognized: boolean, newlyRecognized: boolean }
+  //   recognized: true if a creditLedger row exists for this order after the call.
+  //   newlyRecognized: true only if recognition happened THIS call (false when recognition
+  //   already fired at split time — split-then-deliver no-op is correct, not an error).
+```
+
+Pure helper (unit-tested, no ctx):
+```typescript
+isDeliverableSubscriptionStatus(status: string): boolean
+  // Returns true for PaymentReceived | BeingPrepared | AwaitingDelivery.
+```
+
+#### Amend confirmed week (`convex/subscriptions/amend.ts`)
+
+```typescript
+subscriptions.amend.amendConfirmedWeek({ subscriptionWeekId, days, token })
+  // Re-prices plannedDays for a confirmed/invoiced/paid/delivering week.
+  // Positive quantity delta billed as an UNPAID top-up invoice via buildTopupInvoice.
+  // Increases only — per-product decrease or removal is rejected (findProductDecreases guard).
+  // Does NOT regenerate per-day orders (R3).
+  // Returns: { topupInvoiceId: Id<"invoices"> | null, deltaTotal: number, addedLines: TopupLine[] }
+```
+
+Pure helpers (unit-tested, no ctx):
+```typescript
+computeTopupDelta(args: {
+  currentQtyByProduct: Record<string, number>;
+  newQtyByProduct: Record<string, number>;
+  unitPrice: number;
+  productNameByProduct: Record<string, string>;
+}): { addedLines: TopupLine[]; deltaTotal: number }
+  // Per-product positive increase delta, priced at unitPrice. Integer IDR.
+
+findProductDecreases(
+  currentQtyByProduct: Record<string, number>,
+  newQtyByProduct: Record<string, number>,
+): string[]
+  // Returns product IDs whose amended qty is below the funded qty.
+  // Used by amendConfirmedWeek to reject decreases before computing delta.
+```
+
+#### reconcileWeek — new required arg (`convex/subscriptions/reconcile.ts`)
+
+The existing `reconcileWeek` mutation gains a REQUIRED `reconcileNote: v.string()` argument (Phase D operate-UI). Submit is disabled in the UI until the note is non-empty. The note is persisted to `subscriptionWeeks.reconcileNote`.
+
+```typescript
+subscriptions.reconcile.reconcileWeek({ subscriptionWeekId, shortfallFault, reconcileNote, token })
+  // All prior behavior unchanged (FIFO rollover/expiry, breakage recognition, refundDue flag).
+  // reconcileNote: non-empty string (trimmed; throws ConvexError on empty — assertReconcileNote guard).
+  // Persisted to subscriptionWeeks.reconcileNote.
+```
+
+Pure helper (unit-tested, no ctx):
+```typescript
+assertReconcileNote(note: string): string
+  // Trims note; throws ConvexError("A reconcile comment is required") if result is empty.
+  // Returns the trimmed note string (used by the caller to persist).
+```
+
+#### Out-of-credit status query (`convex/subscriptions/queries.ts`)
+
+```typescript
+subscriptions.queries.getOrderCreditStatus({ orderId, token })
+  // Returns credit status for a subscription order; used to gate Split and Apply-credit buttons.
+  // Returns: {
+  //   kind: "scheduled" | "adhoc" | "none",
+  //     // "scheduled" = split path (over credit, single item) or in-credit subscription order
+  //     // "adhoc"     = apply-credit path (AwaitingPayment, creditRemaining > 0)
+  //     // "none"      = not a subscription order (or week/order not found)
+  //     // NOTE: kind is currently advisory/unused by the frontend; buttons use canSplit/canApplyCredit.
+  //   isOverCredit: boolean,
+  //   creditRemaining: number | null,  // IDR; null for "none" rows
+  //   orderTotal: number,              // IDR
+  //   subscriptionWeekId: Id<"subscriptionWeeks"> | null,
+  //   canSplit: boolean,               // precondition for splitScheduledOrderOnCredit
+  //   canApplyCredit: boolean,         // precondition for applyPartialCreditToAdHocOrder
+  // }
+  // Skip-guarded with isManagerOrAdmin AND isSubscriptionOrder on the frontend (Pitfall #19)
+  // so non-manager callers or non-subscription orders do NOT mount the protectedQuery.
+```
+
+Pure helper (unit-tested, no ctx):
+```typescript
+isOverCredit(orderFinalTotal: number, creditRemaining: number): boolean
+  // Returns true when orderFinalTotal > creditRemaining (strict; exact coverage is NOT over-credit).
+```
+### Subscription Telegram notification layer — Phase E Slice 1 (2026-06-25)
+
+Outbound-only Telegram reminders for subscription operations. **All functions are `internal*` (cron context, no token, no public/staff surface).** Read-only except a `telegramDeliveries` receipt. No schema change. Ship-dark until an operator assigns the `subscription-ops` / `founders` chats via `/admin/telegram-chats`.
+
+#### Read-only queries (`convex/subscriptions/reminders/queries.ts`)
+
+All `internalQuery`, args `{}`, returning typed rows from `convex/subscriptions/reminders/types.ts`. Integer IDR/pcs throughout; delivered = `order.status === "Complete"`.
+
+| Function | Returns | What it lists |
+|----------|---------|---------------|
+| `getWeeksToConfirm` | `ConfirmRow[]` | `planned` weeks of active subs awaiting confirmation. |
+| `getWeeklyInvoicesDue` | `InvoiceDueRow[]` | `confirmed`/`invoiced` unpaid weeks of active subs; `amountDue = Σ plannedDays[].items[].lineTotal` (not `creditIssued`, which is 0 pre-payment). |
+| `getTodaySubscriptionDeliveries` | `TodayDeliveriesRow[]` | Today's (WIB) planned deliveries per active sub, split per product; flags a deleted product (`missingProduct`, EC6). |
+| `getDaysApproachingCutoff` | `ConfirmRow[]` | Active subs with an unlocked planned day landing tomorrow (WIB) — notify only, no lock flip (Slice 2). |
+| `getWeeksToReconcile` | `ReconcileRow[]` | `delivering` weeks whose window has ended (`weekEnd < now`). Intentionally not filtered by sub status (a terminated sub's final week still reconciles). |
+| `getWeeklyDeliveryProgress` | `DeliveryProgressRow[]` | Per active sub: `weekPlannedPcs` vs `deliveredPcs` (Complete orders via `orders.by_subscriptionWeek`, summing `orderItems.quantity`); `remaining`/`overBy` clamped to ≥ 0. |
+
+#### `subscriptionSlotKey` (`convex/telegram/deliveryReceipts.ts`)
+
+```typescript
+subscriptionSlotKey(kind: string, nowMs: number): string  // → `sub:${kind}:${getWibDateStr(nowMs)}`
+```
+
+WIB-day-keyed delivery-receipt slot. Sender and the +15min watchdog compute the same key (no WIB-midnight slot), so the watchdog finds the sender's receipt and skips re-firing.
+
+#### `ReminderKind` / `roleForKind` (`convex/telegram/subscriptionReminders/kinds.ts`)
+
+`REMINDER_KINDS` (6 literals), `ReminderKind` union, and `roleForKind(kind): TelegramRole` — an exhaustive `Record` mapping the 5 ops kinds → `subscription-ops` and `weekly-delivery-progress` → `founders` (a new kind is a compile error until routed).
+
+#### Send triad (`convex/telegram/subscriptionReminders/sendSubscriptionReminder.ts`)
+
+```typescript
+sendSubscriptionReminder({ kind })            // internalAction: build + chunk + send + record receipt
+sendSubscriptionReminderResilient({ kind, attempt? })  // internalAction: transient retry (cronRetry, max 3)
+watchdogSubscriptionReminder({ kind })        // internalAction: re-fire if no receipt for the slot
+```
+
+Reuses `cronRetry.ts` and `deliveryReceipts.ts`. Fails fast (ship-dark) when no chat is assigned for the kind's role. Messages are chunked under Telegram's 4096-char limit with a partial-send breadcrumb (mirrors `sendSalesSummary`). Registered by 12 crons in `convex/crons.ts` (6 primary + 6 watchdog, UTC-minute-unique — asserted by `convex/crons.test.ts`).
+
 ---
 
 ### Environment Variables

@@ -56,7 +56,9 @@ import { SubscriptionSchedulePage } from "../SubscriptionSchedulePage";
 // ---------------------------------------------------------------------------
 
 const CUSTOMER_ID = "cust_abc" as const;
-const SUB_ID = "sub_xyz" as const;
+// Must satisfy #200's isValidConvexId guard (≥20 chars, [A-Za-z0-9_-]) or the
+// page renders a "Subscription not found" EmptyState instead of the grid.
+const SUB_ID = "jd7c8k2m9n4p5q6r7s8t9" as const;
 const WEEK_ID = "week_001" as const;
 const PRODUCT_ID = "prod_111" as const;
 
