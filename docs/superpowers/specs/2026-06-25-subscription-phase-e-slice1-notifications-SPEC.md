@@ -58,8 +58,9 @@ The six:
 | `getWibDateStr`, `utcToWibMonthStr` (+ week range helper) | `convex/lib/periodRange.ts` | WIB day/week math for slot keys + "this week" window (Pitfall #18 — canonical WIB helpers only) |
 | `subscriptions` (`status`, `label`, `weeklyQty`, `baselineDailyQty`, `changeCutoffHour`=13, `changeCutoffDayOffset`=-1) + `by_status` index | `convex/schema.ts:2501` | iterate active subs; cutoff window |
 | `subscriptionWeeks` (`status` ∈ planned/confirmed/invoiced/paid/delivering/reconciled/closed; `plannedDays[{date,deliverByTime,items[{menuProductId,productName,qty,unitPrice,lineTotal}],locked}]`; `weekStart`/`weekEnd`; `weeklyInvoiceId`; `paymentReceivedAt`) + `by_subscription_weekStart`, `by_status` | `convex/schema.ts:2539` | week-state reads for kinds 1,2,3,4,5,6 |
-| `orders` `subscriptionId`/`subscriptionWeekId`/`status` + **`by_subscription`** index (`schema.ts:357`) | `convex/schema.ts` | delivered-pcs count for kind 6 |
-| terminal-delivered order status set (`CompleteShipped`, `PickedUp`, + the codebase's "complete" terminal) | `src/lib/orderConstants.ts` / status helpers | "delivered" definition for kind 6 (resolve once, reuse) |
+| `orders` `subscriptionId`/`subscriptionWeekId`/`status` + **`by_subscription`** index (`schema.ts:357`) | `convex/schema.ts` | delivered-order selection for kind 6 |
+| `orderItems.quantity` (product-level pcs) + `by_order` index | `convex/schema.ts:364` | delivered-pcs **sum** for kind 6 (qty is NOT on `orders`) |
+| terminal-delivered order status = **`"Complete"`** (the current canonical; schema comment: "Replaces CompleteShipped/PickedUp") | `convex/schema.ts:223` | "delivered" definition for kind 6 — see §9 Q-delivered |
 
 ### 2.2 Adds (all additive — no schema migration)
 
@@ -75,7 +76,8 @@ The six:
 
 **`convex/subscriptions/reminders/`** — six read-only `internalQuery`s (cron context), one per kind:
 `getWeeksToConfirm`, `getWeeklyInvoicesDue`, `getTodaySubscriptionDeliveries`, `getDaysApproachingCutoff`, `getWeeksToReconcile`, `getWeeklyDeliveryProgress`.
-`getWeeklyDeliveryProgress` returns, per `active` subscription with a current week: `{ account: label, weekStart, weekPlannedPcs (Σ current-week plannedDays[].items[].qty — live, reflects top-ups), deliveredPcs (Σ product qty of this week's subscription orders in a terminal-delivered status, via orders.by_subscription), remaining = max(0, weekPlannedPcs − deliveredPcs), overBy = max(0, deliveredPcs − weekPlannedPcs) }`. **pcs = product pieces, NOT BOM balls** (the plan is denominated in product pcs). Accounts with no active current week are skipped.
+`getWeeklyDeliveryProgress` returns, per `active` subscription with a current week: `{ account: label, weekStart, weekPlannedPcs (Σ current-week plannedDays[].items[].qty — live, reflects top-ups), deliveredPcs, remaining = max(0, weekPlannedPcs − deliveredPcs), overBy = max(0, deliveredPcs − weekPlannedPcs) }`. **pcs = product pieces, NOT BOM balls** (both plan and delivered are product-level qty — `ScheduleLine.qty` and `orderItems.quantity`).
+**Delivered read path (qty is NOT a field on `orders`):** find the current subscriptionWeek (the one whose `weekStart..weekEnd` contains `now`, via `subscriptionWeeks.by_subscription_weekStart` range scan) → select its delivered orders via **`orders.by_subscriptionWeek(weekId)`** filtered to `status === "Complete"` (direct index hit; preferred over `by_subscription` + date-window since `orders` carries `subscriptionWeekId` with its own index) → for each, sum `orderItems.quantity` via `orderItems.by_order` → `deliveredPcs` = the total. **Plan-time confirm:** Phase B populates `orders.subscriptionWeekId` on generated subscription orders (if not, fall back to `by_subscription` + `weekStart..weekEnd` window on `_creationTime`/order date). Bounded N+1 (≤ ~7 orders/account/week × small account count, cron context) — acceptable; do NOT pre-optimize. Accounts with no active current week are skipped.
 
 **`deliveryReceipts.ts`** — add `ReminderKind` re-export-safe `subscriptionSlotKey(kind, nowMs)`: WIB-keyed (`sub:<kind>:<getWibDateStr(nowMs)>`). None of the six slots sit near WIB midnight, so the +15min watchdog never crosses a WIB-day boundary (kind 3 fires 07:05 WIB; kind 1 Sun 17:00 WIB; etc.). For the weekly kinds (1,2,5) the key is the WIB date of the firing day (Sun for confirm; Mon for invoice/reconcile) — a stable, unambiguous week id (same approach as `salesSlotKey` weekly; no ISO week-year edge case).
 
@@ -88,11 +90,11 @@ Phase E Slice 1 **never constructs** a `ScheduleLine`/invoice/ledger entry and *
 
 ## 3. Acceptance criteria
 
-- [ ] **AC1** `KNOWN_TELEGRAM_ROLES` includes `"subscription-ops"` AND `"founders"`; no env var; both assignable via `/admin/telegram-chats` (Pitfall #21). `isKnownTelegramRole("subscription-ops")` / `("founders")` → true.
+- [ ] **AC1** `KNOWN_TELEGRAM_ROLES` includes `"subscription-ops"` AND `"founders"`; no env var; both assignable via `/admin/telegram-chats` (Pitfall #21). `isKnownTelegramRole("subscription-ops")` / `("founders")` → true. **Mechanism:** `getChatIdByRole` takes `{role: v.string()}` (no compile-time gate), but the admin assign path (`chatRegistry.ts assignRole` → `assertKnownRole`) rejects any role not in `KNOWN_TELEGRAM_ROLES` — so the append is what lets an operator bind a chat.
 - [ ] **AC2** Six primary crons fire at the §1 WIB/UTC times; each points at `sendSubscriptionReminderResilient` reusing `cronRetry.ts` — no re-rolled retry logic.
 - [ ] **AC3** Each of the six has a watchdog 15 min later pointing at `watchdogSubscriptionReminder`, which re-sends **only the notification** when no `telegramDeliveries` receipt exists for the slot; a healthy primary run never double-posts (`recordDelivery` idempotent).
 - [ ] **AC4** Send resolves via `getChatIdByRole({ role })` (role derived from `kind`) and fails fast (logged, recoverable) when no chat is assigned — exactly as `sales-updates` does.
-- [ ] **AC5** Kind 6 (`weekly-delivery-progress` → `founders`) posts **one block per active subscription account**: `Week of DD/MM/YY — <Account>` / `<deliveredPcs> out of <weekPlannedPcs>` / `<remaining> pcs remaining in quota`. `deliveredPcs` counts **product pieces, NOT BOM balls**; `weekPlannedPcs` = live current-week `plannedDays` qty sum; `remaining = max(0, plan − delivered)` (never negative; over-plan shown via `overBy`); accounts without an active current week are skipped. Delivered count uses `orders.by_subscription` + the terminal-delivered status set.
+- [ ] **AC5** Kind 6 (`weekly-delivery-progress` → `founders`) posts **one block per active subscription account**: `Week of DD/MM/YY — <Account>` / `<deliveredPcs> out of <weekPlannedPcs>` / `<remaining> pcs remaining in quota`. `deliveredPcs` counts **product pieces, NOT BOM balls**; `weekPlannedPcs` = live current-week `plannedDays` qty sum; `remaining = max(0, plan − delivered)` (never negative; over-plan shown via `overBy`); accounts without an active current week are skipped. Delivered count = Σ `orderItems.quantity` over the current week's subscription orders in `status === "Complete"` (read path in §2.2).
 - [ ] **AC6** No inbound command added (parent Q5): `COMMAND_POLICY`, `parseCommand`, and webhook dispatch are byte-for-byte unchanged. (Recorded explicitly, not left as an unchecked box.)
 - [ ] **AC7** All six `format*` functions are **pure** (no ctx/db/network); unit-tested against fixed fixtures (per-product split for kind 3; credit/IDR figures integer for kinds 2,5; pcs integer for kind 6). Copy matches proof ⑨ (Q2).
 - [ ] **AC8** Every new query is `internalQuery` and every new action is `internalAction` (cron-only; no public/staff surface, no token). No `protectedQuery`/`protectedMutation` added by this slice → no Pitfall-#19 exposure. code-auditor greps all new registrations to confirm.
@@ -111,8 +113,8 @@ Phase E Slice 1 **never constructs** a `ScheduleLine`/invoice/ledger entry and *
 - [ ] **EC4** No active subscriptions / no weeks in the target state → reminder sends a benign "nothing due" message OR is skipped per-kind (decide per formatter; kind 6 skips empty accounts and, if zero active accounts, sends a one-line "no active accounts" rather than an empty post). Must never throw.
 - [ ] **EC5** `unitPrice` shown in any money figure (kinds 2,5) reads the week's **snapshotted** `plannedDays[].items.unitPrice` / the week's stored credit figures, never live `subscriptions.unitPrice`. (Confirm at plan time B freezes `plannedDays[].items.unitPrice` at confirm.)
 - [ ] **EC6** A `plannedDays[].items` entry whose `menuProductId` no longer resolves in `menuProducts` → kind 3 shows a ⚠️ deleted-product warning beside the stored `productName` (don't silently hide; parent Q13).
-- [ ] **EC7** Kind 6 delivered count: an order linked to the subscription but NOT in this week's window (`weekStart..weekEnd`) is excluded; an order in a non-terminal status is excluded (only terminal-delivered counts).
-- [ ] **EC8** Week spanning the founders 18:00 fire: "this week" = the WIB week containing `now`; resolved via `periodRange` week helper, not naive `Date`.
+- [ ] **EC7** Kind 6 delivered count: an order linked to the subscription but NOT in this week (different `subscriptionWeekId` / outside `weekStart..weekEnd`) is excluded; an order not in `status === "Complete"` is excluded (only delivered counts).
+- [ ] **EC8** Week spanning the founders 18:00 fire: "this week" = the subscriptionWeek whose stored `weekStart..weekEnd` contains `now` (range scan on `by_subscription_weekStart`); WIB math via `periodRange` (`calculateWeekRange`/`getWibComponents`), never naive `Date`.
 - [ ] **EC9** Multi-chunk send fails mid-way (kind 6 with many accounts) → mirror `sendSalesSummary`'s breadcrumb-on-partial behavior; do NOT record a receipt on partial failure (let the watchdog resend) — match the template.
 
 ---
@@ -144,14 +146,16 @@ Phase E Slice 1 **never constructs** a `ScheduleLine`/invoice/ledger entry and *
 ## 8. Dependencies on merged Phase B (confirm signatures at plan time)
 - **(B)** `confirmWeek` (`convex/subscriptions/scheduling/confirmWeek.ts:16`), `createSubscriptionWeeklyInvoice`/`markWeeklyInvoicePaid` (`convex/subscriptions/invoicing.ts:111/203`), `reconcileWeek` (`convex/subscriptions/reconcile.ts:127`) — kinds 1/2/5 **reference** these in copy as the manager's next action; they never CALL them.
 - **(B)** `plannedDays[].items.unitPrice` frozen at confirm (EC5) — confirm at plan time.
-- **(B)** subscription order generation + advancement to a terminal-delivered status — kind 6's delivered count is zero until B's generated orders reach terminal status (ship-dark-safe: posts plan with `0 out of N`). The terminal-delivered status set must equal the project's order "delivered" definition (resolve once from `orderConstants`/status helpers; reuse for Phase D parity).
-- **(B0)** `orders.by_subscription` index — present (`schema.ts:357`).
+- **(B)** subscription order generation + advancement to `status === "Complete"` — kind 6's delivered count is zero until B's generated orders reach `Complete` (ship-dark-safe: posts plan with `0 out of N`).
+- **(B)** confirm B sets `orders.subscriptionWeekId` (and `subscriptionId`) on generated orders (Q-week-link) — enables the `by_subscriptionWeek` direct read.
+- **(B0)** `orders.by_subscription` (`schema.ts:357`) + `orders.by_subscriptionWeek` (`schema.ts:355`) + `orderItems.by_order` indexes — present.
 
 ---
 
 ## 9. Open questions
 - **Q2 (visual)** — exact copy for the six messages. Drafted in proof ⑨; refine + lock via the T2 formatter unit tests during execution. Not a blocker (formatters are pure + test-locked).
-- **Q-delivered** — confirm the exact terminal-delivered order status literal(s) against `orderConstants`/status helpers at plan time (spec assumes `CompleteShipped`/`PickedUp` + the codebase "complete" terminal). Resolve once; reuse for kind 6 + future Phase D AC13 parity.
+- **Q-delivered → RESOLVED at spec time:** delivered = `status === "Complete"` (the current canonical terminal status; schema.ts:223 comment "Replaces CompleteShipped/PickedUp"). The legacy literals `CompleteShipped`/`PickedUp` apply only to unmigrated pre-existing orders; subscription orders are Phase-B-new so can never carry them — no need to include them (a defensive `["Complete","CompleteShipped","PickedUp"]` set is harmless but unnecessary). Reuse this definition for future Phase D AC13 parity.
+- **Q-week-link** — confirm Phase B sets `orders.subscriptionWeekId` on generated orders (enables the `by_subscriptionWeek` direct read in §2.2); fallback path documented if not.
 
 ---
 
