@@ -100,7 +100,7 @@ interface VersionOpenButtonProps {
 }
 
 function VersionOpenButton({ storageId, fileName }: VersionOpenButtonProps) {
-  const url = useSessionQuery(api["crm/agreements"].getFileUrl, { storageId });
+  const url = useSessionQuery(api.crm.agreements.getFileUrl, { storageId });
 
   if (url === undefined) {
     // Still resolving
@@ -303,18 +303,18 @@ export function AgreementPage() {
 
   // All hooks before any early returns (Pitfall #9).
   const agreements = useSessionQuery(
-    api["crm/agreements"].listAgreementsByCustomer,
+    api.crm.agreements.listAgreementsByCustomer,
     customerId ? { customerId: customerId as Id<"customers"> } : "skip",
   ) as AgreementDoc[] | undefined | null;
 
   const generateUploadUrl = useSessionMutation(
-    api["crm/agreements"].generateAgreementUploadUrl,
+    api.crm.agreements.generateAgreementUploadUrl,
   );
   const createSupplyAgreement = useSessionMutation(
-    api["crm/agreements"].createSupplyAgreement,
+    api.crm.agreements.createSupplyAgreement,
   );
   const addAgreementVersion = useSessionMutation(
-    api["crm/agreements"].addAgreementVersion,
+    api.crm.agreements.addAgreementVersion,
   );
 
   // D12: loading guard.
