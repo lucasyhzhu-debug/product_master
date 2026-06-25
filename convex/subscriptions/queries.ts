@@ -60,7 +60,6 @@ export const getOrderCreditStatus = protectedQuery({
   args: { orderId: v.id("orders") },
   handler: async (ctx, args) => {
     const none = {
-      kind: "none" as const,
       isOverCredit: false,
       creditRemaining: null as number | null,
       orderTotal: 0,
@@ -76,7 +75,7 @@ export const getOrderCreditStatus = protectedQuery({
     if (!week) return none;
 
     const creditRemaining = week.creditRemaining;
-    const orderTotal = order.finalTotal;
+    const orderTotal = order.totalAmount; // match the drawdown field (totalAmount), not finalTotal
     const over = isOverCredit(orderTotal, creditRemaining);
 
     // Load active (non-cancelled) items — mirrors splitScheduledOrderOnCredit's guard.
@@ -103,13 +102,7 @@ export const getOrderCreditStatus = protectedQuery({
       order.paymentStatus !== "Paid" &&
       creditRemaining > 0;
 
-    // Derive kind from which action is possible.
-    // "scheduled" = split path (over credit, single item); "adhoc" = apply-credit path.
-    // If neither applies, default to "scheduled" (still a subscription order, just in-credit).
-    const kind: "scheduled" | "adhoc" = canApplyCredit ? "adhoc" : "scheduled";
-
     return {
-      kind,
       isOverCredit: over,
       creditRemaining,
       orderTotal,

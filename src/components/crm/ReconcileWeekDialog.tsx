@@ -27,7 +27,7 @@ import {
 import { toast } from "sonner";
 import { useSessionMutation } from "convex-helpers/react/sessions";
 import { api } from "../../../convex/_generated/api";
-import { getErrorMessage } from "@/lib/utils";
+import { formatCurrency, getErrorMessage } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 type Fault = "none" | "cafe" | "frollie";
@@ -76,7 +76,7 @@ export function ReconcileWeekDialog({
       toast.success(
         `Week reconciled — carried ${r.carried.length}, expired ${r.expired.length}` +
           (r.refundDue > 0
-            ? `, refund due ${r.refundDue.toLocaleString("id-ID")} IDR`
+            ? `, refund due ${formatCurrency(r.refundDue)}`
             : ""),
       );
       setNote("");

@@ -37,7 +37,7 @@ import {
 import type { Id } from '../../convex/_generated/dataModel';
 import { getStatusColor } from '@/lib/orderConstants';
 import type { CancellationCategory } from '@/lib/types';
-import { getErrorMessage } from '@/lib/utils';
+import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -389,7 +389,7 @@ export function OrderDetail() {
                 {isManagerOrAdmin && creditStatus && creditStatus.isOverCredit && (
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-2 text-xs text-amber-800">
                     <p className="font-medium">Over remaining credit
-                      ({creditStatus.creditRemaining?.toLocaleString('id-ID')} IDR left, order {creditStatus.orderTotal.toLocaleString('id-ID')} IDR).</p>
+                      ({formatCurrency(creditStatus.creditRemaining)} left, order {formatCurrency(creditStatus.orderTotal)}).</p>
                     {creditStatus.canSplit && (
                       <Button size="sm" variant="outline" className="w-full"
                         onClick={async () => {
@@ -404,7 +404,7 @@ export function OrderDetail() {
                       <Button size="sm" variant="outline" className="w-full"
                         onClick={async () => {
                           try { const r = await applyCredit({ orderId: orderId! });
-                            toast.success(`Applied ${r.coveredAmount.toLocaleString('id-ID')} IDR credit; ${r.remainderAmount.toLocaleString('id-ID')} IDR remains to pay.`);
+                            toast.success(`Applied ${formatCurrency(r.coveredAmount)} credit; ${formatCurrency(r.remainderAmount)} remains to pay.`);
                           } catch (err) { toast.error(getErrorMessage(err, 'Apply credit failed')); }
                         }}>
                         Apply available credit (deposit)

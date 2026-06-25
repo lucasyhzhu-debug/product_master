@@ -445,7 +445,7 @@ export function SubscriptionSchedulePage() {
                 try {
                   const r = await amendWeek({ subscriptionWeekId: week._id, days });
                   toast.success(
-                    `Amended — top-up invoice for ${r.deltaTotal.toLocaleString("id-ID")} IDR created. Mark it paid to fund the credit.`,
+                    `Amended — top-up invoice for ${formatCurrency(r.deltaTotal)} created. Mark it paid to fund the credit.`,
                   );
                   setAmending(false);
                   setLocalDays(null);

@@ -51,16 +51,9 @@ export const markSubscriptionDelivered = protectedMutation({
     );
     // Idempotent: returns early if a ledger entry already exists for this order.
     await recognizeSubscriptionDelivery(ctx, order._id, ctx.user._id);
-    const ledgerExistsAfter = Boolean(
-      await ctx.db
-        .query("creditLedger")
-        .withIndex("by_order", (q) => q.eq("orderId", order._id))
-        .first(),
-    );
     return {
       orderId: order._id,
-      recognized: ledgerExistsAfter,
-      newlyRecognized: !ledgerExistedBefore && ledgerExistsAfter,
+      newlyRecognized: !ledgerExistedBefore,
     };
   },
 });

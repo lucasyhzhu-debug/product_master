@@ -3,6 +3,22 @@ import { protectedMutation } from "../lib/functions";
 import { buildTopupInvoice } from "./invoicing";
 import { computeLineTotal } from "./creditMath";
 
+/**
+ * Aggregate total qty per menuProductId across all days in a plan.
+ * Pure helper — no Convex context required; unit-testable.
+ */
+export function aggregateQtyByProduct(
+  days: Array<{ items: Array<{ menuProductId: string; qty: number }> }>,
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const day of days) {
+    for (const it of day.items) {
+      result[it.menuProductId] = (result[it.menuProductId] ?? 0) + it.qty;
+    }
+  }
+  return result;
+}
+
 export type TopupLine = { productName: string; qty: number; unitPrice: number; lineTotal: number };
 
 /**
@@ -82,30 +98,18 @@ export const amendConfirmedWeek = protectedMutation({
     if (!subscription) throw new ConvexError("Subscription not found");
     const unitPrice = subscription.unitPrice;
 
-    // Resolve product names for every menuProductId in the amendment.
-    const productNameByProduct: Record<string, string> = {};
-    for (const day of args.days) {
-      for (const it of day.items) {
-        if (!productNameByProduct[it.menuProductId]) {
-          const mp = await ctx.db.get(it.menuProductId);
-          if (!mp) throw new ConvexError(`Menu product ${it.menuProductId} not found`);
-          productNameByProduct[it.menuProductId] = mp.name;
-        }
-      }
-    }
-
     // Aggregate current (funded) vs new qty per product.
-    const currentQtyByProduct: Record<string, number> = {};
-    for (const day of week.plannedDays) {
-      for (const it of day.items) {
-        currentQtyByProduct[it.menuProductId] = (currentQtyByProduct[it.menuProductId] ?? 0) + it.qty;
-      }
-    }
-    const newQtyByProduct: Record<string, number> = {};
-    for (const day of args.days) {
-      for (const it of day.items) {
-        newQtyByProduct[it.menuProductId] = (newQtyByProduct[it.menuProductId] ?? 0) + it.qty;
-      }
+    const currentQtyByProduct = aggregateQtyByProduct(week.plannedDays);
+    const newQtyByProduct = aggregateQtyByProduct(args.days);
+
+    // Batch-resolve product names for every unique menuProductId in the amendment.
+    const uniqueProductIds = [...new Set(args.days.flatMap((d) => d.items.map((it) => it.menuProductId)))];
+    const productDocs = await Promise.all(uniqueProductIds.map((id) => ctx.db.get(id)));
+    const productNameByProduct: Record<string, string> = {};
+    for (let i = 0; i < uniqueProductIds.length; i++) {
+      const mp = productDocs[i];
+      if (!mp) throw new ConvexError(`Menu product ${uniqueProductIds[i]} not found`);
+      productNameByProduct[uniqueProductIds[i]] = mp.name;
     }
 
     const decreases = findProductDecreases(currentQtyByProduct, newQtyByProduct);
