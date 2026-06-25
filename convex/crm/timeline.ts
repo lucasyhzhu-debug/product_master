@@ -80,108 +80,76 @@ export const getCustomerTimeline = protectedQuery({
     // Collect all actor ids for a single batched name-map resolve.
     // -------------------------------------------------------------------
     const actorIds = new Set<Id<"users">>();
-    const collectActor = (id: Id<"users"> | string | undefined) => {
-      if (id && typeof id === "string") actorIds.add(id as Id<"users">);
+    const collectActor = (id: Id<"users"> | undefined) => {
+      if (id) actorIds.add(id);
     };
 
     // -------------------------------------------------------------------
-    // 1. Orders via orders.by_customer_orderDate (windowed to cutoff — C9)
-    // Business date: orderDate (timeline event: order_placed). Compound index bounds
-    // the scan at the DB layer. Trade-off: order_delivered events for orders placed
-    // just before the window are excluded — acceptable for the 14d default since
-    // orders reach terminal status within days of placement.
+    // Collect the 5 independent top-level reads in parallel (C9-windowed):
+    //   1. Orders   — by_customer_orderDate, gte cutoff. Business date: orderDate.
+    //      Trade-off: order_delivered events for orders placed just before the
+    //      window are excluded — acceptable for the 14d default.
+    //   2. Invoices — by_customer_generatedAt, gte cutoff. Business date: generatedAt
+    //      (always set for subscription invoices; undefined sorts below any number).
+    //      KNOWN LIMITATION (audit I5): window keyed on generatedAt, but
+    //      payment_funded emits at inv.updatedAt; an invoice generated BEFORE but
+    //      paid INSIDE the window is dropped. Needs a dedicated paidAt field — OOS.
+    //   3. Subscriptions — by_customer (drives the ledger fan-out below).
+    //   4. Supply agreements — by_customer.
+    //   5. Logged rows — by_customer_at, gte cutoff.
     // -------------------------------------------------------------------
-    const orders = await ctx.db
-      .query("orders")
-      .withIndex("by_customer_orderDate", (q) =>
-        q.eq("customerId", args.customerId).gte("orderDate", cutoff),
-      )
-      .collect();
-
-    for (const o of orders) {
-      collectActor(o.createdByUserId);
-    }
-
-    // -------------------------------------------------------------------
-    // 2. Invoices via invoices.by_customer_generatedAt (windowed to cutoff — C9)
-    // Business date: generatedAt (timeline event: invoice_sent). Optional in schema
-    // but always set for subscription invoices. Invoices without generatedAt are
-    // excluded by the gte bound (undefined sorts below any number in Convex index).
-    //
-    // KNOWN LIMITATION (audit I5): this window is keyed on generatedAt, but the
-    // payment_funded event below emits at inv.updatedAt. An invoice generated BEFORE
-    // the window but paid INSIDE it is dropped (never fetched), so its payment_funded
-    // event won't appear. A structural fix needs a dedicated paidAt field to window on
-    // — out of scope here.
-    // -------------------------------------------------------------------
-    const invoices = await ctx.db
-      .query("invoices")
-      .withIndex("by_customer_generatedAt", (q) =>
-        q.eq("customerId", args.customerId).gte("generatedAt", cutoff),
-      )
-      .collect();
-
-    for (const inv of invoices) {
-      collectActor(inv.generatedBy);
-    }
-
-    // -------------------------------------------------------------------
-    // 3. Subscriptions + creditLedger fan-out
-    // -------------------------------------------------------------------
-    const subscriptions = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
-      .collect();
-
-    for (const sub of subscriptions) {
-      collectActor(sub.createdBy);
-    }
-
-    // Bounded fan-out: fetch ledger entries per subscription (a customer has few subs).
-    // Business date: _creationTime (no explicit timestamp field on creditLedger).
-    // by_subscription_creationTime compound index bounds each per-sub fetch to the
-    // sinceDays window (C9 fix). Topup entries are the only type shown in the timeline.
-    const ledgerBySub: Array<{
-      subscriptionId: Id<"subscriptions">;
-      entries: Array<{ _id: string; _creationTime: number; type: string; amount: number; createdBy: Id<"users"> }>;
-    }> = [];
-    for (const sub of subscriptions) {
-      const entries = await ctx.db
-        .query("creditLedger")
-        .withIndex("by_subscription_creationTime", (q) =>
-          q.eq("subscriptionId", sub._id).gte("_creationTime", cutoff),
+    const [orders, invoices, subscriptions, agreements, logged] = await Promise.all([
+      ctx.db
+        .query("orders")
+        .withIndex("by_customer_orderDate", (q) =>
+          q.eq("customerId", args.customerId).gte("orderDate", cutoff),
         )
-        .collect();
-      for (const e of entries) {
-        collectActor(e.createdBy);
-      }
-      ledgerBySub.push({ subscriptionId: sub._id, entries });
-    }
+        .collect(),
+      ctx.db
+        .query("invoices")
+        .withIndex("by_customer_generatedAt", (q) =>
+          q.eq("customerId", args.customerId).gte("generatedAt", cutoff),
+        )
+        .collect(),
+      ctx.db
+        .query("subscriptions")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect(),
+      ctx.db
+        .query("supplyAgreements")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect(),
+      ctx.db
+        .query("customerActivity")
+        .withIndex("by_customer_at", (q) =>
+          q.eq("customerId", args.customerId).gte("at", cutoff),
+        )
+        .collect(),
+    ]);
 
-    // -------------------------------------------------------------------
-    // 4. Supply agreements via supplyAgreements.by_customer
-    // -------------------------------------------------------------------
-    const agreements = await ctx.db
-      .query("supplyAgreements")
-      .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
-      .collect();
+    for (const o of orders) collectActor(o.createdByUserId);
+    for (const inv of invoices) collectActor(inv.generatedBy);
+    for (const sub of subscriptions) collectActor(sub.createdBy);
+    for (const ag of agreements) collectActor(ag.uploadedBy);
+    for (const row of logged) collectActor(row.actor);
 
-    for (const ag of agreements) {
-      collectActor(ag.uploadedBy);
-    }
-
-    // -------------------------------------------------------------------
-    // 5. Logged rows via customerActivity.by_customer_at (windowed)
-    // -------------------------------------------------------------------
-    const logged = await ctx.db
-      .query("customerActivity")
-      .withIndex("by_customer_at", (q) =>
-        q.eq("customerId", args.customerId).gte("at", cutoff),
-      )
-      .collect();
-
-    for (const row of logged) {
-      collectActor(row.actor);
+    // Bounded fan-out: fetch ledger entries per subscription (a customer has few subs),
+    // parallelized across subs. Business date: _creationTime (no explicit timestamp
+    // field on creditLedger). by_subscription_creationTime bounds each per-sub fetch
+    // to the sinceDays window (C9). Topup entries are the only type shown in the timeline.
+    const ledgerBySub = await Promise.all(
+      subscriptions.map(async (sub) => {
+        const entries = await ctx.db
+          .query("creditLedger")
+          .withIndex("by_subscription_creationTime", (q) =>
+            q.eq("subscriptionId", sub._id).gte("_creationTime", cutoff),
+          )
+          .collect();
+        return { subscriptionId: sub._id, entries };
+      }),
+    );
+    for (const { entries } of ledgerBySub) {
+      for (const e of entries) collectActor(e.createdBy);
     }
 
     // -------------------------------------------------------------------

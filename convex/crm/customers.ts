@@ -63,50 +63,57 @@ export const getCustomerRecord = protectedQuery({
     const customer = await ctx.db.get(args.customerId);
     if (!customer) return null;
 
-    const subscriptions = await ctx.db
-      .query("subscriptions")
-      .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
-      .collect();
-
-    const agreements = await ctx.db
-      .query("supplyAgreements")
-      .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
-      .collect();
+    // subscriptions, agreements, and invoices are independent reads — fetch in
+    // parallel. Money is first-class (C10); exclude Paid invoices inline
+    // (Unpaid + Partial both surface as actionable).
+    const [subscriptions, agreements, unpaidInvoices] = await Promise.all([
+      ctx.db
+        .query("subscriptions")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect(),
+      ctx.db
+        .query("supplyAgreements")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect(),
+      ctx.db
+        .query("invoices")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect()
+        .then((invoices) => invoices.filter((i) => i.paymentStatus !== "Paid")),
+    ]);
 
     // Bounded fan-out — a customer has few subscriptions (typically 1–3).
+    // Parallelize across subs: each resolves its current week + ledger pool.
     const currentWeekPoolBySubscription: Record<
       string,
       { week: NonNullable<Awaited<ReturnType<typeof resolveCurrentWeek>>>; pool: ReturnType<typeof deriveCreditPool> } | null
     > = {};
-    for (const sub of subscriptions) {
-      const week = await resolveCurrentWeek(ctx, sub._id);
-      if (!week) {
-        currentWeekPoolBySubscription[sub._id] = null;
-        continue;
-      }
-      const entries = await ctx.db
-        .query("creditLedger")
-        .withIndex("by_subscriptionWeek", (q) =>
-          q.eq("subscriptionWeekId", week._id),
-        )
-        .collect();
-      currentWeekPoolBySubscription[sub._id] = {
-        week,
-        pool: deriveCreditPool(
-          entries.map((e) => ({ type: e.type, amount: e.amount })),
-        ),
-      };
-    }
-
-    const allInvoices = await ctx.db
-      .query("invoices")
-      .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
-      .collect();
-    // Money is first-class: read derived pool (CRM principle C10).
-    // Exclude Paid invoices; Unpaid + Partial both surface as actionable.
-    const unpaidInvoices = allInvoices.filter(
-      (i) => i.paymentStatus !== "Paid",
+    const poolResults = await Promise.all(
+      subscriptions.map(async (sub) => {
+        const week = await resolveCurrentWeek(ctx, sub._id);
+        if (!week) {
+          return { subId: sub._id, value: null };
+        }
+        const entries = await ctx.db
+          .query("creditLedger")
+          .withIndex("by_subscriptionWeek", (q) =>
+            q.eq("subscriptionWeekId", week._id),
+          )
+          .collect();
+        return {
+          subId: sub._id,
+          value: {
+            week,
+            pool: deriveCreditPool(
+              entries.map((e) => ({ type: e.type, amount: e.amount })),
+            ),
+          },
+        };
+      }),
     );
+    for (const r of poolResults) {
+      currentWeekPoolBySubscription[r.subId] = r.value;
+    }
 
     return { customer, subscriptions, agreements, currentWeekPoolBySubscription, unpaidInvoices };
   },

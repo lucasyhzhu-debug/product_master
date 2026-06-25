@@ -39,21 +39,23 @@ export const getWeekBackReferences = protectedQuery({
   roles: ["manager", "admin"],
   args: { subscriptionWeekId: v.id("subscriptionWeeks") },
   handler: async (ctx, args) => {
-    const orders = await ctx.db
-      .query("orders")
-      .withIndex("by_subscriptionWeek", (q) =>
-        q.eq("subscriptionWeekId", args.subscriptionWeekId),
-      )
-      .collect();
+    // orders, ledgerEntries, and the week doc are independent — fetch in parallel.
+    const [orders, ledgerEntries, week] = await Promise.all([
+      ctx.db
+        .query("orders")
+        .withIndex("by_subscriptionWeek", (q) =>
+          q.eq("subscriptionWeekId", args.subscriptionWeekId),
+        )
+        .collect(),
+      ctx.db
+        .query("creditLedger")
+        .withIndex("by_subscriptionWeek", (q) =>
+          q.eq("subscriptionWeekId", args.subscriptionWeekId),
+        )
+        .collect(),
+      ctx.db.get(args.subscriptionWeekId),
+    ]);
 
-    const ledgerEntries = await ctx.db
-      .query("creditLedger")
-      .withIndex("by_subscriptionWeek", (q) =>
-        q.eq("subscriptionWeekId", args.subscriptionWeekId),
-      )
-      .collect();
-
-    const week = await ctx.db.get(args.subscriptionWeekId);
     const fundingInvoice =
       week?.weeklyInvoiceId ? await ctx.db.get(week.weeklyInvoiceId) : null;
 
