@@ -1,7 +1,9 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode, Lock, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Truck, XCircle, Pencil, AlertTriangle, FileText, Phone, Copy as CopyIcon, ShieldAlert, QrCode, Lock, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useQuery } from 'convex/react';
+import { useSessionMutation } from 'convex-helpers/react/sessions';
+import { toast } from 'sonner';
 import { api } from '../../convex/_generated/api';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
@@ -35,6 +37,7 @@ import {
 import type { Id } from '../../convex/_generated/dataModel';
 import { getStatusColor } from '@/lib/orderConstants';
 import type { CancellationCategory } from '@/lib/types';
+import { getErrorMessage } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -110,6 +113,10 @@ export function OrderDetail() {
   const qrisConfig = useQrisConfig();
   const activeQris = useActiveQrisPayment(orderId);
   const [showQrisDialog, setShowQrisDialog] = useState(false);
+
+  // Mark delivered (subscription orders only — T5)
+  const markDelivered = useSessionMutation(api.subscriptions.delivery.markSubscriptionDelivered);
+  const [markingDelivered, setMarkingDelivered] = useState(false);
 
   // ============================================
   // Handlers
@@ -338,6 +345,30 @@ export function OrderDetail() {
                   This order is managed from the subscription scheduler. Edit, status,
                   and cancel actions are disabled here.
                 </p>
+                {/* Mark delivered — scoped action for manager/admin (T5) */}
+                {isManagerOrAdmin &&
+                  ['PaymentReceived', 'BeingPrepared', 'AwaitingDelivery'].includes(order.status) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800"
+                      disabled={markingDelivered}
+                      onClick={async () => {
+                        setMarkingDelivered(true);
+                        try {
+                          await markDelivered({ orderId: orderId! });
+                          toast.success('Delivery recognized — sale posted.');
+                        } catch (err) {
+                          toast.error(getErrorMessage(err, 'Failed to mark delivered'));
+                        } finally {
+                          setMarkingDelivered(false);
+                        }
+                      }}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      {markingDelivered ? 'Recognizing…' : 'Mark delivered'}
+                    </Button>
+                  )}
                 {order.subscription_id && order.customer_id_raw && (
                   <Button
                     variant="outline"
