@@ -14,6 +14,7 @@
 
 import { Link } from "react-router-dom";
 import { getActivityVisual } from "@/lib/crmActivityTaxonomy";
+import { formatDateTimeIdCompact } from "@/lib/dateUtils";
 import { eventTypeToCategory } from "../../../convex/lib/activityEvents";
 import type { EventType } from "../../../convex/lib/activityEvents";
 
@@ -72,12 +73,7 @@ export function TimelineItem({ item, customerId }: TimelineItemProps) {
 
   const to = resolveLinkTo(item.linkTo, customerId);
 
-  const timestamp = new Date(item.at).toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const timestamp = formatDateTimeIdCompact(item.at);
 
   const inner = (
     <div

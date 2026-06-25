@@ -41,6 +41,11 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { getErrorMessage } from "@/lib/utils";
 import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
+import {
+  FUNDING_STATUS_BADGE,
+  FUNDING_STATUS_LABEL,
+  sortFundingRows,
+} from "@/lib/crmStatusBadges";
 
 // ---------------------------------------------------------------------------
 // Types mirroring getFundingDashboard return shape
@@ -59,31 +64,6 @@ type FundingRow = {
   customerId: Id<"customers"> | null;
   customerName: string | null;
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-
-const STATUS_BADGE: Record<string, string> = {
-  confirmed: "bg-amber-100 text-amber-700",
-  invoiced: "bg-purple-100 text-purple-700",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  confirmed: "Needs invoice",
-  invoiced: "Awaiting payment",
-};
-
-// Sort: status priority (invoiced first), then weekStart ascending.
-function sortRows(rows: FundingRow[]): FundingRow[] {
-  return [...rows].sort((a, b) => {
-    const statusOrder = (s: string) => (s === "invoiced" ? 0 : 1);
-    const sd = statusOrder(a.week.status) - statusOrder(b.week.status);
-    if (sd !== 0) return sd;
-    return a.week.weekStart - b.week.weekStart;
-  });
-}
 
 // ---------------------------------------------------------------------------
 // MarkPaidButton — isolated to avoid sharing marking state across rows
@@ -134,7 +114,7 @@ export function CrmFundingDashboardPage() {
     return <LoadingPage />;
   }
 
-  const sorted = sortRows(rows as FundingRow[]);
+  const sorted = sortFundingRows(rows as FundingRow[]);
 
   // ---------------------------------------------------------------------------
   // Render
@@ -205,8 +185,8 @@ export function CrmFundingDashboardPage() {
                   const weekLabel = formatSubscriptionWeekLabel(week.weekStart);
                   const weekDateStr = utcToWibDateStr(week.weekStart);
                   const statusBadge =
-                    STATUS_BADGE[week.status] ?? "bg-gray-100 text-gray-500";
-                  const statusLabel = STATUS_LABEL[week.status] ?? week.status;
+                    FUNDING_STATUS_BADGE[week.status] ?? "bg-gray-100 text-gray-500";
+                  const statusLabel = FUNDING_STATUS_LABEL[week.status] ?? week.status;
                   const isInvoiced = week.status === "invoiced";
 
                   return (

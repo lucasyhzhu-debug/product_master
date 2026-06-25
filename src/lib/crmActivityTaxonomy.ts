@@ -3,20 +3,22 @@ import type { ActivityCategory } from "../../convex/lib/activityEvents";
 // ActivityType IS the visual key — a coarse category, one step up from EventType.
 export type ActivityType = ActivityCategory;
 
+// Direction lives on the backend (CATEGORY_DIRECTION in convex/lib/activityEvents.ts),
+// which owns the stamp written to customerActivity. The visual layer only needs
+// icon/color/label.
 export type ActivityVisual = {
   icon: string;
   colorClass: string;
   label: string;
-  direction?: "inbound" | "outbound" | "system";
 };
 
 export const ACTIVITY_TAXONOMY: Record<ActivityType, ActivityVisual> = {
-  order:     { icon: "📦", colorClass: "text-blue-500",   label: "Order",     direction: "system" },
-  finance:   { icon: "💳", colorClass: "text-green-500",  label: "Finance",   direction: "system" },
-  message:   { icon: "💬", colorClass: "text-violet-500", label: "Message",   direction: "outbound" },
-  document:  { icon: "📄", colorClass: "text-amber-500",  label: "Document",  direction: "inbound" },
-  schedule:  { icon: "📅", colorClass: "text-cyan-500",   label: "Schedule",  direction: "system" },
-  milestone: { icon: "🏁", colorClass: "text-rose-500",   label: "Milestone", direction: "system" },
+  order:     { icon: "📦", colorClass: "text-blue-500",   label: "Order" },
+  finance:   { icon: "💳", colorClass: "text-green-500",  label: "Finance" },
+  message:   { icon: "💬", colorClass: "text-violet-500", label: "Message" },
+  document:  { icon: "📄", colorClass: "text-amber-500",  label: "Document" },
+  schedule:  { icon: "📅", colorClass: "text-cyan-500",   label: "Schedule" },
+  milestone: { icon: "🏁", colorClass: "text-rose-500",   label: "Milestone" },
 };
 
 // Subtype icon overrides — layered on top of the category base visual.

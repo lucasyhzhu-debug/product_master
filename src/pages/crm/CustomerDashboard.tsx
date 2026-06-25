@@ -56,6 +56,7 @@ import { ContactLinks } from "@/components/crm/ContactLinks";
 import { DraftWhatsAppButton } from "@/components/crm/DraftWhatsAppButton";
 import { LinkableObject } from "@/components/crm/LinkableObject";
 import { CreditGauge } from "@/components/crm/CreditGauge";
+import type { CreditPoolShape } from "@/components/crm/CreditGauge";
 import { SubscriptionSelector } from "@/components/crm/SubscriptionSelector";
 import { DrawdownChart } from "@/components/crm/DrawdownChart";
 import { getErrorMessage } from "@/lib/utils";
@@ -95,13 +96,6 @@ type AgreementDoc = {
   _id: Id<"supplyAgreements">;
   customerId: Id<"customers">;
   status: string;
-};
-
-type CreditPoolShape = {
-  creditIssued: number;
-  creditConsumed: number;
-  creditRemaining: number;
-  creditExpired: number;
 };
 
 type WeekPool = {

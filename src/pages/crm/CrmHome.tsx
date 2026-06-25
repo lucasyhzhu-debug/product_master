@@ -36,6 +36,11 @@ import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
 import { DraftWhatsAppButton } from "@/components/crm/DraftWhatsAppButton";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
+import {
+  FUNDING_STATUS_BADGE,
+  FUNDING_STATUS_LABEL,
+  sortFundingRows,
+} from "@/lib/crmStatusBadges";
 
 // ---------------------------------------------------------------------------
 // Types mirroring query return shapes
@@ -67,30 +72,6 @@ type ActiveSubRow = {
   customerName: string | null;
   currentWeek: { weekStart: number; status: string } | null;
 };
-
-// ---------------------------------------------------------------------------
-// Status badge helpers — mirrored from CrmFundingDashboardPage
-// ---------------------------------------------------------------------------
-
-const STATUS_BADGE: Record<string, string> = {
-  confirmed: "bg-amber-100 text-amber-700",
-  invoiced: "bg-purple-100 text-purple-700",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  confirmed: "Needs invoice",
-  invoiced: "Awaiting payment",
-};
-
-// Sort: invoiced first, then by weekStart ascending.
-function sortFundingRows(rows: FundingRow[]): FundingRow[] {
-  return [...rows].sort((a, b) => {
-    const statusOrder = (s: string) => (s === "invoiced" ? 0 : 1);
-    const sd = statusOrder(a.week.status) - statusOrder(b.week.status);
-    if (sd !== 0) return sd;
-    return a.week.weekStart - b.week.weekStart;
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Sub-sections
@@ -136,8 +117,8 @@ function NeedsFundingSection({ rows }: { rows: FundingRow[] }) {
                   } = row;
                   const weekLabel = formatSubscriptionWeekLabel(week.weekStart);
                   const statusBadge =
-                    STATUS_BADGE[week.status] ?? "bg-gray-100 text-gray-500";
-                  const statusLabel = STATUS_LABEL[week.status] ?? week.status;
+                    FUNDING_STATUS_BADGE[week.status] ?? "bg-gray-100 text-gray-500";
+                  const statusLabel = FUNDING_STATUS_LABEL[week.status] ?? week.status;
                   const isInvoiced = week.status === "invoiced";
 
                   const weekPath = customerId
@@ -249,7 +230,7 @@ function ActiveSubscriptionsSection({ rows }: { rows: ActiveSubRow[] }) {
                   const subLabel = subscription.label ?? subscription._id.slice(-6);
                   const weekStatus = currentWeek?.status ?? null;
                   const weekBadge = weekStatus
-                    ? STATUS_BADGE[weekStatus] ?? "bg-gray-100 text-gray-500"
+                    ? FUNDING_STATUS_BADGE[weekStatus] ?? "bg-gray-100 text-gray-500"
                     : null;
 
                   return (

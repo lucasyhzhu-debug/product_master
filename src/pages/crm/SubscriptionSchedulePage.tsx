@@ -34,6 +34,7 @@ import { WeekCalendarGrid } from "@/components/crm/WeekCalendarGrid";
 import { WeekBackReferences } from "@/components/crm/WeekBackReferences";
 import type { LocalWeekPlan } from "@/components/crm/WeekCalendarGrid";
 import type { ScheduleLineLocal } from "@/components/crm/ProductLineEditor";
+import { WEEK_STATUS_BADGE } from "@/lib/crmStatusBadges";
 import { formatCurrency } from "@/lib/utils";
 import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 import { getErrorMessage } from "@/lib/utils";
@@ -43,18 +44,6 @@ import { getErrorMessage } from "@/lib/utils";
 // ---------------------------------------------------------------------------
 
 const DAY_MS = 86_400_000;
-
-
-/** Status badge colours */
-const STATUS_BADGE: Record<string, string> = {
-  planned: "bg-blue-100 text-blue-700",
-  confirmed: "bg-amber-100 text-amber-700",
-  invoiced: "bg-purple-100 text-purple-700",
-  paid: "bg-green-100 text-green-700",
-  delivering: "bg-teal-100 text-teal-700",
-  reconciled: "bg-gray-100 text-gray-600",
-  closed: "bg-gray-100 text-gray-500",
-};
 
 /**
  * Convert plannedDays from Convex into a LocalWeekPlan (7-element array indexed Mon→Sun).
@@ -200,7 +189,7 @@ export function SubscriptionSchedulePage() {
     0,
   );
 
-  const productOptions = (products ?? []).map((p) => ({
+  const productOptions = products.map((p) => ({
     _id: p._id,
     name: p.name,
   }));
@@ -299,7 +288,7 @@ export function SubscriptionSchedulePage() {
   // ---------------------------------------------------------------------------
   const weekLabel = formatSubscriptionWeekLabel(weekStartMs);
   const statusLabel = week?.status ?? "unseeded";
-  const statusClass = STATUS_BADGE[statusLabel] ?? "bg-gray-100 text-gray-500";
+  const statusClass = WEEK_STATUS_BADGE[statusLabel] ?? "bg-gray-100 text-gray-500";
 
   return (
     <div className="space-y-6">

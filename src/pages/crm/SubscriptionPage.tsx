@@ -40,6 +40,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
 import { CreditLedgerStatement } from "@/components/crm/CreditLedgerStatement";
+import type { LedgerStatementRow } from "@/components/crm/CreditLedgerStatement";
+import { WEEK_STATUS_BADGE } from "@/lib/crmStatusBadges";
 import { formatCurrency } from "@/lib/utils";
 import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
@@ -94,16 +96,6 @@ const STATUS_BADGE: Record<SubscriptionDoc["status"], string> = {
   active: "bg-green-100 text-green-700",
   terminating: "bg-amber-100 text-amber-700",
   ended: "bg-red-100 text-red-700",
-};
-
-const WEEK_STATUS_BADGE: Record<string, string> = {
-  planned: "bg-blue-100 text-blue-700",
-  confirmed: "bg-amber-100 text-amber-700",
-  invoiced: "bg-purple-100 text-purple-700",
-  paid: "bg-green-100 text-green-700",
-  delivering: "bg-indigo-100 text-indigo-700",
-  reconciled: "bg-teal-100 text-teal-700",
-  closed: "bg-gray-100 text-gray-600",
 };
 
 // ---------------------------------------------------------------------------
@@ -170,7 +162,7 @@ export function SubscriptionPage() {
     resolvedWeekId
       ? { subscriptionWeekId: resolvedWeekId as Id<"subscriptionWeeks"> }
       : "skip",
-  ) as { rows: import("@/components/crm/CreditLedgerStatement").LedgerStatementRow[] } | undefined;
+  ) as { rows: LedgerStatementRow[] } | undefined;
 
   // D12: loading guard.
   if (subscription === undefined) {
@@ -199,6 +191,9 @@ export function SubscriptionPage() {
 
   const customerIdTyped = customerId as Id<"customers">;
   const weekList = weeks ?? [];
+  // Week whose metadata + statement we show: the resolved week, falling back to
+  // the most-recent. undefined only when weekList is empty.
+  const selectedWeek = weekList.find((w) => w._id === resolvedWeekId) ?? weekList[0];
 
   return (
     <div className="p-6 space-y-6">
@@ -306,20 +301,17 @@ export function SubscriptionPage() {
           </div>
 
           {/* Show selected week metadata */}
-          {resolvedWeekId && weekList.length > 0 && (() => {
-            const w = weekList.find((x) => x._id === resolvedWeekId) ?? weekList[0];
-            return (
-              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                <span>{formatSubscriptionWeekLabel(w.weekStart)}</span>
-                <Badge className={`text-xs ${WEEK_STATUS_BADGE[w.status] ?? "bg-gray-100 text-gray-600"}`}>
-                  {w.status}
-                </Badge>
-                <span>Issued: {formatCurrency(w.creditIssued)}</span>
-                <span>Consumed: {formatCurrency(w.creditConsumed)}</span>
-                <span>Remaining: {formatCurrency(w.creditRemaining)}</span>
-              </div>
-            );
-          })()}
+          {weekList.length > 0 && selectedWeek && (
+            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+              <span>{formatSubscriptionWeekLabel(selectedWeek.weekStart)}</span>
+              <Badge className={`text-xs ${WEEK_STATUS_BADGE[selectedWeek.status] ?? "bg-gray-100 text-gray-600"}`}>
+                {selectedWeek.status}
+              </Badge>
+              <span>Issued: {formatCurrency(selectedWeek.creditIssued)}</span>
+              <span>Consumed: {formatCurrency(selectedWeek.creditConsumed)}</span>
+              <span>Remaining: {formatCurrency(selectedWeek.creditRemaining)}</span>
+            </div>
+          )}
         </CardHeader>
 
         <CardContent>
