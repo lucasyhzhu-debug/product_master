@@ -13,13 +13,11 @@ import schema from "../../schema";
 import type { Id } from "../../_generated/dataModel";
 
 // Function references via anyApi — used because convex/crm/customers.ts is not
-// yet in _generated/api.d.ts (codegen runs on `convex dev`). anyApi provides a
-// dynamic Proxy that produces valid function references for convex-test.
-const crmCustomersApi = anyApi.crm.customers as {
-  updateCustomerCrmFields: (typeof anyApi)["crm"]["customers"]["updateCustomerCrmFields"];
-  getCustomerRecord: (typeof anyApi)["crm"]["customers"]["getCustomerRecord"];
-  getCrmHomeActiveSubscriptions: (typeof anyApi)["crm"]["customers"]["getCrmHomeActiveSubscriptions"];
-};
+// yet in _generated/api.d.ts (codegen runs on `convex dev`). Each leaf of anyApi
+// is already assignable to FunctionReference, so we alias leaves directly.
+const updateCustomerCrmFieldsRef = anyApi.crm.customers.updateCustomerCrmFields;
+const getCustomerRecordRef = anyApi.crm.customers.getCustomerRecord;
+const getCrmHomeActiveSubscriptionsRef = anyApi.crm.customers.getCrmHomeActiveSubscriptions;
 
 const modules = import.meta.glob("/convex/**/*.ts");
 
@@ -68,7 +66,7 @@ describe("updateCustomerCrmFields", () => {
       ctx.db.insert("customers", { name: "Cafe Test", createdBy: "test" } as never),
     );
 
-    const returned = await t.mutation(crmCustomersApi.updateCustomerCrmFields, {
+    const returned = await t.mutation(updateCustomerCrmFieldsRef, {
       sessionId,
       customerId,
       whatsapp: "+628111000111",
@@ -88,7 +86,7 @@ describe("updateCustomerCrmFields", () => {
       ctx.db.insert("customers", { name: "Cafe Admin", createdBy: "test" } as never),
     );
 
-    await t.mutation(crmCustomersApi.updateCustomerCrmFields, {
+    await t.mutation(updateCustomerCrmFieldsRef, {
       sessionId,
       customerId,
       whatsapp: "+628222000222",
@@ -112,7 +110,7 @@ describe("updateCustomerCrmFields", () => {
     );
 
     // Only patch whatsapp; instagram + notes must be untouched.
-    await t.mutation(crmCustomersApi.updateCustomerCrmFields, {
+    await t.mutation(updateCustomerCrmFieldsRef, {
       sessionId,
       customerId,
       whatsapp: "+628333000333",
@@ -133,7 +131,7 @@ describe("updateCustomerCrmFields", () => {
     );
 
     await expect(
-      t.mutation(crmCustomersApi.updateCustomerCrmFields, {
+      t.mutation(updateCustomerCrmFieldsRef, {
         sessionId,
         customerId,
         whatsapp: "+629000000000",
@@ -278,7 +276,7 @@ describe("getCustomerRecord", () => {
         };
       });
 
-    const result = await t.query(crmCustomersApi.getCustomerRecord, {
+    const result = await t.query(getCustomerRecordRef, {
       sessionId,
       customerId,
     });
@@ -314,7 +312,7 @@ describe("getCustomerRecord", () => {
     );
     await t.run(async (ctx) => ctx.db.delete(realId));
 
-    const result = await t.query(crmCustomersApi.getCustomerRecord, {
+    const result = await t.query(getCustomerRecordRef, {
       sessionId,
       customerId: realId,
     });
@@ -330,7 +328,7 @@ describe("getCustomerRecord", () => {
     );
 
     await expect(
-      t.query(crmCustomersApi.getCustomerRecord, { sessionId, customerId }),
+      t.query(getCustomerRecordRef, { sessionId, customerId }),
     ).rejects.toThrow(/Unauthorized/);
   });
 });
@@ -379,7 +377,7 @@ describe("getCrmHomeActiveSubscriptions", () => {
       return { activeSub1: active1, endedSub: ended, customerId: cid };
     });
 
-    const result = await t.query(crmCustomersApi.getCrmHomeActiveSubscriptions, { sessionId });
+    const result = await t.query(getCrmHomeActiveSubscriptionsRef, { sessionId });
 
     // Only active subscription should appear.
     const ids = result.map((r: { subscription: { _id: string } }) => r.subscription._id);
@@ -400,7 +398,7 @@ describe("getCrmHomeActiveSubscriptions", () => {
     const { sessionId } = await createSession(t, "order_staff", "Staff Home");
 
     await expect(
-      t.query(crmCustomersApi.getCrmHomeActiveSubscriptions, { sessionId }),
+      t.query(getCrmHomeActiveSubscriptionsRef, { sessionId }),
     ).rejects.toThrow(/Unauthorized/);
   });
 });
