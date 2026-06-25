@@ -283,6 +283,8 @@ import type * as subscriptions_queries from "../subscriptions/queries.js";
 import type * as subscriptions_recognition from "../subscriptions/recognition.js";
 import type * as subscriptions_reconcile from "../subscriptions/reconcile.js";
 import type * as subscriptions_reconcileMath from "../subscriptions/reconcileMath.js";
+import type * as subscriptions_reminders_queries from "../subscriptions/reminders/queries.js";
+import type * as subscriptions_reminders_types from "../subscriptions/reminders/types.js";
 import type * as subscriptions_revenueGate from "../subscriptions/revenueGate.js";
 import type * as subscriptions_rollover from "../subscriptions/rollover.js";
 import type * as subscriptions_scheduleLine from "../subscriptions/scheduleLine.js";
@@ -304,6 +306,9 @@ import type * as telegram_salesSummary_salesSummaryFormat from "../telegram/sale
 import type * as telegram_salesSummary_salesSummaryQuery from "../telegram/salesSummary/salesSummaryQuery.js";
 import type * as telegram_salesSummary_sendSalesSummary from "../telegram/salesSummary/sendSalesSummary.js";
 import type * as telegram_sendPackList from "../telegram/sendPackList.js";
+import type * as telegram_subscriptionReminders_kinds from "../telegram/subscriptionReminders/kinds.js";
+import type * as telegram_subscriptionReminders_sendSubscriptionReminder from "../telegram/subscriptionReminders/sendSubscriptionReminder.js";
+import type * as telegram_subscriptionReminders_subscriptionRemindersFormat from "../telegram/subscriptionReminders/subscriptionRemindersFormat.js";
 import type * as telegram_webhook from "../telegram/webhook.js";
 import type * as vouchers_mutations from "../vouchers/mutations.js";
 import type * as vouchers_queries from "../vouchers/queries.js";
@@ -592,6 +597,8 @@ declare const fullApi: ApiFromModules<{
   "subscriptions/recognition": typeof subscriptions_recognition;
   "subscriptions/reconcile": typeof subscriptions_reconcile;
   "subscriptions/reconcileMath": typeof subscriptions_reconcileMath;
+  "subscriptions/reminders/queries": typeof subscriptions_reminders_queries;
+  "subscriptions/reminders/types": typeof subscriptions_reminders_types;
   "subscriptions/revenueGate": typeof subscriptions_revenueGate;
   "subscriptions/rollover": typeof subscriptions_rollover;
   "subscriptions/scheduleLine": typeof subscriptions_scheduleLine;
@@ -613,6 +620,9 @@ declare const fullApi: ApiFromModules<{
   "telegram/salesSummary/salesSummaryQuery": typeof telegram_salesSummary_salesSummaryQuery;
   "telegram/salesSummary/sendSalesSummary": typeof telegram_salesSummary_sendSalesSummary;
   "telegram/sendPackList": typeof telegram_sendPackList;
+  "telegram/subscriptionReminders/kinds": typeof telegram_subscriptionReminders_kinds;
+  "telegram/subscriptionReminders/sendSubscriptionReminder": typeof telegram_subscriptionReminders_sendSubscriptionReminder;
+  "telegram/subscriptionReminders/subscriptionRemindersFormat": typeof telegram_subscriptionReminders_subscriptionRemindersFormat;
   "telegram/webhook": typeof telegram_webhook;
   "vouchers/mutations": typeof vouchers_mutations;
   "vouchers/queries": typeof vouchers_queries;

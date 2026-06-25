@@ -98,4 +98,30 @@ crons.monthly(
   { cadence: "monthly" },
 );
 
+const subR = internal.telegram.subscriptionReminders.sendSubscriptionReminder;
+
+// 1 — confirm next week: Sun 17:00 WIB = Sun 10:00 UTC
+crons.weekly("subscription confirm next week", { dayOfWeek: "sunday", hourUTC: 10, minuteUTC: 0 }, subR.sendSubscriptionReminderResilient, { kind: "confirm-next-week" });
+crons.weekly("subscription confirm next week watchdog", { dayOfWeek: "sunday", hourUTC: 10, minuteUTC: 15 }, subR.watchdogSubscriptionReminder, { kind: "confirm-next-week" });
+
+// 2 — weekly invoice due: Mon 08:30 WIB = Mon 01:30 UTC (NOT 01:00 — clears monthly day-1 collision)
+crons.weekly("subscription invoice due", { dayOfWeek: "monday", hourUTC: 1, minuteUTC: 30 }, subR.sendSubscriptionReminderResilient, { kind: "invoice-due" });
+crons.weekly("subscription invoice due watchdog", { dayOfWeek: "monday", hourUTC: 1, minuteUTC: 45 }, subR.watchdogSubscriptionReminder, { kind: "invoice-due" });
+
+// 3 — today's deliveries: daily 07:05 WIB = 00:05 UTC (off the pack-list 00:00 convoy)
+crons.daily("subscription today deliveries", { hourUTC: 0, minuteUTC: 5 }, subR.sendSubscriptionReminderResilient, { kind: "today-deliveries" });
+crons.daily("subscription today deliveries watchdog", { hourUTC: 0, minuteUTC: 20 }, subR.watchdogSubscriptionReminder, { kind: "today-deliveries" });
+
+// 4 — change cutoff (tomorrow): daily 12:30 WIB = 05:30 UTC
+crons.daily("subscription change cutoff", { hourUTC: 5, minuteUTC: 30 }, subR.sendSubscriptionReminderResilient, { kind: "change-cutoff" });
+crons.daily("subscription change cutoff watchdog", { hourUTC: 5, minuteUTC: 45 }, subR.watchdogSubscriptionReminder, { kind: "change-cutoff" });
+
+// 5 — prior-week reconcile: Mon 09:00 WIB = Mon 02:00 UTC
+crons.weekly("subscription reconcile", { dayOfWeek: "monday", hourUTC: 2, minuteUTC: 0 }, subR.sendSubscriptionReminderResilient, { kind: "reconcile" });
+crons.weekly("subscription reconcile watchdog", { dayOfWeek: "monday", hourUTC: 2, minuteUTC: 15 }, subR.watchdogSubscriptionReminder, { kind: "reconcile" });
+
+// 6 — founders weekly delivery progress: daily 18:00 WIB = 11:00 UTC
+crons.daily("subscription delivery progress", { hourUTC: 11, minuteUTC: 0 }, subR.sendSubscriptionReminderResilient, { kind: "weekly-delivery-progress" });
+crons.daily("subscription delivery progress watchdog", { hourUTC: 11, minuteUTC: 15 }, subR.watchdogSubscriptionReminder, { kind: "weekly-delivery-progress" });
+
 export default crons;

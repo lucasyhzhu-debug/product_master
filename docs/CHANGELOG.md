@@ -29,6 +29,23 @@ After merging any code change, add a new entry with:
 - **R1 (recognition timing):** A split order's later Mark-delivered MAY or MAY NOT double-count recognition depending on when the split fires vs. the drawdown. Verify in UAT before relying on the Split path in production — see UAT checklist §5.
 - **R2 (stock/production regression):** Verify that Mark-delivered does not accidentally advance kitchen production states or deduct inventory.
 - **R3 (amend does not regenerate orders):** Amending a week adds a top-up invoice for the delta but does NOT create new per-day orders for the added quantity. Operator must handle fulfillment manually.
+## [Unreleased] — Subscription Telegram notification layer (Phase E Slice 1) — 2026-06-25
+
+**For the team:** Subscription operations now get automatic Telegram nudges — a `subscription-ops` group receives daily/weekly reminders (confirm next week's schedule, weekly invoices to create/mark-paid, today's deliveries per product, the change-cutoff window, and prior-week reconciliation), and a `founders` group gets a daily delivery-progress summary (pcs delivered vs the week's plan, per account). Outbound-only — the bot never acts on a reply, only posts. **Ship-dark:** nothing sends until an operator assigns each Telegram group via `/admin/telegram-chats` (each group must `/register@FrollieProBot` first); until then sends fail fast harmlessly.
+
+### Added
+- **2 Telegram roles** (`convex/telegram/config.ts`): `subscription-ops`, `founders` appended to `KNOWN_TELEGRAM_ROLES` (no env var — operator binds chats in the admin UI, per Pitfall #21).
+- **`ReminderKind` taxonomy + slot key** (`convex/telegram/subscriptionReminders/kinds.ts`, `convex/telegram/deliveryReceipts.ts`): 6 reminder kinds, `roleForKind` (exhaustive `Record`), and `subscriptionSlotKey(kind, nowMs)` (WIB-day keyed receipt slot — sender + watchdog compute the same key).
+- **6 read-only internal queries** (`convex/subscriptions/reminders/queries.ts` + `types.ts`): `getWeeksToConfirm`, `getWeeklyInvoicesDue`, `getTodaySubscriptionDeliveries`, `getDaysApproachingCutoff`, `getWeeksToReconcile`, `getWeeklyDeliveryProgress`. Read-only (no writes); integer IDR/pcs; delivered = `status === "Complete"`; amount-due = Σ `plannedDays[].items[].lineTotal`; reconcile lists only weeks whose delivery window has ended (`weekEnd < now`).
+- **6 pure HTML formatters** (`convex/telegram/subscriptionReminders/subscriptionRemindersFormat.ts`): per-kind Telegram messages with designed empty states; chunked to stay under Telegram's 4096-char limit with a partial-send breadcrumb (mirrors the sales-summary playbook).
+- **Send/resilient/watchdog triad** (`convex/telegram/subscriptionReminders/sendSubscriptionReminder.ts`): `internalAction`s reusing `cronRetry.ts` (transient retry, max 3) and `deliveryReceipts.ts` (receipt-gated, idempotent watchdog re-fire).
+- **12 crons** (`convex/crons.ts`): 6 primary + 6 watchdog, UTC-minute-unique (asserted by `convex/crons.test.ts`); `invoice-due` Mon 01:30/01:45 clears the monthly day-1 01:00 summary slot.
+
+### Notes
+- **No schema change.** Pure-additive; only DB write is a `telegramDeliveries` receipt.
+- **All functions are `internalQuery`/`internalAction`** (cron context, no token, no staff/public surface → no Pitfall #19 risk).
+- **PENDING (operator, post-merge):** assign the `subscription-ops` + `founders` Telegram groups via `/admin/telegram-chats`; live end-to-end delivery is only verifiable after assignment.
+- Slice 2 (rule enforcement: cutoff lock-flip, baseline-change apply, termination guard) is out of scope — charted in spec §10.
 
 ---
 
