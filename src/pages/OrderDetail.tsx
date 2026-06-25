@@ -123,7 +123,7 @@ export function OrderDetail() {
   // AFTER the loading early-return, so we guard on orderId only here (hooks-order: must be before any return).
   const creditStatus = useSessionQuery(
     api.subscriptions.queries.getOrderCreditStatus,
-    orderId ? { orderId } : 'skip',
+    isManagerOrAdmin && orderId ? { orderId } : 'skip',
   );
   const splitOrder = useSessionMutation(api.subscriptions.outOfCredit.splitScheduledOrderOnCredit);
   const applyCredit = useSessionMutation(api.subscriptions.outOfCredit.applyPartialCreditToAdHocOrder);

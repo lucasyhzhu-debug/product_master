@@ -175,7 +175,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   // Out-of-credit status + actions (subscription orders, manager/admin — T8)
   const creditStatus = useSessionQuery(
     api.subscriptions.queries.getOrderCreditStatus,
-    isSubscriptionOrder && orderId ? { orderId } : 'skip',
+    isManagerOrAdmin && isSubscriptionOrder && orderId ? { orderId } : 'skip',
   );
   const splitOrder = useSessionMutation(api.subscriptions.outOfCredit.splitScheduledOrderOnCredit);
   const applyCredit = useSessionMutation(api.subscriptions.outOfCredit.applyPartialCreditToAdHocOrder);
