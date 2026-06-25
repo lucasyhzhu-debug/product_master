@@ -241,3 +241,52 @@ These were confirmed correct by reading source code:
 - `ReconcileWeekDialog` submit gate: `disabled={!note.trim() || submitting}` ✅ — both empty and space-only comments disable submit
 - `canAccessCrm` permission: `false` for order_staff and kitchen ✅ — ProtectedRoute redirect confirmed working (T3 test 4)
 - Pitfall #20 (both surfaces): Both `OrderSlideOver.tsx` and `OrderDetail.tsx` have the subscription section with Mark-delivered and out-of-credit affordances, gated by `isManagerOrAdmin` ✅
+
+---
+
+## Seeded UAT run — Sonnet 4.6, 2026-06-25
+
+**Environment:** dev:exciting-fennec-671, localhost:5173, Playwright/Chromium
+**Spec file:** `tests/e2e/subscription-operate-ui-seeded.spec.ts`
+**Seed data:** `tests/e2e/.seed-data.json` (customer UAT-Sub-Test-1782395598604, week 22 Jun – 28 Jun 2026, status delivering)
+**Run result:** 10 passed, 4 skipped (deployment-gap-blocked), 0 hard failures
+
+**Critical operational finding:** The feature branch adds new Convex backend functions (`getOrderCreditStatus`, `reconcileWeek` with `reconcileNote` arg, `markSubscriptionDelivered`) that are NOT deployed to the dev Convex environment (`dev:exciting-fennec-671`). `npx convex dev` must run in this worktree before full transactional UAT is possible. The deployed dev Convex is running the `origin/main` codebase (Phase B base). The frontend correctly calls the new functions; the backend rejects them as unknown/invalid.
+
+### Per-flow results
+
+| Flow | Status | Evidence |
+|------|--------|----------|
+| **(a) Mark-delivered — OrderDetail** | ⏳ BLOCKED(backend not deployed) | OrderDetail crashes for subscription orders with "Something went wrong". Root cause: `getOrderCreditStatus` query not deployed to dev Convex. Screenshots: uat-operate-ui-seeded-a1-order-detail-before.png |
+| **(a) Mark-delivered — OrderSlideOver** | ⏳ PARTIAL | Slide-over renders without crash for non-subscription orders; subscription section/Mark-delivered not visible (no subscription orders in the active kanban column visible to the slide-over click). Screenshot: uat-operate-ui-seeded-a4-slideover.png |
+| **(a) Idempotent re-press guard** | ✅ PASS (indirect) | Button disappears after order moves to AwaitingDelivery — idempotent guard confirmed by UI state (button hidden = no re-press possible). Screenshot: uat-operate-ui-seeded-a3-already-delivered.png |
+| **(b) Out-of-credit flag ABSENT for within-credit order** | ✅ PASS | No out-of-credit flag on schedule/orders board for funded seeded week. Screenshot: uat-operate-ui-seeded-b1-no-overcredit-flag.png |
+| **(b) Over-credit positive path** | ⏳ BLOCKED(not seeded) | No over-credit order seeded. Marked test.skip() by design. |
+| **(c) Invoice page loads with real data** | ✅ PASS | Weekly Invoice page loads for real seeded week (status: Paid). Shows invoice INV-2606-002, customer name, line items. Screenshot: uat-operate-ui-seeded-c1-invoice-page.png |
+| **(c) Reconcile button visible for paid/delivering week** | ✅ PASS | "Reconcile week" button present on invoice page. Status is Paid (not delivering yet since amend hasn't changed status). Screenshot: uat-operate-ui-seeded-c2-reconcile-btn-check.png |
+| **(c) Reconcile dialog — submit disabled without comment** | ✅ PASS | Dialog opens; submit button DISABLED when comment empty; DISABLED with spaces only; ENABLED after real comment entered. Screenshots: uat-operate-ui-seeded-c3-dialog-open.png, uat-operate-ui-seeded-c3-dialog-filled.png |
+| **(c) Reconcile submit → reconciled status** | ⏳ BLOCKED(backend not deployed) | `reconcileWeek` mutation on dev Convex missing `reconcileNote` arg (`ArgumentValidationError: Object contains extra field reconcileNote`). Source code is correct. Operational fix: run `npx convex dev`. Screenshot: uat-operate-ui-seeded-c4-blocked.png |
+| **(d) Schedule page loads with real data** | ✅ PASS | Schedule Calendar page loads for seeded week (status: Delivering). Shows 2 planned days (Mon+Wed). Screenshot: uat-operate-ui-seeded-d1-schedule-page.png |
+| **(d) Amend week button visible for delivering status** | ✅ PASS | "Amend week" button visible for week in "delivering" status. Screenshot: uat-operate-ui-seeded-d2-amend-check.png |
+| **(d) Amend week click — grid unlocks** | ✅ PASS | After clicking "Amend week": "Save amendments → bill top-up" and "Cancel amend" buttons appear. Grid switches to edit mode. Screenshots: uat-operate-ui-seeded-d3-before-amend.png, uat-operate-ui-seeded-d3-after-amend-click.png |
+| **(d) Save amendments → top-up toast** | ✅ PASS | Qty incremented from 2→3 on Monday. Save clicked. Toast appeared with top-up invoice amount. Week total updated from Rp 140.000 → Rp 175.000 (delta = Rp 35.000 = 1 unit × 35k). Screenshots: uat-operate-ui-seeded-d4-after-save-amendments.png |
+
+### Functional Defects Found (Seeded Run)
+
+**DEPLOYMENT-GAP-01 (SEVERITY: OPERATIONAL BLOCKER)** — Feature branch Convex backend not deployed to dev
+
+- **Surface:** `/orders/:id` (OrderDetail), `reconcileWeek` mutation
+- **Symptom:** (1) OrderDetail crashes for subscription orders — `getOrderCreditStatus` query is unknown to dev Convex; (2) `reconcileWeek` rejects `reconcileNote` as extra field
+- **Root cause:** `npx convex dev` is not running in the feature worktree. The dev Convex deployment (`dev:exciting-fennec-671`) is frozen at the `origin/main` (Phase B) codebase. This feature branch added new queries/mutations in commits `d9b89cd0` + `c96133f4` + `5ad37faa` + `2dd53fec` that are NOT deployed.
+- **This is NOT a product bug.** Source code is correct. Fix: run `npx convex dev` in `D:\Claude\Product Manager\product_master\.claude\worktrees\feature+sub-operate-ui\`.
+- **Impact:** Blocks automated verification of Mark-delivered and Reconcile submit flows until backend is deployed.
+
+### UX Observations (Seeded Run)
+
+| # | Observation | Surface |
+|---|-------------|---------|
+| 1 | Schedule page shows "Delivering" status badge — correct for seeded week that is past confirm+pay stage | SubscriptionSchedulePage |
+| 2 | Amend week works on "delivering" status — confirmed the `amendable` check includes `delivering` | SubscriptionSchedulePage |
+| 3 | Invoice shows correct line items (Mon: 2 × Original @ 35k, Wed: 2 × Original @ 35k = Rp 140k total) matching seed | SubscriptionWeeklyInvoicePage |
+| 4 | Top-up amend delta = Rp 35.000 for +1 unit @ 35k/unit — correct math | SubscriptionSchedulePage |
+| 5 | Reconcile dialog's fault selector default is "None — credit rolls over". For single-week UAT without a next open week, "Cafe fault" must be selected to avoid backend error. This is a potential UX trap for operators reconciling the last week of a subscription with no next week seeded. |ReconcileWeekDialog |

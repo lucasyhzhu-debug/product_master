@@ -89,6 +89,7 @@ nul
 # =============================================================================
 scripts/debug-screenshots/
 scripts/.gobiz_creds.json
+tests/e2e/.seed-data.json
 prod-snapshot*.zip
 prod-snapshot-work/
 
