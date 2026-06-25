@@ -280,7 +280,9 @@ import { describe, it, expect } from "vitest";
 import { convexTest } from "convex-test";
 import schema from "../../../schema";
 import { internal } from "../../../_generated/api";
-import { modules } from "../../../test.setup"; // existing convex-test module glob (confirm path; see convex/subscriptions/__tests__)
+// Project convex-test pattern (see convex/consignment/__tests__, convex/migrations/__tests__):
+// in-file glob, passed as the 2nd convexTest arg so cross-module ctx.db reads resolve.
+const modules = import.meta.glob("../../**/*.ts");
 
 // Helper: seed one active subscription + a current "delivering" week with a multi-product day,
 // one of whose products is later deleted (EC6); plus delivered + non-delivered + other-week orders.
@@ -364,7 +366,10 @@ export const getWeeksToConfirm = internalQuery({
   },
 });
 
-// Kind 2 — confirmed/invoiced & unpaid weeks (amountDue from the week's credit issue).
+// Kind 2 — confirmed/invoiced & unpaid weeks.
+// amountDue = Σ plannedDays[].items[].lineTotal (the invoice total `createSubscriptionWeeklyInvoice`
+// builds). NOT `w.creditIssued`: in the deferred-revenue model credit is issued only at payment, so a
+// confirmed-but-unpaid week has creditIssued = 0 (verified vs invoicing.ts createSubscriptionWeeklyInvoice).
 export const getWeeklyInvoicesDue = internalQuery({
   args: {},
   handler: async (ctx): Promise<InvoiceDueRow[]> => {
@@ -375,7 +380,10 @@ export const getWeeklyInvoicesDue = internalQuery({
         if (w.paymentReceivedAt) continue; // already paid
         const sub = await ctx.db.get(w.subscriptionId);
         if (!sub || sub.status !== "active") continue;
-        out.push({ account: sub.label, weekStart: w.weekStart, amountDue: w.creditIssued, weekStatus: w.status });
+        const amountDue = w.plannedDays.reduce(
+          (s, pd) => s + pd.items.reduce((d, it) => d + it.lineTotal, 0), 0,
+        );
+        out.push({ account: sub.label, weekStart: w.weekStart, amountDue, weekStatus: w.status });
       }
     }
     return out;
@@ -476,7 +484,10 @@ export const getWeeklyDeliveryProgress = internalQuery({
 });
 ```
 
-> **Plan-time verifications (from spec Q-week-link / EC5):** (1) confirm `orders` carries `subscriptionWeekId` populated by Phase B order-gen — if not, switch kind 6 to `orders.by_subscription` + a `weekStart..weekEnd` window filter. (2) confirm `subscriptionWeeks.creditIssued` is the right "amount due" figure for kind 2 (else read the linked `weeklyInvoiceId` invoice total). Resolve both against merged B before Step 3; adjust the query bodies accordingly.
+> **Plan-time verifications — RESOLVED at plan-staffreview against merged B:**
+> (1) **Q-week-link — confirmed:** `convex/subscriptions/scheduling/confirmWeek.ts:73-74` inserts subscription orders with both `subscriptionId` and `subscriptionWeekId`, so kind 6's `orders.by_subscriptionWeek(week._id)` read is valid (no fallback needed).
+> (2) **kind-2 amount due — fixed:** `createSubscriptionWeeklyInvoice` (invoicing.ts:111) builds the invoice from `Σ plannedDays[].items[].lineTotal`; `creditIssued` is 0 until payment (deferred-revenue). The query above computes `amountDue` from `plannedDays[].items[].lineTotal` accordingly.
+> (3) **EC5 snapshot price — confirmed:** `plannedDays[].items[].unitPrice`/`lineTotal` are frozen on the week at confirm (they're stored array fields, not re-derived), so reading them is the snapshot.
 
 - [ ] **Step 4: Run tests → PASS** (`npx vitest run convex/subscriptions/reminders/__tests__/queries.test.ts`). Run `npx convex codegen` locally so `internal.subscriptions.reminders.queries.*` resolves; do NOT commit `_generated/` yet.
 
@@ -525,6 +536,13 @@ describe("formatWeeklyDeliveryProgress", () => {
   it("renders an explicit empty state when no active accounts", () => {
     expect(formatWeeklyDeliveryProgress([])).toMatch(/no active/i);
   });
+  it("renders the WIB date with a 1-indexed month (June = 06, not 05)", () => {
+    // weekStart = 2026-06-22 00:00 WIB (Date.UTC month index 5 = June).
+    const html = formatWeeklyDeliveryProgress([
+      { account: "X", weekStart: Date.UTC(2026,5,21,17,0), weekPlannedPcs: 7, deliveredPcs: 0, remaining: 7, overBy: 0 },
+    ]);
+    expect(html).toContain("22/06/26"); // guards the getWibComponents 0-indexed-month off-by-one
+  });
 });
 
 describe("formatTodayDeliveries", () => {
@@ -563,8 +581,9 @@ import { getWibComponents } from "../../lib/periodRange";
 
 function fmtIDR(n: number): string { return "Rp " + Math.round(n).toLocaleString("en-US"); }
 function fmtDate(ms: number): string {
+  // getWibComponents.month is 0-indexed (periodRange.ts:35) → +1 for display.
   const { year, month, day } = getWibComponents(ms);
-  return `${String(day).padStart(2,"0")}/${String(month).padStart(2,"0")}/${String(year).slice(-2)}`;
+  return `${String(day).padStart(2,"0")}/${String(month + 1).padStart(2,"0")}/${String(year).slice(-2)}`;
 }
 
 export function formatConfirmReminder(rows: ConfirmRow[]): string {
