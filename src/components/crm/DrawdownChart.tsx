@@ -43,7 +43,7 @@ import type { DrawdownPoint } from "../../../convex/crm/helpers/drawdownSeries";
 
 // ---------------------------------------------------------------------------
 // Day label formatter (epoch ms → short weekday, e.g. "Mon")
-// Dates represent WIB midnight (UTC+7); UTC day resolves to correct WIB day.
+// Dates are stored as UTC midnight by the backend; getUTCDay() resolves the correct weekday.
 // ---------------------------------------------------------------------------
 
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;

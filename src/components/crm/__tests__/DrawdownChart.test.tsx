@@ -419,6 +419,35 @@ describe("DrawdownChart — query arg changes when subscriptionId prop changes",
 });
 
 // ---------------------------------------------------------------------------
+// DrawdownChart — today-divider ReferenceLine
+// ---------------------------------------------------------------------------
+
+describe("DrawdownChart — today-divider reference line (C9)", () => {
+  it("shows today-divider ReferenceLine when week has past AND future points", () => {
+    // SERIES_WITH_DATA contains [PAST_POINT(isPast:true), FUTURE_POINT(isPast:false)]
+    mockQueryReturnValue = SERIES_WITH_DATA;
+    renderChart({});
+    expect(screen.getByTestId("today-reference-line")).toBeInTheDocument();
+  });
+
+  it("does NOT show today-divider when all points are past (no future days)", () => {
+    const ALL_PAST_SERIES = {
+      ...SERIES_WITH_DATA,
+      series: {
+        points: [
+          PAST_POINT,
+          { ...PAST_POINT, date: 1_750_723_200_000 }, // Tue — also past
+        ],
+        leftoverFlag: false,
+      },
+    };
+    mockQueryReturnValue = ALL_PAST_SERIES;
+    renderChart({});
+    expect(screen.queryByTestId("today-reference-line")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // SubscriptionSelector tests
 // ---------------------------------------------------------------------------
 
