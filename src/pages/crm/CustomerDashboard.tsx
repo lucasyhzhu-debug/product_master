@@ -485,9 +485,9 @@ function FinancialPane({
         </section>
       )}
 
-      {/* Activity timeline — coming in D2 (T22); rendered via LinkableObject per spec */}
+      {/* Activity timeline — T22 */}
       <section aria-label="Activity timeline" className="pt-1">
-        <LinkableObject to={null} comingIn="D2">
+        <LinkableObject to={`/crm/customers/${customerId}/activity`}>
           View activity timeline →
         </LinkableObject>
       </section>

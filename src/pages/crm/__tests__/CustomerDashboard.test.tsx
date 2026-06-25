@@ -269,11 +269,16 @@ describe("CustomerDashboard — empty subscriptions", () => {
 });
 
 describe("CustomerDashboard — activity timeline affordance", () => {
-  it("renders 'View activity timeline' text with coming-in-D2 pill", () => {
+  it("renders 'View activity timeline' as a real link (T22 wired)", () => {
     mockQueryReturnValue = (CUSTOMER_RECORD);
     renderPage();
     expect(screen.getByText(/View activity timeline/i)).toBeInTheDocument();
-    expect(screen.getByText(/coming in D2/i)).toBeInTheDocument();
+    // T22 is shipped — LinkableObject renders as a real <a> link now
+    const allLinks = screen.getAllByRole("link");
+    const activityLink = allLinks.find((a) =>
+      (a as HTMLAnchorElement).href.includes("/activity"),
+    );
+    expect(activityLink).toBeTruthy();
   });
 });
 

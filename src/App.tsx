@@ -204,6 +204,10 @@ const AgreementPage = lazyWithPreload(() =>
 const SubscriptionPage = lazyWithPreload(() =>
   import('./pages/crm/SubscriptionPage').then(m => ({ default: m.SubscriptionPage }))
 );
+// Phase D: /crm/customers/:customerId/activity — customer activity timeline (T22)
+const CustomerActivityPage = lazyWithPreload(() =>
+  import('./pages/crm/CustomerActivityPage').then(m => ({ default: m.CustomerActivityPage }))
+);
 
 function App() {
   return (
@@ -769,6 +773,15 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessCrm">
                         <SubscriptionPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase D — Customer activity timeline (T22) (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/activity"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <CustomerActivityPage />
                       </ProtectedRoute>
                     }
                   />
