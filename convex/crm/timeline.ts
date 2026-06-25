@@ -135,13 +135,14 @@ export const getCustomerTimeline = protectedQuery({
 
     // Bounded fan-out: fetch ledger entries per subscription (a customer has few subs),
     // parallelized across subs. Business date: _creationTime (no explicit timestamp
-    // field on creditLedger). by_subscription_creationTime bounds each per-sub fetch
-    // to the sinceDays window (C9). Topup entries are the only type shown in the timeline.
+    // field on creditLedger). The existing by_subscription index (["subscriptionId"])
+    // auto-appends _creationTime, so it bounds each per-sub fetch to the sinceDays
+    // window (C9). Topup entries are the only type shown in the timeline.
     const ledgerBySub = await Promise.all(
       subscriptions.map(async (sub) => {
         const entries = await ctx.db
           .query("creditLedger")
-          .withIndex("by_subscription_creationTime", (q) =>
+          .withIndex("by_subscription", (q) =>
             q.eq("subscriptionId", sub._id).gte("_creationTime", cutoff),
           )
           .collect();
