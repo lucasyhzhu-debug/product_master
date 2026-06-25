@@ -10,19 +10,8 @@
 import { v } from "convex/values";
 import { protectedMutation, protectedQuery } from "../lib/functions";
 import { buildCustomerTimeline, type TimelineItem } from "./helpers/timelineMerge";
-import { eventTypeToCategory, type ActivityCategory } from "../lib/activityEvents";
+import { eventTypeToCategory, CATEGORY_DIRECTION, type ActivityCategory } from "../lib/activityEvents";
 import type { Id } from "../_generated/dataModel";
-
-// Direction per activity category — mirrors ACTIVITY_TAXONOMY in src/lib/crmActivityTaxonomy.ts.
-// Kept here (backend) to avoid importing from src/ in Convex functions.
-const CATEGORY_DIRECTION: Record<ActivityCategory, "inbound" | "outbound" | "system"> = {
-  order:     "system",
-  finance:   "system",
-  message:   "outbound",
-  document:  "inbound",
-  schedule:  "system",
-  milestone: "system",
-};
 
 // ---------------------------------------------------------------------------
 // T19: logCustomerInteraction
@@ -81,8 +70,6 @@ export const getCustomerTimeline = protectedQuery({
     sinceDays:  v.optional(v.number()), // default 14
     // types: in-memory category filter — post-scan (documented; audit #7/B8).
     types:      v.optional(v.array(v.string())),
-    // cursor reserved for future pagination — not yet implemented (windowed approach)
-    cursor:     v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const sinceDays = args.sinceDays ?? 14;
@@ -120,6 +107,12 @@ export const getCustomerTimeline = protectedQuery({
     // Business date: generatedAt (timeline event: invoice_sent). Optional in schema
     // but always set for subscription invoices. Invoices without generatedAt are
     // excluded by the gte bound (undefined sorts below any number in Convex index).
+    //
+    // KNOWN LIMITATION (audit I5): this window is keyed on generatedAt, but the
+    // payment_funded event below emits at inv.updatedAt. An invoice generated BEFORE
+    // the window but paid INSIDE it is dropped (never fetched), so its payment_funded
+    // event won't appear. A structural fix needs a dedicated paidAt field to window on
+    // — out of scope here.
     // -------------------------------------------------------------------
     const invoices = await ctx.db
       .query("invoices")
@@ -195,10 +188,12 @@ export const getCustomerTimeline = protectedQuery({
     // Batch resolve actor names (one ctx.db.get per distinct user id).
     // -------------------------------------------------------------------
     const actorMap = new Map<string, string>();
-    for (const uid of actorIds) {
-      const user = await ctx.db.get(uid);
-      if (user) actorMap.set(uid, user.name);
-    }
+    await Promise.all(
+      Array.from(actorIds).map(async (uid) => {
+        const u = await ctx.db.get(uid);
+        if (u) actorMap.set(uid, u.name);
+      }),
+    );
 
     // -------------------------------------------------------------------
     // Project derived domain rows into TimelineItem[]
@@ -254,6 +249,8 @@ export const getCustomerTimeline = protectedQuery({
           title:     `Invoice ${inv.invoiceNumber ?? inv.orderNumber} paid`,
           detail:    `${inv.finalTotal.toLocaleString("id-ID")} IDR`,
           linkTo:    { kind: "invoice", id: inv._id },
+          // Drives the SUBTYPE_ICON "funded" (✓) override in getActivityVisual.
+          subtype:   "funded",
         });
       }
     }
@@ -348,6 +345,11 @@ export const getCustomerTimeline = protectedQuery({
       title:     row.summary ?? row.type,
       detail:    row.note ?? "",
       linkTo:    { kind: "activity", id: row._id },
+      // Pass the stored subtype through so SUBTYPE_ICON overrides (e.g. "reconcile")
+      // surface for logged rows. NOTE: week_reconciled is not currently emitted as a
+      // DERIVED event (no producer), so the "reconcile" override only lands via this
+      // logged-row passthrough today.
+      subtype:   row.subtype,
     }));
 
     // -------------------------------------------------------------------
@@ -355,7 +357,12 @@ export const getCustomerTimeline = protectedQuery({
     // types filter is in-memory post-scan (documented; B8 — facets are
     // server-side indexed fields, but category is derived from eventType).
     // -------------------------------------------------------------------
-    const typesFilter = args.types as ActivityCategory[] | undefined;
+    // Narrow the requested categories to KNOWN ActivityCategory values so an unknown
+    // string (e.g. a typo or stale client) can't silently empty the feed via a filter
+    // that matches nothing.
+    const typesFilter = args.types?.filter((t): t is ActivityCategory =>
+      (["order", "finance", "message", "document", "schedule", "milestone"] as string[]).includes(t),
+    );
 
     const { items } = buildCustomerTimeline(derived, loggedItems, {
       sinceDays,

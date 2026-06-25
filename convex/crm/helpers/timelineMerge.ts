@@ -10,6 +10,8 @@ export type TimelineItem = {
   title: string;
   detail: string;
   linkTo: { kind: string; id: string };
+  /** Optional subtype that drives a SUBTYPE_ICON override (e.g. "funded", "reconcile"). */
+  subtype?: string;
 };
 
 type BuildOptions = {

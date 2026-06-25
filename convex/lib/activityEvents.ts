@@ -35,3 +35,16 @@ const EVENT_CATEGORY: Record<EventType, ActivityCategory> = {
 export function eventTypeToCategory(eventType: EventType): ActivityCategory {
   return EVENT_CATEGORY[eventType];
 }
+
+// Direction per activity category — single source shared with the backend stamp in
+// convex/crm/timeline.ts (logCustomerInteraction). Mirrors the visual direction in
+// src/lib/crmActivityTaxonomy.ts (ACTIVITY_TAXONOMY); kept here (pure, no server imports)
+// so backend functions don't re-declare a divergent copy.
+export const CATEGORY_DIRECTION: Record<ActivityCategory, "inbound" | "outbound" | "system"> = {
+  order:     "system",
+  finance:   "system",
+  message:   "outbound",
+  document:  "inbound",
+  schedule:  "system",
+  milestone: "system",
+};
