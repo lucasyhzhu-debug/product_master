@@ -196,6 +196,10 @@ const CrmFundingDashboardPage = lazyWithPreload(() =>
 const CustomerDashboard = lazyWithPreload(() =>
   import('./pages/crm/CustomerDashboard').then(m => ({ default: m.CustomerDashboard }))
 );
+// Phase D: /crm/customers/:customerId/agreements — agreement page (T15)
+const AgreementPage = lazyWithPreload(() =>
+  import('./pages/crm/AgreementPage').then(m => ({ default: m.AgreementPage }))
+);
 
 function App() {
   return (
@@ -743,6 +747,15 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessCrm">
                         <CustomerDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Phase D — Agreement page (T15) (manager + admin) */}
+                  <Route
+                    path="crm/customers/:customerId/agreements"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <AgreementPage />
                       </ProtectedRoute>
                     }
                   />
