@@ -390,6 +390,73 @@ describe("linkAgreementToSubscription", () => {
       }),
     ).rejects.toThrow(/Unauthorized/);
   });
+
+  it("throws ConvexError when agreementId doesn't exist", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId, userId } = await createSession(t, "manager", "Mgr LinkBadAg");
+
+    // Create a real subscription and a real agreement, then delete the agreement.
+    const customerId = await t.run(async (ctx) =>
+      ctx.db.insert("customers", { name: "Cafe BadAg", createdBy: "test" } as never),
+    );
+    const subscriptionId = await t.run(async (ctx) =>
+      ctx.db.insert("subscriptions", {
+        ...SUB_DEFAULTS,
+        customerId,
+        status: "active",
+        createdBy: userId,
+      } as never),
+    );
+    const fileStorageId = await createStorageId(t);
+    const agreementId = await t.mutation(createSupplyAgreementRef, {
+      sessionId,
+      customerId,
+      fileStorageId,
+      fileName: "gone.pdf",
+      fileSize: 100,
+      status: "draft",
+      lang: "id",
+    });
+    await t.run(async (ctx) => ctx.db.delete(agreementId));
+
+    await expect(
+      t.mutation(linkAgreementToSubscriptionRef, { sessionId, agreementId, subscriptionId }),
+    ).rejects.toThrow(/Agreement not found/);
+  });
+
+  it("throws ConvexError when subscriptionId doesn't exist", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId, userId } = await createSession(t, "manager", "Mgr LinkBadSub");
+
+    const customerId = await t.run(async (ctx) =>
+      ctx.db.insert("customers", { name: "Cafe BadSub", createdBy: "test" } as never),
+    );
+    const fileStorageId = await createStorageId(t);
+    const agreementId = await t.mutation(createSupplyAgreementRef, {
+      sessionId,
+      customerId,
+      fileStorageId,
+      fileName: "ok.pdf",
+      fileSize: 100,
+      status: "draft",
+      lang: "id",
+    });
+
+    // Create a subscription then delete it so the id is stale.
+    const subscriptionId = await t.run(async (ctx) =>
+      ctx.db.insert("subscriptions", {
+        ...SUB_DEFAULTS,
+        customerId,
+        status: "active",
+        createdBy: userId,
+      } as never),
+    );
+    await t.run(async (ctx) => ctx.db.delete(subscriptionId));
+
+    await expect(
+      t.mutation(linkAgreementToSubscriptionRef, { sessionId, agreementId, subscriptionId }),
+    ).rejects.toThrow(/Subscription not found/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -399,7 +466,7 @@ describe("linkAgreementToSubscription", () => {
 describe("getAgreement", () => {
   it("returns the agreement doc for manager", async () => {
     const t = convexTest(schema, modules);
-    const { sessionId, userId } = await createSession(t, "manager", "Mgr Get");
+    const { sessionId } = await createSession(t, "manager", "Mgr Get");
     const fileStorageId = await createStorageId(t);
     const customerId = await t.run(async (ctx) =>
       ctx.db.insert("customers", { name: "Cafe Get", createdBy: "test" } as never),
@@ -424,7 +491,7 @@ describe("getAgreement", () => {
 
   it("returns null for a deleted agreement", async () => {
     const t = convexTest(schema, modules);
-    const { sessionId, userId } = await createSession(t, "admin", "Admin Get");
+    const { sessionId } = await createSession(t, "admin", "Admin Get");
     const fileStorageId = await createStorageId(t);
     const customerId = await t.run(async (ctx) =>
       ctx.db.insert("customers", { name: "Cafe GetNull", createdBy: "test" } as never),
@@ -447,7 +514,7 @@ describe("getAgreement", () => {
 
   it("order_staff → Unauthorized", async () => {
     const t = convexTest(schema, modules);
-    const { sessionId: managerSession, userId } = await createSession(t, "manager", "Mgr For Get");
+    const { sessionId: managerSession } = await createSession(t, "manager", "Mgr For Get");
     const { sessionId: staffSession } = await createSession(t, "order_staff", "Staff Get");
     const fileStorageId = await createStorageId(t);
     const customerId = await t.run(async (ctx) =>
@@ -477,7 +544,7 @@ describe("getAgreement", () => {
 describe("listAgreementsByCustomer", () => {
   it("returns all agreements for a customer via by_customer index", async () => {
     const t = convexTest(schema, modules);
-    const { sessionId, userId } = await createSession(t, "manager", "Mgr List");
+    const { sessionId } = await createSession(t, "manager", "Mgr List");
     const fileStorageId1 = await createStorageId(t);
     const fileStorageId2 = await createStorageId(t);
     const otherStorageId = await createStorageId(t);

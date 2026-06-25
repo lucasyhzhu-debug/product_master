@@ -12,7 +12,7 @@
  * Auth: manager + admin only on all 6 functions (Pitfall #19).
  */
 
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { protectedMutation, protectedQuery } from "../lib/functions";
 
 // ---------------------------------------------------------------------------
@@ -94,7 +94,7 @@ export const addAgreementVersion = protectedMutation({
   },
   handler: async (ctx, args) => {
     const agreement = await ctx.db.get(args.agreementId);
-    if (!agreement) throw new Error(`Agreement not found: ${args.agreementId}`);
+    if (!agreement) throw new ConvexError(`Agreement not found: ${args.agreementId}`);
 
     const existing = agreement.versions ?? [];
     await ctx.db.patch(args.agreementId, {
@@ -123,6 +123,11 @@ export const linkAgreementToSubscription = protectedMutation({
     subscriptionId: v.id("subscriptions"),
   },
   handler: async (ctx, args) => {
+    const agreement = await ctx.db.get(args.agreementId);
+    if (!agreement) throw new ConvexError(`Agreement not found: ${args.agreementId}`);
+    const subscription = await ctx.db.get(args.subscriptionId);
+    if (!subscription) throw new ConvexError(`Subscription not found: ${args.subscriptionId}`);
+
     await ctx.db.patch(args.agreementId, { subscriptionId: args.subscriptionId });
     await ctx.db.patch(args.subscriptionId, { agreementId: args.agreementId });
   },
