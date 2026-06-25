@@ -27,7 +27,7 @@
  */
 
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CalendarDays, CreditCard, FileText } from "lucide-react";
 import { useSessionQuery } from "convex-helpers/react/sessions";
 
@@ -143,8 +143,12 @@ export function SubscriptionPage() {
     subId: string;
   }>();
 
-  // Week selector state — holds the _id of the selected week.
-  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
+  // Honour ?weekId= from URL (e.g. week-entry back-links from CreditLedgerStatement).
+  const [searchParams] = useSearchParams();
+  const weekIdFromParam = searchParams.get("weekId");
+
+  // Week selector state — initialised from ?weekId if present, otherwise null (→ weeks[0]).
+  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(weekIdFromParam);
 
   // All hooks before any early returns (Pitfall #9).
   const subscription = useSessionQuery(

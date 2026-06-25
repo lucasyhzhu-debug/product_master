@@ -5,7 +5,7 @@
  *
  * CRM design principles:
  *   A1: per-entry links are real links (order → /orders/:id, invoice → /invoices/:id,
- *       week → /crm/customers/:customerId/subscriptions/:subId/week?weekStart=).
+ *       week → /crm/customers/:customerId/subscriptions/:subId?weekId=:weekId).
  *   C9: compact table; progressive disclosure via note column.
  *   C10: balanceAfter is week-scoped (resets per week) — label it clearly; do NOT present
  *        as subscription-lifetime balance.
@@ -19,7 +19,6 @@ import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
-import { utcToWibDateStr } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Types — mirror LedgerStatementRow from convex/crm/helpers/ledgerStatement.ts
@@ -55,10 +54,9 @@ interface EntryLinkProps {
   link: LedgerStatementRow["link"];
   customerId: string;
   subscriptionId: string;
-  weekStart?: number;
 }
 
-function EntryLink({ link, customerId, subscriptionId, weekStart }: EntryLinkProps) {
+function EntryLink({ link, customerId, subscriptionId }: EntryLinkProps) {
   if (!link.kind || !link.id) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
@@ -73,9 +71,9 @@ function EntryLink({ link, customerId, subscriptionId, weekStart }: EntryLinkPro
     to = `/invoices/${link.id}`;
     label = `Invoice ···${link.id.slice(-6)}`;
   } else if (link.kind === "week") {
-    // Link to the weekly schedule page; pass weekStart as query param if we have it.
-    const base = `/crm/customers/${customerId}/subscriptions/${subscriptionId}/week`;
-    to = weekStart ? `${base}?weekId=${link.id}` : `${base}?weekId=${link.id}`;
+    // Link back to SubscriptionPage with ?weekId= so the week selector activates
+    // the referenced week (rollover source). T17 back-refs also target this URL shape.
+    to = `/crm/customers/${customerId}/subscriptions/${subscriptionId}?weekId=${link.id}`;
     label = `Week ···${link.id.slice(-6)}`;
   }
 

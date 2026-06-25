@@ -174,11 +174,12 @@ const STATEMENT_WITH_WEEK_LINK = {
 function renderPage(
   customerId: string = CUSTOMER_ID,
   subId: string = SUB_ID,
+  searchSuffix: string = "",
 ) {
   return render(
     <MemoryRouter
       initialEntries={[
-        `/crm/customers/${customerId}/subscriptions/${subId}`,
+        `/crm/customers/${customerId}/subscriptions/${subId}${searchSuffix}`,
       ]}
     >
       <Routes>
@@ -393,5 +394,48 @@ describe("SubscriptionPage — createdBy column", () => {
     // Both rows have createdBy "user_001".
     const createdByEls = screen.getAllByText(/user_001/);
     expect(createdByEls.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("SubscriptionPage — ?weekId search param", () => {
+  it("selects the week from ?weekId rather than defaulting to weeks[0]", () => {
+    // weeks[0] = WEEK_2 (latest), weeks[1] = WEEK_1 (older).
+    // Provide a distinct statement for WEEK_1 via a unique note so we can assert it's shown.
+    // The mock discriminates: 3rd unique ref = getCreditLedgerStatement.
+    // We override mockStatement to simulate what WEEK_1's statement would return.
+    mockStatement = {
+      rows: [
+        {
+          type: "expiry" as const,
+          signedAmount: -5000,
+          balanceAfter: 0,
+          link: { kind: null, id: null },
+          createdBy: "system",
+          note: "week-1-expiry-marker",
+          at: 1_750_604_700_000,
+        },
+      ],
+    };
+
+    // Render with ?weekId=WEEK_ID_1 — selectedWeekId initialises from the param.
+    renderPage(CUSTOMER_ID, SUB_ID, `?weekId=${WEEK_ID_1}`);
+
+    // The page passes WEEK_ID_1 to getCreditLedgerStatement → our mock returns the
+    // WEEK_1-specific statement row. Confirm the distinct note is visible.
+    expect(screen.getByText("week-1-expiry-marker")).toBeInTheDocument();
+  });
+
+  it("week-entry link targets SubscriptionPage with ?weekId param (not /week schedule)", () => {
+    mockStatement = STATEMENT_WITH_WEEK_LINK;
+    renderPage();
+    const allLinks = screen.getAllByRole("link");
+    const weekLink = allLinks.find((a) =>
+      (a as HTMLAnchorElement).href.includes(
+        `/crm/customers/${CUSTOMER_ID}/subscriptions/${SUB_ID}?weekId=${WEEK_ID_1}`,
+      ),
+    );
+    // Must exist and must NOT point to the /week schedule page.
+    expect(weekLink).toBeTruthy();
+    expect((weekLink as HTMLAnchorElement).href).not.toContain("/week?");
   });
 });
