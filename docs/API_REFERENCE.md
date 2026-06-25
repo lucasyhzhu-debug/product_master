@@ -2744,6 +2744,85 @@ Shared order-COGS accumulation. Skips cancelled items, items with no `menuProduc
 
 ---
 
+### Subscription & CRM — Phase D operate-UI (deliver/recognize, top-up, reconcile, out-of-credit) — 2026-06-25
+
+All new functions are `protectedMutation`/`protectedQuery` with `roles: ["manager","admin"]`. All require `token: v.string()`.
+
+#### Delivery / recognize (`convex/subscriptions/delivery.ts`)
+
+```typescript
+subscriptions.delivery.markSubscriptionDelivered({ orderId, token })
+  // Transitions a funded subscription order to AwaitingDelivery and recognizes the sale.
+  // Deliverable statuses: PaymentReceived | BeingPrepared | AwaitingDelivery.
+  // Calls recognizeSubscriptionDelivery — idempotent via creditLedger.by_order (no double drawdown).
+  // Throws ConvexError if order is not a subscription order or not in a deliverable status.
+```
+
+Pure helper (unit-tested, no ctx):
+```typescript
+isDeliverableSubscriptionStatus(status: string): boolean
+  // Returns true for PaymentReceived | BeingPrepared | AwaitingDelivery.
+```
+
+#### Amend confirmed week (`convex/subscriptions/amend.ts`)
+
+```typescript
+subscriptions.amend.amendConfirmedWeek({ subscriptionWeekId, days, token })
+  // Re-prices plannedDays for a confirmed/invoiced/paid/delivering week.
+  // Positive quantity delta billed as an UNPAID top-up invoice via buildTopupInvoice.
+  // Increases only — reduction is rejected. Does NOT regenerate per-day orders (R3).
+  // Returns: { topupInvoiceId: Id<"invoices"> | null, delta: number }
+```
+
+Pure helper (unit-tested, no ctx):
+```typescript
+computeTopupDelta(oldDays: PlanDay[], newDays: PlanDay[]): number
+  // Returns the positive IDR delta between old and new planned totals (0 if no increase).
+```
+
+#### reconcileWeek — new required arg (`convex/subscriptions/reconcile.ts`)
+
+The existing `reconcileWeek` mutation gains a REQUIRED `reconcileNote: v.string()` argument (Phase D operate-UI). Submit is disabled in the UI until the note is non-empty. The note is persisted to `subscriptionWeeks.reconcileNote`.
+
+```typescript
+subscriptions.reconcile.reconcileWeek({ subscriptionWeekId, shortfallFault, reconcileNote, token })
+  // All prior behavior unchanged (FIFO rollover/expiry, breakage recognition, refundDue flag).
+  // reconcileNote: non-empty string (trimmed; throws ConvexError on empty — assertReconcileNote guard).
+  // Persisted to subscriptionWeeks.reconcileNote.
+```
+
+Pure helper (unit-tested, no ctx):
+```typescript
+assertReconcileNote(note: string): void
+  // Trims note; throws ConvexError("reconcileNote is required") if result is empty.
+```
+
+#### Out-of-credit status query (`convex/subscriptions/queries.ts`)
+
+```typescript
+subscriptions.queries.getOrderCreditStatus({ orderId, token })
+  // Returns credit status for a subscription order; used to gate Split and Apply-credit buttons.
+  // Returns: {
+  //   kind: "subscription" | "non_subscription",
+  //   isOverCredit: boolean,
+  //   creditRemaining: number,     // IDR
+  //   orderTotal: number,          // IDR
+  //   subscriptionWeekId: Id<"subscriptionWeeks"> | null,
+  //   canSplit: boolean,            // precondition for splitScheduledOrderOnCredit
+  //   canApplyCredit: boolean,      // precondition for applyPartialCreditToAdHocOrder
+  // }
+  // Skip-guarded with isManagerOrAdmin on the frontend (Pitfall #19) so non-manager callers
+  // on order surfaces do NOT mount the protectedQuery and cannot crash the page.
+```
+
+Pure helper (unit-tested, no ctx):
+```typescript
+isOverCredit(creditRemaining: number, orderTotal: number): boolean
+  // Returns true when orderTotal > creditRemaining.
+```
+
+---
+
 ### Environment Variables
 
 | Variable | Description | Lifespan |

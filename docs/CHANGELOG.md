@@ -14,6 +14,24 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-06-25 — Subscription operate UI (deliver/recognize, top-up, reconcile, out-of-credit)
+
+**For the team:** Managers can now operate the subscription cycle end-to-end from the order surfaces and CRM pages: mark an order as delivered (recognizing the sale), amend a confirmed week to bill a top-up, reconcile a week with a mandatory comment, and see an out-of-credit flag with split/apply-credit actions.
+
+### Added
+- **Mark delivered** — Scoped "Mark delivered" button on BOTH order surfaces (`OrderSlideOver` + `OrderDetail`, per Pitfall #20) for manager+admin. Visible only on subscription orders in a deliverable status (PaymentReceived/BeingPrepared/AwaitingDelivery). Calls `markSubscriptionDelivered` → `recognizeSubscriptionDelivery` (idempotent via `creditLedger.by_order`; re-press is a no-op, no second drawdown).
+- **Amend week → top-up invoice** — "Amend week" mode on `SubscriptionSchedulePage` re-opens a confirmed week's grid. On save, calls `amendConfirmedWeek` which re-prices `plannedDays` and bills any positive delta as an UNPAID top-up invoice via `buildTopupInvoice`. Increases only; does not regenerate per-day orders (R3).
+- **Reconcile-with-comment** — Per-week "Reconcile" action in `SubscriptionWeeklyInvoicePage` via new `ReconcileWeekDialog`. Fault selector + COMPULSORY comment field (submit disabled until non-empty). Comment persisted to new `subscriptionWeeks.reconcileNote` field. `reconcileWeek` mutation gains required `reconcileNote` arg (guarded server-side by `assertReconcileNote`).
+- **Out-of-credit flag + split/apply-credit** — Out-of-credit flag and Split / Apply-credit buttons on both order surfaces, gated on `canSplit`/`canApplyCredit` from new `getOrderCreditStatus` query. The query's `useSessionQuery` is skip-guarded with `isManagerOrAdmin` so order_staff (who can reach the orders page) does NOT mount the manager+admin `protectedQuery` and cannot crash the page (Pitfall #19 fix).
+- **Backend (thin, additive):** `markSubscriptionDelivered` + pure `isDeliverableSubscriptionStatus` (`convex/subscriptions/delivery.ts`); `amendConfirmedWeek` + pure `computeTopupDelta` (`convex/subscriptions/amend.ts`); `getOrderCreditStatus` + pure `isOverCredit` (`convex/subscriptions/queries.ts`); required `reconcileNote` arg + pure `assertReconcileNote` guard on `reconcileWeek` (`convex/subscriptions/reconcile.ts`); `subscriptionWeeks.reconcileNote: v.optional(v.string())` in `convex/schema.ts`.
+
+### Notes
+- **R1 (recognition timing):** A split order's later Mark-delivered MAY or MAY NOT double-count recognition depending on when the split fires vs. the drawdown. Verify in UAT before relying on the Split path in production — see UAT checklist §5.
+- **R2 (stock/production regression):** Verify that Mark-delivered does not accidentally advance kitchen production states or deduct inventory.
+- **R3 (amend does not regenerate orders):** Amending a week adds a top-up invoice for the delta but does NOT create new per-day orders for the added quantity. Operator must handle fulfillment manually.
+
+---
+
 ## [Unreleased] — Subscription backend consolidation (Phase D Slice 0) — 2026-06-25
 
 **For the team:** Internal cleanup — no user-visible change. Consolidates five duplicated backend patterns into single shared helpers so the upcoming CRM screens (Phase D) build on clean, consistent APIs and the P&L income statement is no longer doing unbounded index scans.
