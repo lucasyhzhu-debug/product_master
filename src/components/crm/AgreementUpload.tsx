@@ -46,6 +46,7 @@ export interface AgreementUploadProps {
     storageId: Id<"_storage">,
     fileName: string,
     lang: "id" | "en",
+    fileSize: number,
   ) => void;
   mode: "create" | "add-version";
   disabled?: boolean;
@@ -105,7 +106,7 @@ export function AgreementUpload({
         const { storageId } = (await result.json()) as { storageId: string };
 
         // Step 3: Notify parent.
-        onUploaded(storageId as Id<"_storage">, file.name, lang);
+        onUploaded(storageId as Id<"_storage">, file.name, lang, file.size);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed");
         setFileName(null);

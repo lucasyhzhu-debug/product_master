@@ -156,3 +156,14 @@ export const listAgreementsByCustomer = protectedQuery({
       .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
       .collect(),
 });
+
+// ---------------------------------------------------------------------------
+// getFileUrl — resolve a Convex storage ID to a signed URL for opening in
+// the browser. Used by AgreementPage to make version "Open" buttons work.
+// ---------------------------------------------------------------------------
+
+export const getFileUrl = protectedQuery({
+  roles: ["manager", "admin"],
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => ctx.storage.getUrl(args.storageId),
+});

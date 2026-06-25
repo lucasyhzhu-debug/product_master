@@ -2,15 +2,20 @@
  * AgreementPage — /crm/customers/:customerId/agreements
  *
  * Shows the customer's supply agreement(s): status badge, ID + EN versions
- * (each version openable in a new tab via a storage-resolved URL from the
- * backend query), last-uploaded date, and linked subscriptions (A4).
+ * (each version openable in a new tab via getFileUrl → ctx.storage.getUrl()),
+ * last-uploaded date, and linked subscriptions (A4).
  *
  * Upload flow:
  *   • No agreement yet → AgreementUpload in "create" mode → createSupplyAgreement.
  *   • Agreement exists → AgreementUpload in "add-version" mode → addAgreementVersion.
  *
+ * Storage URL pattern: each VersionRow calls getFileUrl({ storageId }) via
+ * useSessionQuery. This resolves ctx.storage.getUrl() server-side and returns
+ * a signed URL the browser can open directly. VersionRow is a React component
+ * so hook calls are valid (Pitfall #9).
+ *
  * CRM design principles:
- *   A1: all references render as links.
+ *   A1: all references render as links — version rows open in new tab.
  *   A2: breadcrumbs mirror object hierarchy.
  *   A4: bidirectional link — agreement ↔ subscription.
  *   D11: manager+admin only (query roles match route permission canAccessCrm).
@@ -18,33 +23,9 @@
  *
  * Pitfall #9: all hooks before early returns.
  * Pitfall #19: query roles: ["manager","admin"] matches canAccessCrm.
- *
- * Storage URL pattern: the backend resolves URLs server-side via ctx.storage.getUrl().
- * Since listAgreementsByCustomer returns raw storageIds, version files are linked
- * with a "Open" button that triggers a separate fetch — OR we use the backend
- * getAgreement query which also returns raw ids. Therefore, we open files by
- * rendering an <a> pointing to the file via a Convex-derived URL fetched from
- * the getAgreement query (which resolves through a per-version URL query).
- * Simplest correct pattern: versions list shows fileName + lang as links via
- * the "open in new tab" UX — the storageId is passed as a query param to a
- * backend query that returns the signed URL (getStorageUrl). Since no
- * getStorageUrl query exists in the agreements module, we adopt the ReceiptViewer
- * approach: render a button that calls the storage URL (resolved by the parent
- * via a dedicated query if needed). For now, we show version metadata + a
- * "Download" link that opens the Convex file URL.
- *
- * Because storage URL resolution requires a backend round-trip per file, we
- * pass storageIds through and render them as links via an inline button that
- * opens via window.open — consistent with ReceiptViewer. The page fetches
- * agreement data (raw doc), and any version open is handled by the browser
- * navigating to a pre-resolved URL. Since the existing backend does not expose
- * a standalone getStorageUrl query for agreements, and we CANNOT add schema
- * changes, we display versions as "fileName (lang)" items with an "Open"
- * placeholder link — noting that storageId-based URL resolution requires an
- * additional backend query (out of scope for T15; can be added in T16+).
  */
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -53,6 +34,7 @@ import {
   FileText,
   Link2,
   Link2Off,
+  Loader2,
 } from "lucide-react";
 import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
 import { toast } from "sonner";
@@ -107,6 +89,54 @@ const STATUS_BADGE: Record<AgreementDoc["status"], string> = {
 };
 
 // ---------------------------------------------------------------------------
+// VersionOpenButton — resolves a storage URL and renders an "Open" link.
+// Uses its own hook so each row subscribes independently without violating
+// Rules of Hooks (each VersionRow is a component, not a conditional call).
+// ---------------------------------------------------------------------------
+
+interface VersionOpenButtonProps {
+  storageId: Id<"_storage">;
+  fileName: string;
+}
+
+function VersionOpenButton({ storageId, fileName }: VersionOpenButtonProps) {
+  const url = useSessionQuery(api["crm/agreements"].getFileUrl, { storageId });
+
+  if (url === undefined) {
+    // Still resolving
+    return (
+      <Button variant="ghost" size="sm" disabled aria-label="Resolving…">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+      </Button>
+    );
+  }
+
+  if (url === null) {
+    // Storage object not found
+    return (
+      <Button variant="ghost" size="sm" disabled aria-label="File not found">
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50" aria-hidden="true" />
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-xs text-muted-foreground hover:text-foreground"
+      aria-label={`Open ${fileName}`}
+      asChild
+    >
+      <a href={url} target="_blank" rel="noopener noreferrer">
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className="sr-only">Open {fileName}</span>
+      </a>
+    </Button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // VersionRow — one version entry
 // ---------------------------------------------------------------------------
 
@@ -118,7 +148,7 @@ interface VersionRowProps {
 function VersionRow({ version, isLast }: VersionRowProps) {
   return (
     <div
-      className={`flex items-center gap-3 py-2 ${isLast ? "" : "border-b border-border/50"}`}
+      className={`flex items-center gap-3 py-2 px-3 ${isLast ? "" : "border-b border-border/50"}`}
     >
       <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
       <div className="flex-1 min-w-0">
@@ -130,20 +160,11 @@ function VersionRow({ version, isLast }: VersionRowProps) {
       <Badge className="text-xs shrink-0 bg-blue-100 text-blue-700">
         {version.lang.toUpperCase()}
       </Badge>
-      {/* Open file: storageId-based URL requires a backend resolution query.
-          We render an affordance button — storage URL wiring is a T16 follow-on.
-          The ExternalLink icon signals the intent clearly (A1). */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="text-xs text-muted-foreground hover:text-foreground"
-        aria-label={`Open ${version.fileName}`}
-        title="Open file (storage URL resolution — coming in T16)"
-        disabled
-      >
-        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="sr-only">Open {version.fileName}</span>
-      </Button>
+      {/* A1: version file opens in new tab via resolved storage URL. */}
+      <VersionOpenButton
+        storageId={version.fileStorageId}
+        fileName={version.fileName}
+      />
     </div>
   );
 }
@@ -160,6 +181,7 @@ interface AgreementCardProps {
     storageId: Id<"_storage">,
     fileName: string,
     lang: "id" | "en",
+    fileSize: number,
   ) => void;
   generateUploadUrl: () => Promise<string>;
 }
@@ -174,8 +196,13 @@ function AgreementCard({
   const lastVersion = versions.at(-1);
 
   const handleVersionUploaded = useCallback(
-    (storageId: Id<"_storage">, fileName: string, lang: "id" | "en") => {
-      onAddVersion(agreement._id, storageId, fileName, lang);
+    (
+      storageId: Id<"_storage">,
+      fileName: string,
+      lang: "id" | "en",
+      fileSize: number,
+    ) => {
+      onAddVersion(agreement._id, storageId, fileName, lang, fileSize);
     },
     [agreement._id, onAddVersion],
   );
@@ -305,13 +332,14 @@ export function AgreementPage() {
     storageId: Id<"_storage">,
     fileName: string,
     lang: "id" | "en",
+    fileSize: number,
   ) {
     try {
       await createSupplyAgreement({
         customerId: customerIdTyped,
         fileStorageId: storageId,
         fileName,
-        fileSize: 0, // file size not available client-side without extra work
+        fileSize,
         status: "draft",
         lang,
       });
@@ -326,6 +354,7 @@ export function AgreementPage() {
     storageId: Id<"_storage">,
     fileName: string,
     lang: "id" | "en",
+    fileSize: number,
   ) {
     try {
       await addAgreementVersion({
@@ -334,6 +363,9 @@ export function AgreementPage() {
         fileName,
         lang,
       });
+      // fileSize is not part of addAgreementVersion args (version entries don't
+      // track size independently), but the real size is stored on the primary doc.
+      void fileSize;
       toast.success("Version added.");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to add version"));
@@ -356,7 +388,12 @@ export function AgreementPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-0.5">
-          <Button variant="ghost" size="sm" asChild className="-ml-2 text-xs text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="-ml-2 text-xs text-muted-foreground"
+          >
             <Link to={`/crm/customers/${customerId}`}>
               <ArrowLeft className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
               Back to customer

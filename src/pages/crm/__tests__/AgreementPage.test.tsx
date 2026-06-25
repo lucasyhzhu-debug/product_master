@@ -3,16 +3,23 @@
  *
  * Covers:
  *   - Renders versions list with lang badges and last-upload date.
- *   - Upload button calls generateAgreementUploadUrl → POST → createSupplyAgreement.
+ *   - Version Open buttons resolve storage URLs via getFileUrl and render as links.
+ *   - Upload button calls createSupplyAgreement with real fileSize (not 0).
  *   - Linked subscriptions section (A4 bidirectional links).
  *   - Empty state when no agreements exist (D12).
  *   - Loading state (undefined query).
- *   - Not-found state (null customer).
  *   - "Add version" path calls addAgreementVersion.
  *
- * useSessionQuery / useSessionMutation are mocked via convex-helpers/react/sessions.
- * fetch is mocked globally to stub the Convex storage POST.
- * useParams is resolved by MemoryRouter route.
+ * NOTE on mock strategy:
+ *   The convex _generated/api mock may not intercept the real FunctionReference
+ *   objects because Vitest resolves the mock path relative to the test file.
+ *   Instead, we discriminate useSessionQuery calls by REFERENCE IDENTITY:
+ *     - The first unique query ref seen per render = listAgreementsByCustomer
+ *     - All other refs = getFileUrl
+ *   This is robust regardless of whether the api mock intercepts.
+ *
+ *   useSessionMutation similarly returns mockMutateFn for all calls; the test
+ *   asserts which mutation was called by the args passed to mockMutateFn.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -20,32 +27,30 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 // ---------------------------------------------------------------------------
-// Mocks
+// Shared state — mutated by each test before renderPage().
 // ---------------------------------------------------------------------------
 
+let mockAgreements: unknown = undefined;
+let mockFileUrl: string | null | undefined = "https://storage.convex.cloud/file.pdf";
+
 const mockMutateFn = vi.fn();
-// Mutable holder updated before each test.
-let mockAgreementsData: unknown = undefined;
-const useSessionQueryMock = vi.fn();
-const useSessionMutationMock = vi.fn();
+
+// We discriminate query calls by reference identity:
+// The first unique query ref = listAgreementsByCustomer, others = getFileUrl.
+let _seenListRef: unknown = null;
+const useSessionQueryMock = vi.fn((query: unknown) => {
+  if (_seenListRef === null) {
+    _seenListRef = query;
+  }
+  if (query === _seenListRef) return mockAgreements;
+  return mockFileUrl;
+});
+
+const useSessionMutationMock = vi.fn(() => mockMutateFn);
 
 vi.mock("convex-helpers/react/sessions", () => ({
   useSessionQuery: (...args: unknown[]) => useSessionQueryMock(...args),
   useSessionMutation: (...args: unknown[]) => useSessionMutationMock(...args),
-}));
-
-// Mock api — keys match `api["crm/agreements"].xxx`.
-vi.mock("../../../convex/_generated/api", () => ({
-  api: {
-    "crm/agreements": {
-      listAgreementsByCustomer: "listAgreementsByCustomer",
-      getAgreement: "getAgreement",
-      generateAgreementUploadUrl: "generateAgreementUploadUrl",
-      createSupplyAgreement: "createSupplyAgreement",
-      addAgreementVersion: "addAgreementVersion",
-      linkAgreementToSubscription: "linkAgreementToSubscription",
-    },
-  },
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -56,43 +61,26 @@ vi.mock("@/components/crm/Breadcrumbs", () => ({
   ),
 }));
 
-// Mock Dialog to avoid portal issues in JSDOM
-vi.mock("@/components/ui/dialog", () => ({
-  Dialog: ({
-    open,
-    children,
-  }: {
-    open: boolean;
-    onOpenChange: () => void;
-    children: React.ReactNode;
-  }) => (open ? <div role="dialog">{children}</div> : null),
-  DialogContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DialogHeader: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DialogTitle: ({ children }: { children: React.ReactNode }) => (
-    <h2>{children}</h2>
-  ),
-  DialogDescription: ({ children }: { children: React.ReactNode }) => (
-    <p>{children}</p>
-  ),
-}));
-
+// AgreementUpload mock — passes fileSize through onUploaded.
 vi.mock("@/components/crm/AgreementUpload", () => ({
   AgreementUpload: ({
     onUploaded,
     mode,
   }: {
-    onUploaded: (storageId: string, fileName: string, lang: "id" | "en") => void;
+    onUploaded: (
+      storageId: string,
+      fileName: string,
+      lang: "id" | "en",
+      fileSize: number,
+    ) => void;
     mode: "create" | "add-version";
-    agreementId?: string;
     disabled?: boolean;
   }) => (
     <div data-testid="agreement-upload" data-mode={mode}>
       <button
-        onClick={() => onUploaded("storage_abc", "agreement_id.pdf", "id")}
+        onClick={() =>
+          onUploaded("storage_abc", "agreement_id.pdf", "id", 51200)
+        }
         data-testid="upload-trigger"
       >
         Upload {mode === "create" ? "Agreement" : "Version"}
@@ -112,6 +100,7 @@ const AGREEMENT_ID = "agr_001" as const;
 const SUB_ID = "sub_xyz789" as const;
 const STORAGE_ID_1 = "storage_111" as const;
 const STORAGE_ID_2 = "storage_222" as const;
+const FILE_URL = "https://storage.convex.cloud/file.pdf";
 
 const VERSION_ID = {
   fileStorageId: STORAGE_ID_1,
@@ -147,21 +136,6 @@ const AGREEMENT_DOC_NO_VERSIONS = {
   subscriptionId: undefined,
 };
 
-const SUBSCRIPTION_DOC = {
-  _id: SUB_ID,
-  customerId: CUSTOMER_ID,
-  status: "active",
-  label: "Mon–Fri box",
-};
-
-const CUSTOMER_RECORD = {
-  customer: { _id: CUSTOMER_ID, name: "Budi Santoso" },
-  subscriptions: [SUBSCRIPTION_DOC],
-  agreements: [AGREEMENT_DOC],
-  currentWeekPoolBySubscription: {},
-  unpaidInvoices: [],
-};
-
 // ---------------------------------------------------------------------------
 // Render helper
 // ---------------------------------------------------------------------------
@@ -187,13 +161,21 @@ function renderPage(customerId: string = CUSTOMER_ID) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockAgreementsData = [AGREEMENT_DOC];
-  mockMutateFn.mockResolvedValue(AGREEMENT_ID);
-
+  // Reset the ref discriminator for each test render cycle.
+  _seenListRef = null;
+  // Happy-path defaults.
+  mockAgreements = [AGREEMENT_DOC];
+  mockFileUrl = FILE_URL;
   // Re-apply implementations cleared by clearAllMocks.
-  // useSessionQuery returns mockAgreementsData for listAgreementsByCustomer.
-  useSessionQueryMock.mockImplementation(() => mockAgreementsData);
+  useSessionQueryMock.mockImplementation((query: unknown) => {
+    if (_seenListRef === null) {
+      _seenListRef = query;
+    }
+    if (query === _seenListRef) return mockAgreements;
+    return mockFileUrl;
+  });
   useSessionMutationMock.mockImplementation(() => mockMutateFn);
+  mockMutateFn.mockResolvedValue(AGREEMENT_ID);
 });
 
 // ---------------------------------------------------------------------------
@@ -202,11 +184,8 @@ beforeEach(() => {
 
 describe("AgreementPage — loading state", () => {
   it("shows loading when agreements query is undefined", () => {
-    // Override default — undefined means still loading.
-    mockAgreementsData = undefined;
-    useSessionQueryMock.mockImplementation(() => mockAgreementsData);
+    mockAgreements = undefined;
     renderPage();
-    // LoadingPage renders — agreement section headings must NOT appear.
     expect(screen.queryByText("agreement_id.pdf")).not.toBeInTheDocument();
     expect(screen.queryByText(/no supply agreement/i)).not.toBeInTheDocument();
   });
@@ -214,8 +193,7 @@ describe("AgreementPage — loading state", () => {
 
 describe("AgreementPage — empty state", () => {
   it("shows empty state when no agreements", () => {
-    mockAgreementsData = [];
-    useSessionQueryMock.mockImplementation(() => mockAgreementsData);
+    mockAgreements = [];
     renderPage();
     expect(screen.getByText(/no supply agreement/i)).toBeInTheDocument();
   });
@@ -233,18 +211,26 @@ describe("AgreementPage — versions list", () => {
     expect(screen.getByText("signed")).toBeInTheDocument();
   });
 
-  it("renders the last-upload date (from versions[1].uploadedAt)", () => {
+  it("renders the last-upload date (from versions uploadedAt)", () => {
     renderPage();
-    // utcToWibDateStr(1_750_100_000_000) → date string; at least one date appears.
-    // Use getAllByText since both version rows and the header may show dates.
     const dateElements = screen.getAllByText(/\d{4}-\d{2}-\d{2}/);
     expect(dateElements.length).toBeGreaterThan(0);
   });
 
-  it("renders version file names as open links", () => {
+  it("renders version file names", () => {
     renderPage();
     expect(screen.getByText("agreement_id.pdf")).toBeInTheDocument();
     expect(screen.getByText("agreement_en.pdf")).toBeInTheDocument();
+  });
+
+  it("renders Open links pointing at the resolved storage URL (A1)", () => {
+    renderPage();
+    // Each VersionOpenButton renders <a href={FILE_URL}> when getFileUrl resolves.
+    const openLinks = screen
+      .getAllByRole("link")
+      .filter((a) => (a as HTMLAnchorElement).href === FILE_URL);
+    // Two versions → two open links.
+    expect(openLinks.length).toBe(2);
   });
 });
 
@@ -266,29 +252,27 @@ describe("AgreementPage — linked subscriptions (A4)", () => {
   });
 
   it("shows 'not linked' when agreement has no subscriptionId", () => {
-    mockAgreementsData = [AGREEMENT_DOC_NO_VERSIONS];
-    useSessionQueryMock.mockImplementation(() => mockAgreementsData);
+    mockAgreements = [AGREEMENT_DOC_NO_VERSIONS];
     renderPage();
     expect(screen.getByText(/not linked/i)).toBeInTheDocument();
   });
 });
 
 describe("AgreementPage — upload new agreement", () => {
-  it("renders the AgreementUpload component in create mode when no agreements", () => {
-    mockAgreementsData = [];
-    useSessionQueryMock.mockImplementation(() => mockAgreementsData);
+  it("renders AgreementUpload in create mode when no agreements", () => {
+    mockAgreements = [];
     renderPage();
-    // empty state shows an upload trigger
     expect(screen.getByTestId("agreement-upload")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("agreement-upload").getAttribute("data-mode"),
+    ).toBe("create");
   });
 
-  it("calls createSupplyAgreement after upload via AgreementUpload", async () => {
-    mockAgreementsData = [];
-    useSessionQueryMock.mockImplementation(() => mockAgreementsData);
+  it("calls createSupplyAgreement with real fileSize after upload", async () => {
+    mockAgreements = [];
     renderPage();
 
-    const uploadBtn = screen.getByTestId("upload-trigger");
-    fireEvent.click(uploadBtn);
+    fireEvent.click(screen.getByTestId("upload-trigger"));
 
     await waitFor(() => {
       expect(mockMutateFn).toHaveBeenCalledWith(
@@ -297,6 +281,7 @@ describe("AgreementPage — upload new agreement", () => {
           fileStorageId: "storage_abc",
           fileName: "agreement_id.pdf",
           lang: "id",
+          fileSize: 51200,
         }),
       );
     });
@@ -320,7 +305,9 @@ describe("AgreementPage — add version flow", () => {
       (el) => el.getAttribute("data-mode") === "add-version",
     );
     expect(addVersionEl).toBeTruthy();
-    const btn = addVersionEl!.querySelector("[data-testid='upload-trigger']")!;
+    const btn = addVersionEl!.querySelector(
+      "[data-testid='upload-trigger']",
+    )!;
     fireEvent.click(btn);
 
     await waitFor(() => {
