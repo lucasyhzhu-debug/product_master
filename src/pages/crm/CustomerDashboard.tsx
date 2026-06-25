@@ -55,6 +55,7 @@ import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
 import { ContactLinks } from "@/components/crm/ContactLinks";
 import { DraftWhatsAppButton } from "@/components/crm/DraftWhatsAppButton";
 import { LinkableObject } from "@/components/crm/LinkableObject";
+import { CreditGauge } from "@/components/crm/CreditGauge";
 import { getErrorMessage } from "@/lib/utils";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
@@ -94,9 +95,16 @@ type AgreementDoc = {
   status: string;
 };
 
+type CreditPoolShape = {
+  creditIssued: number;
+  creditConsumed: number;
+  creditRemaining: number;
+  creditExpired: number;
+};
+
 type WeekPool = {
   week: { _id: Id<"subscriptionWeeks">; weekStart: number; status: string };
-  pool: { allocated: number; available: number; spent: number };
+  pool: CreditPoolShape;
 } | null;
 
 type CustomerRecord = {
@@ -393,14 +401,15 @@ function FinancialPane({
 }: RightPaneProps) {
   return (
     <div className="space-y-6">
-      {/* Gauge slot — T26 fills this in Wave 2 */}
-      {/* GAUGE_SLOT: T26 — credit gauge component goes here */}
-      <div
-        data-slot="gauge-t26"
-        aria-label="Credit gauge (coming in Wave 2)"
-        className="h-24 rounded-lg border border-dashed border-muted flex items-center justify-center"
-      >
-        <p className="text-xs text-muted-foreground">Credit gauge (T26)</p>
+      {/* Credit gauge — T26: per-subscription pool gauge */}
+      <div data-slot="gauge-t26" className="space-y-3">
+        {subscriptions.map((sub) => (
+          <CreditGauge
+            key={sub._id}
+            pool={currentWeekPoolBySubscription[sub._id]?.pool ?? null}
+            subscriptionLabel={sub.label}
+          />
+        ))}
       </div>
 
       {/* Subscriptions list — A1, A4 */}
