@@ -53,6 +53,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
 import { ContactLinks } from "@/components/crm/ContactLinks";
+import { DraftWhatsAppButton } from "@/components/crm/DraftWhatsAppButton";
 import { LinkableObject } from "@/components/crm/LinkableObject";
 import { getErrorMessage } from "@/lib/utils";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
@@ -375,6 +376,8 @@ function IdentityPane({ customer, agreements }: LeftPaneProps) {
 
 interface RightPaneProps {
   customerId: Id<"customers">;
+  customerName: string;
+  customerPhone: string | null;
   subscriptions: SubscriptionDoc[];
   currentWeekPoolBySubscription: Record<string, WeekPool>;
   unpaidInvoices: { _id: Id<"invoices">; paymentStatus: string }[];
@@ -382,6 +385,8 @@ interface RightPaneProps {
 
 function FinancialPane({
   customerId,
+  customerName,
+  customerPhone,
   subscriptions,
   currentWeekPoolBySubscription,
   unpaidInvoices,
@@ -465,7 +470,7 @@ function FinancialPane({
             Unpaid invoices
           </h2>
           <Card>
-            <CardContent className="p-3 flex items-center justify-between">
+            <CardContent className="p-3 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-amber-500" aria-hidden="true" />
                 <span className="text-sm">
@@ -473,13 +478,22 @@ function FinancialPane({
                   {unpaidInvoices.length !== 1 ? "s" : ""} unpaid
                 </span>
               </div>
-              {/* Deep-link to funding dashboard — A1 */}
-              <Button size="sm" variant="outline" asChild className="text-xs">
-                <Link to="/crm/funding">
-                  Mark paid → fund
-                  <ArrowUpRight className="h-3 w-3 ml-1" aria-hidden="true" />
-                </Link>
-              </Button>
+              <div className="flex items-center gap-2">
+                {/* Draft WhatsApp reminder — T23 */}
+                <DraftWhatsAppButton
+                  phone={customerPhone}
+                  customerId={customerId}
+                  invoiceId={unpaidInvoices[0]?._id}
+                  customerName={customerName}
+                />
+                {/* Deep-link to funding dashboard — A1 */}
+                <Button size="sm" variant="outline" asChild className="text-xs">
+                  <Link to="/crm/funding">
+                    Mark paid → fund
+                    <ArrowUpRight className="h-3 w-3 ml-1" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </section>
@@ -615,6 +629,8 @@ export function CustomerDashboard() {
         <div>
           <FinancialPane
             customerId={customer._id}
+            customerName={customer.name}
+            customerPhone={customer.whatsapp ?? customer.phone ?? null}
             subscriptions={subscriptions}
             currentWeekPoolBySubscription={currentWeekPoolBySubscription}
             unpaidInvoices={unpaidInvoices}

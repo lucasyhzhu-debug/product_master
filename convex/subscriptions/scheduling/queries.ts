@@ -104,19 +104,34 @@ export const getFundingDashboard = protectedQuery({
     const customers = await Promise.all(
       customerIds.map((id) => ctx.db.get(id)),
     );
+    // Store { name, phone } so the funding dashboard can surface the wa.me link.
     const customerMap = new Map(
-      customers.flatMap((c) => (c ? [[c._id as string, c.name]] : [])),
+      customers.flatMap((c) =>
+        c
+          ? [
+              [
+                c._id as string,
+                { name: c.name, phone: c.whatsapp ?? c.phone ?? null },
+              ],
+            ]
+          : [],
+      ),
     );
 
     return allWeeks.map((week) => {
       const sub = subMap.get(week.subscriptionId as string);
-      const customerName = sub ? (customerMap.get(sub.customerId as string) ?? null) : null;
+      const customerEntry = sub
+        ? (customerMap.get(sub.customerId as string) ?? null)
+        : null;
+      const customerName = customerEntry?.name ?? null;
+      const customerPhone = customerEntry?.phone ?? null;
       return {
         week,
         subscriptionId: week.subscriptionId,
         subscriptionLabel: sub?.label ?? null,
         customerId: sub?.customerId ?? null,
         customerName,
+        customerPhone,
       };
     });
   },

@@ -34,6 +34,7 @@ import {
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
+import { DraftWhatsAppButton } from "@/components/crm/DraftWhatsAppButton";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,7 @@ type FundingRow = {
   subscriptionLabel: string | null;
   customerId: Id<"customers"> | null;
   customerName: string | null;
+  customerPhone: string | null;
 };
 
 type ActiveSubRow = {
@@ -119,6 +121,7 @@ function NeedsFundingSection({ rows }: { rows: FundingRow[] }) {
                   <TableHead>Subscription</TableHead>
                   <TableHead>Week</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -127,6 +130,7 @@ function NeedsFundingSection({ rows }: { rows: FundingRow[] }) {
                     week,
                     customerId,
                     customerName,
+                    customerPhone,
                     subscriptionId,
                     subscriptionLabel,
                   } = row;
@@ -190,6 +194,18 @@ function NeedsFundingSection({ rows }: { rows: FundingRow[] }) {
                         >
                           {statusLabel}
                         </Badge>
+                      </TableCell>
+
+                      {/* WhatsApp draft — only on invoiced (awaiting payment) rows */}
+                      <TableCell>
+                        {isInvoiced && customerId && (
+                          <DraftWhatsAppButton
+                            phone={customerPhone}
+                            customerId={customerId}
+                            invoiceId={week.weeklyInvoiceId}
+                            customerName={customerName}
+                          />
+                        )}
                       </TableCell>
                     </TableRow>
                   );
