@@ -148,12 +148,12 @@ export function SubscriptionPage() {
 
   // All hooks before any early returns (Pitfall #9).
   const subscription = useSessionQuery(
-    api["subscriptions/queries"].getSubscription,
+    api.subscriptions.queries.getSubscription,
     subId ? { subscriptionId: subId as Id<"subscriptions"> } : "skip",
   ) as SubscriptionDoc | null | undefined;
 
   const weeks = useSessionQuery(
-    api["subscriptions/scheduling/queries"].listWeeks,
+    api.subscriptions.scheduling.queries.listWeeks,
     subId ? { subscriptionId: subId as Id<"subscriptions"> } : "skip",
   ) as WeekDoc[] | undefined;
 
@@ -162,7 +162,7 @@ export function SubscriptionPage() {
   const resolvedWeekId = selectedWeekId ?? (weeks && weeks.length > 0 ? weeks[0]._id : null);
 
   const statement = useSessionQuery(
-    api["crm/ledger"].getCreditLedgerStatement,
+    api.crm.ledger.getCreditLedgerStatement,
     resolvedWeekId
       ? { subscriptionWeekId: resolvedWeekId as Id<"subscriptionWeeks"> }
       : "skip",
