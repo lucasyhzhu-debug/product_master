@@ -67,21 +67,23 @@ export const getCustomerDrawdown = protectedQuery({
       "CompleteShipped",
       "PickedUp",
     ]);
-    const deliveredByDay: { date: number; pcs: number }[] = [];
-    for (const order of weekOrders) {
-      if (
+    // Filter to delivered orders first, then fetch their orderItems in parallel
+    // (avoids sequential N+1 awaits across the per-order item collects).
+    const deliveredOrders = weekOrders.filter(
+      (order) =>
         order.deliveryDate !== undefined &&
-        deliveredStatuses.has(order.status)
-      ) {
-        // Sum item quantities for this order to get delivered pcs.
+        deliveredStatuses.has(order.status),
+    );
+    const deliveredByDay = await Promise.all(
+      deliveredOrders.map(async (order) => {
         const items = await ctx.db
           .query("orderItems")
           .withIndex("by_order", (q) => q.eq("orderId", order._id))
           .collect();
         const pcs = items.reduce((sum, item) => sum + item.quantity, 0);
-        deliveredByDay.push({ date: order.deliveryDate, pcs });
-      }
-    }
+        return { date: order.deliveryDate!, pcs };
+      }),
+    );
 
     // --- Build pool trajectory from creditLedger.by_subscriptionWeek ---
     // Load all entries for this week, ordered by creation time.
@@ -153,6 +155,22 @@ export const getCustomerDrawdown = protectedQuery({
       } else {
         // Non-drawdown entries (topup, expiry, refund, adjustment):
         // attribute to the first planned day (opening balance adjustment).
+        //
+        // KNOWN EDGE CASE (triple-review Fix E — documented, not fixed):
+        // A mid-week amendment top-up is also attributed to day 0 here, which can
+        // overwrite an earlier day's balanceAfter and produce a historically-inverted
+        // per-day creditRemaining (a later top-up appearing to raise an earlier day's
+        // balance). The correct attribution would bucket each non-drawdown entry by the
+        // UTC-midnight day of its own _creationTime (same "latest planned day ≤ date"
+        // logic used for drawdowns). This is NOT applied because the fix is unverifiable
+        // and destabilizing under convex-test: the harness stamps _creationTime = now()
+        // for every insert (it cannot be back-dated — see the same limitation noted in
+        // timeline.test.ts), so (a) an opening top-up inserted "now" against past planned
+        // days would mis-bucket to the LAST planned day, breaking the realistic
+        // carry-forward assertions, and (b) an opening vs. a mid-week top-up are
+        // indistinguishable (both get _creationTime = now), so the intended behavior
+        // cannot be exercised. Chart-only impact (the derived pool in C10 is unaffected).
+        // Real fix needs a per-entry business timestamp or harness time control.
         attributedDate = sortedPlannedDays[0].date;
       }
 

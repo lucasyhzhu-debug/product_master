@@ -18,6 +18,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { buildWaMeUrl } from "@/lib/contactLinks";
+import { getErrorMessage } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,13 +60,19 @@ export function DraftWhatsAppButton({
   async function handleClick() {
     if (!url) return;
     window.open(url, "_blank", "noopener,noreferrer");
-    await logCustomerInteraction({
-      customerId,
-      type: "whatsapp_drafted",
-      invoiceId,
-      summary: "Drafted WhatsApp payment reminder",
-    });
-    toast.success("WhatsApp draft opened");
+    // The draft window is already open; logging is best-effort. Surface a clear
+    // error toast on mutation rejection instead of an unhandled promise rejection.
+    try {
+      await logCustomerInteraction({
+        customerId,
+        type: "whatsapp_drafted",
+        invoiceId,
+        summary: "Drafted WhatsApp payment reminder",
+      });
+      toast.success("WhatsApp draft opened");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to log WhatsApp draft"));
+    }
   }
 
   return (

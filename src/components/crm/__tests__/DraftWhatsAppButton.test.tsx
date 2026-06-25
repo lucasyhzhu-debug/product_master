@@ -38,6 +38,7 @@ vi.mock("../../../convex/_generated/api", () => ({
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { DraftWhatsAppButton } from "../DraftWhatsAppButton";
+import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
 // Fixture constants
@@ -140,6 +141,25 @@ describe("DraftWhatsAppButton — with phone", () => {
         }),
       );
     });
+  });
+
+  it("shows an error toast (and does not throw) when logging the draft fails", async () => {
+    mockMutateFn.mockRejectedValueOnce(new Error("network down"));
+    render(
+      <DraftWhatsAppButton
+        phone={PHONE}
+        customerId={CUSTOMER_ID}
+        invoiceId={INVOICE_ID}
+        customerName="Budi"
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /draft whatsapp reminder/i }),
+    );
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("network down");
+    });
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it("does NOT label the action as sent (label must not include 'Send'/'Sent')", () => {

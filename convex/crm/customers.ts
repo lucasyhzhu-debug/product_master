@@ -126,17 +126,22 @@ export const getCrmHomeActiveSubscriptions = protectedQuery({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
-    const out = [];
-    for (const s of active) {
-      const customer = await ctx.db.get(s.customerId);
-      const currentWeek = await resolveCurrentWeek(ctx, s._id);
-      out.push({
-        subscription: s,
-        customerId: s.customerId,
-        customerName: customer?.name ?? null,
-        currentWeek,
-      });
-    }
+    // Parallelize across subs; within each, fetch customer + current week together
+    // (avoids sequential N+1 awaits per active subscription).
+    const out = await Promise.all(
+      active.map(async (s) => {
+        const [customer, currentWeek] = await Promise.all([
+          ctx.db.get(s.customerId),
+          resolveCurrentWeek(ctx, s._id),
+        ]);
+        return {
+          subscription: s,
+          customerId: s.customerId,
+          customerName: customer?.name ?? null,
+          currentWeek,
+        };
+      }),
+    );
     return out;
   },
 });
