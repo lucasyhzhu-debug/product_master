@@ -1,5 +1,7 @@
 // convex/subscriptions/reminders/queries.ts
 import { internalQuery } from "../../_generated/server";
+import type { QueryCtx } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
 import { getWibComponents } from "../../lib/periodRange";
 import type {
   ConfirmRow, InvoiceDueRow, TodayDeliveriesRow, ReconcileRow, DeliveryProgressRow, DeliveryLine,
@@ -8,17 +10,17 @@ import type {
 const TERMINAL_DELIVERED = "Complete" as const;
 
 /** Subscriptions in `active` status (helper — read once per query). */
-async function activeSubscriptions(ctx: any) {
-  return ctx.db.query("subscriptions").withIndex("by_status", (q: any) => q.eq("status", "active")).collect();
+async function activeSubscriptions(ctx: QueryCtx) {
+  return ctx.db.query("subscriptions").withIndex("by_status", (q) => q.eq("status", "active")).collect();
 }
 
 /** The subscriptionWeek whose [weekStart, weekEnd] contains nowMs, for a sub. */
-async function currentWeek(ctx: any, subscriptionId: any, nowMs: number) {
+async function currentWeek(ctx: QueryCtx, subscriptionId: Id<"subscriptions">, nowMs: number) {
   const weeks = await ctx.db
     .query("subscriptionWeeks")
-    .withIndex("by_subscription_weekStart", (q: any) => q.eq("subscriptionId", subscriptionId))
+    .withIndex("by_subscription_weekStart", (q) => q.eq("subscriptionId", subscriptionId))
     .collect();
-  return weeks.find((w: any) => w.weekStart <= nowMs && nowMs <= w.weekEnd) ?? null;
+  return weeks.find((w) => w.weekStart <= nowMs && nowMs <= w.weekEnd) ?? null;
 }
 
 // Kind 1 — planned weeks (next week) awaiting confirm.
@@ -51,7 +53,7 @@ export const getWeeklyInvoicesDue = internalQuery({
         const sub = await ctx.db.get(w.subscriptionId);
         if (!sub || sub.status !== "active") continue;
         const amountDue = w.plannedDays.reduce(
-          (s: number, pd: any) => s + pd.items.reduce((d: number, it: any) => d + it.lineTotal, 0), 0,
+          (s: number, pd) => s + pd.items.reduce((d: number, it) => d + it.lineTotal, 0), 0,
         );
         out.push({ account: sub.label, weekStart: w.weekStart, amountDue, weekStatus: w.status });
       }
@@ -96,7 +98,7 @@ export const getDaysApproachingCutoff = internalQuery({
     for (const sub of await activeSubscriptions(ctx)) {
       const week = await currentWeek(ctx, sub._id, tomorrow) ?? await currentWeek(ctx, sub._id, now);
       if (!week) continue;
-      const hasTomorrow = week.plannedDays.some((pd: any) => {
+      const hasTomorrow = week.plannedDays.some((pd) => {
         const c = getWibComponents(pd.date);
         return c.year === tc.year && c.month === tc.month && c.day === tc.day && !pd.locked;
       });
@@ -131,7 +133,7 @@ export const getWeeklyDeliveryProgress = internalQuery({
       const week = await currentWeek(ctx, sub._id, now);
       if (!week) continue;
       const weekPlannedPcs = week.plannedDays.reduce(
-        (s: number, pd: any) => s + pd.items.reduce((d: number, it: any) => d + it.qty, 0), 0,
+        (s: number, pd) => s + pd.items.reduce((d: number, it) => d + it.qty, 0), 0,
       );
       const orders = await ctx.db
         .query("orders")
@@ -141,7 +143,7 @@ export const getWeeklyDeliveryProgress = internalQuery({
       for (const o of orders) {
         if (o.status !== TERMINAL_DELIVERED) continue;
         const items = await ctx.db.query("orderItems").withIndex("by_order", (q) => q.eq("orderId", o._id)).collect();
-        deliveredPcs += items.reduce((s: number, it: any) => s + it.quantity, 0);
+        deliveredPcs += items.reduce((s: number, it) => s + it.quantity, 0);
       }
       out.push({
         account: sub.label, weekStart: week.weekStart, weekPlannedPcs, deliveredPcs,
