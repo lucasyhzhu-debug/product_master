@@ -346,7 +346,7 @@ function IdentityPane({ customer, agreements }: LeftPaneProps) {
             {agreements.map((agr) => (
               <Link
                 key={agr._id}
-                to={`/crm/customers/${customer._id}/agreements/${agr._id}`}
+                to={`/crm/customers/${customer._id}/agreements`}
                 className="text-sm hover:underline flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
               >
                 Agreement ···{agr._id.slice(-6)}
