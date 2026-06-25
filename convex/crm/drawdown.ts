@@ -50,15 +50,18 @@ export const getCustomerDrawdown = protectedQuery({
     const { plannedDays } = week;
 
     // --- Orders delivered in this week window, partitioned by deliveryDate ---
-    // Use by_subscription index — one subscription only (no multi-sub sum, c4).
+    // Subscription orders reliably carry subscriptionWeekId (set at generation in
+    // convex/subscriptions/invoicing.ts). Use by_subscriptionWeek scoped to
+    // week._id instead of by_subscription (C9 fix — avoids loading all-time history).
     const weekOrders = await ctx.db
       .query("orders")
-      .withIndex("by_subscription", (q) =>
-        q.eq("subscriptionId", args.subscriptionId),
+      .withIndex("by_subscriptionWeek", (q) =>
+        q.eq("subscriptionWeekId", week._id),
       )
       .collect();
 
-    // Filter to this week's window and only delivered (Complete) orders.
+    // Only delivered (Complete) orders contribute to the series.
+    // deliveryDate range check removed — by_subscriptionWeek already scopes to this week.
     const deliveredStatuses = new Set([
       "Complete",
       "CompleteShipped",
@@ -68,8 +71,6 @@ export const getCustomerDrawdown = protectedQuery({
     for (const order of weekOrders) {
       if (
         order.deliveryDate !== undefined &&
-        order.deliveryDate >= week.weekStart &&
-        order.deliveryDate <= week.weekEnd &&
         deliveredStatuses.has(order.status)
       ) {
         // Sum item quantities for this order to get delivered pcs.
