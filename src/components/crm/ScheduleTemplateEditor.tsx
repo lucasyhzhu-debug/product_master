@@ -53,7 +53,7 @@ export function ScheduleTemplateEditor({ days, products, onChange }: Props) {
           className="rounded-md border border-border p-2"
         >
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-medium w-10">{DAY_LABELS[dayIdx]}</span>
+            <span className="text-xs font-medium w-10">{DAY_LABELS[day.dayOfWeek]}</span>
             <Button
               type="button"
               variant="ghost"
@@ -78,7 +78,7 @@ export function ScheduleTemplateEditor({ days, products, onChange }: Props) {
           ) : (
             <div className="space-y-1.5">
               {day.items.map((line, lineIdx) => (
-                <div key={lineIdx} className="flex items-center gap-2">
+                <div key={`${line.menuProductId}-${lineIdx}`} className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <Select
                       value={line.menuProductId}
