@@ -29,6 +29,7 @@ import {
   CreditCard,
   Edit2,
   MapPin,
+  Settings,
   StickyNote,
   Users,
 } from "lucide-react";
@@ -50,6 +51,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SubscriptionSettingsDialog } from "./SubscriptionSettingsDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
@@ -90,6 +92,7 @@ type SubscriptionDoc = {
   customerId: Id<"customers">;
   status: string;
   label?: string | null;
+  baselineDailyQty: number;
   agreementId?: Id<"supplyAgreements"> | null;
 };
 
@@ -426,6 +429,8 @@ interface RightPaneProps {
   /** Selected subscription for the drawdown chart (T27). */
   selectedSubscriptionId: Id<"subscriptions"> | undefined;
   onSelectSubscription: (id: Id<"subscriptions">) => void;
+  /** Open the settings dialog for a specific subscription (T12). */
+  onManageSubscription: (sub: SubscriptionDoc) => void;
 }
 
 function FinancialPane({
@@ -437,6 +442,7 @@ function FinancialPane({
   unpaidInvoices,
   selectedSubscriptionId,
   onSelectSubscription,
+  onManageSubscription,
 }: RightPaneProps) {
   // Derive effective selected subscription (fallback to first if unset).
   const effectiveSelectedId = selectedSubscriptionId ?? subscriptions[0]?._id;
@@ -498,15 +504,27 @@ function FinancialPane({
                         </div>
                       )}
                     </div>
-                    <Badge
-                      className={`text-xs shrink-0 ${
-                        sub.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
-                      }`}
-                    >
-                      {sub.status}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge
+                        className={`text-xs ${
+                          sub.status === "active"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {sub.status}
+                      </Badge>
+                      {/* Manage subscription — T12 */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0"
+                        aria-label={`Manage subscription ${sub.label ?? sub._id}`}
+                        onClick={() => onManageSubscription(sub)}
+                      >
+                        <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -597,6 +615,8 @@ export function CustomerDashboard() {
   const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<
     Id<"subscriptions"> | undefined
   >(undefined);
+  // T12: subscription settings dialog. Stores the sub being managed (or null = closed).
+  const [settingsSub, setSettingsSub] = useState<SubscriptionDoc | null>(null);
 
   // All hooks before any early returns (Pitfall #9).
   const record = useSessionQuery(
@@ -715,6 +735,7 @@ export function CustomerDashboard() {
             unpaidInvoices={unpaidInvoices}
             selectedSubscriptionId={selectedSubscriptionId}
             onSelectSubscription={setSelectedSubscriptionId}
+            onManageSubscription={setSettingsSub}
           />
         </div>
       </div>
@@ -725,6 +746,17 @@ export function CustomerDashboard() {
           customer={customer}
           onClose={() => setEditOpen(false)}
           onSave={handleSaveCrmFields}
+        />
+      )}
+
+      {/* T12: Subscription settings dialog (baseline change + termination notice) */}
+      {settingsSub && (
+        <SubscriptionSettingsDialog
+          subscriptionId={settingsSub._id}
+          label={settingsSub.label}
+          baselineDailyQty={settingsSub.baselineDailyQty}
+          status={settingsSub.status}
+          onClose={() => setSettingsSub(null)}
         />
       )}
     </div>
