@@ -1,8 +1,9 @@
 ---
-status: fixing
+status: resolved
 trigger: "why didn't my frollieProBot update my '/ship' this morning? cehck the logs"
 created: 2026-06-02
 updated: 2026-06-02
+resolution: "Watchdog crons + per-slot delivery receipts. Shipped PR #180 (squash 0510f9cc)."
 ---
 
 # Debug: pack-list Telegram cron dropped — resilient retry's own launch hit a platform transient

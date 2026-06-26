@@ -13,6 +13,7 @@ export type PlannedDay = {
   deliverByTime: string;
   items: ScheduleLine[];
   locked: boolean;
+  needsSupplierConfirmation?: boolean;
 };
 
 export type LedgerType = "topup" | "drawdown" | "expiry" | "refund" | "adjustment";

@@ -130,3 +130,5 @@ graphify-out/cache/
 
 # Playwright ephemeral report
 playwright-report/
+
+.gstack/
