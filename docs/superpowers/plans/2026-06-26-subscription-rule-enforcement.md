@@ -571,9 +571,24 @@ git commit -m "feat(subscription): applyPendingBaselineChanges internal mutation
 - Consumes: `effectiveDateOf` (T3); `protectedMutation` from `../lib/functions`.
 - Produces: `api.subscriptions.mutations.scheduleBaselineChange({ subscriptionId, newQty })`, `api.subscriptions.mutations.giveTerminationNotice({ subscriptionId })`. Both `roles:["manager","admin"]`.
 
-- [ ] **Step 1: Write the failing test (convex-test).** With an authed manager identity (follow the existing pattern in `convex/subscriptions/__tests__/` for `protectedMutation` auth), assert: `scheduleBaselineChange` stages `pendingBaselineChange = { newQty, effectiveDate: now + 14*DAY }` (check ~14d window), rejects when sub is `ended`; `giveTerminationNotice` sets `terminationNoticeDate`, `endDate = now + 30*DAY`, `status="terminating"`, and rejects a second call.
+- [ ] **Step 1: Write the failing test (convex-test).** `protectedMutation` resolves `ctx.user` from a **`sessionId` arg** (`convex/lib/functions.ts:44`, `args: SessionIdArg`), NOT from `ctx.auth`. There is **no** protected-handler auth harness in `convex/subscriptions/__tests__/` (those are pure-only). **Use the working pattern in `convex/bankStatements/__tests__/mutations.test.ts` + `reconcileHelpers.ts`** (`createSession(t, "manager", name)` → inserts a `users` row + `sessions` row, returns `{ token }`). Then call handlers with `sessionId: token`. Assert: `scheduleBaselineChange({ sessionId, subscriptionId, newQty })` stages `pendingBaselineChange = { newQty, effectiveDate: ~now + 14*DAY }`, rejects when sub is `ended`; `giveTerminationNotice({ sessionId, subscriptionId })` sets `terminationNoticeDate`, `endDate = ~now + 30*DAY`, `status="terminating"`, and rejects a second call; **auth-rejection: an `order_staff` session → ConvexError** (confirms `roles:["manager","admin"]`).
 
-(Reuse the auth/seed harness already used by `amendConfirmedWeek`/`saveWeekPlan` tests — read one in `convex/subscriptions/__tests__/` for the exact `convexTest` + identity setup before writing.)
+```ts
+// harness shape (mirror convex/bankStatements/__tests__/reconcileHelpers.ts):
+async function createSession(t, role: "manager" | "order_staff", name: string) {
+  return t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", { name, role, isActive: true, /* + required user fields */ } as any);
+    const token = `sess_${name}`;
+    await ctx.db.insert("sessions", { token, userId, /* + required session fields */ } as any);
+    return { token, userId };
+  });
+}
+// usage:
+const { token } = await createSession(t, "manager", "mgr");
+await t.mutation(api.subscriptions.mutations.scheduleBaselineChange, { sessionId: token, subscriptionId, newQty: 12 });
+```
+
+(Read `reconcileHelpers.ts` for the EXACT required `users`/`sessions` insert fields before writing — don't guess them.)
 
 - [ ] **Step 2: Run test to verify it fails.** Expected: FAIL.
 - [ ] **Step 3: Write minimal implementation.** Append to `convex/subscriptions/mutations.ts`:
@@ -638,7 +653,7 @@ git commit -m "feat(subscription): scheduleBaselineChange + giveTerminationNotic
 - Consumes: existing `seedWeek`/`confirmWeek` signatures (no change).
 - Produces: both refuse a week with `weekStart > sub.endDate` when `endDate` is set.
 
-- [ ] **Step 1: Write the failing test (convex-test).** Seed a `terminating` sub with `endDate = X`. Assert: `seedWeek` with `weekStart > X` throws; `seedWeek` with `weekStart ≤ X` succeeds; `confirmWeek` on a future week (`weekStart > X`) throws; on the in-flight week (`weekStart ≤ X`) succeeds. With `endDate` undefined, both proceed.
+- [ ] **Step 1: Write the failing test (convex-test).** `seedWeek`/`confirmWeek` are `protectedMutation`s → call them with a manager `sessionId` (same `createSession` harness as T7, from `convex/bankStatements/__tests__/reconcileHelpers.ts`). Seed a `terminating` sub with `endDate = X`. Assert: `seedWeek({ sessionId, subscriptionId, weekStart })` with `weekStart > X` throws; with `weekStart ≤ X` succeeds; `confirmWeek({ sessionId, subscriptionWeekId })` on a future week (`weekStart > X`) throws; on the in-flight week (`weekStart ≤ X`) succeeds. With `endDate` undefined, both proceed.
 - [ ] **Step 2: Run test to verify it fails.** Expected: FAIL.
 - [ ] **Step 3: Add the guard to `seedWeek`.** In `convex/subscriptions/weeks.ts`, immediately after `if (!sub) throw new ConvexError("Subscription not found");`:
 
@@ -683,7 +698,7 @@ git commit -m "feat(subscription): termination guard stops future weeks past end
 - Consumes: `detectAboveBaseline` (T2), `sub.baselineDailyQty`.
 - Produces: every written `plannedDays[]` entry carries `needsSupplierConfirmation = detectAboveBaseline(items, sub.baselineDailyQty)`.
 
-- [ ] **Step 1: Write the failing test (convex-test).** For each of `seedWeek` (template with an above-baseline day), `saveWeekPlan`, and `amendConfirmedWeek`: assert the resulting week's `plannedDays` have `needsSupplierConfirmation === true` on the over-baseline day and `false`/falsey on an at-or-below day.
+- [ ] **Step 1: Write the failing test (convex-test).** All three are `protectedMutation`s → call with a manager `sessionId` (same `createSession` harness as T7). For each of `seedWeek` (template with an above-baseline day), `saveWeekPlan`, and `amendConfirmedWeek`: assert the resulting week's `plannedDays` have `needsSupplierConfirmation === true` on the over-baseline day and `false`/falsey on an at-or-below day.
 - [ ] **Step 2: Run test to verify it fails.** Expected: FAIL.
 - [ ] **Step 3a: Wire `buildPlannedDays`.** In `convex/subscriptions/weeks.ts`, add `baselineDailyQty` to the `buildPlannedDays` args and set the flag per day:
 
@@ -694,7 +709,7 @@ import { detectAboveBaseline } from "./enforcement/detectAboveBaseline";
 //   needsSupplierConfirmation: detectAboveBaseline(t.items, args.baselineDailyQty),
 ```
 
-Pass `baselineDailyQty: sub.baselineDailyQty` at the `seedFromTemplate` → `buildPlannedDays` call. For the `previousWeek` branch (`seedWeek`), set `needsSupplierConfirmation: detectAboveBaseline(d.items, sub.baselineDailyQty)` on each re-dated day object.
+**Caller fan-out (I2):** making `baselineDailyQty` a *required* `buildPlannedDays` arg forces every caller to compile. `buildPlannedDays` is called only by `seedFromTemplate` (`weeks.ts:48`) — add `baselineDailyQty: sub.baselineDailyQty` there. The `previousWeek` re-date branch in `seedWeek` does NOT go through `buildPlannedDays`, so set `needsSupplierConfirmation: detectAboveBaseline(d.items, sub.baselineDailyQty)` inline on each re-dated day object. Run `npm run type-check` to confirm no caller was missed.
 
 - [ ] **Step 3b: Wire `saveWeekPlan`.** In the `plannedDays` map (`:219`), add to each returned day object:
 
@@ -814,11 +829,11 @@ git commit -m "feat(crm): surface per-day cutoff/supplier flags in the week cale
 - Test: `src/pages/crm/__tests__/SubscriptionSettingsDialog.test.tsx`
 
 **Interfaces:**
-- Consumes: `api.subscriptions.mutations.scheduleBaselineChange`, `api.subscriptions.mutations.giveTerminationNotice` (T7) via the project's session-mutation hook.
+- Consumes: `api.subscriptions.mutations.scheduleBaselineChange`, `api.subscriptions.mutations.giveTerminationNotice` (T7) via **`useSessionMutation`** from `convex-helpers/react/sessions` (the hook the file already imports at `:35`; the existing dialog uses `useSessionMutation(api.crm.customers.updateCustomerCrmFields)` at `:592` — mirror that). Do NOT use plain `useMutation`.
 
 - [ ] **Step 1: Write the failing test.** Render the new dialog for a subscription; entering a baseline value and confirming calls `scheduleBaselineChange` with `{subscriptionId, newQty}`; clicking "Give 30-day termination notice" + confirm calls `giveTerminationNotice` with `{subscriptionId}`. Assert designed loading + error states render (D12). (Mock the mutation hooks per the existing CRM dialog test pattern — read `src/components/crm/ReconcileWeekDialog.test.tsx` for the harness.)
 - [ ] **Step 2: Run test to verify it fails.** Expected: FAIL.
-- [ ] **Step 3: Implement** a `SubscriptionSettingsDialog({ subscriptionId, label, baselineDailyQty, status, onClose })` mirroring the existing `CrmFieldsEditDialog` shape (Dialog/DialogContent/...), with: a numeric "New baseline daily qty" input + "Change baseline (effective in 14 days)" submit → `scheduleBaselineChange`; a "Give 30-day termination notice" button (disabled when `status` is `terminating`/`ended`) with a confirm step → `giveTerminationNotice`. Toast on success/error; loading state on submit. Add a "Manage subscription" trigger to each subscription section (near the per-subscription gauge/drawdown block). **No on-mount manager-only query** — the dialog only calls the two mutations on user action (Pitfall #19).
+- [ ] **Step 3: Implement** a `SubscriptionSettingsDialog({ subscriptionId, label, baselineDailyQty, status, onClose })` mirroring the existing `CrmFieldsEditDialog` shape (Dialog/DialogContent/...), wiring the two mutations via `useSessionMutation` (sessionId is injected by the hook — do not pass it manually in the component), with: a numeric "New baseline daily qty" input + "Change baseline (effective in 14 days)" submit → `scheduleBaselineChange`; a "Give 30-day termination notice" button (disabled when `status` is `terminating`/`ended`) with a confirm step → `giveTerminationNotice`. Toast on success/error; loading state on submit. Add a "Manage subscription" trigger to each subscription section (near the per-subscription gauge/drawdown block). **No on-mount manager-only query** — the dialog only calls the two mutations on user action (Pitfall #19).
 - [ ] **Step 4: Run test to verify it passes.** Expected: PASS.
 - [ ] **Step 5: Commit.**
 
