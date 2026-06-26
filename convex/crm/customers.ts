@@ -23,6 +23,7 @@ export const updateCustomerCrmFields = protectedMutation({
     customerId: v.id("customers"),
     keyContactName: v.optional(v.string()),
     keyContactRole: v.optional(v.string()),
+    phone: v.optional(v.string()),
     whatsapp: v.optional(v.string()),
     email: v.optional(v.string()),
     instagram: v.optional(v.string()),

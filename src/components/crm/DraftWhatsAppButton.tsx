@@ -10,6 +10,7 @@
  * Disabled with tooltip when no phone is available (graceful guard).
  */
 
+import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { useSessionMutation } from "convex-helpers/react/sessions";
 import { toast } from "sonner";
@@ -44,6 +45,8 @@ export function DraftWhatsAppButton({
   const logCustomerInteraction = useSessionMutation(
     api.crm.timeline.logCustomerInteraction,
   );
+  // In-flight guard: prevents a rapid double-click logging two whatsapp_drafted rows.
+  const [drafting, setDrafting] = useState(false);
 
   // Build the prefilled wa.me URL — null when no phone.
   const baseUrl = buildWaMeUrl(phone);
@@ -58,7 +61,8 @@ export function DraftWhatsAppButton({
     : null;
 
   async function handleClick() {
-    if (!url) return;
+    if (!url || drafting) return;
+    setDrafting(true);
     window.open(url, "_blank", "noopener,noreferrer");
     // The draft window is already open; logging is best-effort. Surface a clear
     // error toast on mutation rejection instead of an unhandled promise rejection.
@@ -72,6 +76,8 @@ export function DraftWhatsAppButton({
       toast.success("WhatsApp draft opened");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to log WhatsApp draft"));
+    } finally {
+      setDrafting(false);
     }
   }
 
@@ -80,7 +86,7 @@ export function DraftWhatsAppButton({
       size="sm"
       variant="outline"
       onClick={handleClick}
-      disabled={!url}
+      disabled={!url || drafting}
       title={!url ? "No phone number on file" : undefined}
       className="text-xs"
     >

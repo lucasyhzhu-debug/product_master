@@ -31,6 +31,16 @@ After merging any code change, add a new entry with:
 
 Verified: `npm run build` + lint + tsc(fe+convex) green; live re-verification spec `tests/e2e/uat-phase-d-crm-verify.spec.ts` passes against dev. Evidence: `docs/reviews/uat/phase-d-crm-2026-06-26/` (incl. `UAT-FINDINGS.md`). Dev seed: `convex/subscriptions/_devSeed.ts` (`seedCrmUat`).
 
+### Fixed — UAT nit sweep (2026-06-26)
+
+Remaining low-priority UAT nits, swept after the punch-list:
+- **Consistent money format** — activity timeline now uses "Rp 1.200.000" (was "1.200.000 IDR"), matching the gauge + ledger.
+- **Timeline names the subscription** — credit top-up rows show the subscription label instead of a raw `subscription <id>` (A1).
+- **Editable Phone** — the customer edit dialog gains a Phone field (alongside WhatsApp); `updateCustomerCrmFields` accepts `phone`. Every displayed contact now round-trips.
+- **WhatsApp draft double-click guard** — the button disables while logging, preventing a duplicate `whatsapp_drafted` activity row.
+- **Clearer ledger footnote** — "Balance … resets each week" reworded to clarify unused credit rolls over/expires per policy (not lost).
+- **Friendlier agreement link** — SubscriptionPage shows "View agreement" instead of "Agreement ···id".
+
 ### Added
 
 - **CRM routes (all `canAccessCrm` = manager + admin):**
