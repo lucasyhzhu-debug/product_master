@@ -10,12 +10,7 @@ import { resolve } from "path";
 const cronsSource = readFileSync(resolve(__dirname, "../crons.ts"), "utf-8");
 
 describe("cron minute uniqueness", () => {
-  it("registers the enforcement cron names", () => {
-    expect(cronsSource).toContain('"subscription flip day locks"');
-    expect(cronsSource).toContain('"subscription apply baseline changes"');
-  });
-
-  it("has no two daily crons sharing the same (hourUTC, minuteUTC)", () => {
+  it("registers both enforcement crons at unique daily (hourUTC, minuteUTC) slots", () => {
     // Match crons.daily( calls and capture name, hourUTC, minuteUTC.
     // Daily schedule objects have hourUTC + minuteUTC with NO dayOfWeek or day prefix,
     // so this regex correctly excludes weekly/monthly entries.
@@ -38,7 +33,9 @@ describe("cron minute uniqueness", () => {
 
     expect(collisions, collisions.join(", ")).toHaveLength(0);
 
-    // The two enforcement crons must appear in the discovered set.
+    // The two enforcement crons must be registered, at their unique slots.
+    expect(cronsSource).toContain('"subscription flip day locks"');
+    expect(cronsSource).toContain('"subscription apply baseline changes"');
     expect(seen.has("5:25")).toBe(true);
     expect(seen.has("4:10")).toBe(true);
   });

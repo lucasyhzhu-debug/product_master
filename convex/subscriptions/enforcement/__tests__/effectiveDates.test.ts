@@ -1,19 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { permanentChangeEffective, terminationEffective, effectiveDateOf, DAY_MS } from "../effectiveDates";
+import { effectiveDateOf, DAY_MS } from "../effectiveDates";
 
 const T = 1_000_000_000_000;
 
-describe("effective-date predicates", () => {
-  it("effectiveDateOf adds days", () => {
+describe("effectiveDateOf", () => {
+  it("adds days to the notice date", () => {
     expect(effectiveDateOf(T, 14)).toBe(T + 14 * DAY_MS);
   });
-  it("permanentChangeEffective true at boundary", () => {
-    expect(permanentChangeEffective(T, 14, T + 14 * DAY_MS)).toBe(true);
+  it("supports the 30-day termination window", () => {
+    expect(effectiveDateOf(T, 30)).toBe(T + 30 * DAY_MS);
   });
-  it("permanentChangeEffective false before", () => {
-    expect(permanentChangeEffective(T, 14, T + 14 * DAY_MS - 1)).toBe(false);
-  });
-  it("terminationEffective true after", () => {
-    expect(terminationEffective(T, 30, T + 31 * DAY_MS)).toBe(true);
+  it("returns the notice date itself for 0 days", () => {
+    expect(effectiveDateOf(T, 0)).toBe(T);
   });
 });

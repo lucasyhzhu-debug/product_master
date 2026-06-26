@@ -1,6 +1,6 @@
 import { getWibComponents, wibMidnightToUtc } from "../../lib/periodRange";
+import { DAY_MS } from "./effectiveDates";
 
-const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
 /** UTC epoch ms of the change-cutoff for a delivery on deliveryDateMs.
