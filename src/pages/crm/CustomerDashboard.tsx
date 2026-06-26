@@ -63,6 +63,7 @@ import { SubscriptionSelector } from "@/components/crm/SubscriptionSelector";
 import { DrawdownChart } from "@/components/crm/DrawdownChart";
 import { getErrorMessage, formatCurrency } from "@/lib/utils";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
+import { SUBSCRIPTION_STATUS_BADGE } from "@/lib/crmStatusBadges";
 
 // ---------------------------------------------------------------------------
 // Types — mirror getCustomerRecord return shape
@@ -414,17 +415,6 @@ function IdentityPane({ customer, agreements }: LeftPaneProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Subscription status badge colour map (mirrors SubscriptionPage.tsx STATUS_BADGE)
-// ---------------------------------------------------------------------------
-
-const SUB_STATUS_BADGE: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  active: "bg-green-100 text-green-700",
-  terminating: "bg-amber-100 text-amber-700",
-  ended: "bg-red-100 text-red-700",
-};
-
-// ---------------------------------------------------------------------------
 // Right pane — financial story
 // ---------------------------------------------------------------------------
 
@@ -520,7 +510,7 @@ function FinancialPane({
                     </div>
                     <Badge
                       className={`text-xs shrink-0 ${
-                        SUB_STATUS_BADGE[sub.status] ?? "bg-gray-100 text-gray-500"
+                        SUBSCRIPTION_STATUS_BADGE[sub.status] ?? "bg-gray-100 text-gray-500"
                       }`}
                     >
                       {sub.status}

@@ -78,7 +78,7 @@ export function ScheduleTemplateEditor({ days, products, onChange }: Props) {
           ) : (
             <div className="space-y-1.5">
               {day.items.map((line, lineIdx) => (
-                <div key={`${line.menuProductId}-${lineIdx}`} className="flex items-center gap-2">
+                <div key={lineIdx} className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <Select
                       value={line.menuProductId}
