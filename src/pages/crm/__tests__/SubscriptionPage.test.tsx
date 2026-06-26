@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 // ---------------------------------------------------------------------------
@@ -30,26 +30,23 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 let mockSubscription: unknown = undefined;
 let mockWeeks: unknown = undefined;
 let mockStatement: unknown = undefined;
+let mockMutateFn: ReturnType<typeof vi.fn>;
 
-// Ref-identity discrimination: track up to 3 unique query refs.
-const _seenRefs: unknown[] = [];
-const useSessionQueryMock = vi.fn((query: unknown) => {
-  const idx = _seenRefs.indexOf(query);
-  if (idx === -1) {
-    _seenRefs.push(query);
-    const newIdx = _seenRefs.length - 1;
-    if (newIdx === 0) return mockSubscription;
-    if (newIdx === 1) return mockWeeks;
-    return mockStatement;
-  }
-  if (idx === 0) return mockSubscription;
-  if (idx === 1) return mockWeeks;
+// Call-order discrimination: api refs are Proxy objects (new object per access),
+// so ref-identity fails on re-renders. Use call count mod 3 instead — hooks are
+// always called in the same order: 0=getSubscription, 1=listWeeks, 2=statement.
+let _callIdx = 0;
+const useSessionQueryMock = vi.fn((_query: unknown) => {
+  const pos = _callIdx % 3;
+  _callIdx++;
+  if (pos === 0) return mockSubscription;
+  if (pos === 1) return mockWeeks;
   return mockStatement;
 });
 
 vi.mock("convex-helpers/react/sessions", () => ({
   useSessionQuery: (...args: unknown[]) => useSessionQueryMock(...args),
-  useSessionMutation: vi.fn(() => vi.fn()),
+  useSessionMutation: vi.fn(() => mockMutateFn),
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -198,24 +195,19 @@ function renderPage(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  _seenRefs.length = 0;
+  _callIdx = 0;
+  mockMutateFn = vi.fn();
 
   // Happy-path defaults.
   mockSubscription = SUB_DOC;
   mockWeeks = [WEEK_2, WEEK_1]; // most-recent first
   mockStatement = STATEMENT_ROWS;
 
-  useSessionQueryMock.mockImplementation((query: unknown) => {
-    const idx = _seenRefs.indexOf(query);
-    if (idx === -1) {
-      _seenRefs.push(query);
-      const newIdx = _seenRefs.length - 1;
-      if (newIdx === 0) return mockSubscription;
-      if (newIdx === 1) return mockWeeks;
-      return mockStatement;
-    }
-    if (idx === 0) return mockSubscription;
-    if (idx === 1) return mockWeeks;
+  useSessionQueryMock.mockImplementation((_query: unknown) => {
+    const pos = _callIdx % 3;
+    _callIdx++;
+    if (pos === 0) return mockSubscription;
+    if (pos === 1) return mockWeeks;
     return mockStatement;
   });
 });
@@ -394,6 +386,25 @@ describe("SubscriptionPage — createdBy column", () => {
     // Both rows have createdBy "user_001".
     const createdByEls = screen.getAllByText(/user_001/);
     expect(createdByEls.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("SubscriptionPage — Activate action (draft only)", () => {
+  it("shows Activate button for a draft and disables it when weeklyQty is 0", () => {
+    mockSubscription = { ...SUB_DOC, status: "draft" as const, weeklyQty: 0 };
+    renderPage();
+    expect(screen.getByRole("button", { name: /activate/i })).toBeDisabled();
+  });
+
+  it("activates a complete draft — calls updateSubscription with status:active", async () => {
+    mockSubscription = { ...SUB_DOC, status: "draft" as const, weeklyQty: 1050 };
+    renderPage();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /activate/i }));
+    });
+    expect(mockMutateFn).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "active" }),
+    );
   });
 });
 

@@ -29,7 +29,8 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CalendarDays, CreditCard, FileText } from "lucide-react";
-import { useSessionQuery } from "convex-helpers/react/sessions";
+import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
+import { toast } from "sonner";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -166,6 +167,11 @@ export function SubscriptionPage() {
       : "skip",
   ) as { rows: LedgerStatementRow[] } | undefined;
 
+  // Activate — only available for draft subscriptions (Pitfall #9: hooks before returns).
+  const updateSubscription = useSessionMutation(api.subscriptions.mutations.updateSubscription);
+  const linkAgreement = useSessionMutation(api.crm.agreements.linkAgreementToSubscription);
+  const [activating, setActivating] = useState(false);
+
   // D12: loading guard.
   if (subscription === undefined) {
     return <LoadingPage />;
@@ -189,6 +195,35 @@ export function SubscriptionPage() {
         />
       </div>
     );
+  }
+
+  // Schedulability guard — all terms must be set and at least one product scheduled.
+  const activationBlockedReason =
+    !subscription.label?.trim() ? "Label required"
+    : subscription.unitPrice <= 0 ? "Unit price required"
+    : subscription.baselineDailyQty <= 0 ? "Baseline qty required"
+    : subscription.cogsBasis <= 0 ? "COGS basis required"
+    : !/^\d{2}:\d{2}$/.test(subscription.deliverByTime) ? "Deliver-by time required"
+    : !subscription.startDate ? "Start date required"
+    : subscription.weeklyQty <= 0 ? "Add at least one scheduled product"
+    : null;
+
+  async function handleActivate() {
+    setActivating(true);
+    try {
+      await updateSubscription({ subscriptionId: subscription!._id, status: "active" });
+      if (subscription!.agreementId) {
+        await linkAgreement({
+          agreementId: subscription!.agreementId,
+          subscriptionId: subscription!._id,
+        });
+      }
+      toast.success("Subscription activated");
+    } catch {
+      toast.error("Could not activate. Check the schedule and terms.");
+    } finally {
+      setActivating(false);
+    }
   }
 
   const customerIdTyped = customerId as Id<"customers">;
@@ -243,15 +278,34 @@ export function SubscriptionPage() {
             </span>
           </div>
         </div>
-        {/* Quick link: schedule calendar */}
-        <Button variant="outline" size="sm" asChild>
-          <Link
-            to={`/crm/customers/${customerIdTyped}/subscriptions/${subId}/week`}
-          >
-            <CalendarDays className="h-4 w-4 mr-2" aria-hidden="true" />
-            Schedule
-          </Link>
-        </Button>
+        <div className="flex items-start gap-2">
+          {/* Activate — draft only */}
+          {subscription.status === "draft" && (
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                size="sm"
+                onClick={handleActivate}
+                disabled={activating || activationBlockedReason !== null}
+              >
+                {activating ? "Activating…" : "Activate"}
+              </Button>
+              {activationBlockedReason && (
+                <span className="text-xs text-muted-foreground">
+                  {activationBlockedReason}
+                </span>
+              )}
+            </div>
+          )}
+          {/* Quick link: schedule calendar */}
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              to={`/crm/customers/${customerIdTyped}/subscriptions/${subId}/week`}
+            >
+              <CalendarDays className="h-4 w-4 mr-2" aria-hidden="true" />
+              Schedule
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Subscription info */}
