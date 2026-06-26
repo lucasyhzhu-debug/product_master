@@ -203,21 +203,20 @@ export function SubscriptionPage() {
     try {
       await updateSubscription({ subscriptionId, status: "active" });
       toast.success("Subscription activated");
+      if (agreementId) {
+        try {
+          await linkAgreement({ agreementId, subscriptionId });
+        } catch (err) {
+          console.error("[handleActivate] linkAgreement", err);
+          toast.warning("Activated — but the agreement link failed. Link it from the agreement page.");
+        }
+      }
     } catch (err) {
       console.error("[handleActivate] updateSubscription", err);
       toast.error("Could not activate. Check the schedule and terms.");
+    } finally {
       setActivating(false);
-      return;
     }
-    if (agreementId) {
-      try {
-        await linkAgreement({ agreementId, subscriptionId });
-      } catch (err) {
-        console.error("[handleActivate] linkAgreement", err);
-        toast.warning("Activated — but the agreement link failed. Link it from the agreement page.");
-      }
-    }
-    setActivating(false);
   }
 
   const customerIdTyped = customerId as Id<"customers">;

@@ -42,13 +42,14 @@ let mockMutateFn: ReturnType<typeof vi.fn>;
 // BOTH the mock dispatch (add/remove an `if` branch) AND the invariant
 // assertion in renderPage() below — otherwise tests will silently mis-map mocks.
 let _callIdx = 0;
-const useSessionQueryMock = vi.fn(() => {
+function sessionQueryDispatch() {
   const pos = _callIdx % 3;
   _callIdx++;
   if (pos === 0) return mockSubscription;
   if (pos === 1) return mockWeeks;
   return mockStatement;
-});
+}
+const useSessionQueryMock = vi.fn(sessionQueryDispatch);
 
 vi.mock("convex-helpers/react/sessions", () => ({
   // Args are ignored — the mock discriminates queries by call order (see _callIdx % 3 above).
@@ -218,13 +219,7 @@ beforeEach(() => {
   mockWeeks = [WEEK_2, WEEK_1]; // most-recent first
   mockStatement = STATEMENT_ROWS;
 
-  useSessionQueryMock.mockImplementation(() => {
-    const pos = _callIdx % 3;
-    _callIdx++;
-    if (pos === 0) return mockSubscription;
-    if (pos === 1) return mockWeeks;
-    return mockStatement;
-  });
+  useSessionQueryMock.mockImplementation(sessionQueryDispatch);
 });
 
 // ---------------------------------------------------------------------------

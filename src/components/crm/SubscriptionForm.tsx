@@ -8,7 +8,7 @@
  * Phase D: Task 4 of the subscription onboarding UI.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "convex/react";
 import { useSessionMutation, useSessionQuery } from "convex-helpers/react/sessions";
@@ -97,7 +97,7 @@ export function SubscriptionForm({ customerId }: Props) {
     "expire",
   );
   const [rolloverExpiryWeeks, setRolloverExpiryWeeks] = useState("");
-  const [startDate] = useState<number>(nextMonday);
+  const startDate = useMemo(() => nextMonday(), []);
   const [agreementId, setAgreementId] = useState<Id<"supplyAgreements"> | undefined>();
   const [notes, setNotes] = useState("");
   const [days, setDays] = useState<TemplateDay[]>(() =>
@@ -314,7 +314,7 @@ export function SubscriptionForm({ customerId }: Props) {
       <div className="space-y-2">
         <h3 className="text-sm font-medium">Supply agreement <span className="text-muted-foreground font-normal">(optional)</span></h3>
 
-        {agreements.length > 0 && (
+        {agreements.length > 0 ? (
           <Select
             value={agreementId ?? "none"}
             onValueChange={(v) =>
@@ -333,9 +333,7 @@ export function SubscriptionForm({ customerId }: Props) {
               ))}
             </SelectContent>
           </Select>
-        )}
-
-        {agreements.length === 0 && (
+        ) : (
           <p className="text-xs text-muted-foreground">
             No agreements on file — upload one below or attach later.
           </p>

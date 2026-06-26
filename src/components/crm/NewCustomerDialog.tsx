@@ -28,7 +28,6 @@ const INITIAL_FORM = {
   name: "",
   companyName: "",
   keyContactName: "",
-  keyContactRole: "",
   whatsapp: "",
   phone: "",
   email: "",

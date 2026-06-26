@@ -15,11 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Id } from "../../../convex/_generated/dataModel";
-
-export interface MenuProductOption {
-  _id: Id<"menuProducts">;
-  name: string;
-}
+import type { MenuProductOption } from "./ProductLineEditor";
+export type { MenuProductOption };
 export interface TemplateLine {
   menuProductId: Id<"menuProducts">;
   qty: number;
@@ -42,6 +39,10 @@ export function ScheduleTemplateEditor({ days, products, onChange }: Props) {
 
   function updateDay(dayIdx: number, items: TemplateLine[]) {
     onChange(days.map((d, i) => (i === dayIdx ? { ...d, items } : d)));
+  }
+
+  function updateLine(dayIdx: number, lineIdx: number, patch: Partial<TemplateLine>) {
+    updateDay(dayIdx, days[dayIdx].items.map((l, i) => (i === lineIdx ? { ...l, ...patch } : l)));
   }
 
   return (
@@ -83,14 +84,7 @@ export function ScheduleTemplateEditor({ days, products, onChange }: Props) {
                     <Select
                       value={line.menuProductId}
                       onValueChange={(val) =>
-                        updateDay(
-                          dayIdx,
-                          day.items.map((l, i) =>
-                            i === lineIdx
-                              ? { ...l, menuProductId: val as Id<"menuProducts"> }
-                              : l,
-                          ),
-                        )
+                        updateLine(dayIdx, lineIdx, { menuProductId: val as Id<"menuProducts"> })
                       }
                     >
                       <SelectTrigger className="h-8 text-xs">
@@ -112,14 +106,7 @@ export function ScheduleTemplateEditor({ days, products, onChange }: Props) {
                     aria-label="Quantity"
                     className="w-16 h-8 text-xs text-center"
                     onChange={(e) =>
-                      updateDay(
-                        dayIdx,
-                        day.items.map((l, i) =>
-                          i === lineIdx
-                            ? { ...l, qty: Math.max(1, Number(e.target.value) || 1) }
-                            : l,
-                        ),
-                      )
+                      updateLine(dayIdx, lineIdx, { qty: Math.max(1, Number(e.target.value) || 1) })
                     }
                   />
                   <Button
