@@ -81,6 +81,7 @@ export function SubscriptionSettingsDialog({
 
   async function handleBaselineSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!Number.isInteger(newQty) || newQty < 1) return;
     setBaselineLoading(true);
     try {
       await scheduleBaselineChange({ subscriptionId, newQty });

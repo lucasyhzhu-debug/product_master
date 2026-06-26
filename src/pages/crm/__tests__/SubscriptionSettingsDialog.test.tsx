@@ -25,19 +25,13 @@ const scheduleBaselineFn = vi.fn();
 const giveTerminationFn = vi.fn();
 const useSessionMutationMock = vi.fn();
 
-// Cyclic dispatch index — reset in beforeEach so each test gets clean slate.
-// The component always calls useSessionMutation in fixed order:
-//   even calls → scheduleBaselineFn, odd calls → giveTerminationFn.
-// Cyclic dispatch handles re-renders correctly (vs mockReturnValueOnce which
-// is consumed on the first render and returns undefined on re-renders).
-let mockHookCallIdx = 0;
-
 vi.mock("convex-helpers/react/sessions", () => ({
   useSessionMutation: (...args: unknown[]) => useSessionMutationMock(...args),
 }));
 
-// api module — anyApi proxy; mocked to supply stable string references.
-vi.mock("../../../convex/_generated/api", () => ({
+// api module — mocked to supply stable string references that argument-based
+// dispatch can compare. Path is 4 levels up from __tests__/ to reach root convex/.
+vi.mock("../../../../convex/_generated/api", () => ({
   api: {
     subscriptions: {
       mutations: {
@@ -106,17 +100,16 @@ function renderDialog(overrides: { status?: string; label?: string } = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockHookCallIdx = 0;
   scheduleBaselineFn.mockResolvedValue({ effectiveDate: Date.now() + 14 * 86400000 });
   giveTerminationFn.mockResolvedValue({ terminationNoticeDate: Date.now(), endDate: Date.now() + 30 * 86400000 });
 
-  // Cyclic dispatch: even slots → scheduleBaselineFn, odd → giveTerminationFn.
-  // api.subscriptions.mutations.* is the anyApi Proxy (real convex reference),
-  // not the mocked string — argument comparison won't work. Use call order.
-  const cyclicFns = [scheduleBaselineFn, giveTerminationFn];
-  useSessionMutationMock.mockImplementation(
-    () => cyclicFns[mockHookCallIdx++ % cyclicFns.length],
-  );
+  // Argument-based dispatch: api module is mocked to stable string constants
+  // above, so useSessionMutation receives a distinguishable string per mutation.
+  useSessionMutationMock.mockImplementation((mutationRef) => {
+    if (mutationRef === "scheduleBaselineChange") return scheduleBaselineFn;
+    if (mutationRef === "giveTerminationNotice") return giveTerminationFn;
+    return vi.fn();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -181,6 +174,23 @@ describe("SubscriptionSettingsDialog — baseline change", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalled();
     });
+  });
+
+  it("does not call scheduleBaselineChange when qty is 0", async () => {
+    renderDialog();
+    const input = screen.getByLabelText(/baseline daily qty/i);
+    await userEvent.clear(input);
+    await userEvent.type(input, "0");
+    fireEvent.click(screen.getByRole("button", { name: /change baseline/i }));
+    expect(scheduleBaselineFn).not.toHaveBeenCalled();
+  });
+
+  it("does not call scheduleBaselineChange when input is cleared (empty → 0)", async () => {
+    renderDialog();
+    const input = screen.getByLabelText(/baseline daily qty/i);
+    await userEvent.clear(input);
+    fireEvent.click(screen.getByRole("button", { name: /change baseline/i }));
+    expect(scheduleBaselineFn).not.toHaveBeenCalled();
   });
 });
 
