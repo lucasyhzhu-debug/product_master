@@ -42,7 +42,7 @@ import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
 import { CreditLedgerStatement } from "@/components/crm/CreditLedgerStatement";
 import type { LedgerStatementRow } from "@/components/crm/CreditLedgerStatement";
-import { WEEK_STATUS_BADGE } from "@/lib/crmStatusBadges";
+import { WEEK_STATUS_BADGE, SUBSCRIPTION_STATUS_BADGE } from "@/lib/crmStatusBadges";
 import { formatCurrency } from "@/lib/utils";
 import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
@@ -88,17 +88,6 @@ type WeekDoc = {
   creditIssued: number;
   creditConsumed: number;
   creditRemaining: number;
-};
-
-// ---------------------------------------------------------------------------
-// Status badge colour map
-// ---------------------------------------------------------------------------
-
-const STATUS_BADGE: Record<SubscriptionDoc["status"], string> = {
-  draft: "bg-gray-100 text-gray-600",
-  active: "bg-green-100 text-green-700",
-  terminating: "bg-amber-100 text-amber-700",
-  ended: "bg-red-100 text-red-700",
 };
 
 // ---------------------------------------------------------------------------
@@ -203,27 +192,32 @@ export function SubscriptionPage() {
     : subscription.unitPrice <= 0 ? "Unit price required"
     : subscription.baselineDailyQty <= 0 ? "Baseline qty required"
     : subscription.cogsBasis <= 0 ? "COGS basis required"
-    : !/^\d{2}:\d{2}$/.test(subscription.deliverByTime) ? "Deliver-by time required"
+    : !/^([01]\d|2[0-3]):[0-5]\d$/.test(subscription.deliverByTime) ? "Deliver-by time required"
     : !subscription.startDate ? "Start date required"
     : subscription.weeklyQty <= 0 ? "Add at least one scheduled product"
     : null;
 
   async function handleActivate() {
     setActivating(true);
+    const { _id: subscriptionId, agreementId } = subscription!;
     try {
-      await updateSubscription({ subscriptionId: subscription!._id, status: "active" });
-      if (subscription!.agreementId) {
-        await linkAgreement({
-          agreementId: subscription!.agreementId,
-          subscriptionId: subscription!._id,
-        });
-      }
+      await updateSubscription({ subscriptionId, status: "active" });
       toast.success("Subscription activated");
-    } catch {
+    } catch (err) {
+      console.error("[handleActivate] updateSubscription", err);
       toast.error("Could not activate. Check the schedule and terms.");
-    } finally {
       setActivating(false);
+      return;
     }
+    if (agreementId) {
+      try {
+        await linkAgreement({ agreementId, subscriptionId });
+      } catch (err) {
+        console.error("[handleActivate] linkAgreement", err);
+        toast.warning("Activated — but the agreement link failed. Link it from the agreement page.");
+      }
+    }
+    setActivating(false);
   }
 
   const customerIdTyped = customerId as Id<"customers">;
@@ -268,7 +262,7 @@ export function SubscriptionPage() {
             {subscription.label}
           </h1>
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={`text-xs ${STATUS_BADGE[subscription.status]}`}>
+            <Badge className={`text-xs ${SUBSCRIPTION_STATUS_BADGE[subscription.status]}`}>
               {subscription.status}
             </Badge>
             <span className="text-xs text-muted-foreground">
