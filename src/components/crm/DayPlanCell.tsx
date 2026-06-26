@@ -3,7 +3,7 @@
  * Shows date label, list of schedule lines via ProductLineEditor,
  * a day subtotal, and an "+ Add product" button.
  */
-import { Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -25,6 +25,10 @@ interface DayPlanCellProps {
   unitPrice: number;
   /** Whether the cell is locked (confirmed week) — disables editing */
   locked: boolean;
+  /** Visual-only warning: delivery is past the 13:00 WIB cutoff. Does NOT disable editing. */
+  pastCutoff?: boolean;
+  /** Visual-only badge: supplier confirmation is still pending. Does NOT disable editing. */
+  needsSupplierConfirmation?: boolean;
   onChange: (lines: ScheduleLineLocal[]) => void;
 }
 
@@ -46,6 +50,8 @@ export function DayPlanCell({
   products,
   unitPrice,
   locked,
+  pastCutoff,
+  needsSupplierConfirmation,
   onChange,
 }: DayPlanCellProps) {
   const dayLabel = DAY_LABELS[dayIndex] ?? `Day ${dayIndex + 1}`;
@@ -86,6 +92,19 @@ export function DayPlanCell({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col gap-2 px-3 pb-3">
+        {/* Cutoff warning — visual only, never disables editing */}
+        {pastCutoff && (
+          <p className="text-[10px] text-amber-600 flex items-center gap-1" role="status">
+            <AlertTriangle className="h-3 w-3" aria-hidden="true" /> past 13:00 cutoff
+          </p>
+        )}
+        {/* Supplier confirmation badge — visual only */}
+        {needsSupplierConfirmation && (
+          <span className="text-[10px] font-medium text-orange-700 bg-orange-100 rounded px-1 py-0.5 w-fit">
+            needs supplier confirmation
+          </span>
+        )}
+
         {/* Line items */}
         {lines.length === 0 ? (
           <p className="text-xs text-muted-foreground/60 italic flex-1 flex items-center justify-center">
