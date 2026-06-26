@@ -56,7 +56,7 @@ vi.mock("convex-helpers/react/sessions", () => ({
   useSessionMutation: vi.fn(() => mockMutateFn),
 }));
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 vi.mock("@/components/crm/Breadcrumbs", () => ({
   Breadcrumbs: ({ trail }: { trail: { label: string }[] }) => (
@@ -180,6 +180,9 @@ function renderPage(
   subId: string = SUB_ID,
   searchSuffix: string = "",
 ) {
+  // I5: Reset _callIdx at the START of each renderPage call so every invocation
+  // starts with a clean counter and the invariant guard validates that specific render.
+  _callIdx = 0;
   const result = render(
     <MemoryRouter
       initialEntries={[
@@ -431,12 +434,13 @@ describe("SubscriptionPage — Activate action (draft only)", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /activate/i }));
     });
-    // updateSubscription must be called with status:active
-    expect(mockMutateFn).toHaveBeenCalledWith(
+    // I4: assert ORDER — updateSubscription must fire FIRST, linkAgreement SECOND.
+    expect(mockMutateFn).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({ status: "active" }),
     );
-    // linkAgreement must be called with the agreementId + subscriptionId
-    expect(mockMutateFn).toHaveBeenCalledWith(
+    expect(mockMutateFn).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({ agreementId: AGREEMENT_ID, subscriptionId: SUB_ID }),
     );
   });
