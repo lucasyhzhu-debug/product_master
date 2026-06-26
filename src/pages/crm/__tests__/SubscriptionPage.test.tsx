@@ -42,7 +42,7 @@ let mockMutateFn: ReturnType<typeof vi.fn>;
 // BOTH the mock dispatch (add/remove an `if` branch) AND the invariant
 // assertion in renderPage() below — otherwise tests will silently mis-map mocks.
 let _callIdx = 0;
-const useSessionQueryMock = vi.fn((..._args: unknown[]) => {
+const useSessionQueryMock = vi.fn(() => {
   const pos = _callIdx % 3;
   _callIdx++;
   if (pos === 0) return mockSubscription;
@@ -214,7 +214,7 @@ beforeEach(() => {
   mockWeeks = [WEEK_2, WEEK_1]; // most-recent first
   mockStatement = STATEMENT_ROWS;
 
-  useSessionQueryMock.mockImplementation((..._args: unknown[]) => {
+  useSessionQueryMock.mockImplementation(() => {
     const pos = _callIdx % 3;
     _callIdx++;
     if (pos === 0) return mockSubscription;
@@ -285,7 +285,7 @@ describe("SubscriptionPage — CreditLedgerStatement signed amounts", () => {
   it("renders positive topup amount", () => {
     renderPage();
     // 100000 rendered as currency string; may appear multiple times (week metadata + table).
-    const matches = screen.getAllByText(/100[\.,]?000/);
+    const matches = screen.getAllByText(/100[.,]?000/);
     expect(matches.length).toBeGreaterThan(0);
   });
 
@@ -295,7 +295,7 @@ describe("SubscriptionPage — CreditLedgerStatement signed amounts", () => {
     // Query the table body for a cell containing the signed amount.
     const allCells = document.querySelectorAll("td");
     const hasNegative = Array.from(allCells).some(
-      (el) => el.textContent && /75[\.,]?000/.test(el.textContent),
+      (el) => el.textContent && /75[.,]?000/.test(el.textContent),
     );
     expect(hasNegative).toBe(true);
   });
@@ -313,9 +313,9 @@ describe("SubscriptionPage — CreditLedgerStatement week-scoped balanceAfter", 
     renderPage();
     // Row 1: balanceAfter=100000, Row 2: balanceAfter=25000.
     // Values may appear multiple times (week metadata + table); use getAllByText.
-    const matches100k = screen.getAllByText(/100[\.,]?000/);
+    const matches100k = screen.getAllByText(/100[.,]?000/);
     expect(matches100k.length).toBeGreaterThan(0);
-    const matches25k = screen.getAllByText(/25[\.,]?000/);
+    const matches25k = screen.getAllByText(/25[.,]?000/);
     expect(matches25k.length).toBeGreaterThan(0);
   });
 });

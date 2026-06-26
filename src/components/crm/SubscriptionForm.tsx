@@ -97,7 +97,6 @@ export function SubscriptionForm({ customerId }: Props) {
     "expire",
   );
   const [rolloverExpiryWeeks, setRolloverExpiryWeeks] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [startDate] = useState<number>(nextMonday);
   const [agreementId, setAgreementId] = useState<Id<"supplyAgreements"> | undefined>();
   const [notes, setNotes] = useState("");
