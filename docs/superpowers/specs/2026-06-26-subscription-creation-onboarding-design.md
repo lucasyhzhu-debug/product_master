@@ -17,7 +17,7 @@ The subscription-credit backend is complete and operate/read UI shipped, but a m
 2. Create a **subscription** (status `draft`) with terms + a weekly **schedule template** + an optional **agreement** link.
 3. Review the draft, then **Activate** it (`status: draft → active`).
 
-This is a **frontend-only** slice — all backend mutations already exist (see §3). The one borderline-backend item (rich customer-create) is satisfied by composing two existing mutations; see §3.1.
+This is an **almost-entirely-frontend** slice: the subscription + agreement mutations all exist (see §3). The **single backend deliverable** is one additive mutation — `crm.customers.createCustomer` — needed because no existing mutation carries the full customer field union atomically (§3.1).
 
 **Out of scope:** subscription rule-enforcement (separate slice — Phase E Slice-2); editing the schedule of an *active* week (Phase B scheduler already owns that); customer/subscription deletion; bulk import.
 
@@ -30,21 +30,21 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 ### 2.1 New customer (CRM)
 - A **"New customer"** affordance on `CrmHome` (`src/pages/crm/CrmHome.tsx`) — a button opening a dialog (`NewCustomerDialog.tsx`).
 - Minimal-but-useful form: **name** (required), companyName, key contact (name/role), whatsapp, phone, email, billing/delivery/store addresses, notes.
-- On submit: call `customers.create` (name + phone + notes + defaultAddress) → then `crm.customers.updateCustomerCrmFields` on the returned id for the rich fields (companyName via `customers.update`; keyContactName/keyContactRole/whatsapp/email/deliveryAddress/storeAddress via `updateCustomerCrmFields`). On success → navigate to the customer hub `/crm/customers/:id`.
-- See §3.1 for the two-call composition and its partial-failure handling.
+- On submit: call a new **atomic** `crm.customers.createCustomer` mutation (one transaction inserting the customer with all CRM fields). On success → navigate to the customer hub `/crm/customers/:id`.
+- See §3.1 for why this is one mutation (the partial-write seam of the rejected multi-call path) — this is the slice's **single backend deliverable**.
 
 ### 2.2 New subscription — sectioned form
-- An **"Add subscription"** button on the customer hub subscriptions section (`src/pages/crm/CustomerDashboard.tsx`), opening a new route `/crm/customers/:customerId/subscriptions/new` (page `NewSubscriptionPage.tsx`) rendering `SubscriptionForm.tsx`.
+- An **"Add subscription"** button on the customer hub subscriptions section (`src/pages/crm/CustomerDashboard.tsx`), opening a new route `crm/customers/:customerId/subscriptions/new` (page `NewSubscriptionPage.tsx`) rendering `SubscriptionForm.tsx`. The route uses the existing `:customerId` param; `new` is a **static** segment that ranks above the sibling dynamic `:subId` route in React Router v6, so there is no match collision (confirm at plan time). Keep the param name `:subId` (not `:subscriptionId`) for consistency with the existing routes.
 - **Sectioned single-page form** (not a wizard — user decision), grouped:
-  - **Terms:** `label` (required), `unitPrice` (partner price, integer IDR) + `confidentialPrice` toggle, `baselineDailyQty`, `deliverByTime` (HH:MM WIB), `creditRolloverPolicy` (`expire` | `rollover`) → if `rollover`, `rolloverExpiryWeeks` (default 4; null = never), `cogsBasis` (integer IDR), `startDate`, `notes`.
-  - **Schedule template** (`ScheduleTemplateEditor.tsx`): seven day-of-week rows (Mon–Sun; `dayOfWeek` **0=Mon … 6=Sun**, per `convex/subscriptions/mutations.ts:5` — NOT the JS Sun=0 convention), each holding zero-or-more product lines: a `menuProducts` dropdown + integer qty, with "+ add product". Reuses the `ProductLineEditor` interaction pattern (`src/components/crm/ProductLineEditor.tsx`) but carries only `{ menuProductId, qty }` (the template has no per-line price or date — `unitPrice` is the subscription's confidential price, applied later at `seedWeek`/`confirmWeek`).
+  - **Terms:** `label` (required), `unitPrice` (partner price, integer IDR) + `confidentialPrice` toggle (**default true** — a B2B partner price is confidential), `baselineDailyQty`, `deliverByTime` (HH:MM WIB), `creditRolloverPolicy` (`expire` | `rollover`) → if `rollover`, `rolloverExpiryWeeks` (default 4; null = never; switching back to `expire` clears it before submit), `cogsBasis` (integer IDR), `startDate` (**default: next Monday WIB** via `convex/lib/periodRange.ts` week helpers — weeks bill Monday-aligned), `notes`.
+  - **Schedule template** (`ScheduleTemplateEditor.tsx`): seven day-of-week rows (Mon–Sun; `dayOfWeek` **0=Mon … 6=Sun**, per `convex/subscriptions/mutations.ts:5` — NOT the JS Sun=0 convention), each holding zero-or-more product lines: a product dropdown + integer qty, with "+ add product". Products come from `api.menuProducts.queries.list` with `{ activeOnly: true }` — a **public `query`** consumed via plain `useQuery` (NOT `useSessionQuery`; no `sessionId` arg), exactly as the scheduler does (`SubscriptionSchedulePage.tsx:122`). Build a **focused line** carrying only `{ menuProductId, qty }` (the template has no per-line price or date — `unitPrice` is the subscription's confidential price, applied later at `seedWeek`/`confirmWeek`); share only the product-dropdown primitive with `ProductLineEditor`, do NOT reuse that priced/locked line wholesale.
   - **Live preview:** derived **weekly qty** (`deriveWeeklyQty(scheduleTemplate)` from `convex/subscriptions/creditMath.ts` — Σ of all line qtys across days) and a **weekly credit estimate** = weeklyQty × `unitPrice`, integer IDR. Recomputed on the client for display; the backend re-derives `weeklyQty` authoritatively (never re-keyed — `createSubscription` calls `deriveWeeklyQty` itself).
   - **Agreement (optional):** attach an existing uploaded agreement (`crm.agreements.listAgreementsByCustomer`) via a select, OR upload one inline reusing `AgreementUpload.tsx` (→ `generateAgreementUploadUrl` + `createSupplyAgreement`). Sets `agreementId`. **No auto-prefill** of terms (user decision — manual entry).
 - On submit: `createSubscription(args)` (status defaults to `draft`) → navigate to `/crm/customers/:customerId/subscriptions/:subId` (`SubscriptionPage.tsx`).
 
 ### 2.3 Activate
 - On `SubscriptionPage.tsx`, for a `draft` subscription, an **"Activate"** action → `updateSubscription({ subscriptionId, status: "active" })`. If an agreement was attached, also call `crm.agreements.linkAgreementToSubscription` to set the bi-directional link (design §4.6 / A4).
-- **Activation guard:** block (disabled button + reason) if the schedule template is empty or any required term is missing — a `draft` may be incomplete, but an `active` subscription must be schedulable.
+- **Activation guard:** the Activate action is disabled (with a visible reason) unless ALL of: `label` non-empty, `unitPrice > 0`, `baselineDailyQty > 0`, `deliverByTime` valid HH:MM, `cogsBasis > 0`, `startDate` set, and **≥1 product line with qty > 0** across the schedule template. A `draft` may omit any of these; an `active` subscription may not (it must be schedulable). All-zero-qty lines count as empty.
 - Draft subscriptions get a **"Draft"** badge in the hub subscriptions list (`CustomerDashboard.tsx`) so an un-activated subscription is visibly distinct.
 
 ---
@@ -57,19 +57,22 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 |---|---|---|
 | `subscriptions.mutations.createSubscription` | `convex/subscriptions/mutations.ts:13` (`roles:["manager","admin"]`) | create the draft; args = `{ customerId, label, unitPrice, confidentialPrice, baselineDailyQty, deliverByTime, creditRolloverPolicy, rolloverExpiryWeeks?, cogsBasis, startDate, scheduleTemplate, agreementId?, notes? }`. Sets `status:"draft"`, `billingModel`, cutoff/notice defaults, `weeklyQty=deriveWeeklyQty(...)`, and patches `customer.customerType="b2b_wholesale"` if unset. |
 | `subscriptions.mutations.updateSubscription` | `convex/subscriptions/mutations.ts:53` | Activate (`status:"active"`); re-derives `weeklyQty` if template re-sent. |
-| `customers.mutations.create` | `convex/customers/mutations.ts:7` | base customer (name, phone, source, notes, defaultAddress). |
-| `customers.mutations.update` | `convex/customers/mutations.ts` | companyName / npwp / billingAddress write-back. |
-| `crm.customers.updateCustomerCrmFields` | `convex/crm/customers.ts:20` | rich CRM fields: keyContactName, keyContactRole, whatsapp, email, instagram, deliveryAddress, storeAddress, otherAddresses, altPhone, notes. |
+| `crm.customers.createCustomer` (**NEW — single backend deliverable**) | `convex/crm/customers.ts` (add) | atomic create with all CRM fields in one `ctx.db.insert`. Mirrors the field union of `customers.create` (name/phone/notes/defaultAddress) + `customers.update` (companyName/npwp/billingAddress) + `updateCustomerCrmFields` (keyContact*/whatsapp/email/instagram/deliveryAddress/storeAddress/otherAddresses/altPhone). `roles:["manager","admin"]`. |
+| `customers.mutations.create` / `update`, `crm.customers.updateCustomerCrmFields` | `convex/customers/mutations.ts:7`, `convex/crm/customers.ts:20` | existing; reused by the hub edit dialog. The new `createCustomer` exists because none of these three alone carries the full field union (verified: `updateCustomerCrmFields` lacks companyName/npwp/billing). |
 | `crm.agreements.listAgreementsByCustomer` / `getAgreement` / `getFileUrl` | `convex/crm/agreements.ts:160/140/179` | list/attach an existing agreement. |
 | `crm.agreements.generateAgreementUploadUrl` / `createSupplyAgreement` | `convex/crm/agreements.ts:22/32` | inline upload (via `AgreementUpload.tsx`). |
 | `crm.agreements.linkAgreementToSubscription` | `convex/crm/agreements.ts:119` | bi-directional link on activate. |
 | `menuProducts` query (existing dropdown source used by the scheduler) | `convex/menuProducts/*` | product dropdown in the schedule template. |
 | `deriveWeeklyQty` | `convex/subscriptions/creditMath.ts` | client preview only (backend is source of truth). |
 
-**Rich-customer-create composition (the one borderline-backend item):** `customers.create` accepts only `{name, phone, source, notes, defaultAddress}`; the rich CRM fields live behind `updateCustomerCrmFields` + `customers.update`. The form therefore submits **two-to-three sequential mutations**: `create` → (`update` for companyName/billing) → (`updateCustomerCrmFields` for contact/social/addresses). **Partial-failure handling:** await `create` first; if a later patch fails, the customer still exists with name+basics and the dialog surfaces an error + keeps the rich values so the manager can retry from the hub edit dialog (no orphan beyond a thinly-populated customer). **Alternative considered (flag for staffreview):** a thin backend `crm.customers.createCustomer` that does both in one transaction — cleaner (atomic, single round-trip) but adds a backend deliverable. Default = two-call frontend composition to stay frontend-only; staffreview/user may upgrade to the wrapper.
+**Rich-customer-create — atomic wrapper (decided, staffreview I1):** `customers.create` accepts only `{name, phone, source, notes, defaultAddress}`; companyName/npwp/billing live on `customers.update`; the rest on `updateCustomerCrmFields`. No single existing mutation carries the full field union, so a multi-call create would have a partial-write seam (a failure after `create` leaves a thinly-populated customer). **Decision:** add ONE atomic `crm.customers.createCustomer` that inserts everything in a single transaction. This is the slice's **only backend change** (additive mutation + `convex codegen`). **Rejected alternative:** 3 sequential client mutations (`create`→`update`→`updateCustomerCrmFields`) — kept out for the partial-write window and the awkward multi-await in the dialog.
 
-### 3.2 Adds (frontend)
-- `src/components/crm/NewCustomerDialog.tsx` — new-customer form + submit composition.
+### 3.2 Adds
+**Backend (single deliverable):**
+- `crm.customers.createCustomer` mutation in `convex/crm/customers.ts` (`roles:["manager","admin"]`) — atomic insert of the full CRM field union; sets `createdBy`. `npx convex codegen` + commit `_generated/`.
+
+**Frontend:**
+- `src/components/crm/NewCustomerDialog.tsx` — new-customer form → `createCustomer`.
 - `src/pages/crm/NewSubscriptionPage.tsx` — route page hosting the form.
 - `src/components/crm/SubscriptionForm.tsx` — sectioned terms + schedule + agreement form; create-draft submit.
 - `src/components/crm/ScheduleTemplateEditor.tsx` — 7 day-of-week rows × product+qty lines; emits `scheduleTemplate`.
@@ -82,8 +85,8 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 
 ## 4. Acceptance criteria
 
-- [ ] **AC1** A "New customer" affordance exists on `CrmHome`; submitting name (required) + optional fields creates a customer (`customers.create` + rich-field patches) and navigates to `/crm/customers/:id`. Empty name is blocked client-side.
-- [ ] **AC2** Rich fields entered in the new-customer form (companyName, keyContact, whatsapp, email, delivery/store addresses, notes) are persisted (via `update` + `updateCustomerCrmFields`) and render on the hub identity card.
+- [ ] **AC1** A "New customer" affordance exists on `CrmHome`; submitting name (required) + optional fields creates a customer via the atomic `crm.customers.createCustomer` and navigates to `/crm/customers/:id`. Empty name is blocked client-side.
+- [ ] **AC2** Rich fields entered in the new-customer form (companyName, keyContact, whatsapp, email, delivery/store addresses, notes) are persisted in one transaction (`createCustomer`) and render on the hub identity card.
 - [ ] **AC3** An "Add subscription" button on the customer hub opens the sectioned `SubscriptionForm` at `/crm/customers/:customerId/subscriptions/new`.
 - [ ] **AC4** The form collects all `createSubscription` args; submitting creates a subscription with `status:"draft"` and navigates to its `SubscriptionPage`.
 - [ ] **AC5** The schedule template editor produces a valid `scheduleTemplate` (`dayOfWeek` 0=Mon…6=Sun; `items:[{menuProductId, qty}]`); add/remove product and qty edits work; a day may have zero products.
@@ -95,7 +98,7 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 - [ ] **AC11** A `draft` subscription is visually marked "Draft" in the hub subscriptions list.
 - [ ] **AC12 (access, Pitfall #19):** every surface is reachable only under `canAccessCrm` (manager+admin); no new backend function is added with a narrower `roles` than the route. The confidential `unitPrice` field appears only on the manager+admin-gated form. code-auditor greps the new components for any `roles:["admin"]`-only call on a manager-reachable mount.
 - [ ] **AC13** Designed empty/loading/error states on every new surface (D12): loading while customer/agreements resolve; error toast on mutation failure; the form disables submit while pending.
-- [ ] **AC14** `npm run type-check`, `npm run lint`, `npx vitest run` (new component tests), and `npm run build` pass. `npx convex codegen` re-run + committed `_generated/` only if a backend wrapper is added (default: no backend change → no codegen delta beyond none).
+- [ ] **AC14** `npm run type-check`, `npm run lint`, `npx vitest run` (new component tests + the `createCustomer` mutation test), and `npm run build` pass. `npx convex codegen` re-run + committed `_generated/` (for the new `createCustomer` mutation ref).
 
 ---
 
@@ -103,7 +106,7 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 
 - [ ] **EC1** Submit while a prior submit is in-flight → button disabled; no double-create.
 - [ ] **EC2** `createSubscription` succeeds but navigation target not yet reactive → SubscriptionPage shows its loading state, then the draft (Convex reactivity), never a crash.
-- [ ] **EC3** New-customer rich-field patch fails after `create` succeeds (§3.1) → customer exists with basics; dialog shows error, retains rich values, points the manager to the hub edit dialog. No uncaught throw.
+- [ ] **EC3** `createCustomer` fails (validation/network) → atomic, so NO partial customer is written; dialog shows an error toast and retains the entered values for retry. (The atomic wrapper removes the multi-call partial-write seam.)
 - [ ] **EC4** Empty schedule template at create → allowed (draft); Activate blocked (AC10).
 - [ ] **EC5** A product chosen in the template is later deleted from `menuProducts` → the dropdown shows live products only; an already-selected-but-now-missing product renders a ⚠️ marker (don't silently drop a line). (Mirrors the scheduler's deleted-product handling.)
 - [ ] **EC6** `unitPrice`/`baselineDailyQty`/`cogsBasis` ≤ 0 or non-integer → client validation blocks submit with a field error (integer IDR, positive).
@@ -118,16 +121,16 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 - **T1** `SubscriptionForm` (component) — required-field validation, integer/positive money validation (EC6/EC7), draft-submit calls `createSubscription` with correctly shaped args (incl. rollover branch AC7), navigates on success.
 - **T2** `ScheduleTemplateEditor` (component) — add/remove product line, qty edit, day-of-week mapping (0=Mon), emits the exact `scheduleTemplate` shape; zero-product day allowed.
 - **T3** Preview math — weekly qty equals `deriveWeeklyQty` over the same template; credit estimate = weeklyQty × unitPrice (integer).
-- **T4** `NewCustomerDialog` (component) — name-required, two-call composition order (`create` then patches), partial-failure path (EC3), navigate on success.
+- **T4** `NewCustomerDialog` (component) — name-required, calls `createCustomer` with the full field union, error path (EC3), navigate on success. Plus a backend `createCustomer` mutation test (valid insert; auth rejection for non-manager).
 - **T5** Activate guard (component) — disabled with empty template / missing terms (AC10); enabled when complete; calls `updateSubscription` + `linkAgreementToSubscription` when an agreement is attached.
 - **Fixtures:** a customer with an existing agreement; a customer with none; a multi-product-day template; a single-day template.
 
 > Unit/component tests run headless. The full create→activate→appears-on-kanban journey + live agreement upload needs a running app → **persona-UAT against a live env** at close-out (not headless-claimable).
 
 ## 7. Access control + rollback / ship-dark
-- **Access:** all surfaces live under the existing `<ProtectedRoute requiredPermission="canAccessCrm">` (manager+admin). No new backend function in the default scope; the (optional) `createCustomer` wrapper, if adopted, is `roles:["manager","admin"]`. Confidential `unitPrice` is only on these gated surfaces (D11) — no client-only hiding.
-- **Ship-dark:** purely additive frontend (new components + one lazy route + buttons). No schema, no behavior change to existing surfaces. A draft subscription generates nothing until activated and a week is seeded/confirmed (Phase B).
-- **Rollback:** revert the commits. If the optional backend wrapper is adopted, it is additive + `convex codegen` only. Check `gh run list` after merge (split-brain guard, `lesson_convex_vercel_splitbrain`).
+- **Access:** all surfaces live under the existing `<ProtectedRoute requiredPermission="canAccessCrm">` (manager+admin). The one new backend function (`crm.customers.createCustomer`) is `roles:["manager","admin"]`. Confidential `unitPrice` is only on these gated surfaces (D11) — no client-only hiding.
+- **Ship-dark:** additive frontend (new components + one lazy route + buttons) + one additive backend mutation. No schema change, no behavior change to existing surfaces. A draft subscription generates nothing until activated and a week is seeded/confirmed (Phase B).
+- **Rollback:** revert the commits; the new mutation is additive (+ `convex codegen`), no migration. Check `gh run list` after merge (split-brain guard, `lesson_convex_vercel_splitbrain`).
 
 ## 8. Dependencies on merged code (confirm at plan time)
 - **(A/B)** `createSubscription`/`updateSubscription` signatures (`convex/subscriptions/mutations.ts`) — args as in §3.1.
@@ -135,9 +138,9 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 - **(D)** `canAccessCrm` permission + `/crm/...` route nesting (`src/App.tsx`), `menuProducts` dropdown query used by the existing scheduler (reuse the same query).
 
 ## 9. Open questions
-- **Q1** Rich-customer-create: two-call frontend composition (default) vs a thin atomic backend `crm.customers.createCustomer` wrapper (§3.1). Recommend default; staffreview to confirm against partial-failure tolerance.
-- **Q2** New-subscription host: dedicated route/page `/.../subscriptions/new` (default — deep-linkable, breadcrumbed per A2) vs a modal dialog on the hub. Recommend the route.
-- **Q3** Should "New customer" also live on the global CRM nav (not only `CrmHome`)? Default: `CrmHome` only this slice; revisit if discoverability UAT flags it.
+- **Q1 → RESOLVED (staffreview I1):** atomic `crm.customers.createCustomer` (one backend mutation), not multi-call frontend composition — removes the partial-write seam.
+- **Q2 → RESOLVED:** dedicated route/page `crm/customers/:customerId/subscriptions/new` (deep-linkable, breadcrumbed per A2), not a modal.
+- **Q3** Should "New customer" also live on the global CRM nav (not only `CrmHome`)? Default: `CrmHome` only this slice; revisit if discoverability UAT flags it. (Non-blocking.)
 
 ---
 
@@ -146,9 +149,10 @@ Three cohesive pieces of one onboarding journey, all on `canAccessCrm`-gated (ma
 **Checkpoints:** per wave in the plan.
 
 ## Implementation Waves (filled by writing-plans)
-### Wave 1: Schedule template + form primitives [PARALLEL]
-### Wave 2: New-customer + new-subscription pages + activate [after W1]
-### Wave 3: Verification [SEQUENTIAL] — code-auditor (access + patterns), Bash `npm run build`, component tests
+### Wave 0: Backend `crm.customers.createCustomer` mutation + codegen [SOLO — touches `_generated/`]
+### Wave 1: Schedule template editor + form primitives [PARALLEL, after W0]
+### Wave 2: NewCustomerDialog + new-subscription page/form + Activate + route wiring [after W1]
+### Wave 3: Verification [SEQUENTIAL] — code-auditor (access Pitfall #19 + patterns), component tests + mutation test, Bash `npm run build`
 
 ## Documentation Updates
 - [ ] CHANGELOG.md (at execution/merge time)
