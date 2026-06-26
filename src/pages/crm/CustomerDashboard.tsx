@@ -29,6 +29,7 @@ import {
   CreditCard,
   Edit2,
   MapPin,
+  Plus,
   StickyNote,
   Users,
 } from "lucide-react";
@@ -413,6 +414,17 @@ function IdentityPane({ customer, agreements }: LeftPaneProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Subscription status badge colour map (mirrors SubscriptionPage.tsx STATUS_BADGE)
+// ---------------------------------------------------------------------------
+
+const SUB_STATUS_BADGE: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-600",
+  active: "bg-green-100 text-green-700",
+  terminating: "bg-amber-100 text-amber-700",
+  ended: "bg-red-100 text-red-700",
+};
+
+// ---------------------------------------------------------------------------
 // Right pane — financial story
 // ---------------------------------------------------------------------------
 
@@ -457,9 +469,17 @@ function FinancialPane({
 
       {/* Subscriptions list — A1, A4 */}
       <section aria-label="Subscriptions" className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Subscriptions
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Subscriptions
+          </h2>
+          <Button size="sm" variant="outline" asChild className="text-xs">
+            <Link to={`/crm/customers/${customerId}/subscriptions/new`}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Add subscription
+            </Link>
+          </Button>
+        </div>
 
         {subscriptions.length === 0 ? (
           <EmptyState
@@ -500,9 +520,7 @@ function FinancialPane({
                     </div>
                     <Badge
                       className={`text-xs shrink-0 ${
-                        sub.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
+                        SUB_STATUS_BADGE[sub.status] ?? "bg-gray-100 text-gray-500"
                       }`}
                     >
                       {sub.status}

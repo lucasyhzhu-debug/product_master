@@ -208,6 +208,10 @@ const SubscriptionPage = lazyWithPreload(() =>
 const CustomerActivityPage = lazyWithPreload(() =>
   import('./pages/crm/CustomerActivityPage').then(m => ({ default: m.CustomerActivityPage }))
 );
+// Sub-onboarding: /crm/customers/:customerId/subscriptions/new — create draft subscription
+const NewSubscriptionPage = lazyWithPreload(() =>
+  import('./pages/crm/NewSubscriptionPage').then(m => ({ default: m.NewSubscriptionPage }))
+);
 
 function App() {
   return (
@@ -764,6 +768,15 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessCrm">
                         <AgreementPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Sub-onboarding — new subscription form (static "new" before :subId) */}
+                  <Route
+                    path="crm/customers/:customerId/subscriptions/new"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <NewSubscriptionPage />
                       </ProtectedRoute>
                     }
                   />
