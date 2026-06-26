@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { buildTopupInvoice } from "./invoicing";
 import { computeLineTotal } from "./creditMath";
+import { detectAboveBaseline } from "./enforcement/detectAboveBaseline";
 
 /**
  * Aggregate total qty per menuProductId across all days in a plan.
@@ -143,6 +144,7 @@ export const amendConfirmedWeek = protectedMutation({
           unitPrice,
           lineTotal: computeLineTotal(it.qty, unitPrice),
         })),
+        needsSupplierConfirmation: detectAboveBaseline(day.items, subscription.baselineDailyQty),
       }))
       .filter((d) => d.items.length > 0)
       .sort((a, b) => a.date - b.date);

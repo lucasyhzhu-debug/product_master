@@ -17,6 +17,7 @@ describe("buildPlannedDays", () => {
       unitPrice: 29000,
       deliverByTime: "09:00",
       productNames: { [PID]: "Dubai Chewy Cookies" },
+      baselineDailyQty: 200,
     });
     expect(days).toHaveLength(7);
     expect(days[0].date).toBe(0);
@@ -31,6 +32,7 @@ describe("buildPlannedDays", () => {
       unitPrice: 29000,
       deliverByTime: "09:00",
       productNames: { [PID]: "Dubai" },
+      baselineDailyQty: 200,
     });
     expect(days).toHaveLength(1);
     expect(days[0].date).toBe(2 * DAY);
