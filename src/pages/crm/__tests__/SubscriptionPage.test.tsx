@@ -51,7 +51,8 @@ const useSessionQueryMock = vi.fn(() => {
 });
 
 vi.mock("convex-helpers/react/sessions", () => ({
-  useSessionQuery: (...args: unknown[]) => useSessionQueryMock(...args),
+  // Args are ignored — the mock discriminates queries by call order (see _callIdx % 3 above).
+  useSessionQuery: () => useSessionQueryMock(),
   useSessionMutation: vi.fn(() => mockMutateFn),
 }));
 
