@@ -14,6 +14,27 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription Rule Enforcement (Phase E · Slice 2) — 2026-06-27
+
+**For the team:** Standing B2B supply agreements now enforce their own rules automatically. After 13:00 the day before a delivery, that day's plan locks for changes — the CRM week calendar shows an amber "past 13:00 cutoff" warning (you can still edit; it's a heads-up, not a hard lock). Any day ordered above the agreed baseline shows a "needs supplier confirmation" badge. From a customer's page, managers can now schedule a permanent baseline change (takes effect in 14 days) or give a 30-day termination notice — after which no new weeks past the end date can be created. Confidential partner pricing stays hidden from staff order screens (re-audited, no leaks).
+
+### Added — clause 3/4/5/10 enforcement
+
+- **Cutoff lock (clause 3).** New `flipDayLocksAtCutoff` internal cron (daily 05:25 UTC / 12:25 WIB) sets `locked=true` on every not-yet-locked planned day whose change-cutoff has passed. Cutoff is **date-relative** WIB math (`cutoffMath.ts` via `periodRange`): WIB midnight of `(deliveryDay + changeCutoffDayOffset)` + `changeCutoffHour`. Metadata-only, idempotent. The CRM `DayPlanCell` shows a non-blocking warning (`pastCutoff` prop) — editing stays allowed; the existing `locked` grid prop remains the only edit-disable.
+- **Above-baseline supplier flag (clause 4, warn-only).** New `detectAboveBaseline` predicate; every `plannedDays[]` write site (`buildPlannedDays`/`seedFromTemplate`, the `seedWeek` previous-week re-date branch, `saveWeekPlan`, `amendConfirmedWeek`) now sets `needsSupplierConfirmation = (day total qty > baselineDailyQty)`. Surfaced as a badge in the week calendar.
+- **Permanent baseline change (clause 5, +14d).** New `scheduleBaselineChange({subscriptionId, newQty})` mutation (manager/admin) stages `pendingBaselineChange = {newQty, effectiveDate: now + permanentChangeNoticeDays}`. New `applyPendingBaselineChanges` internal cron (daily 04:10 UTC / 11:10 WIB) applies it once effective and clears the field. Idempotent.
+- **Termination notice (clause 10, +30d).** New `giveTerminationNotice({subscriptionId})` mutation (manager/admin) sets `terminationNoticeDate`, `endDate = now + terminationNoticeDays`, `status="terminating"`. A guard in `seedWeek` + `confirmWeek` refuses any week starting after `endDate`.
+- **Settings UI.** A "Manage subscription" trigger on each subscription section opens `SubscriptionSettingsDialog` (baseline change + termination notice), wired via `useSessionMutation`. No on-mount manager-only query (Pitfall #19).
+- **AC11 price-strip re-audit (verify-only).** Confirmed all staff-reachable order queries strip confidential subscription pricing server-side. Verdict PASS — `docs/reviews/ac11-price-strip-audit-2026-06-26.md`. No code change.
+
+**Schema (additive, optional, no migration):** `subscriptions.pendingBaselineChange?: {newQty, effectiveDate}`; `subscriptionWeeks.plannedDays[].needsSupplierConfirmation?: boolean`. **Crons:** 2 new internal mutations (05:25 + 04:10 UTC, unique minutes, no watchdog). **Dropped:** clause-8 COGS-rise alerting stays out of scope.
+
+**Files:** `convex/subscriptions/enforcement/` (new module: `detectAboveBaseline`, `effectiveDates`, `cutoffMath`, `flipDayLocksAtCutoff`, `applyPendingBaselineChanges`), `convex/subscriptions/{mutations,weeks,amend}.ts`, `convex/subscriptions/scheduling/confirmWeek.ts`, `convex/crons.ts`, `convex/schema.ts`, `src/components/crm/{DayPlanCell,WeekCalendarGrid}.tsx`, `src/pages/crm/{CustomerDashboard,SubscriptionSchedulePage}.tsx`, `src/pages/crm/SubscriptionSettingsDialog.tsx`.
+
+Verified: `npm run type-check` + `npm run build` green; backend 145/145, frontend CRM 167/167 passing. Plan: `docs/superpowers/plans/2026-06-26-subscription-rule-enforcement.md`.
+
+---
+
 ## [Unreleased] — CRM Surface (Phase D) — 2026-06-26
 
 **For the team:** Managers and admins now have a full customer relationship view under `/crm`. Open any B2B customer to see their credit balance, payment history, a drawdown chart, unpaid invoices, and a pre-drafted WhatsApp reminder. Supply agreements (PDFs) can be uploaded and versioned. A merged activity timeline shows orders, invoices, top-ups, and manual notes in one scrollable feed. The CRM home lists all active subscriptions and weeks needing attention.
