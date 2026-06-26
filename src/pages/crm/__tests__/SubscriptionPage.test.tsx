@@ -35,8 +35,14 @@ let mockMutateFn: ReturnType<typeof vi.fn>;
 // Call-order discrimination: api refs are Proxy objects (new object per access),
 // so ref-identity fails on re-renders. Use call count mod 3 instead — hooks are
 // always called in the same order: 0=getSubscription, 1=listWeeks, 2=statement.
+//
+// INVARIANT: _callIdx MUST be a multiple of 3 after every full render.
+// The modulus equals the number of useSessionQuery calls the component makes.
+// If you add or remove a useSessionQuery call in SubscriptionPage, update
+// BOTH the mock dispatch (add/remove an `if` branch) AND the invariant
+// assertion in renderPage() below — otherwise tests will silently mis-map mocks.
 let _callIdx = 0;
-const useSessionQueryMock = vi.fn((_query: unknown) => {
+const useSessionQueryMock = vi.fn((..._args: unknown[]) => {
   const pos = _callIdx % 3;
   _callIdx++;
   if (pos === 0) return mockSubscription;
@@ -173,7 +179,7 @@ function renderPage(
   subId: string = SUB_ID,
   searchSuffix: string = "",
 ) {
-  return render(
+  const result = render(
     <MemoryRouter
       initialEntries={[
         `/crm/customers/${customerId}/subscriptions/${subId}${searchSuffix}`,
@@ -187,6 +193,11 @@ function renderPage(
       </Routes>
     </MemoryRouter>,
   );
+  // Guard: _callIdx must be a multiple of 3 after every full render.
+  // If this fires, SubscriptionPage's useSessionQuery call count changed —
+  // update the mock dispatch table and this comment to match the new count.
+  expect(_callIdx % 3).toBe(0);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +214,7 @@ beforeEach(() => {
   mockWeeks = [WEEK_2, WEEK_1]; // most-recent first
   mockStatement = STATEMENT_ROWS;
 
-  useSessionQueryMock.mockImplementation((_query: unknown) => {
+  useSessionQueryMock.mockImplementation((..._args: unknown[]) => {
     const pos = _callIdx % 3;
     _callIdx++;
     if (pos === 0) return mockSubscription;
@@ -404,6 +415,28 @@ describe("SubscriptionPage — Activate action (draft only)", () => {
     });
     expect(mockMutateFn).toHaveBeenCalledWith(
       expect.objectContaining({ status: "active" }),
+    );
+  });
+
+  it("calls linkAgreement when activating a draft that has an agreementId", async () => {
+    const AGREEMENT_ID = "agr_test999";
+    mockSubscription = {
+      ...SUB_DOC,
+      status: "draft" as const,
+      weeklyQty: 35,
+      agreementId: AGREEMENT_ID,
+    };
+    renderPage();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /activate/i }));
+    });
+    // updateSubscription must be called with status:active
+    expect(mockMutateFn).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "active" }),
+    );
+    // linkAgreement must be called with the agreementId + subscriptionId
+    expect(mockMutateFn).toHaveBeenCalledWith(
+      expect.objectContaining({ agreementId: AGREEMENT_ID, subscriptionId: SUB_ID }),
     );
   });
 });
