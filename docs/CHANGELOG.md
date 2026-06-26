@@ -18,6 +18,19 @@ After merging any code change, add a new entry with:
 
 **For the team:** Managers and admins now have a full customer relationship view under `/crm`. Open any B2B customer to see their credit balance, payment history, a drawdown chart, unpaid invoices, and a pre-drafted WhatsApp reminder. Supply agreements (PDFs) can be uploaded and versioned. A merged activity timeline shows orders, invoices, top-ups, and manual notes in one scrollable feed. The CRM home lists all active subscriptions and weeks needing attention.
 
+### Fixed — persona-UAT punch-list (2026-06-26)
+
+**For the team:** The CRM surface was put through an automated two-persona UAT; these fixes resolve everything that survived. Opening a stale/removed customer link now shows a friendly "Customer not found" instead of a crash. The credit-ledger statement names who made each entry (e.g. "Lucas") and links to real invoice/order numbers (e.g. "INV-UAT-2606-001") instead of database codes. The Funding Dashboard now also lists unpaid invoices, so it can no longer say "All caught up" while money is owed. Breadcrumbs show the customer's name.
+
+- **[BLOCKER] Not-found crash → friendly state.** `getCustomerRecord`, `getAgreement`, `getCustomerDrawdown`, `getSubscription` now accept `v.string()` + `ctx.db.normalizeId(...)` → return `null` for a malformed/stale id (was `v.id(...)`, which threw `ArgumentValidationError` → full-page error boundary). See Pitfall #19 / `lesson_convex_error_masking`.
+- **[BUG] Ledger "By" raw user id → actor name** + per-entry links resolve to order/invoice numbers, via injectable resolvers on `buildLedgerStatement` (`getCreditLedgerStatement`).
+- **[BUG] Invalid DOM nesting + duplicate React key.** Subscription card `<p>`→`<div>` (Badge is a `<div>`); `ContactLinks` deduped by href (phone + whatsapp often resolve to the same `wa.me` URL).
+- **[UX-HIGH] Hub ↔ Funding contradiction.** New `convex/crm/funding.ts:getUnpaidSubscriptionInvoices`; Funding Dashboard gained an "Unpaid invoices" card + section, and "All caught up" now requires both weeks AND invoices clear. Fixed a broken customer link (`/customers` → `/crm/customers/:id`).
+- **[UX-HIGH] Hub unpaid invoices** are now per-invoice links to `/invoices/:id` with amounts (was an inert count). **Breadcrumbs** resolve the customer name on agreement + subscription pages.
+- **[UX-NIT]** Edit dialog `DialogDescription` (a11y); drawdown chart explicit height (kills Recharts `width(-1)` warning); "Agreement ···id" → "Supply Agreement" label.
+
+Verified: `npm run build` + lint + tsc(fe+convex) green; live re-verification spec `tests/e2e/uat-phase-d-crm-verify.spec.ts` passes against dev. Evidence: `docs/reviews/uat/phase-d-crm-2026-06-26/` (incl. `UAT-FINDINGS.md`). Dev seed: `convex/subscriptions/_devSeed.ts` (`seedCrmUat`).
+
 ### Added
 
 - **CRM routes (all `canAccessCrm` = manager + admin):**

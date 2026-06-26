@@ -1,0 +1,54 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+CRM
+CRM
+
+Customer relationship management
+
+NEEDS FUNDING
+
+0
+
+weeks pending
+
+ACTIVE SUBSCRIPTIONS
+
+5
+
+subscriptions
+
+Needs funding
+All caught up
+
+No weeks awaiting payment or invoice right now.
+
+Active subscriptions
+Customer	Label	Current week
+UAT Cafe B2B
+	UAT Weekly Cookies	Delivering
+UAT-Sub-Test-1782395598604
+	UAT-Sub-1782395598604	Delivering
+UAT-Sub-Test-1782397912143
+	UAT-Sub-1782397912143	Delivering
+UAT Cafe B2B
+	Morning Bundle A	Delivering
+UAT Cafe B2B
+	Afternoon Bundle B	Closed
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.

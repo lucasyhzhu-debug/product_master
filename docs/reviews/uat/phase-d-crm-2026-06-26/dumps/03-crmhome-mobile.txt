@@ -1,0 +1,40 @@
+E2
+CRM
+CRM
+
+Customer relationship management
+
+NEEDS FUNDING
+
+0
+
+weeks pending
+
+ACTIVE SUBSCRIPTIONS
+
+5
+
+subscriptions
+
+Needs funding
+All caught up
+
+No weeks awaiting payment or invoice right now.
+
+Active subscriptions
+Customer	Label	Current week
+UAT Cafe B2B
+	UAT Weekly Cookies	Delivering
+UAT-Sub-Test-1782395598604
+	UAT-Sub-1782395598604	Delivering
+UAT-Sub-Test-1782397912143
+	UAT-Sub-1782397912143	Delivering
+UAT Cafe B2B
+	Morning Bundle A	Delivering
+UAT Cafe B2B
+	Afternoon Bundle B	Closed
+Sales
+Orders
+Kitchen
+Inventory
+More

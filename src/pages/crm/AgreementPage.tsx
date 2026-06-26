@@ -213,7 +213,7 @@ function AgreementCard({
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <CardTitle className="text-base font-semibold">
-              Agreement ···{agreement._id.slice(-6)}
+              Supply Agreement
             </CardTitle>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className={`text-xs ${STATUS_BADGE[agreement.status]}`}>
@@ -307,6 +307,14 @@ export function AgreementPage() {
     customerId ? { customerId: customerId as Id<"customers"> } : "skip",
   ) as AgreementDoc[] | undefined | null;
 
+  // Customer name for breadcrumb (A2). Loaded independently; falls back to
+  // "Customer" while loading or if not found. Does not block the page render.
+  const customerRecord = useSessionQuery(
+    api.crm.customers.getCustomerRecord,
+    customerId ? { customerId: customerId as Id<"customers"> } : "skip",
+  ) as { customer: { name: string } } | null | undefined;
+  const customerName = customerRecord?.customer?.name ?? null;
+
   const generateUploadUrl = useSessionMutation(
     api.crm.agreements.generateAgreementUploadUrl,
   );
@@ -349,14 +357,14 @@ export function AgreementPage() {
     }
   }
 
+  // Note: the onAddVersion prop passes a trailing fileSize arg, but
+  // addAgreementVersion doesn't track per-version size — so this consumer omits
+  // it (a narrower handler is assignable to the wider prop signature).
   async function handleAddVersion(
     agreementId: Id<"supplyAgreements">,
     storageId: Id<"_storage">,
     fileName: string,
     lang: "id" | "en",
-    // fileSize is not part of addAgreementVersion args (version entries don't
-    // track size independently); the real size is stored on the primary doc.
-    _fileSize: number,
   ) {
     try {
       await addAgreementVersion({
@@ -375,11 +383,11 @@ export function AgreementPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Breadcrumbs — A2 */}
+      {/* Breadcrumbs — A2: trail mirrors object hierarchy; middle shows customer name (C) */}
       <Breadcrumbs
         trail={[
           { label: "CRM", to: "/crm" },
-          { label: "Customer", to: `/crm/customers/${customerId}` },
+          { label: customerName ?? "Customer", to: `/crm/customers/${customerId}` },
           { label: "Agreement" },
         ]}
       />

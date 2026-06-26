@@ -28,7 +28,7 @@ export type LedgerStatementRow = {
   type: "topup" | "drawdown" | "expiry" | "refund" | "adjustment";
   signedAmount: number;
   balanceAfter: number;
-  link: { kind: "order" | "invoice" | "week" | null; id: string | null };
+  link: { kind: "order" | "invoice" | "week" | null; id: string | null; label: string | null };
   createdBy: string;
   note?: string;
   at: number;
@@ -66,10 +66,11 @@ function EntryLink({ link, customerId, subscriptionId }: EntryLinkProps) {
 
   if (link.kind === "order") {
     to = `/orders/${link.id}`;
-    label = `Order ···${link.id.slice(-6)}`;
+    // A1: prefer the human order number; fall back to an id tail only if unresolved.
+    label = link.label ? `Order ${link.label}` : `Order ···${link.id.slice(-6)}`;
   } else if (link.kind === "invoice") {
     to = `/invoices/${link.id}`;
-    label = `Invoice ···${link.id.slice(-6)}`;
+    label = link.label ?? `Invoice ···${link.id.slice(-6)}`;
   } else if (link.kind === "week") {
     // Link back to SubscriptionPage with ?weekId= so the week selector activates
     // the referenced week (rollover source). T17 back-refs also target this URL shape.

@@ -66,11 +66,21 @@ export function ContactLinks({ customer }: ContactLinksProps) {
     }
   }
 
-  if (items.length === 0) return null;
+  // Dedupe by href: phone + whatsapp commonly resolve to the SAME wa.me URL,
+  // which would (a) render the same contact twice and (b) collide React keys
+  // ("two children with the same key"). Keep the first occurrence (phone label).
+  const seen = new Set<string>();
+  const uniqueItems = items.filter((item) => {
+    if (seen.has(item.href)) return false;
+    seen.add(item.href);
+    return true;
+  });
+
+  if (uniqueItems.length === 0) return null;
 
   return (
     <div className="flex flex-wrap gap-2">
-      {items.map((item) => (
+      {uniqueItems.map((item) => (
         <a
           key={item.href}
           href={item.href}

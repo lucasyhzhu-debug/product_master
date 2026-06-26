@@ -53,6 +53,8 @@ type SubscriptionDoc = {
   _id: Id<"subscriptions">;
   _creationTime: number;
   customerId: Id<"customers">;
+  /** Joined by backend (getSubscription augmented in parallel — may be undefined until codegen). */
+  customerName?: string | null;
   label: string;
   status: "draft" | "active" | "terminating" | "ended";
   billingModel: "prepaid_weekly_credit";
@@ -197,11 +199,14 @@ export function SubscriptionPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* A2: Breadcrumbs mirror object hierarchy */}
+      {/* A2: Breadcrumbs mirror object hierarchy; customerName from backend join (C) */}
       <Breadcrumbs
         trail={[
           { label: "CRM", to: "/crm" },
-          { label: "Customer", to: `/crm/customers/${customerId}` },
+          {
+            label: subscription.customerName ?? "Customer",
+            to: `/crm/customers/${customerId}`,
+          },
           { label: "Subscription" },
         ]}
       />

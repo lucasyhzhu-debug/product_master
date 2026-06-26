@@ -1,0 +1,58 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+CRM
+Customer
+Subscription
+Back to customer
+Afternoon Bundle B
+active
+Prepaid weekly credit
+Schedule
+
+WEEKLY QTY
+
+9 items
+
+DELIVER BY
+
+14:00 WIB
+
+STARTED
+
+2026-06-12
+
+ROLLOVER
+
+Rollover
+
+Credit Ledger Statement
+8 Jun – 14 Jun 2026 — closed
+8 Jun – 14 Jun 2026
+closed
+Issued: Rp 585.000
+Consumed: Rp 0
+Remaining: Rp 585.000
+TYPE	AMOUNT	BALANCE (WEEK-SCOPED)	LINK	BY	NOTE
+topup	+Rp 585.000	Rp 585.000	Invoice ···89c6sk
+	mn7619tbcw44tmvys0a6mxenbs80a5f5	Past week credit funded (seed)
+
+Balance column is week-scoped and resets at the start of each week.
+
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.

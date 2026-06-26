@@ -1,0 +1,55 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+CRM
+Customer
+Agreement
+Back to customer
+Agreement
+Agreement ···89dkf8
+signed
+Last uploaded 2026-06-19
+
+VERSIONS
+
+UAT-Supply-Agreement-ID.pdf
+
+2026-06-19
+
+ID
+Open UAT-Supply-Agreement-ID.pdf
+
+UAT-Supply-Agreement-EN.pdf
+
+2026-06-19
+
+EN
+Open UAT-Supply-Agreement-EN.pdf
+
+LINKED SUBSCRIPTION
+
+Subscription ···89ds0j
+
+ADD VERSION
+
+Language
+ID
+EN
+Upload new version (PDF, JPEG, PNG, WebP · max 10 MB)
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.
