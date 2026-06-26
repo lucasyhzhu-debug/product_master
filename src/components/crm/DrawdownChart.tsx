@@ -205,8 +205,10 @@ export function DrawdownChart({
         />
       </CardHeader>
       <CardContent>
-        <div style={{ height: "320px" }}>
-          <ResponsiveContainer width="100%" height="100%" minWidth={280}>
+        {/* Explicit pixel height on both wrapper and ResponsiveContainer prevents
+            Recharts width(-1)/height(-1) warning on first paint (Task E). */}
+        <div style={{ height: "320px" }} className="min-h-[280px]">
+          <ResponsiveContainer width="100%" height={320} minWidth={280}>
             <ComposedChart data={chartData} margin={CHART_MARGIN}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />

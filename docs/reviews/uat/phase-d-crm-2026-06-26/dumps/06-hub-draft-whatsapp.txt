@@ -1,0 +1,106 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+CRM
+UAT Cafe B2B
+UAT Cafe B2B
+
+Purchasing Manager
+
+Plan schedule
+Settings
+IDENTITY
+Phone (WhatsApp)
+WhatsApp
+Email
+Instagram
+
+KEY CONTACT
+
+Budi Santoso · Purchasing Manager
+
+ADDRESSES
+
+Delivery: Jl. Jend. Sudirman Kav. 52–53 (Lantai 1, Reception), Jakarta Selatan 12190
+
+Store: Jl. Kemang Raya No. 45, Jakarta Selatan 12730
+
+NOTES
+
+Dev seed — Phase D CRM UAT. Safe to delete after UAT run completes.
+
+AGREEMENT
+
+Agreement ···89dkf8
+signed
+
+MORNING BUNDLE A
+
+Rp 1.200.000
+of Rp 2.175.000
+
+Rp 975.000 consumed
+
+AFTERNOON BUNDLE B
+
+Rp 585.000
+of Rp 585.000
+
+Rp 0 consumed
+
+SUBSCRIPTIONS
+Morning Bundle A
+
+Current week: 22 Jun – 28 Jun 2026delivering
+
+active
+Afternoon Bundle B
+
+Current week: 8 Jun – 14 Jun 2026closed
+
+active
+CREDIT DRAWDOWN
+Morning Bundle A
+Credit drawdown — Morning Bundle A
+Unspent credit
+Credit remainingDeliveredPlanned
+Sun
+Mon
+Tue
+Wed
+Thu
+0
+2
+4
+6
+8
+Rp 0
+Rp 300.000
+Rp 600.000
+Rp 900.000
+Rp 1.200.000
+UNPAID INVOICES
+1 invoice unpaid
+Draft WhatsApp reminder
+Mark paid → fund
+View activity timeline →
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.
+
+WhatsApp draft opened
+Rp 0

@@ -148,7 +148,27 @@ describe("buildLedgerStatement", () => {
     ];
 
     const { rows } = buildLedgerStatement(entries);
-    expect(rows[0].link).toEqual({ kind: "order", id: ORDER_ID });
+    expect(rows[0].link).toEqual({ kind: "order", id: ORDER_ID, label: null });
+  });
+
+  it("applies linkLabel resolver to the link when provided", () => {
+    const entries = [
+      makeLedgerDoc({
+        type: "drawdown",
+        amount: -30_000,
+        balanceAfter: 70_000,
+        subscriptionId: SUB_ID,
+        subscriptionWeekId: WEEK_ID,
+        createdBy: USER_ID,
+        orderId: ORDER_ID,
+        _creationTime: 2000,
+      }),
+    ];
+
+    const { rows } = buildLedgerStatement(entries, {
+      linkLabel: (kind, id) => (kind === "order" && id === ORDER_ID ? "0626-001" : undefined),
+    });
+    expect(rows[0].link).toEqual({ kind: "order", id: ORDER_ID, label: "0626-001" });
   });
 
   it("resolves link.kind='invoice' when invoiceId is present", () => {
@@ -166,7 +186,7 @@ describe("buildLedgerStatement", () => {
     ];
 
     const { rows } = buildLedgerStatement(entries);
-    expect(rows[0].link).toEqual({ kind: "invoice", id: INVOICE_ID });
+    expect(rows[0].link).toEqual({ kind: "invoice", id: INVOICE_ID, label: null });
   });
 
   it("resolves link.kind='week' when rolloverFromWeekId is present", () => {
@@ -184,7 +204,7 @@ describe("buildLedgerStatement", () => {
     ];
 
     const { rows } = buildLedgerStatement(entries);
-    expect(rows[0].link).toEqual({ kind: "week", id: WEEK_ID_2 });
+    expect(rows[0].link).toEqual({ kind: "week", id: WEEK_ID_2, label: null });
   });
 
   it("resolves link.kind=null when no reference ids are present", () => {
@@ -201,7 +221,7 @@ describe("buildLedgerStatement", () => {
     ];
 
     const { rows } = buildLedgerStatement(entries);
-    expect(rows[0].link).toEqual({ kind: null, id: null });
+    expect(rows[0].link).toEqual({ kind: null, id: null, label: null });
   });
 
   it("threads through createdBy, note, and at correctly", () => {
@@ -218,10 +238,30 @@ describe("buildLedgerStatement", () => {
       }),
     ];
 
-    const { rows } = buildLedgerStatement(entries);
-    expect(rows[0].createdBy).toBe(USER_ID);
+    // createdBy now resolves via the actorName resolver (C10 — never leak the raw id).
+    const { rows } = buildLedgerStatement(entries, {
+      actorName: (id) => (id === USER_ID ? "Manager User" : undefined),
+    });
+    expect(rows[0].createdBy).toBe("Manager User");
     expect(rows[0].note).toBe("manual correction");
     expect(rows[0].at).toBe(9000);
+  });
+
+  it("falls back to 'System' when no actorName resolver matches", () => {
+    const entries = [
+      makeLedgerDoc({
+        type: "adjustment",
+        amount: 5_000,
+        balanceAfter: 105_000,
+        subscriptionId: SUB_ID,
+        subscriptionWeekId: WEEK_ID,
+        createdBy: USER_ID,
+        _creationTime: 9000,
+      }),
+    ];
+
+    const { rows } = buildLedgerStatement(entries);
+    expect(rows[0].createdBy).toBe("System");
   });
 
   it("omits note when absent (undefined, not null)", () => {

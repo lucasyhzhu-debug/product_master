@@ -43,6 +43,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -59,7 +60,7 @@ import { CreditGauge } from "@/components/crm/CreditGauge";
 import type { CreditPoolShape } from "@/components/crm/CreditGauge";
 import { SubscriptionSelector } from "@/components/crm/SubscriptionSelector";
 import { DrawdownChart } from "@/components/crm/DrawdownChart";
-import { getErrorMessage } from "@/lib/utils";
+import { getErrorMessage, formatCurrency } from "@/lib/utils";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
@@ -103,12 +104,19 @@ type WeekPool = {
   pool: CreditPoolShape;
 } | null;
 
+type UnpaidInvoiceDoc = {
+  _id: Id<"invoices">;
+  paymentStatus: string;
+  invoiceNumber?: string | null;
+  finalTotal: number;
+};
+
 type CustomerRecord = {
   customer: CustomerDoc;
   subscriptions: SubscriptionDoc[];
   agreements: AgreementDoc[];
   currentWeekPoolBySubscription: Record<string, WeekPool>;
-  unpaidInvoices: { _id: Id<"invoices">; paymentStatus: string }[];
+  unpaidInvoices: UnpaidInvoiceDoc[];
 };
 
 // ---------------------------------------------------------------------------
@@ -177,6 +185,9 @@ function CrmFieldsEditDialog({ customer, onClose, onSave }: EditFormProps) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit CRM fields</DialogTitle>
+          <DialogDescription>
+            Update this customer's contact and CRM details.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="grid grid-cols-2 gap-4">
@@ -367,7 +378,7 @@ function IdentityPane({ customer, agreements }: LeftPaneProps) {
                 to={`/crm/customers/${customer._id}/agreements`}
                 className="text-sm hover:underline flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
               >
-                Agreement ···{agr._id.slice(-6)}
+                Supply Agreement
                 <Badge
                   className={`ml-1 text-xs ${
                     agr.status === "active"
@@ -397,7 +408,7 @@ interface RightPaneProps {
   customerPhone: string | null;
   subscriptions: SubscriptionDoc[];
   currentWeekPoolBySubscription: Record<string, WeekPool>;
-  unpaidInvoices: { _id: Id<"invoices">; paymentStatus: string }[];
+  unpaidInvoices: UnpaidInvoiceDoc[];
   /** Selected subscription for the drawdown chart (T27). */
   selectedSubscriptionId: Id<"subscriptions"> | undefined;
   onSelectSubscription: (id: Id<"subscriptions">) => void;
@@ -463,14 +474,14 @@ function FinancialPane({
                         <ArrowUpRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
                       </Link>
                       {weekStatus && weekLabel && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Current week: {weekLabel}
+                        <div className="text-xs text-muted-foreground mt-0.5 flex items-center flex-wrap gap-x-1">
+                          <span>Current week: {weekLabel}</span>
                           <Badge
                             className="ml-1.5 text-xs bg-amber-100 text-amber-700"
                           >
                             {weekStatus}
                           </Badge>
-                        </p>
+                        </div>
                       )}
                     </div>
                     <Badge
@@ -509,39 +520,44 @@ function FinancialPane({
         </section>
       )}
 
-      {/* Unpaid invoices summary */}
+      {/* Unpaid invoices — each invoice is its own actionable row (A1) */}
       {unpaidInvoices.length > 0 && (
         <section aria-label="Unpaid invoices" className="space-y-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Unpaid invoices
           </h2>
-          <Card>
-            <CardContent className="p-3 flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4 text-amber-500" aria-hidden="true" />
-                <span className="text-sm">
-                  {unpaidInvoices.length} invoice
-                  {unpaidInvoices.length !== 1 ? "s" : ""} unpaid
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                {/* Draft WhatsApp reminder — T23 */}
-                <DraftWhatsAppButton
-                  phone={customerPhone}
-                  customerId={customerId}
-                  invoiceId={unpaidInvoices[0]?._id}
-                  customerName={customerName}
-                />
-                {/* Deep-link to funding dashboard — A1 */}
-                <Button size="sm" variant="outline" asChild className="text-xs">
-                  <Link to="/crm/funding">
-                    Mark paid → fund
-                    <ArrowUpRight className="h-3 w-3 ml-1" aria-hidden="true" />
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-1.5">
+            {unpaidInvoices.map((inv) => {
+              const displayNum = inv.invoiceNumber ?? `···${inv._id.slice(-6)}`;
+              return (
+                <Card key={inv._id}>
+                  <CardContent className="p-3 flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CreditCard className="h-4 w-4 text-amber-500 shrink-0" aria-hidden="true" />
+                      {/* Link to the specific invoice page (A1) */}
+                      <Link
+                        to={`/invoices/${inv._id}`}
+                        className="text-sm font-medium hover:underline inline-flex items-center gap-0.5"
+                      >
+                        {displayNum}
+                        <ArrowUpRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                      </Link>
+                      <span className="text-sm text-muted-foreground tabular-nums">
+                        {formatCurrency(inv.finalTotal)}
+                      </span>
+                    </div>
+                    {/* Draft WhatsApp reminder per invoice — T23 */}
+                    <DraftWhatsAppButton
+                      phone={customerPhone}
+                      customerId={customerId}
+                      invoiceId={inv._id}
+                      customerName={customerName}
+                    />
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </section>
       )}
 

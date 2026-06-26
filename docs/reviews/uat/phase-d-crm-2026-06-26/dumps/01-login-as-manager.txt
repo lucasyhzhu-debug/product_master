@@ -1,0 +1,89 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+FROLLIE PRO
+Good afternoon, E2E-Manager
+
+What would you like to work on today?
+
+Operations
+Open
+
+Day-to-day order management, kitchen production, and packaging.
+
+Orders
+Kitchen
+Packaging
+Inventory & Supply
+Open
+
+Track stock levels, storage locations, and plan restocking.
+
+Inventory
+Locations
+Planner
+Ingredients
+Bulk Prices
+Sales & Distribution
+Open
+
+Revenue analytics, GoFood depots, GrabFood, and K3Mart cockpit.
+
+GoFood Depot
+GrabFood
+Sales Analytics
+Analytics
+K3Mart Cockpit
+Financials
+Open
+
+Income statement, expense tracking, reimbursements, and payroll.
+
+Income Statement
+Expenses
+Approvals
+Exp. Analytics
+Reimburse
+Payroll
+Accounting
+Open
+
+Journal entries, chart of accounts, and bank account management.
+
+Journal Entry
+Chart of Accounts
+Bank Accounts
+Historical Import
+Asset Register
+Configuration
+Open
+
+Production components, customers, and WhatsApp messaging.
+
+Production Components
+Customers
+WhatsApp Templates
+Help & Training
+Open
+
+Step-by-step guides and FAQs for using Frollie.
+
+All Guides
+Expenses Guide
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.

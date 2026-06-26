@@ -20,14 +20,18 @@ import type { Doc } from "../_generated/dataModel";
 
 export const getCustomerDrawdown = protectedQuery({
   roles: ["manager", "admin"],
+  // v.string() + normalizeId: stale/malformed URL id returns null (not crash).
   args: {
-    subscriptionId: v.id("subscriptions"),
+    subscriptionId: v.string(),
     weekStart: v.optional(v.number()),
   },
   handler: async (ctx, args): Promise<{
     week: Doc<"subscriptionWeeks">;
     series: DrawdownSeriesResult;
   } | null> => {
+    const subscriptionId = ctx.db.normalizeId("subscriptions", args.subscriptionId);
+    if (!subscriptionId) return null;
+
     const now = Date.now();
 
     // Resolve the target week: explicit weekStart arg or current week.
@@ -37,12 +41,12 @@ export const getCustomerDrawdown = protectedQuery({
         .query("subscriptionWeeks")
         .withIndex("by_subscription_weekStart", (q) =>
           q
-            .eq("subscriptionId", args.subscriptionId)
+            .eq("subscriptionId", subscriptionId)
             .eq("weekStart", args.weekStart!),
         )
         .first();
     } else {
-      week = await resolveCurrentWeek(ctx, args.subscriptionId, now);
+      week = await resolveCurrentWeek(ctx, subscriptionId, now);
     }
 
     if (!week) return null;

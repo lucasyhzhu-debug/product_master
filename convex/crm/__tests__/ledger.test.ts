@@ -147,7 +147,7 @@ describe("getCreditLedgerStatement", () => {
     const topupRow = result.rows.find((r: { type: string }) => r.type === "topup")!;
     expect(topupRow.signedAmount).toBe(300000);
     expect(topupRow.balanceAfter).toBe(300000);
-    expect(topupRow.link).toEqual({ kind: null, id: null });
+    expect(topupRow.link).toEqual({ kind: null, id: null, label: null });
 
     const drawdownRow = result.rows.find((r: { type: string }) => r.type === "drawdown")!;
     expect(drawdownRow.signedAmount).toBe(-29000);

@@ -1,0 +1,112 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+CRM
+Customer
+Activity
+Activity timeline
+
+Last 14 days
+
+Load older
+📦
+Order
+💳
+Finance
+💬
+Message
+📄
+Document
+📅
+Schedule
+🏁
+Milestone
+📦
+
+Order #UAT-006 placed
+
+UAT Cafe B2B
+
+25 Jun, 15.22· Lucas
+
+📦
+
+Order #UAT-004 placed
+
+UAT Cafe B2B
+
+25 Jun, 00.00· Lucas
+
+📦
+
+Order #UAT-005 placed
+
+UAT Cafe B2B
+
+24 Jun, 15.22· Lucas
+
+📦
+
+Order #UAT-003 delivered
+
+UAT Cafe B2B
+
+24 Jun, 06.00· Lucas
+
+📦
+
+Order #UAT-003 placed
+
+UAT Cafe B2B
+
+24 Jun, 00.00· Lucas
+
+📦
+
+Order #UAT-002 delivered
+
+UAT Cafe B2B
+
+23 Jun, 06.00· Lucas
+
+📦
+
+Order #UAT-002 placed
+
+UAT Cafe B2B
+
+23 Jun, 00.00· Lucas
+
+📦
+
+Order #UAT-001 delivered
+
+UAT Cafe B2B
+
+22 Jun, 06.00· Lucas
+
+📦
+
+Order #UAT-001 placed
+
+UAT Cafe B2B
+
+22 Jun, 00.00· Lucas
+
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.

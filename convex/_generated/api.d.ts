@@ -41,6 +41,7 @@ import type * as consignment_queries from "../consignment/queries.js";
 import type * as crm_agreements from "../crm/agreements.js";
 import type * as crm_customers from "../crm/customers.js";
 import type * as crm_drawdown from "../crm/drawdown.js";
+import type * as crm_funding from "../crm/funding.js";
 import type * as crm_helpers_currentWeek from "../crm/helpers/currentWeek.js";
 import type * as crm_helpers_drawdownSeries from "../crm/helpers/drawdownSeries.js";
 import type * as crm_helpers_ledgerStatement from "../crm/helpers/ledgerStatement.js";
@@ -282,6 +283,7 @@ import type * as staffAttendance_mutations from "../staffAttendance/mutations.js
 import type * as staffAttendance_queries from "../staffAttendance/queries.js";
 import type * as storageLocations_mutations from "../storageLocations/mutations.js";
 import type * as storageLocations_queries from "../storageLocations/queries.js";
+import type * as subscriptions__devSeed from "../subscriptions/_devSeed.js";
 import type * as subscriptions_amend from "../subscriptions/amend.js";
 import type * as subscriptions_creditMath from "../subscriptions/creditMath.js";
 import type * as subscriptions_delivery from "../subscriptions/delivery.js";
@@ -365,6 +367,7 @@ declare const fullApi: ApiFromModules<{
   "crm/agreements": typeof crm_agreements;
   "crm/customers": typeof crm_customers;
   "crm/drawdown": typeof crm_drawdown;
+  "crm/funding": typeof crm_funding;
   "crm/helpers/currentWeek": typeof crm_helpers_currentWeek;
   "crm/helpers/drawdownSeries": typeof crm_helpers_drawdownSeries;
   "crm/helpers/ledgerStatement": typeof crm_helpers_ledgerStatement;
@@ -606,6 +609,7 @@ declare const fullApi: ApiFromModules<{
   "staffAttendance/queries": typeof staffAttendance_queries;
   "storageLocations/mutations": typeof storageLocations_mutations;
   "storageLocations/queries": typeof storageLocations_queries;
+  "subscriptions/_devSeed": typeof subscriptions__devSeed;
   "subscriptions/amend": typeof subscriptions_amend;
   "subscriptions/creditMath": typeof subscriptions_creditMath;
   "subscriptions/delivery": typeof subscriptions_delivery;

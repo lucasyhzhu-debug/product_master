@@ -1,0 +1,40 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+Subscription Funding Dashboard
+
+Weeks awaiting payment or invoice — fund credit pools once cash received.
+
+AWAITING PAYMENT
+
+0
+
+weeks invoiced
+
+NEEDS INVOICE
+
+0
+
+weeks confirmed
+
+All caught up
+
+No subscription weeks are awaiting payment or invoice right now.
+
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.

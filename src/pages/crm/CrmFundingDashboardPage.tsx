@@ -19,6 +19,7 @@ import {
   ArrowUpRight,
   CheckCircle2,
   CreditCard,
+  Receipt,
   RefreshCw,
 } from "lucide-react";
 import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
@@ -39,7 +40,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
-import { getErrorMessage } from "@/lib/utils";
+import { getErrorMessage, formatCurrency } from "@/lib/utils";
 import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 import {
   FUNDING_STATUS_BADGE,
@@ -48,8 +49,20 @@ import {
 } from "@/lib/crmStatusBadges";
 
 // ---------------------------------------------------------------------------
-// Types mirroring getFundingDashboard return shape
+// Types mirroring getFundingDashboard / getUnpaidSubscriptionInvoices return shapes
 // ---------------------------------------------------------------------------
+
+type UnpaidInvoiceRow = {
+  invoiceId: Id<"invoices">;
+  invoiceNumber: string | null;
+  amountTotal: number;
+  paymentStatus: string;
+  customerId: Id<"customers"> | null;
+  customerName: string | null;
+  subscriptionId: Id<"subscriptions"> | null;
+  subscriptionLabel: string | null;
+  weekStart: number | null;
+};
 
 type FundingRow = {
   week: {
@@ -106,11 +119,14 @@ export function CrmFundingDashboardPage() {
   // All hooks before any early returns (Pitfall #9)
   // ---------------------------------------------------------------------------
   const rows = useSessionQuery(api.subscriptions.scheduling.queries.getFundingDashboard, {});
+  // Unpaid subscription invoices (incl. mid-week amendments) — reconciles the
+  // "All caught up" weeks view with the customer hub (no money-safety contradiction).
+  const unpaidInvoices = useSessionQuery(api.crm.funding.getUnpaidSubscriptionInvoices, {}) as UnpaidInvoiceRow[] | undefined;
 
   // ---------------------------------------------------------------------------
-  // Loading guard (D12)
+  // Loading guard (D12) — wait for both queries
   // ---------------------------------------------------------------------------
-  if (rows === undefined) {
+  if (rows === undefined || unpaidInvoices === undefined) {
     return <LoadingPage />;
   }
 
@@ -130,7 +146,7 @@ export function CrmFundingDashboardPage() {
       </div>
 
       {/* Summary counts */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-1 pt-4">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -157,16 +173,30 @@ export function CrmFundingDashboardPage() {
             <p className="text-xs text-muted-foreground mt-0.5">weeks confirmed</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-1 pt-4">
+            <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Unpaid invoices
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pb-4">
+            <p className="text-2xl font-bold">{unpaidInvoices.length}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">subscription invoices</p>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Main table */}
-      {sorted.length === 0 ? (
+      {/* All caught up — only when BOTH weeks and invoices are empty */}
+      {sorted.length === 0 && unpaidInvoices.length === 0 && (
         <EmptyState
           icon={CreditCard}
           title="All caught up"
           description="No subscription weeks are awaiting payment or invoice right now."
         />
-      ) : (
+      )}
+
+      {/* Weeks table — awaiting payment or invoice */}
+      {sorted.length > 0 && (
         <Card>
           <CardContent className="p-0">
             <Table>
@@ -191,11 +221,11 @@ export function CrmFundingDashboardPage() {
 
                   return (
                     <TableRow key={week._id}>
-                      {/* Customer */}
+                      {/* Customer — fixed: was /customers, now /crm/customers/:id */}
                       <TableCell>
                         {customerId ? (
                           <Link
-                            to={`/customers`}
+                            to={`/crm/customers/${customerId}`}
                             className="font-medium hover:underline text-sm"
                           >
                             {customerName ?? "Unknown customer"}
@@ -283,6 +313,90 @@ export function CrmFundingDashboardPage() {
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {/* Unpaid invoices section — subscription invoices awaiting payment */}
+      {unpaidInvoices.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Unpaid invoices
+            </h2>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Subscription</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {unpaidInvoices.map((inv) => {
+                    const displayNum = inv.invoiceNumber ?? `···${inv.invoiceId.slice(-6)}`;
+                    return (
+                      <TableRow key={inv.invoiceId}>
+                        {/* Invoice — links to invoice page */}
+                        <TableCell>
+                          <Link
+                            to={`/invoices/${inv.invoiceId}`}
+                            className="text-sm font-medium hover:underline"
+                          >
+                            {displayNum}
+                            <ArrowUpRight className="inline h-3 w-3 ml-0.5 text-muted-foreground" />
+                          </Link>
+                        </TableCell>
+
+                        {/* Customer */}
+                        <TableCell>
+                          {inv.customerId ? (
+                            <Link
+                              to={`/crm/customers/${inv.customerId}`}
+                              className="text-sm hover:underline"
+                            >
+                              {inv.customerName ?? "Unknown"}
+                              <ArrowUpRight className="inline h-3 w-3 ml-0.5 text-muted-foreground" />
+                            </Link>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">
+                              {inv.customerName ?? "Unknown"}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        {/* Subscription */}
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {inv.subscriptionLabel ?? (inv.subscriptionId ? `···${inv.subscriptionId.slice(-6)}` : "—")}
+                          </span>
+                        </TableCell>
+
+                        {/* Amount */}
+                        <TableCell>
+                          <span className="text-sm font-medium tabular-nums">
+                            {formatCurrency(inv.amountTotal)}
+                          </span>
+                        </TableCell>
+
+                        {/* Status */}
+                        <TableCell>
+                          <Badge className="text-xs bg-amber-100 text-amber-700">
+                            {inv.paymentStatus}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

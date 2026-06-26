@@ -19,8 +19,18 @@ export const listSubscriptions = protectedQuery({
 
 export const getSubscription = protectedQuery({
   roles: ["manager", "admin"],
-  args: { subscriptionId: v.id("subscriptions") },
-  handler: async (ctx, args) => await ctx.db.get(args.subscriptionId),
+  // v.string() + normalizeId: stale/malformed URL id returns null (not crash).
+  // Additive return: spread preserves all subscription fields; customerName added
+  // for SubscriptionPage breadcrumb (A2). Safe for non-CRM callers — extra field.
+  args: { subscriptionId: v.string() },
+  handler: async (ctx, args) => {
+    const subscriptionId = ctx.db.normalizeId("subscriptions", args.subscriptionId);
+    if (!subscriptionId) return null;
+    const sub = await ctx.db.get(subscriptionId);
+    if (!sub) return null;
+    const customer = await ctx.db.get(sub.customerId);
+    return { ...sub, customerName: customer?.name ?? null };
+  },
 });
 
 export const getWeekPool = protectedQuery({

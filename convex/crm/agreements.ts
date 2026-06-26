@@ -139,8 +139,18 @@ export const linkAgreementToSubscription = protectedMutation({
 
 export const getAgreement = protectedQuery({
   roles: ["manager", "admin"],
-  args: { agreementId: v.id("supplyAgreements") },
-  handler: async (ctx, args) => ctx.db.get(args.agreementId),
+  // v.string() + normalizeId: a stale/malformed URL id returns null (not
+  // ArgumentValidationError → full-page crash). Pattern mirrors getCustomerRecord.
+  args: { agreementId: v.string() },
+  handler: async (ctx, args) => {
+    const agreementId = ctx.db.normalizeId("supplyAgreements", args.agreementId);
+    if (!agreementId) return null;
+    const agreement = await ctx.db.get(agreementId);
+    if (!agreement) return null;
+    // Task 2: resolve customerName for breadcrumb (A2 — breadcrumb mirrors object hierarchy).
+    const customer = await ctx.db.get(agreement.customerId);
+    return { ...agreement, customerName: customer?.name ?? null };
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -149,12 +159,16 @@ export const getAgreement = protectedQuery({
 
 export const listAgreementsByCustomer = protectedQuery({
   roles: ["manager", "admin"],
-  args: { customerId: v.id("customers") },
-  handler: async (ctx, args) =>
-    ctx.db
+  // v.string() + normalizeId: stale/malformed URL id returns [] (not crash).
+  args: { customerId: v.string() },
+  handler: async (ctx, args) => {
+    const customerId = ctx.db.normalizeId("customers", args.customerId);
+    if (!customerId) return [];
+    return ctx.db
       .query("supplyAgreements")
-      .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
-      .collect(),
+      .withIndex("by_customer", (q) => q.eq("customerId", customerId))
+      .collect();
+  },
 });
 
 // ---------------------------------------------------------------------------

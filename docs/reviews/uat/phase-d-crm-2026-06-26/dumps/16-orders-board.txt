@@ -1,0 +1,497 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+Orders
+
+Manage customer orders
+
+New Order
+My orders
+Orders with notes
+Draft
+2
+UAT Cafe B2B
+
+UAT-005 · by Lucas
+
+Rp 255.000
+
+Alvaro
+
+0306-001 · by Manager User
+
+Rp 0
+
+Awaiting Payment
+5
+Alvaro
+
+0306-002 · by Manager User
+
+Rp 45.000
+
+1x Original - Single (45g)
+
+Alvaro
+
+0306-003 · by Manager User
+
+Rp 45.000
+
+1x Original - Single (45g)
+
+Alvaro
+
+0307-001 · by Lucas
+
+Rp 45.000
+
+1x Original - Single (45g)
+
+Alvaro
+
+0307-002 · by Lucas
+
+Rp 45.000
+
+1x Original - Single (45g)
+
+UAT Cafe B2B
+
+UAT-006 · by Lucas
+
+Rp 750.000
+
+Payment Received
+15
+test
+
+0216-004 · by Lucas
+
+Rp 235.000
+
+Wed, Feb 18 (overdue)
+EXPEDITED
+
+1x Original - Single (45g)
+
+1x Original - Triple (135g)
+
+1x Jumbo Size (80g)
+
+1x Brochure - How to eat
+
+test
+
+0222-001 · by Lucas
+
+Rp 497.331
+
+Mon, Feb 23 (overdue)
+
+1x Original - Single (45g)
+
+4x Original - Triple (135g)
+
+1x Brochure - How to eat
+
+test note to see if it shows up
+
+UAT Cafe B2B
+
+0624-001 · by Manager User
+
+Rp 450.000
+
+Mon, Jun 22 (overdue)
+
+15x Original
+
+UAT-Sub-Test-1782395598604
+
+0625-001 · by E2E-Admin
+
+Rp 70.000
+
+Mon, Jun 22 (overdue)
+
+2x Original
+
+UAT-Sub-Test-1782397912143
+
+0625-003 · by E2E-Admin
+
+Rp 70.000
+
+Mon, Jun 22 (overdue)
+
+2x Original
+
+UAT Cafe B2B
+
+0624-002 · by Manager User
+
+Rp 300.000
+
+Tue, Jun 23 (overdue)
+
+10x Original
+
+UAT Cafe B2B
+
+0624-003 · by Manager User
+
+Rp 300.000
+
+Wed, Jun 24 (overdue)
+
+10x Original
+
+UAT-Sub-Test-1782395598604
+
+0625-002 · by E2E-Admin
+
+Rp 70.000
+
+Wed, Jun 24 (overdue)
+
+2x Original
+
+UAT Cafe B2B
+
+0624-004 · by Manager User
+
+Rp 300.000
+
+Thu, Jun 25 (overdue)
+
+10x Original
+
+UAT Cafe B2B
+
+0624-005 · by Manager User
+
+Rp 300.000
+
+Fri, Jun 26
+
+10x Original
+
+UAT Cafe B2B
+
+0625-005 · by Manager User
+
+Rp 300.000
+
+Tue, Jun 30
+
+10x Original
+
+UAT Cafe B2B
+
+0625-006 · by Manager User
+
+Rp 300.000
+
+Wed, Jul 1
+
+10x Original
+
+UAT Cafe B2B
+
+0625-007 · by Manager User
+
+Rp 300.000
+
+Thu, Jul 2
+
+10x Original
+
+UAT Cafe B2B
+
+0625-008 · by Manager User
+
+Rp 300.000
+
+Fri, Jul 3
+
+10x Original
+
+UAT Cafe B2B
+
+0625-009 · by Manager User
+
+Rp 300.000
+
+Sat, Jul 4
+
+10x Original
+
+Being Prepared
+1
+UAT Cafe B2B
+
+UAT-004 · by Lucas
+
+Rp 375.000
+
+Thu, Jun 25 (overdue)
+
+5x Original
+
+Awaiting Delivery
+3
+test
+
+0216-002 · by admin
+
+Rp 690.000
+
+Mon, Feb 16 (overdue)
+EXPEDITED
+
+2x Original - Single (45g)
+
+4x Original - Triple (135g)
+
+2x Jumbo Size (80g)
+
+1x Brochure - How to eat
+
+testing notes
+
+Lucas
+
+0216-001 · by admin
+
+Rp 567.000
+
+-Rp 243.000
+Rp 810.000
+Sun, Feb 22 (overdue)
+EXPEDITED
+
+1x Jumbo Size (80g)
+
+4x Original - Single (45g)
+
+5x Original - Triple (135g)
+
+see where thisgoes
+
+UAT-Sub-Test-1782397912143
+
+0625-004 · by E2E-Admin
+
+Rp 70.000
+
+Wed, Jun 24 (overdue)
+
+2x Original
+
+Complete
+16
+UAT Cafe B2B
+
+UAT-003 · by Lucas
+
+Rp 225.000
+
+3x Original
+
+UAT Cafe B2B
+
+UAT-002 · by Lucas
+
+Rp 375.000
+
+5x Original
+
+UAT Cafe B2B
+
+UAT-001 · by Lucas
+
+Rp 375.000
+
+5x Original
+
+test
+
+0220-001 · by Lucas
+
+Rp 575.000
+
+3x Original - Single (45g)
+
+4x Original - Triple (135g)
+
+Lucas
+
+0210-004 · by admin
+
+Rp 830.000
+
+2x Original - Single (45g)
+
+6x Original - Triple (135g)
+
+1x Jumbo Size (80g)
+
+2x Brochure - How to eat
+
+test
+
+0210-003 · by admin
+
+Rp 280.000
+
+2x Original - Single (45g)
+
+1x Original - Triple (135g)
+
+1x Jumbo Size (80g)
+
+1x Brochure - How to eat
+
+test
+
+0210-002 · by admin
+
+Rp 280.000
+
+2x Original - Single (45g)
+
+1x Jumbo Size (80g)
+
+1x Original - Triple (135g)
+
+4x Brochure - How to eat
+
+test
+
+0210-001 · by admin
+
+Rp 625.000
+
+3x Original - Single (45g)
+
+3x Original - Triple (135g)
+
+2x Jumbo Size (80g)
+
+test
+
+0209-002 · by admin
+
+Rp 211.500
+
+-Rp 23.500
+Rp 235.000
+
+1x Original - Single (45g)
+
+1x Jumbo Size (80g)
+
+1x Original - Triple (135g)
+
+Lucas
+
+0209-001 · by admin
+
+Rp 542.700
+
+-Rp 60.300
+Rp 603.000
+
+1x Bite Sized Single
+
+1x Original - Single (45g)
+
+4x Original - Triple (135g)
+
+1x Jumbo Size (80g)
+
+1x Brochure - How to eat
+
+Lucas
+
+0205-001 · by admin
+
+Rp 241.500
+
+-Rp 103.500
+Rp 345.000
+
+1x Original - Single (45g)
+
+2x Original - Triple (135g)
+
+1x Jumbo Size (80g)
+
+Karina Negara
+
+0202-002 · by admin
+
+Rp 397.000
+
+2x Original
+
+3x Bite Sized Triple
+
+Jumat 6 Feb kirim ke Lydia 08119279978 https://maps.app.goo.gl/e67aHPXYmgZTrbV16?g_st=com.google.maps.preview.copy Jl Green Garden RESIDENCE blok i1 no 12A, Kebon Jeruk, Kedoya Utara, DKI Jakarta, 11520 (Harus ada nama Residence ya. Muncul d grab biasanya yg no 13 tp gpp note aja 12a.) Patokan masuk dr duta buah green garden, ud tinggal lurussss aja sampe paling ujung.
+
+Agnes
+
+0203-001 · by admin
+
+Rp 140.000
+
+2x Bite Sized Double
+
+Angel Beki
+
+0202-003 · by admin
+
+Rp 198.000
+
+2x Bite Sized Triple
+
+Alvaro
+
+0202-001 · by admin
+
+Rp 85.000
+
+-Rp 15.000
+Rp 100.000
+
+2x Original
+
+Nat
+
+0203-002 · by admin
+
+Rp 130.000
+
+-Rp 10.000
+Rp 140.000
+
+2x Bite Sized Double
+
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.

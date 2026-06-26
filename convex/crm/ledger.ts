@@ -11,6 +11,7 @@
 
 import { v } from "convex/values";
 import { protectedQuery } from "../lib/functions";
+import type { Id } from "../_generated/dataModel";
 import { buildLedgerStatement } from "./helpers/ledgerStatement";
 
 // ---------------------------------------------------------------------------
@@ -27,7 +28,35 @@ export const getCreditLedgerStatement = protectedQuery({
         q.eq("subscriptionWeekId", args.subscriptionWeekId),
       )
       .collect();
-    return buildLedgerStatement(entries);
+
+    // Resolve actor names (C10 — never leak raw user ids) and link labels
+    // (A1 — show the order/invoice number, not an id fragment). Bounded fan-out:
+    // a week has few ledger entries.
+    const actorName = new Map<string, string>();
+    const linkLabel = new Map<string, string>();
+    await Promise.all([
+      ...[...new Set(entries.map((e) => e.createdBy as string))].map(async (uid) => {
+        const u = await ctx.db.get(uid as Id<"users">);
+        if (u) actorName.set(uid, u.name);
+      }),
+      ...[...new Set(entries.flatMap((e) => (e.orderId ? [e.orderId as string] : [])))].map(
+        async (oid) => {
+          const o = await ctx.db.get(oid as Id<"orders">);
+          if (o) linkLabel.set(oid, o.orderNumber);
+        },
+      ),
+      ...[...new Set(entries.flatMap((e) => (e.invoiceId ? [e.invoiceId as string] : [])))].map(
+        async (iid) => {
+          const inv = await ctx.db.get(iid as Id<"invoices">);
+          if (inv?.invoiceNumber) linkLabel.set(iid, inv.invoiceNumber);
+        },
+      ),
+    ]);
+
+    return buildLedgerStatement(entries, {
+      actorName: (uid) => actorName.get(uid),
+      linkLabel: (_kind, id) => linkLabel.get(id),
+    });
   },
 });
 

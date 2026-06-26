@@ -1,0 +1,69 @@
+Frollie Pro
+Dashboards
+Orders
+Ops
+Finance
+Config
+E2E-Manager
+CRM
+Customer
+Subscription
+Back to customer
+Morning Bundle A
+active
+Prepaid weekly credit
+Schedule
+
+WEEKLY QTY
+
+25 items
+
+DELIVER BY
+
+09:00 WIB
+
+STARTED
+
+2026-05-29
+
+ROLLOVER
+
+Expire
+
+Credit Ledger Statement
+22 Jun – 28 Jun 2026 — delivering
+22 Jun – 28 Jun 2026
+delivering
+Issued: Rp 2.175.000
+Consumed: Rp 975.000
+Remaining: Rp 1.200.000
+TYPE	AMOUNT	BALANCE (WEEK-SCOPED)	LINK	BY	NOTE
+topup	+Rp 1.875.000	Rp 1.875.000	Invoice ···89c0g0
+	mn7619tbcw44tmvys0a6mxenbs80a5f5	Weekly credit funded — INV-UAT-2606-001 (seed)
+drawdown	-Rp 375.000	Rp 1.500.000	Order ···89cmp0
+	mn7619tbcw44tmvys0a6mxenbs80a5f5	Delivery day 1 (seed)
+drawdown	-Rp 375.000	Rp 1.125.000	Order ···89cvtg
+	mn7619tbcw44tmvys0a6mxenbs80a5f5	Delivery day 2 (seed)
+drawdown	-Rp 225.000	Rp 900.000	Order ···89dfxf
+	mn7619tbcw44tmvys0a6mxenbs80a5f5	Delivery day 3 (seed)
+topup	+Rp 300.000	Rp 1.200.000	Invoice ···89d3j5
+	mn7619tbcw44tmvys0a6mxenbs80a5f5	Mid-week amendment — INV-UAT-2606-002 (seed)
+
+Balance column is week-scoped and resets at the start of each week.
+
+SUPPLY AGREEMENT
+
+Agreement ···89dkf8
+Frollie Pro
+
+Real-time recipe and product management for the Frollie team.
+
+Quick Links
+Sales
+Orders
+Kitchen
+Inventory
+
+Built with love for Frollie
+
+© 2026 Frollie. All rights reserved.

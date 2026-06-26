@@ -58,9 +58,15 @@ export const updateCustomerCrmFields = protectedMutation({
 
 export const getCustomerRecord = protectedQuery({
   roles: ["manager", "admin"],
-  args: { customerId: v.id("customers") },
+  // Accept a raw string and normalize defensively: a malformed/stale id from a
+  // URL must surface as a friendly not-found (return null), NOT throw an
+  // ArgumentValidationError that the frontend renders as a full-page crash
+  // (lesson_convex_error_masking / Pitfall #19).
+  args: { customerId: v.string() },
   handler: async (ctx, args) => {
-    const customer = await ctx.db.get(args.customerId);
+    const customerId = ctx.db.normalizeId("customers", args.customerId);
+    if (!customerId) return null;
+    const customer = await ctx.db.get(customerId);
     if (!customer) return null;
 
     // subscriptions, agreements, and invoices are independent reads — fetch in
@@ -69,15 +75,15 @@ export const getCustomerRecord = protectedQuery({
     const [subscriptions, agreements, unpaidInvoices] = await Promise.all([
       ctx.db
         .query("subscriptions")
-        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .withIndex("by_customer", (q) => q.eq("customerId", customerId))
         .collect(),
       ctx.db
         .query("supplyAgreements")
-        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .withIndex("by_customer", (q) => q.eq("customerId", customerId))
         .collect(),
       ctx.db
         .query("invoices")
-        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .withIndex("by_customer", (q) => q.eq("customerId", customerId))
         .collect()
         .then((invoices) => invoices.filter((i) => i.paymentStatus !== "Paid")),
     ]);
