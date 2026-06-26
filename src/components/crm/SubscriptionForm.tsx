@@ -71,9 +71,9 @@ export function SubscriptionForm({ customerId }: Props) {
   );
 
   // Public query — no sessionId; activeOnly matches SubscriptionSchedulePage pattern
-  const rawProducts =
-    useQuery(api.menuProducts.queries.list, { activeOnly: true }) ?? [];
-  const products = rawProducts.map((p: { _id: Id<"menuProducts">; name: string }) => ({
+  // rawProductsQuery is undefined while loading, [] when empty, array when ready (Mn3).
+  const rawProductsQuery = useQuery(api.menuProducts.queries.list, { activeOnly: true });
+  const products = (rawProductsQuery ?? []).map((p: { _id: Id<"menuProducts">; name: string }) => ({
     _id: p._id,
     name: p.name,
   }));
@@ -124,7 +124,9 @@ export function SubscriptionForm({ customerId }: Props) {
     isPositiveInt(unitPrice) &&
     isPositiveInt(baselineDailyQty) &&
     isPositiveInt(cogsBasis) &&
-    /^\d{2}:\d{2}$/.test(deliverByTime);
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(deliverByTime) &&
+    // I3: blank rolloverExpiryWeeks is allowed (indefinite); but if typed, must be a positive int.
+    (creditRolloverPolicy !== "rollover" || !rolloverExpiryWeeks || isPositiveInt(rolloverExpiryWeeks));
 
   // ---------------------------------------------------------------------------
   // Submit
@@ -182,11 +184,12 @@ export function SubscriptionForm({ customerId }: Props) {
 
         {/* Unit price */}
         <div className="space-y-1.5">
-          <Label htmlFor="sub-unitPrice">Unit price</Label>
+          <Label htmlFor="sub-unitPrice">Unit price (whole IDR)</Label>
           <Input
             id="sub-unitPrice"
             type="number"
             min={1}
+            step="1"
             value={unitPrice}
             onChange={(e) => setUnitPrice(e.target.value)}
             placeholder="29000"
@@ -195,11 +198,12 @@ export function SubscriptionForm({ customerId }: Props) {
 
         {/* Baseline daily qty */}
         <div className="space-y-1.5">
-          <Label htmlFor="sub-baselineDailyQty">Baseline daily qty</Label>
+          <Label htmlFor="sub-baselineDailyQty">Baseline daily qty (whole IDR)</Label>
           <Input
             id="sub-baselineDailyQty"
             type="number"
             min={1}
+            step="1"
             value={baselineDailyQty}
             onChange={(e) => setBaselineDailyQty(e.target.value)}
             placeholder="150"
@@ -208,11 +212,12 @@ export function SubscriptionForm({ customerId }: Props) {
 
         {/* COGS basis */}
         <div className="space-y-1.5">
-          <Label htmlFor="sub-cogsBasis">COGS basis</Label>
+          <Label htmlFor="sub-cogsBasis">COGS basis (whole IDR)</Label>
           <Input
             id="sub-cogsBasis"
             type="number"
             min={1}
+            step="1"
             value={cogsBasis}
             onChange={(e) => setCogsBasis(e.target.value)}
             placeholder="12000"
@@ -257,10 +262,14 @@ export function SubscriptionForm({ customerId }: Props) {
               id="sub-rolloverExpiryWeeks"
               type="number"
               min={1}
+              step="1"
               value={rolloverExpiryWeeks}
               onChange={(e) => setRolloverExpiryWeeks(e.target.value)}
               placeholder="4"
             />
+            <p className="text-xs text-muted-foreground">
+              Leave blank for indefinite rollover.
+            </p>
           </div>
         )}
 
@@ -279,6 +288,9 @@ export function SubscriptionForm({ customerId }: Props) {
       {/* ── Weekly schedule template ───────────────────────────────────────── */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium">Weekly schedule template</h3>
+        {rawProductsQuery === undefined && (
+          <p className="text-xs text-muted-foreground">Loading products…</p>
+        )}
         <ScheduleTemplateEditor days={days} products={products} onChange={setDays} />
       </div>
 
@@ -304,16 +316,16 @@ export function SubscriptionForm({ customerId }: Props) {
 
         {agreements.length > 0 && (
           <Select
-            value={agreementId ?? ""}
+            value={agreementId ?? "none"}
             onValueChange={(v) =>
-              setAgreementId(v ? (v as Id<"supplyAgreements">) : undefined)
+              setAgreementId(v && v !== "none" ? (v as Id<"supplyAgreements">) : undefined)
             }
           >
             <SelectTrigger>
               <SelectValue placeholder="Select existing agreement…" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">None</SelectItem>
+              <SelectItem value="none">None</SelectItem>
               {agreements.map((ag) => (
                 <SelectItem key={ag._id} value={ag._id}>
                   {ag.fileName ?? ag._id}

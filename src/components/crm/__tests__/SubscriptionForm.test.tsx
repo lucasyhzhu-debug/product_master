@@ -5,6 +5,9 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 
 const mockCreateSub = vi.fn();
 const mockNavigate = vi.fn();
+// Mutable — tests can set this before rendering to simulate non-empty agreements (C1-test).
+let mockAgreements: Array<{ _id: string; fileName?: string }> = [];
+
 vi.mock("convex/react", () => ({
   useQuery: () => [
     { _id: "p1", name: "Original" },
@@ -12,7 +15,7 @@ vi.mock("convex/react", () => ({
   ],
 }));
 vi.mock("convex-helpers/react/sessions", () => ({
-  useSessionQuery: () => [], // listAgreementsByCustomer → none
+  useSessionQuery: () => mockAgreements, // configurable per-test
   useSessionMutation: () => mockCreateSub,
 }));
 vi.mock("react-router-dom", async (orig) => ({
@@ -23,7 +26,26 @@ vi.mock("react-router-dom", async (orig) => ({
 import { SubscriptionForm } from "../SubscriptionForm";
 const customerId = "cust1" as Id<"customers">;
 
-beforeEach(() => { mockCreateSub.mockReset(); mockNavigate.mockReset(); });
+beforeEach(() => {
+  mockCreateSub.mockReset();
+  mockNavigate.mockReset();
+  mockAgreements = []; // reset to empty (no agreements) for existing tests
+});
+
+describe("SubscriptionForm — agreement picker (C1)", () => {
+  it("renders without crashing when agreements list is non-empty and shows the agreement picker", () => {
+    // Previously crashed: Radix Select throws on <SelectItem value=""> when agreements exist.
+    // After C1 fix we use sentinel value "none" instead of "".
+    mockAgreements = [{ _id: "ag1" as Id<"supplyAgreements">, fileName: "Contract.pdf" }];
+    render(<MemoryRouter><SubscriptionForm customerId={customerId} /></MemoryRouter>);
+    // Form rendered (submit button present).
+    expect(screen.getByRole("button", { name: /create subscription/i })).toBeInTheDocument();
+    // Supply agreement section is present.
+    expect(screen.getByText(/supply agreement/i)).toBeInTheDocument();
+    // At least 2 Radix Select triggers: rollover policy + agreement picker.
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(2);
+  });
+});
 
 describe("SubscriptionForm", () => {
   it("blocks submit with empty label", () => {
