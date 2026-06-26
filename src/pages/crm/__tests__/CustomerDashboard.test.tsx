@@ -66,6 +66,9 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogTitle: ({ children }: { children: React.ReactNode }) => (
     <h2>{children}</h2>
   ),
+  DialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <p>{children}</p>
+  ),
 }));
 
 vi.mock("@/components/crm/Breadcrumbs", () => ({
