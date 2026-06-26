@@ -65,6 +65,12 @@ export const seedWeek = protectedMutation({
     const sub = await ctx.db.get(args.subscriptionId);
     if (!sub) throw new ConvexError("Subscription not found");
 
+    if (sub.endDate !== undefined && args.weekStart > sub.endDate) {
+      throw new ConvexError(
+        "Subscription has been terminated; cannot seed a week starting after the end date.",
+      );
+    }
+
     // Idempotency: one week row per (subscription, weekStart).
     const existing = await ctx.db
       .query("subscriptionWeeks")

@@ -26,6 +26,13 @@ export const confirmWeek = protectedMutation({
     // --- Load subscription & customer ---
     const sub = await ctx.db.get(week.subscriptionId);
     if (!sub) throw new ConvexError("Subscription not found");
+
+    if (sub.endDate !== undefined && week.weekStart > sub.endDate) {
+      throw new ConvexError(
+        "Subscription has been terminated; cannot confirm a week starting after the end date.",
+      );
+    }
+
     const customer = await ctx.db.get(sub.customerId);
     if (!customer) throw new ConvexError("Customer not found");
 
