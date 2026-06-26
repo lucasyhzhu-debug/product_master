@@ -14,6 +14,25 @@ After merging any code change, add a new entry with:
 
 ---
 
+## 2026-06-27 — Subscription creation & onboarding UI (CRM)
+
+**For the team:** Managers and admins can now onboard a B2B customer end-to-end without leaving the browser. From `/crm`, click "New customer" to create a customer record with full CRM fields in one atomic step. Then open the customer and click "Add subscription" to fill in contract terms, a 7-day delivery schedule template (with live weekly-qty and credit preview), and an optional supply agreement reference — the form validates before saving a Draft subscription. When ready, hit **Activate** on the Subscription page (guarded: only activatable when the template is schedulable). No schema change; one additive backend mutation (`crm.customers.createCustomer`).
+
+### Added
+- **`crm.customers.createCustomer`** (mutation, manager+admin) — atomic single insert with full CRM field union (name, phone, source, notes, defaultAddress, companyName, npwp, billingAddress, keyContactName, keyContactRole, whatsapp, email, instagram, otherSocials, deliveryAddress, storeAddress, otherAddresses, altPhone, customerType). Server-sets `createdBy: ctx.user.name`. Drops undefined fields before insert. Fills the gap that `customers.create` only accepts name/phone/source/notes/defaultAddress.
+- **`NewCustomerDialog`** — modal wired into `CrmHome` for creating a customer with full CRM fields; redirects to new customer dashboard on success.
+- **`SubscriptionForm`** — sectioned form: contract terms (type, start date, credit limit, currency), 7-day schedule template via `ScheduleTemplateEditor` (per-day product + qty grid), optional agreement linkage, live weekly-qty and credit-usage preview, field-level validation.
+- **`ScheduleTemplateEditor`** — reusable per-day grid component (7 rows × product + qty columns) with running weekly totals.
+- **`NewSubscriptionPage`** + route `crm/customers/:customerId/subscriptions/new` (`canAccessCrm`, manager+admin) — full-page subscription creation flow wrapping `SubscriptionForm`.
+- **"Add subscription" button** on `CustomerDashboard`; **Draft badge** on subscription cards.
+- **Activate action** on `SubscriptionPage` — calls existing activation mutation; guarded by schedulability check (button disabled + tooltip when template is incomplete).
+- **`SUBSCRIPTION_STATUS_BADGE`** map added to `src/lib/crmStatusBadges.ts` — shared status → badge variant lookup for subscription status chips across all CRM surfaces.
+
+### Files
+`convex/crm/customers.ts` (additive: `createCustomer`), `src/pages/crm/NewSubscriptionPage.tsx` (new), `src/components/crm/SubscriptionForm.tsx` (new), `src/components/crm/ScheduleTemplateEditor.tsx` (new), `src/components/crm/NewCustomerDialog.tsx` (new), `src/lib/crmStatusBadges.ts` (additive: `SUBSCRIPTION_STATUS_BADGE`), `src/pages/crm/CrmHome.tsx` (New customer button), `src/pages/crm/CustomerDashboard.tsx` (Add subscription button + Draft badge), `src/pages/crm/SubscriptionPage.tsx` (Activate action), `src/App.tsx` (new route).
+
+---
+
 ## [Unreleased] — CRM Surface (Phase D) — 2026-06-26
 
 **For the team:** Managers and admins now have a full customer relationship view under `/crm`. Open any B2B customer to see their credit balance, payment history, a drawdown chart, unpaid invoices, and a pre-drafted WhatsApp reminder. Supply agreements (PDFs) can be uploaded and versioned. A merged activity timeline shows orders, invoices, top-ups, and manual notes in one scrollable feed. The CRM home lists all active subscriptions and weeks needing attention.
