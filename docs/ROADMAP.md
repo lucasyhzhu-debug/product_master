@@ -4,9 +4,20 @@
 > **When to read:** When planning new features or understanding project status.
 
 ## Table of Contents
+- [Planned Slices (spec+plan landed, awaiting execution)](#planned-slices-specplan-landed-awaiting-execution)
 - [Development Progress](#development-progress)
 - [Not Yet Implemented](#not-yet-implemented)
 - [Future Roadmap](#future-roadmap)
+
+---
+
+## Planned Slices (spec+plan landed, awaiting execution)
+
+> Forward queue for the **Subscription & Credit** milestone. Spec + plan + two staffreviews are on `main`; execution happens in a fresh worktree via the per-slice handoff under `.claude/handoff/`. Remove a row when its CHANGELOG entry lands.
+
+| Slice | Spec | Plan | Target |
+|-------|------|------|--------|
+| Subscription **creation & onboarding UI** (new customer, sectioned subscription form + schedule template, optional agreement, draft→activate) | `docs/superpowers/specs/2026-06-26-subscription-creation-onboarding-design.md` | `docs/superpowers/plans/2026-06-26-subscription-creation-onboarding.md` | Subscription milestone (sub-feature) |
 
 ---
 
