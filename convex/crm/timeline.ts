@@ -206,7 +206,7 @@ export const getCustomerTimeline = protectedQuery({
         at:        sentAt,
         actor,
         title:     `Invoice ${inv.invoiceNumber ?? inv.orderNumber} sent`,
-        detail:    `${inv.finalTotal.toLocaleString("id-ID")} IDR`,
+        detail:    `Rp ${inv.finalTotal.toLocaleString("id-ID")}`,
         linkTo:    { kind: "invoice", id: inv._id },
       });
       if (inv.paymentStatus === "Paid") {
@@ -216,7 +216,7 @@ export const getCustomerTimeline = protectedQuery({
           at:        inv.updatedAt,
           actor,
           title:     `Invoice ${inv.invoiceNumber ?? inv.orderNumber} paid`,
-          detail:    `${inv.finalTotal.toLocaleString("id-ID")} IDR`,
+          detail:    `Rp ${inv.finalTotal.toLocaleString("id-ID")}`,
           linkTo:    { kind: "invoice", id: inv._id },
           // Drives the SUBTYPE_ICON "funded" (✓) override in getActivityVisual.
           subtype:   "funded",
@@ -261,17 +261,20 @@ export const getCustomerTimeline = protectedQuery({
     }
 
     // Credit ledger → topup (drawdowns are voluminous; surface topups only)
+    const subLabelById = new Map(subscriptions.map((s) => [s._id, s.label ?? null]));
     for (const { subscriptionId, entries } of ledgerBySub) {
       for (const e of entries) {
         if (e.type === "topup") {
           const actor = actorMap.get(e.createdBy);
+          // A1: name the subscription, never leak the raw doc id.
+          const subLabel = subLabelById.get(subscriptionId) ?? "subscription";
           derived.push({
             id:        `topup:${e._id}`,
             eventType: "topup" as const,
             at:        e._creationTime,
             actor,
-            title:     `Credit top-up +${e.amount.toLocaleString("id-ID")} IDR`,
-            detail:    `subscription ${subscriptionId}`,
+            title:     `Credit top-up +Rp ${e.amount.toLocaleString("id-ID")}`,
+            detail:    subLabel,
             linkTo:    { kind: "subscription", id: subscriptionId },
           });
         }

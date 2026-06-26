@@ -128,6 +128,7 @@ type CrmEditableFields = {
   customerId: Id<"customers">;
   keyContactName?: string;
   keyContactRole?: string;
+  phone?: string;
   whatsapp?: string;
   email?: string;
   instagram?: string;
@@ -150,6 +151,7 @@ function CrmFieldsEditDialog({ customer, onClose, onSave }: EditFormProps) {
   const [keyContactRole, setKeyContactRole] = useState(
     customer.keyContactRole ?? "",
   );
+  const [phone, setPhone] = useState(customer.phone ?? "");
   const [whatsapp, setWhatsapp] = useState(customer.whatsapp ?? "");
   const [email, setEmail] = useState(customer.email ?? "");
   const [instagram, setInstagram] = useState(customer.instagram ?? "");
@@ -167,6 +169,7 @@ function CrmFieldsEditDialog({ customer, onClose, onSave }: EditFormProps) {
         customerId: customer._id,
         keyContactName: keyContactName || undefined,
         keyContactRole: keyContactRole || undefined,
+        phone: phone || undefined,
         whatsapp: whatsapp || undefined,
         email: email || undefined,
         instagram: instagram || undefined,
@@ -211,14 +214,25 @@ function CrmFieldsEditDialog({ customer, onClose, onSave }: EditFormProps) {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="whatsapp">WhatsApp</Label>
-            <Input
-              id="whatsapp"
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="+62…"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+62…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="whatsapp">WhatsApp</Label>
+              <Input
+                id="whatsapp"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="+62…"
+              />
+            </div>
           </div>
 
           <div className="space-y-1.5">

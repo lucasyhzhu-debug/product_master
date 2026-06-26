@@ -192,7 +192,8 @@ export function CreditLedgerStatement({
 
       {/* Clarifying footnote — CRM C10: balanceAfter resets per week */}
       <p className="mt-2 text-xs text-muted-foreground/70 italic">
-        Balance column is week-scoped and resets at the start of each week.
+        Balance shown is for this week only and restarts each week — unused credit
+        is carried over or expired per the subscription's rollover policy, not lost here.
       </p>
     </div>
   );

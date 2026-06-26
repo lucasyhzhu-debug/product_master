@@ -353,7 +353,7 @@ export function SubscriptionPage() {
               to={`/crm/customers/${customerIdTyped}/agreements`}
               className="text-sm hover:underline inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
             >
-              Agreement ···{subscription.agreementId.slice(-6)}
+              View agreement
               <ArrowLeft className="h-3 w-3 rotate-180" aria-hidden="true" />
             </Link>
           </CardContent>
