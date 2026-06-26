@@ -24,26 +24,36 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+const INITIAL_FORM = {
+  name: "",
+  companyName: "",
+  keyContactName: "",
+  keyContactRole: "",
+  whatsapp: "",
+  phone: "",
+  email: "",
+  billingAddress: "",
+  deliveryAddress: "",
+  storeAddress: "",
+  notes: "",
+};
+
 export function NewCustomerDialog({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
   const createCustomer = useSessionMutation(api.crm.customers.createCustomer);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    companyName: "",
-    keyContactName: "",
-    keyContactRole: "",
-    whatsapp: "",
-    phone: "",
-    email: "",
-    billingAddress: "",
-    deliveryAddress: "",
-    storeAddress: "",
-    notes: "",
-  });
+  const [form, setForm] = useState(INITIAL_FORM);
 
   function set(k: keyof typeof form, val: string) {
     setForm((f) => ({ ...f, [k]: val }));
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setForm(INITIAL_FORM);
+      setSubmitting(false);
+    }
+    onOpenChange(nextOpen);
   }
 
   async function handleCreate() {
@@ -65,7 +75,7 @@ export function NewCustomerDialog({ open, onOpenChange }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>New customer</DialogTitle>
@@ -98,7 +108,7 @@ export function NewCustomerDialog({ open, onOpenChange }: Props) {
             <Input id="cust-notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} /></div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>Cancel</Button>
           <Button onClick={handleCreate} disabled={submitting || !form.name.trim()}>
             {submitting ? "Creating…" : "Create customer"}
           </Button>
