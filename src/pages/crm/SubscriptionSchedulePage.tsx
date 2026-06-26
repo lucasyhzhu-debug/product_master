@@ -200,6 +200,19 @@ export function SubscriptionSchedulePage() {
   }
 
   const { week, subscription } = planningData;
+
+  // Per-day cutoff/supplier flags — 7-element array keyed Mon(0)→Sun(6).
+  // pastCutoff derives from day.locked (set by the cutoff cron); independent of gridLocked.
+  const dayFlags = Array.from({ length: 7 }, (_, i) => {
+    const day = week?.plannedDays.find(
+      (d) => Math.round((d.date - weekStartMs) / DAY_MS) === i,
+    );
+    return {
+      pastCutoff: day?.locked ?? false,
+      needsSupplierConfirmation: day?.needsSupplierConfirmation ?? false,
+    };
+  });
+
   const isLocked = week !== null && week.status !== "planned";
   const amendable =
     week !== null &&
@@ -505,6 +518,7 @@ export function SubscriptionSchedulePage() {
           unitPrice={unitPrice}
           locked={gridLocked}
           onChange={handleDayChange}
+          dayFlags={dayFlags}
         />
       )}
 
