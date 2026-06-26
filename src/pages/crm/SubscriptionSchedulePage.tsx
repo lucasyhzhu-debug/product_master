@@ -201,24 +201,28 @@ export function SubscriptionSchedulePage() {
 
   const { week, subscription } = planningData;
 
-  // Per-day cutoff/supplier flags — 7-element array keyed Mon(0)→Sun(6).
-  // pastCutoff derives from day.locked (set by the cutoff cron); independent of gridLocked.
-  const dayFlags = Array.from({ length: 7 }, (_, i) => {
-    const day = week?.plannedDays.find(
-      (d) => Math.round((d.date - weekStartMs) / DAY_MS) === i,
-    );
-    return {
-      pastCutoff: day?.locked ?? false,
-      needsSupplierConfirmation: day?.needsSupplierConfirmation ?? false,
-    };
-  });
-
   const isLocked = week !== null && week.status !== "planned";
   const amendable =
     week !== null &&
     (["confirmed", "invoiced", "paid", "delivering"] as string[]).includes(week.status);
   // Grid is editable when: planned week (existing) OR operator opted into amend mode.
   const gridLocked = isLocked && !amending;
+
+  // Per-day cutoff/supplier flags — 7-element array keyed Mon(0)→Sun(6).
+  // pastCutoff derives from day.locked (set by the cutoff cron). On confirmed/amended
+  // weeks `amendConfirmedWeek` sets locked:true on every day, so the whole grid is
+  // already edit-locked (gridLocked) — suppress the redundant per-day cutoff warning
+  // there. On planned (editable) weeks the cron legitimately locks an individual
+  // past-cutoff day: keep the warn-not-lock badge with the Add button still enabled.
+  const dayFlags = Array.from({ length: 7 }, (_, i) => {
+    const day = week?.plannedDays.find(
+      (d) => Math.round((d.date - weekStartMs) / DAY_MS) === i,
+    );
+    return {
+      pastCutoff: !gridLocked && (day?.locked ?? false),
+      needsSupplierConfirmation: day?.needsSupplierConfirmation ?? false,
+    };
+  });
   const unitPrice = subscription.unitPrice;
 
   // Display plan: prefer localDays (unsaved edits) otherwise derive from week
