@@ -745,7 +745,28 @@ Expected: FAIL — module not found.
 - Local state for all terms (defaults: `confidentialPrice=true`, `creditRolloverPolicy="expire"`, `deliverByTime="09:00"`, `startDate` = next Monday at local midnight ms via a small inline helper; numbers stored as strings in inputs, parsed on submit).
 - `days` state = `Array.from({length:7}, (_,i) => ({ dayOfWeek:i, items:[] }))`; render `<ScheduleTemplateEditor days={days} products={products} onChange={setDays} />`.
 - `products = useQuery(api.menuProducts.queries.list, { activeOnly: true }) ?? []` mapped to `{ _id, name }`.
-- `agreements = useSessionQuery(api.crm.agreements.listAgreementsByCustomer, { customerId })`; a `<Select>` to pick `agreementId` (optional) + an "Upload agreement" affordance reusing `AgreementUpload` (pass `customerId`; on upload-complete set the returned id). If `agreements` is empty, show the empty hint + upload path.
+- **Agreement (optional)** — `agreements = useSessionQuery(api.crm.agreements.listAgreementsByCustomer, { customerId })`; a `<Select>` to pick an existing `agreementId`. For inline upload, reuse `AgreementUpload` with its **real contract** (`src/components/crm/AgreementUpload.tsx:41` — it has NO `customerId` prop and `onUploaded` returns a `storageId`, NOT an agreementId):
+
+```tsx
+const generateAgreementUploadUrl = useSessionMutation(api.crm.agreements.generateAgreementUploadUrl);
+const createSupplyAgreement = useSessionMutation(api.crm.agreements.createSupplyAgreement);
+// ...
+<AgreementUpload
+  mode="create"
+  generateUploadUrl={generateAgreementUploadUrl}
+  onUploaded={async (storageId, fileName, lang, fileSize) => {
+    try {
+      const id = await createSupplyAgreement({
+        customerId, fileStorageId: storageId, fileName, fileSize, status: "draft", lang,
+      });
+      setAgreementId(id);
+    } catch {
+      toast.error("Agreement uploaded but could not be saved — you can attach it later.");
+    }
+  }}
+/>
+```
+  `createSupplyAgreement` (`convex/crm/agreements.ts:32`) returns the new agreement id; args = `{ customerId, fileStorageId, fileName, fileSize, status, lang, subscriptionId?, keyTerms?, ... }`. If `agreements` is empty, show the empty hint + this upload path. The agreement is optional — a `createSupplyAgreement` failure must NOT block subscription creation.
 - **Preview:** `const weeklyQty = days.reduce((s,d)=>s+d.items.reduce((a,l)=>a+l.qty,0),0);` render in `data-testid="weekly-qty-preview"`; credit = `formatCurrency(weeklyQty * (Number(unitPrice)||0))` in `data-testid="weekly-credit-preview"`.
 - **Validation (submit-blocking):** `label` non-empty; `unitPrice`,`baselineDailyQty`,`cogsBasis` are positive integers; `deliverByTime` matches `/^\d{2}:\d{2}$/`. (Schedule may be empty at create — draft.) Disable the submit button when invalid.
 - On submit: call `createSubscription` with the parsed args (rollover branch: include `rolloverExpiryWeeks` only when policy==="rollover"; clear otherwise), `agreementId` only when set, then `navigate(\`/crm/customers/${customerId}/subscriptions/${id}\`)`. Wrap in try/catch → `toast.error` on failure; disable button while submitting.
@@ -1002,10 +1023,11 @@ git add -A && git commit -m "chore(crm): verification fixes for subscription onb
 - [ ] All surfaces manager+admin only; confidential price never leaves the gated route.
 
 ## Verify-first list (for the execution session — confirm against real code before coding)
-1. `crm.agreements.linkAgreementToSubscription` arg names (`convex/crm/agreements.ts:119`).
-2. `AgreementUpload.tsx` props (how to launch upload + get the created `agreementId`).
-3. The project toast import (grep `AgreementUpload.tsx` / a CRM page — `sonner` vs a local wrapper).
-4. `@/components/ui/dialog` exports `DialogFooter`, `DialogDescription` (used by NewCustomerDialog).
-5. `SubscriptionPage.test.tsx` mock harness variable names + render helper (Task 6 reuses them).
-6. `api.menuProducts.queries.list` return shape (map to `{ _id, name }`).
-7. React Router v6 ranks the static `new` segment above `:subId` (no route collision).
+All items below were CONFIRMED at plan-staffreview time (2026-06-26); re-confirm if `main` moved.
+1. ✅ `crm.agreements.linkAgreementToSubscription({ agreementId, subscriptionId })` (`convex/crm/agreements.ts:119`).
+2. ✅ `AgreementUpload` props = `{ generateUploadUrl, onUploaded(storageId, fileName, lang, fileSize), mode, disabled }` — NO `customerId`; mint the agreement via `createSupplyAgreement` (see Task 4). `createSupplyAgreement` returns the agreement id.
+3. ✅ Toast = `import { toast } from "sonner"` (project standard across CRM pages).
+4. ✅ `@/components/ui/dialog` exports `DialogFooter`, `DialogDescription`.
+5. `SubscriptionPage.test.tsx` mock harness variable names + render helper (Task 6 reuses them) — read the file first.
+6. ✅ `api.menuProducts.queries.list({ activeOnly: true })` is a public `query` (plain `useQuery`); returns full `menuProducts` docs → map to `{ _id, name }`.
+7. ✅ React Router v6 ranks the static `new` segment above `:subId` (no route collision).
