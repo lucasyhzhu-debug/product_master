@@ -96,7 +96,6 @@ export {
   useUpdateCustomer,
   useDeleteCustomer,
   // Types
-  type CustomerCreateInput,
   type CustomerUpdateInput,
 } from "./useCustomers";
 

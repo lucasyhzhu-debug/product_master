@@ -2,32 +2,6 @@ import { protectedMutation } from "../lib/functions";
 import { v, ConvexError } from "convex/values";
 
 /**
- * Create a new customer.
- */
-export const create = protectedMutation({
-  roles: ["manager", "admin"],
-  args: {
-    name: v.string(),
-    phone: v.optional(v.string()),
-    source: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    defaultAddress: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const id = await ctx.db.insert("customers", {
-      name: args.name,
-      phone: args.phone,
-      source: args.source,
-      notes: args.notes,
-      defaultAddress: args.defaultAddress,
-      createdBy: ctx.user.name,
-    });
-
-    return id;
-  },
-});
-
-/**
  * Update an existing customer.
  */
 export const update = protectedMutation({

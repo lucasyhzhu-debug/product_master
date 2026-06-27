@@ -142,7 +142,7 @@ async function seed() {
   // 4b. Create customer
   const ts = Date.now();
   const customerName = `UAT-Sub-Test-${ts}`;
-  const customerId = await client.mutation(api.customers.mutations.create, {
+  const customerId = await client.mutation(api.crm.customers.createCustomer, {
     ...auth,
     name: customerName,
     phone: "08000000000",

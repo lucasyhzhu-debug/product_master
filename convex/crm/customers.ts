@@ -94,7 +94,32 @@ export const createCustomer = protectedMutation({
     ),
   },
   handler: async (ctx, args) => {
-    // Insert only provided fields (drop undefined) + server-set createdBy.
+    // Dedup-by-phone: if phone is provided and non-empty, look for an existing customer.
+    if (args.phone && args.phone.length > 0) {
+      const existing = await ctx.db
+        .query("customers")
+        .withIndex("by_phone", (q) => q.eq("phone", args.phone!))
+        .first();
+      if (existing) {
+        // Gap-fill enrich: patch only arg fields whose value is currently
+        // undefined/null/empty-string on the existing doc. Never touch createdBy.
+        const patch: Record<string, unknown> = {};
+        for (const [key, val] of Object.entries(args)) {
+          if (key === "createdBy") continue;
+          if (val === undefined) continue;
+          const existingVal = (existing as Record<string, unknown>)[key];
+          if (existingVal === undefined || existingVal === null || existingVal === "") {
+            patch[key] = val;
+          }
+        }
+        if (Object.keys(patch).length > 0) {
+          await ctx.db.patch(existing._id, patch);
+        }
+        return existing._id;
+      }
+    }
+
+    // No duplicate found — insert new customer.
     const provided = Object.fromEntries(
       Object.entries(args).filter(([, val]) => val !== undefined),
     );
