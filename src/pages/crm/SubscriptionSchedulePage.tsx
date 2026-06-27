@@ -523,6 +523,7 @@ export function SubscriptionSchedulePage() {
           locked={gridLocked}
           onChange={handleDayChange}
           dayFlags={dayFlags}
+          baselineDailyQty={subscription.baselineDailyQty}
         />
       )}
 

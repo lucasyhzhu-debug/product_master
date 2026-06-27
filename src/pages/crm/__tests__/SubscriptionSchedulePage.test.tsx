@@ -243,14 +243,14 @@ describe("SubscriptionSchedulePage — cutoff warning suppressed on locked grids
     mockPlanningData = { week: CONFIRMED_WEEK_LOCKED_DAY, subscription: SUBSCRIPTION_BASE };
     renderPage();
     // Grid is edit-locked (confirmed) → redundant per-day cutoff warning suppressed.
-    expect(screen.queryByText(/past 13:00 cutoff/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/past 1 PM cutoff/i)).not.toBeInTheDocument();
   });
 
   it("shows the past-cutoff warning on a planned week with a cron-locked day", () => {
     mockPlanningData = { week: PLANNED_WEEK_LOCKED_DAY, subscription: SUBSCRIPTION_BASE };
     renderPage();
     // Planned week stays editable → warn-not-lock badge is shown for the locked day.
-    expect(screen.getByText(/past 13:00 cutoff/i)).toBeInTheDocument();
+    expect(screen.getByText(/past 1 PM cutoff/i)).toBeInTheDocument();
     // ...and editing is still allowed (Add product button present).
     expect(screen.getAllByRole("button", { name: /add product/i }).length).toBeGreaterThan(0);
   });

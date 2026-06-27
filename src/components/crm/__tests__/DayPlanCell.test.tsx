@@ -40,7 +40,7 @@ const BASE_PROPS = {
 describe("DayPlanCell — pastCutoff prop", () => {
   it("renders 'past 13:00 cutoff' warning when pastCutoff is true", () => {
     render(<DayPlanCell {...BASE_PROPS} pastCutoff={true} />);
-    expect(screen.getByText(/past 13:00 cutoff/i)).toBeInTheDocument();
+    expect(screen.getByText(/past 1 PM cutoff/i)).toBeInTheDocument();
   });
 
   it("Add product button is still ENABLED when pastCutoff is true (warn, not lock)", () => {
@@ -51,12 +51,12 @@ describe("DayPlanCell — pastCutoff prop", () => {
 
   it("does NOT render the cutoff warning when pastCutoff is false", () => {
     render(<DayPlanCell {...BASE_PROPS} pastCutoff={false} />);
-    expect(screen.queryByText(/past 13:00 cutoff/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/past 1 PM cutoff/i)).not.toBeInTheDocument();
   });
 
   it("does NOT render the cutoff warning when pastCutoff is undefined", () => {
     render(<DayPlanCell {...BASE_PROPS} />);
-    expect(screen.queryByText(/past 13:00 cutoff/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/past 1 PM cutoff/i)).not.toBeInTheDocument();
   });
 });
 
@@ -67,20 +67,20 @@ describe("DayPlanCell — pastCutoff prop", () => {
 describe("DayPlanCell — needsSupplierConfirmation prop", () => {
   it("renders 'needs supplier confirmation' badge when prop is true", () => {
     render(<DayPlanCell {...BASE_PROPS} needsSupplierConfirmation={true} />);
-    expect(screen.getByText(/needs supplier confirmation/i)).toBeInTheDocument();
+    expect(screen.getByText(/needs supplier OK/i)).toBeInTheDocument();
   });
 
   it("does NOT render the badge when needsSupplierConfirmation is false", () => {
     render(<DayPlanCell {...BASE_PROPS} needsSupplierConfirmation={false} />);
     expect(
-      screen.queryByText(/needs supplier confirmation/i),
+      screen.queryByText(/needs supplier OK/i),
     ).not.toBeInTheDocument();
   });
 
   it("does NOT render the badge when needsSupplierConfirmation is undefined", () => {
     render(<DayPlanCell {...BASE_PROPS} />);
     expect(
-      screen.queryByText(/needs supplier confirmation/i),
+      screen.queryByText(/needs supplier OK/i),
     ).not.toBeInTheDocument();
   });
 });
@@ -92,9 +92,9 @@ describe("DayPlanCell — needsSupplierConfirmation prop", () => {
 describe("DayPlanCell — no warning props", () => {
   it("renders neither warning nor badge by default", () => {
     render(<DayPlanCell {...BASE_PROPS} />);
-    expect(screen.queryByText(/past 13:00 cutoff/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/past 1 PM cutoff/i)).not.toBeInTheDocument();
     expect(
-      screen.queryByText(/needs supplier confirmation/i),
+      screen.queryByText(/needs supplier OK/i),
     ).not.toBeInTheDocument();
   });
 });
@@ -120,8 +120,8 @@ describe("DayPlanCell — locked prop", () => {
         needsSupplierConfirmation={true}
       />,
     );
-    expect(screen.getByText(/past 13:00 cutoff/i)).toBeInTheDocument();
-    expect(screen.getByText(/needs supplier confirmation/i)).toBeInTheDocument();
+    expect(screen.getByText(/past 1 PM cutoff/i)).toBeInTheDocument();
+    expect(screen.getByText(/needs supplier OK/i)).toBeInTheDocument();
     // Add button must stay hidden (locked hides it entirely)
     expect(
       screen.queryByRole("button", { name: /add product/i }),

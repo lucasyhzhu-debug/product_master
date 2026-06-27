@@ -29,6 +29,8 @@ interface DayPlanCellProps {
   pastCutoff?: boolean;
   /** Visual-only badge: supplier confirmation is still pending. Does NOT disable editing. */
   needsSupplierConfirmation?: boolean;
+  /** The subscription's usual daily qty — used to explain the supplier-confirmation badge. */
+  baselineDailyQty?: number;
   onChange: (lines: ScheduleLineLocal[]) => void;
 }
 
@@ -52,11 +54,23 @@ export function DayPlanCell({
   locked,
   pastCutoff,
   needsSupplierConfirmation,
+  baselineDailyQty,
   onChange,
 }: DayPlanCellProps) {
   const dayLabel = DAY_LABELS[dayIndex] ?? `Day ${dayIndex + 1}`;
   const dayTotal = lines.reduce((s, l) => s + l.qty * unitPrice, 0);
+  const dayQty = lines.reduce((s, l) => s + l.qty, 0);
   const hasLines = lines.length > 0;
+
+  // Supplier-confirmation badge context: how far above the usual daily qty.
+  const extraOverBaseline =
+    baselineDailyQty !== undefined ? dayQty - baselineDailyQty : null;
+  const supplierTitle =
+    baselineDailyQty !== undefined
+      ? `Above the usual ${baselineDailyQty}/day${
+          extraOverBaseline && extraOverBaseline > 0 ? ` (+${extraOverBaseline})` : ""
+        } — the supplier will be asked to confirm the extra. Editing is still allowed.`
+      : "Above the usual daily quantity — the supplier will be asked to confirm the extra. Editing is still allowed.";
 
   function addLine() {
     if (products.length === 0) return;
@@ -94,14 +108,22 @@ export function DayPlanCell({
       <CardContent className="flex-1 flex flex-col gap-2 px-3 pb-3">
         {/* Cutoff warning — visual only, never disables editing */}
         {pastCutoff && (
-          <p className="text-[10px] text-amber-600 flex items-center gap-1" role="status">
-            <AlertTriangle className="h-3 w-3" aria-hidden="true" /> past 13:00 cutoff
+          <p
+            className="text-[10px] text-amber-600 flex items-center gap-1"
+            role="status"
+            title="Past today's 1 PM cutoff — you can still edit, but the supplier may already be packing this day."
+          >
+            <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> Past 1 PM cutoff
+            — still editable
           </p>
         )}
         {/* Supplier confirmation badge — visual only */}
         {needsSupplierConfirmation && (
-          <span className="text-[10px] font-medium text-orange-700 bg-orange-100 rounded px-1 py-0.5 w-fit">
-            needs supplier confirmation
+          <span
+            className="text-[10px] font-medium text-orange-700 bg-orange-100 rounded px-1 py-0.5 w-fit"
+            title={supplierTitle}
+          >
+            Above baseline — needs supplier OK
           </span>
         )}
 

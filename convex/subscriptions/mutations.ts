@@ -107,6 +107,25 @@ export const scheduleBaselineChange = protectedMutation({
   },
 });
 
+/**
+ * Cancel a not-yet-effective baseline change. Clears `pendingBaselineChange`.
+ * No-op (idempotent) if none is pending.
+ */
+export const cancelBaselineChange = protectedMutation({
+  roles: ["manager", "admin"],
+  args: {
+    subscriptionId: v.id("subscriptions"),
+  },
+  handler: async (ctx, args) => {
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+    if (sub.pendingBaselineChange !== undefined) {
+      await ctx.db.patch(args.subscriptionId, { pendingBaselineChange: undefined });
+    }
+    return { cancelled: sub.pendingBaselineChange !== undefined };
+  },
+});
+
 export const giveTerminationNotice = protectedMutation({
   roles: ["manager", "admin"],
   args: {

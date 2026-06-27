@@ -36,6 +36,7 @@ vi.mock("../../../../convex/_generated/api", () => ({
     subscriptions: {
       mutations: {
         scheduleBaselineChange: "scheduleBaselineChange",
+        cancelBaselineChange: "cancelBaselineChange",
         giveTerminationNotice: "giveTerminationNotice",
       },
     },
@@ -233,18 +234,20 @@ describe("SubscriptionSettingsDialog — termination notice", () => {
     });
   });
 
-  it("disables termination button when status is terminating", () => {
+  it("hides the termination button and shows an ending notice when status is terminating", () => {
     renderDialog({ status: "terminating" });
     expect(
-      screen.getByRole("button", { name: /give 30-day termination notice/i }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /give 30-day termination notice/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/this subscription is ending/i)).toBeInTheDocument();
   });
 
-  it("disables termination button when status is ended", () => {
+  it("hides the termination button and shows an ended notice when status is ended", () => {
     renderDialog({ status: "ended" });
     expect(
-      screen.getByRole("button", { name: /give 30-day termination notice/i }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: /give 30-day termination notice/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/this subscription has ended/i)).toBeInTheDocument();
   });
 
   it("enables termination button when status is active", () => {
@@ -252,5 +255,25 @@ describe("SubscriptionSettingsDialog — termination notice", () => {
     expect(
       screen.getByRole("button", { name: /give 30-day termination notice/i }),
     ).not.toBeDisabled();
+  });
+});
+
+describe("SubscriptionSettingsDialog — pending baseline change record", () => {
+  it("shows the staged change and a cancel affordance when pendingBaselineChange is set", () => {
+    const onClose = vi.fn();
+    render(
+      <SubscriptionSettingsDialog
+        subscriptionId={SUB_ID}
+        label="Mon–Fri box"
+        baselineDailyQty={10}
+        status="active"
+        pendingBaselineChange={{ newQty: 15, effectiveDate: Date.now() + 14 * 86400000 }}
+        onClose={onClose}
+      />,
+    );
+    expect(screen.getByText(/pending change/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /cancel change/i }),
+    ).toBeInTheDocument();
   });
 });

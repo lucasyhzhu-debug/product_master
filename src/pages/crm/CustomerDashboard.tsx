@@ -63,7 +63,7 @@ import type { CreditPoolShape } from "@/components/crm/CreditGauge";
 import { SubscriptionSelector } from "@/components/crm/SubscriptionSelector";
 import { DrawdownChart } from "@/components/crm/DrawdownChart";
 import { getErrorMessage, formatCurrency } from "@/lib/utils";
-import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
+import { formatSubscriptionWeekLabel, formatDateId } from "@/lib/dateUtils";
 
 // ---------------------------------------------------------------------------
 // Types — mirror getCustomerRecord return shape
@@ -94,6 +94,10 @@ type SubscriptionDoc = {
   label?: string | null;
   baselineDailyQty: number;
   agreementId?: Id<"supplyAgreements"> | null;
+  endDate?: number | null;
+  terminationNoticeDate?: number | null;
+  terminationNoticeDays?: number;
+  pendingBaselineChange?: { newQty: number; effectiveDate: number } | null;
 };
 
 type AgreementDoc = {
@@ -503,6 +507,22 @@ function FinancialPane({
                           </Badge>
                         </div>
                       )}
+                      {/* Termination end date — surfaced once notice is given */}
+                      {(sub.status === "terminating" || sub.status === "ended") &&
+                        sub.endDate != null && (
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {sub.status === "ended" ? "Ended" : "Ends"}{" "}
+                            {formatDateId(sub.endDate)}
+                          </div>
+                        )}
+                      {/* Pending baseline change — persistent record (B7) */}
+                      {sub.pendingBaselineChange && (
+                        <div className="text-xs text-amber-700 mt-0.5">
+                          Baseline {sub.baselineDailyQty} →{" "}
+                          {sub.pendingBaselineChange.newQty}, effective{" "}
+                          {formatDateId(sub.pendingBaselineChange.effectiveDate)}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Badge
@@ -517,12 +537,13 @@ function FinancialPane({
                       {/* Manage subscription — T12 */}
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
+                        variant="outline"
+                        className="h-7 px-2 text-xs"
                         aria-label={`Manage subscription ${sub.label ?? sub._id}`}
                         onClick={() => onManageSubscription(sub)}
                       >
-                        <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+                        <Settings className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+                        Manage
                       </Button>
                     </div>
                   </CardContent>
@@ -694,16 +715,16 @@ export function CustomerDashboard() {
             </Button>
           )}
 
-          {/* Settings (edit form) */}
+          {/* Edit customer details (CRM fields) */}
           <Button
             size="sm"
             variant="outline"
             onClick={() => setEditOpen(true)}
-            aria-label="Settings"
+            aria-label="Edit customer details"
             className="text-xs"
           >
             <Edit2 className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
-            Settings
+            Edit details
           </Button>
         </div>
       </div>
@@ -756,6 +777,10 @@ export function CustomerDashboard() {
           label={settingsSub.label}
           baselineDailyQty={settingsSub.baselineDailyQty}
           status={settingsSub.status}
+          endDate={settingsSub.endDate}
+          terminationNoticeDate={settingsSub.terminationNoticeDate}
+          terminationNoticeDays={settingsSub.terminationNoticeDays}
+          pendingBaselineChange={settingsSub.pendingBaselineChange}
           onClose={() => setSettingsSub(null)}
         />
       )}
