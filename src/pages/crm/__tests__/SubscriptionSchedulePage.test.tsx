@@ -119,6 +119,22 @@ const CONFIRMED_WEEK = {
   status: "confirmed" as const,
 };
 
+/** A confirmed week whose Monday day is locked:true (as amendConfirmedWeek leaves it).
+ *  The whole grid is already edit-locked, so the per-day "past 13:00 cutoff" warning
+ *  must be suppressed (I2). */
+const CONFIRMED_WEEK_LOCKED_DAY = {
+  ...PLANNED_WEEK,
+  status: "confirmed" as const,
+  plannedDays: [{ ...PLANNED_WEEK.plannedDays[0], locked: true }],
+};
+
+/** A planned (editable) week whose Monday day was locked by the cutoff cron.
+ *  The grid stays editable, so the warn-not-lock "past 13:00 cutoff" badge SHOULD show (I2). */
+const PLANNED_WEEK_LOCKED_DAY = {
+  ...PLANNED_WEEK,
+  plannedDays: [{ ...PLANNED_WEEK.plannedDays[0], locked: true }],
+};
+
 const PRODUCTS = [{ _id: PRODUCT_ID, name: "Original 80g" }];
 
 // ---------------------------------------------------------------------------
@@ -219,6 +235,24 @@ describe("SubscriptionSchedulePage — planned week is editable (U1)", () => {
     renderPage();
     // The "cannot be edited" notice should NOT appear for planned weeks
     expect(screen.queryByText(/cannot be edited/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("SubscriptionSchedulePage — cutoff warning suppressed on locked grids (I2)", () => {
+  it("does NOT show the past-cutoff warning when the grid is locked (confirmed week, locked day)", () => {
+    mockPlanningData = { week: CONFIRMED_WEEK_LOCKED_DAY, subscription: SUBSCRIPTION_BASE };
+    renderPage();
+    // Grid is edit-locked (confirmed) → redundant per-day cutoff warning suppressed.
+    expect(screen.queryByText(/past 1 PM cutoff/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the past-cutoff warning on a planned week with a cron-locked day", () => {
+    mockPlanningData = { week: PLANNED_WEEK_LOCKED_DAY, subscription: SUBSCRIPTION_BASE };
+    renderPage();
+    // Planned week stays editable → warn-not-lock badge is shown for the locked day.
+    expect(screen.getByText(/past 1 PM cutoff/i)).toBeInTheDocument();
+    // ...and editing is still allowed (Add product button present).
+    expect(screen.getAllByRole("button", { name: /add product/i }).length).toBeGreaterThan(0);
   });
 });
 

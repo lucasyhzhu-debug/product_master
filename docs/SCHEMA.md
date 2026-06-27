@@ -48,6 +48,12 @@ subscriptions: defineTable({
   startDate: v.number(),
   terminationNoticeDate: v.optional(v.number()),
   endDate: v.optional(v.number()),
+  // Phase E Slice-2 (rule enforcement): a permanent baseline change staged by
+  // scheduleBaselineChange, applied by the applyPendingBaselineChanges cron once
+  // effectiveDate (= notice + permanentChangeNoticeDays) arrives, then cleared.
+  pendingBaselineChange: v.optional(
+    v.object({ newQty: v.number(), effectiveDate: v.number() }),
+  ),
   agreementId: v.optional(v.id("supplyAgreements")),
   scheduleTemplate: v.array(v.object({
     dayOfWeek: v.number(),             // 0–6 (Mon=1 per JS Date)
@@ -92,6 +98,11 @@ subscriptionWeeks: defineTable({
       lineTotal: v.number(),
     })),
     locked: v.boolean(),
+    // Phase E Slice-2: warn-only flag set at every plannedDays write site when the
+    // day's total qty exceeds the subscription's baselineDailyQty (clause 4 —
+    // above-baseline volume needs supplier confirmation). Surfaced in the CRM
+    // week calendar; never blocks editing.
+    needsSupplierConfirmation: v.optional(v.boolean()),
   })),
   creditIssued: v.number(),
   creditConsumed: v.number(),

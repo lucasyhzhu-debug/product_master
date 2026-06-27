@@ -18,6 +18,10 @@ interface WeekCalendarGridProps {
   unitPrice: number;
   locked: boolean;
   onChange: (dayIndex: number, lines: ScheduleLineLocal[]) => void;
+  /** Per-day cutoff/supplier flags (index 0=Mon … 6=Sun). Optional — defaults to all false. */
+  dayFlags?: { pastCutoff: boolean; needsSupplierConfirmation: boolean }[];
+  /** The subscription's usual daily qty — explains the supplier-confirmation badge. */
+  baselineDailyQty?: number;
 }
 
 export function WeekCalendarGrid({
@@ -27,6 +31,8 @@ export function WeekCalendarGrid({
   unitPrice,
   locked,
   onChange,
+  dayFlags,
+  baselineDailyQty,
 }: WeekCalendarGridProps) {
   return (
     <div className="grid grid-cols-7 gap-2">
@@ -40,6 +46,9 @@ export function WeekCalendarGrid({
           unitPrice={unitPrice}
           locked={locked}
           onChange={(lines) => onChange(i, lines)}
+          pastCutoff={dayFlags?.[i]?.pastCutoff ?? false}
+          needsSupplierConfirmation={dayFlags?.[i]?.needsSupplierConfirmation ?? false}
+          baselineDailyQty={baselineDailyQty}
         />
       ))}
     </div>

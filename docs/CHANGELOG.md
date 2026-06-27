@@ -14,6 +14,29 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription Rule Enforcement (Phase E · Slice 2) — 2026-06-27
+
+**For the team:** Standing B2B supply agreements now enforce their own rules automatically. After 13:00 the day before a delivery, that day's plan locks for changes — the CRM week calendar shows an amber "past 13:00 cutoff" warning (you can still edit; it's a heads-up, not a hard lock). Any day ordered above the agreed baseline shows a "needs supplier confirmation" badge. From a customer's page, managers can now schedule a permanent baseline change (takes effect in 14 days) or give a 30-day termination notice — after which no new weeks past the end date can be created. Confidential partner pricing stays hidden from staff order screens (re-audited, no leaks).
+
+### Added — clause 3/4/5/10 enforcement
+
+- **Cutoff lock (clause 3).** New `flipDayLocksAtCutoff` internal cron (daily 05:25 UTC / 12:25 WIB) sets `locked=true` on every not-yet-locked planned day whose change-cutoff has passed. Cutoff is **date-relative** WIB math (`cutoffMath.ts` via `periodRange`): WIB midnight of `(deliveryDay + changeCutoffDayOffset)` + `changeCutoffHour`. Metadata-only, idempotent. The CRM `DayPlanCell` shows a non-blocking warning (`pastCutoff` prop) — editing stays allowed; the existing `locked` grid prop remains the only edit-disable.
+- **Above-baseline supplier flag (clause 4, warn-only).** New `detectAboveBaseline` predicate; every `plannedDays[]` write site (`buildPlannedDays`/`seedFromTemplate`, the `seedWeek` previous-week re-date branch, `saveWeekPlan`, `amendConfirmedWeek`) now sets `needsSupplierConfirmation = (day total qty > baselineDailyQty)`. Surfaced as a badge in the week calendar.
+- **Permanent baseline change (clause 5, +14d).** New `scheduleBaselineChange({subscriptionId, newQty})` mutation (manager/admin) stages `pendingBaselineChange = {newQty, effectiveDate: now + permanentChangeNoticeDays}`. New `applyPendingBaselineChanges` internal cron (daily 04:10 UTC / 11:10 WIB) applies it once effective and clears the field. Idempotent.
+- **Termination notice (clause 10, +30d).** New `giveTerminationNotice({subscriptionId})` mutation (manager/admin) sets `terminationNoticeDate`, `endDate = now + terminationNoticeDays`, `status="terminating"`. A guard in `seedWeek` + `confirmWeek` refuses any week starting after `endDate`.
+- **Settings UI.** A "Manage subscription" trigger on each subscription section opens `SubscriptionSettingsDialog` (baseline change + termination notice), wired via `useSessionMutation`. No on-mount manager-only query (Pitfall #19).
+- **AC11 price-strip re-audit (verify-only).** Confirmed all staff-reachable order queries strip confidential subscription pricing server-side. Verdict PASS — `docs/reviews/ac11-price-strip-audit-2026-06-26.md`. No code change.
+
+**Schema (additive, optional, no migration):** `subscriptions.pendingBaselineChange?: {newQty, effectiveDate}`; `subscriptionWeeks.plannedDays[].needsSupplierConfirmation?: boolean`. **Crons:** 2 new internal mutations (05:25 + 04:10 UTC, unique minutes, no watchdog). **Dropped:** clause-8 COGS-rise alerting stays out of scope.
+
+**Files:** `convex/subscriptions/enforcement/` (new module: `detectAboveBaseline`, `effectiveDates`, `cutoffMath`, `flipDayLocksAtCutoff`, `applyPendingBaselineChanges`), `convex/subscriptions/{mutations,weeks,amend}.ts`, `convex/subscriptions/scheduling/confirmWeek.ts`, `convex/crons.ts`, `convex/schema.ts`, `src/components/crm/{DayPlanCell,WeekCalendarGrid}.tsx`, `src/pages/crm/{CustomerDashboard,SubscriptionSchedulePage}.tsx`, `src/pages/crm/SubscriptionSettingsDialog.tsx`.
+
+**Persona-UAT (live dev pass):** READY — all four mechanics verified end-to-end, 0 blockers, 0 console/network errors. The 5 slice-new UX-HIGH findings were then all fixed: self-explanatory cutoff warning + supplier badge (with baseline context), termination end-date shown (dialog + card), winding-down disables the baseline form, a persistent pending-baseline-change record with a Cancel action (new `cancelBaselineChange` mutation), and a labelled "Manage" button (top action renamed "Edit details"). Findings: `docs/reviews/uat/subscription-rule-enforcement-2026-06-27/UAT-FINDINGS.md`.
+
+Verified: `npm run type-check` + `npm run build` green; backend 145/145, frontend CRM 167/167 passing (315/315 combined after UX follow-ups). Plan: `docs/superpowers/plans/2026-06-26-subscription-rule-enforcement.md`.
+
+---
+
 ## 2026-06-27 — Subscription creation & onboarding UI (CRM)
 
 **For the team:** Managers and admins can now onboard a B2B customer end-to-end without leaving the browser. From `/crm`, click "New customer" to create a customer record with full CRM fields in one atomic step. Then open the customer and click "Add subscription" to fill in contract terms, a 7-day delivery schedule template (with live weekly-qty and credit preview), and an optional supply agreement reference — the form validates before saving a Draft subscription. When ready, hit **Activate** on the Subscription page (guarded: only activatable when the template is schedulable). No schema change; one additive backend mutation (`crm.customers.createCustomer`).

@@ -2528,6 +2528,9 @@ export default defineSchema({
     startDate: v.number(),
     terminationNoticeDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
+    pendingBaselineChange: v.optional(
+      v.object({ newQty: v.number(), effectiveDate: v.number() }),
+    ),
     agreementId: v.optional(v.id("supplyAgreements")),
     scheduleTemplate: v.array(
       v.object({
@@ -2568,6 +2571,7 @@ export default defineSchema({
           }),
         ),
         locked: v.boolean(),
+        needsSupplierConfirmation: v.optional(v.boolean()),
       }),
     ),
     creditIssued: v.number(),

@@ -3,6 +3,7 @@ import type { Id, Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { protectedMutation } from "../lib/functions";
 import { computeLineTotal } from "./creditMath";
+import { detectAboveBaseline } from "./enforcement/detectAboveBaseline";
 import type { PlannedDay } from "./types";
 import { computeWeekBounds } from "./weekBounds";
 import { makeScheduleLine } from "./scheduleLine";
@@ -16,6 +17,7 @@ export function buildPlannedDays(args: {
   unitPrice: number;
   deliverByTime: string;
   productNames: Record<Id<"menuProducts">, string>;
+  baselineDailyQty: number;
 }): PlannedDay[] {
   return [...args.template]
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
@@ -30,6 +32,7 @@ export function buildPlannedDays(args: {
         unitPrice: args.unitPrice,
         lineTotal: computeLineTotal(it.qty, args.unitPrice),
       })),
+      needsSupplierConfirmation: detectAboveBaseline(t.items, args.baselineDailyQty),
     }));
 }
 
@@ -51,6 +54,7 @@ async function seedFromTemplate(
     unitPrice: sub.unitPrice,
     deliverByTime: sub.deliverByTime,
     productNames,
+    baselineDailyQty: sub.baselineDailyQty,
   });
 }
 
@@ -64,6 +68,12 @@ export const seedWeek = protectedMutation({
   handler: async (ctx, args) => {
     const sub = await ctx.db.get(args.subscriptionId);
     if (!sub) throw new ConvexError("Subscription not found");
+
+    if (sub.endDate !== undefined && args.weekStart > sub.endDate) {
+      throw new ConvexError(
+        "Subscription has been terminated; cannot seed a week starting after the end date.",
+      );
+    }
 
     // Idempotency: one week row per (subscription, weekStart).
     const existing = await ctx.db
@@ -102,6 +112,7 @@ export const seedWeek = protectedMutation({
           items: d.items.map((it) =>
             makeScheduleLine(it.menuProductId, it.productName, it.qty, sub.unitPrice),
           ),
+          needsSupplierConfirmation: detectAboveBaseline(d.items, sub.baselineDailyQty),
         }));
       }
     } else {
@@ -230,6 +241,7 @@ export const saveWeekPlan = protectedMutation({
             sub.unitPrice, // flat partner price — same source as seedWeek / buildPlannedDays
           ),
         ),
+        needsSupplierConfirmation: detectAboveBaseline(d.items, sub.baselineDailyQty),
       };
     });
 

@@ -3,7 +3,7 @@
  * Shows date label, list of schedule lines via ProductLineEditor,
  * a day subtotal, and an "+ Add product" button.
  */
-import { Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -25,6 +25,12 @@ interface DayPlanCellProps {
   unitPrice: number;
   /** Whether the cell is locked (confirmed week) — disables editing */
   locked: boolean;
+  /** Visual-only warning: delivery is past the 13:00 WIB cutoff. Does NOT disable editing. */
+  pastCutoff?: boolean;
+  /** Visual-only badge: supplier confirmation is still pending. Does NOT disable editing. */
+  needsSupplierConfirmation?: boolean;
+  /** The subscription's usual daily qty — used to explain the supplier-confirmation badge. */
+  baselineDailyQty?: number;
   onChange: (lines: ScheduleLineLocal[]) => void;
 }
 
@@ -46,11 +52,25 @@ export function DayPlanCell({
   products,
   unitPrice,
   locked,
+  pastCutoff,
+  needsSupplierConfirmation,
+  baselineDailyQty,
   onChange,
 }: DayPlanCellProps) {
   const dayLabel = DAY_LABELS[dayIndex] ?? `Day ${dayIndex + 1}`;
   const dayTotal = lines.reduce((s, l) => s + l.qty * unitPrice, 0);
+  const dayQty = lines.reduce((s, l) => s + l.qty, 0);
   const hasLines = lines.length > 0;
+
+  // Supplier-confirmation badge context: how far above the usual daily qty.
+  const extraOverBaseline =
+    baselineDailyQty !== undefined ? dayQty - baselineDailyQty : null;
+  const supplierTitle =
+    baselineDailyQty !== undefined
+      ? `Above the usual ${baselineDailyQty}/day${
+          extraOverBaseline && extraOverBaseline > 0 ? ` (+${extraOverBaseline})` : ""
+        } — the supplier will be asked to confirm the extra. Editing is still allowed.`
+      : "Above the usual daily quantity — the supplier will be asked to confirm the extra. Editing is still allowed.";
 
   function addLine() {
     if (products.length === 0) return;
@@ -86,6 +106,27 @@ export function DayPlanCell({
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col gap-2 px-3 pb-3">
+        {/* Cutoff warning — visual only, never disables editing */}
+        {pastCutoff && (
+          <p
+            className="text-[10px] text-amber-600 flex items-center gap-1"
+            role="status"
+            title="Past today's 1 PM cutoff — you can still edit, but the supplier may already be packing this day."
+          >
+            <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" /> Past 1 PM cutoff
+            — still editable
+          </p>
+        )}
+        {/* Supplier confirmation badge — visual only */}
+        {needsSupplierConfirmation && (
+          <span
+            className="text-[10px] font-medium text-orange-700 bg-orange-100 rounded px-1 py-0.5 w-fit"
+            title={supplierTitle}
+          >
+            Above baseline — needs supplier OK
+          </span>
+        )}
+
         {/* Line items */}
         {lines.length === 0 ? (
           <p className="text-xs text-muted-foreground/60 italic flex-1 flex items-center justify-center">

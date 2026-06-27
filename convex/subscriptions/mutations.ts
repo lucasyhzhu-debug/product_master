@@ -1,6 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { deriveWeeklyQty } from "./creditMath";
+import { effectiveDateOf } from "./enforcement/effectiveDates";
 
 // dayOfWeek is 0-based-from-Monday (0=Mon … 6=Sun) — NOT the JS Sun=0 convention used by weekBounds.ts.
 const scheduleTemplateArg = v.array(
@@ -82,5 +83,68 @@ export const updateSubscription = protectedMutation({
     }
     await ctx.db.patch(subscriptionId, patch);
     return subscriptionId;
+  },
+});
+
+export const scheduleBaselineChange = protectedMutation({
+  roles: ["manager", "admin"],
+  args: {
+    subscriptionId: v.id("subscriptions"),
+    newQty: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+    if (sub.status === "ended")
+      throw new ConvexError("Subscription has ended; cannot schedule a baseline change");
+    if (!Number.isInteger(args.newQty) || args.newQty <= 0)
+      throw new ConvexError("newQty must be a positive integer");
+    const effectiveDate = effectiveDateOf(Date.now(), sub.permanentChangeNoticeDays);
+    await ctx.db.patch(args.subscriptionId, {
+      pendingBaselineChange: { newQty: args.newQty, effectiveDate },
+    });
+    return { effectiveDate };
+  },
+});
+
+/**
+ * Cancel a not-yet-effective baseline change. Clears `pendingBaselineChange`.
+ * No-op (idempotent) if none is pending.
+ */
+export const cancelBaselineChange = protectedMutation({
+  roles: ["manager", "admin"],
+  args: {
+    subscriptionId: v.id("subscriptions"),
+  },
+  handler: async (ctx, args) => {
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+    if (sub.pendingBaselineChange !== undefined) {
+      await ctx.db.patch(args.subscriptionId, { pendingBaselineChange: undefined });
+    }
+    return { cancelled: sub.pendingBaselineChange !== undefined };
+  },
+});
+
+export const giveTerminationNotice = protectedMutation({
+  roles: ["manager", "admin"],
+  args: {
+    subscriptionId: v.id("subscriptions"),
+  },
+  handler: async (ctx, args) => {
+    const sub = await ctx.db.get(args.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+    if (sub.status === "terminating" || sub.status === "ended")
+      throw new ConvexError(
+        `Subscription is already ${sub.status}; cannot re-issue termination notice`,
+      );
+    const noticeDate = Date.now();
+    const endDate = effectiveDateOf(noticeDate, sub.terminationNoticeDays);
+    await ctx.db.patch(args.subscriptionId, {
+      terminationNoticeDate: noticeDate,
+      endDate,
+      status: "terminating",
+    });
+    return { terminationNoticeDate: noticeDate, endDate };
   },
 });

@@ -124,4 +124,20 @@ crons.weekly("subscription reconcile watchdog", { dayOfWeek: "monday", hourUTC: 
 crons.daily("subscription delivery progress", { hourUTC: 11, minuteUTC: 0 }, subR.sendSubscriptionReminderResilient, { kind: "weekly-delivery-progress" });
 crons.daily("subscription delivery progress watchdog", { hourUTC: 11, minuteUTC: 15 }, subR.watchdogSubscriptionReminder, { kind: "weekly-delivery-progress" });
 
+// Enforcement (Slice 2) — idempotent internal mutations, NO watchdog.
+// flipDayLocksAtCutoff: daily 12:25 WIB = 05:25 UTC (just before the 05:30 change-cutoff nudge).
+crons.daily(
+  "subscription flip day locks",
+  { hourUTC: 5, minuteUTC: 25 },
+  internal.subscriptions.enforcement.flipDayLocksAtCutoff.flipDayLocksAtCutoff,
+  {},
+);
+// applyPendingBaselineChanges: daily 11:10 WIB = 04:10 UTC (unique minute).
+crons.daily(
+  "subscription apply baseline changes",
+  { hourUTC: 4, minuteUTC: 10 },
+  internal.subscriptions.enforcement.applyPendingBaselineChanges.applyPendingBaselineChanges,
+  {},
+);
+
 export default crons;
