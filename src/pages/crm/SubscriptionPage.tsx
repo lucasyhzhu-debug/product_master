@@ -29,19 +29,31 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CalendarDays, CreditCard, FileText } from "lucide-react";
-import { useSessionQuery } from "convex-helpers/react/sessions";
+import { useSessionQuery, useSessionMutation } from "convex-helpers/react/sessions";
+import { toast } from "sonner";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
 import { CreditLedgerStatement } from "@/components/crm/CreditLedgerStatement";
 import type { LedgerStatementRow } from "@/components/crm/CreditLedgerStatement";
-import { WEEK_STATUS_BADGE } from "@/lib/crmStatusBadges";
+import { WEEK_STATUS_BADGE, SUBSCRIPTION_STATUS_BADGE } from "@/lib/crmStatusBadges";
 import { formatCurrency } from "@/lib/utils";
 import { utcToWibDateStr, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
@@ -87,17 +99,6 @@ type WeekDoc = {
   creditIssued: number;
   creditConsumed: number;
   creditRemaining: number;
-};
-
-// ---------------------------------------------------------------------------
-// Status badge colour map
-// ---------------------------------------------------------------------------
-
-const STATUS_BADGE: Record<SubscriptionDoc["status"], string> = {
-  draft: "bg-gray-100 text-gray-600",
-  active: "bg-green-100 text-green-700",
-  terminating: "bg-amber-100 text-amber-700",
-  ended: "bg-red-100 text-red-700",
 };
 
 // ---------------------------------------------------------------------------
@@ -166,6 +167,11 @@ export function SubscriptionPage() {
       : "skip",
   ) as { rows: LedgerStatementRow[] } | undefined;
 
+  // Activate — only available for draft subscriptions (Pitfall #9: hooks before returns).
+  const updateSubscription = useSessionMutation(api.subscriptions.mutations.updateSubscription);
+  const linkAgreement = useSessionMutation(api.crm.agreements.linkAgreementToSubscription);
+  const [activating, setActivating] = useState(false);
+
   // D12: loading guard.
   if (subscription === undefined) {
     return <LoadingPage />;
@@ -191,6 +197,39 @@ export function SubscriptionPage() {
     );
   }
 
+  // Schedulability guard — all terms must be set and at least one product scheduled.
+  const activationBlockedReason =
+    !subscription.label?.trim() ? "Label required"
+    : subscription.unitPrice <= 0 ? "Unit price required"
+    : subscription.baselineDailyQty <= 0 ? "Baseline qty required"
+    : subscription.cogsBasis <= 0 ? "COGS basis required"
+    : !/^([01]\d|2[0-3]):[0-5]\d$/.test(subscription.deliverByTime) ? "Deliver-by time required"
+    : !subscription.startDate ? "Start date required"
+    : subscription.weeklyQty <= 0 ? "Add at least one scheduled product"
+    : null;
+
+  async function handleActivate() {
+    setActivating(true);
+    const { _id: subscriptionId, agreementId } = subscription!;
+    try {
+      await updateSubscription({ subscriptionId, status: "active" });
+      toast.success("Subscription activated");
+      if (agreementId) {
+        try {
+          await linkAgreement({ agreementId, subscriptionId });
+        } catch (err) {
+          console.error("[handleActivate] linkAgreement", err);
+          toast.warning("Activated — but the agreement link failed. Link it from the agreement page.");
+        }
+      }
+    } catch (err) {
+      console.error("[handleActivate] updateSubscription", err);
+      toast.error("Could not activate. Check the schedule and terms.");
+    } finally {
+      setActivating(false);
+    }
+  }
+
   const customerIdTyped = customerId as Id<"customers">;
   const weekList = weeks ?? [];
   // Week whose metadata + statement we show: the resolved week, falling back to
@@ -207,7 +246,7 @@ export function SubscriptionPage() {
             label: subscription.customerName ?? "Customer",
             to: `/crm/customers/${customerId}`,
           },
-          { label: "Subscription" },
+          { label: subscription.label || "Subscription" },
         ]}
       />
 
@@ -233,7 +272,7 @@ export function SubscriptionPage() {
             {subscription.label}
           </h1>
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge className={`text-xs ${STATUS_BADGE[subscription.status]}`}>
+            <Badge className={`text-xs ${SUBSCRIPTION_STATUS_BADGE[subscription.status]}`}>
               {subscription.status}
             </Badge>
             <span className="text-xs text-muted-foreground">
@@ -243,16 +282,62 @@ export function SubscriptionPage() {
             </span>
           </div>
         </div>
-        {/* Quick link: schedule calendar */}
-        <Button variant="outline" size="sm" asChild>
-          <Link
-            to={`/crm/customers/${customerIdTyped}/subscriptions/${subId}/week`}
-          >
-            <CalendarDays className="h-4 w-4 mr-2" aria-hidden="true" />
-            Schedule
-          </Link>
-        </Button>
+        <div className="flex items-start gap-2">
+          {/* Activate — draft only */}
+          {subscription.status === "draft" && (
+            <div className="flex flex-col items-end gap-1">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    disabled={activating || activationBlockedReason !== null}
+                  >
+                    {activating ? "Activating…" : "Activate"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Activate subscription?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      <strong>{subscription.label}</strong> will start on{" "}
+                      {utcToWibDateStr(subscription.startDate)}. Weekly credit:{" "}
+                      {formatCurrency(subscription.weeklyQty * subscription.unitPrice)}.
+                      This will begin generating weekly delivery cycles.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleActivate} aria-label="Confirm activation">
+                      Activate
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              {activationBlockedReason && (
+                <span className="text-xs text-muted-foreground">
+                  {activationBlockedReason}
+                </span>
+              )}
+            </div>
+          )}
+          {/* Quick link: schedule calendar */}
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              to={`/crm/customers/${customerIdTyped}/subscriptions/${subId}/week`}
+            >
+              <CalendarDays className="h-4 w-4 mr-2" aria-hidden="true" />
+              Schedule
+            </Link>
+          </Button>
+        </div>
       </div>
+
+      {/* D3: Draft callout */}
+      {subscription.status === "draft" && (
+        <div className="rounded-md border border-muted bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          Draft subscriptions don&apos;t generate delivery weeks yet. Activate to start weekly cycles.
+        </div>
+      )}
 
       {/* Subscription info */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -270,7 +355,7 @@ export function SubscriptionPage() {
         </div>
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            Started
+            {subscription.startDate > Date.now() ? "STARTS" : "STARTED"}
           </p>
           <p className="text-sm font-medium">
             {utcToWibDateStr(subscription.startDate)}

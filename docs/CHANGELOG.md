@@ -31,7 +31,28 @@ After merging any code change, add a new entry with:
 
 **Files:** `convex/subscriptions/enforcement/` (new module: `detectAboveBaseline`, `effectiveDates`, `cutoffMath`, `flipDayLocksAtCutoff`, `applyPendingBaselineChanges`), `convex/subscriptions/{mutations,weeks,amend}.ts`, `convex/subscriptions/scheduling/confirmWeek.ts`, `convex/crons.ts`, `convex/schema.ts`, `src/components/crm/{DayPlanCell,WeekCalendarGrid}.tsx`, `src/pages/crm/{CustomerDashboard,SubscriptionSchedulePage}.tsx`, `src/pages/crm/SubscriptionSettingsDialog.tsx`.
 
-Verified: `npm run type-check` + `npm run build` green; backend 145/145, frontend CRM 167/167 passing. Plan: `docs/superpowers/plans/2026-06-26-subscription-rule-enforcement.md`.
+**Persona-UAT (live dev pass):** READY — all four mechanics verified end-to-end, 0 blockers, 0 console/network errors. The 5 slice-new UX-HIGH findings were then all fixed: self-explanatory cutoff warning + supplier badge (with baseline context), termination end-date shown (dialog + card), winding-down disables the baseline form, a persistent pending-baseline-change record with a Cancel action (new `cancelBaselineChange` mutation), and a labelled "Manage" button (top action renamed "Edit details"). Findings: `docs/reviews/uat/subscription-rule-enforcement-2026-06-27/UAT-FINDINGS.md`.
+
+Verified: `npm run type-check` + `npm run build` green; backend 145/145, frontend CRM 167/167 passing (315/315 combined after UX follow-ups). Plan: `docs/superpowers/plans/2026-06-26-subscription-rule-enforcement.md`.
+
+---
+
+## 2026-06-27 — Subscription creation & onboarding UI (CRM)
+
+**For the team:** Managers and admins can now onboard a B2B customer end-to-end without leaving the browser. From `/crm`, click "New customer" to create a customer record with full CRM fields in one atomic step. Then open the customer and click "Add subscription" to fill in contract terms, a 7-day delivery schedule template (with live weekly-qty and credit preview), and an optional supply agreement reference — the form validates before saving a Draft subscription. When ready, hit **Activate** on the Subscription page (guarded: only activatable when the template is schedulable). No schema change; one additive backend mutation (`crm.customers.createCustomer`).
+
+### Added
+- **`crm.customers.createCustomer`** (mutation, manager+admin) — atomic single insert with full CRM field union (name, phone, source, notes, defaultAddress, companyName, npwp, billingAddress, keyContactName, keyContactRole, whatsapp, email, instagram, otherSocials, deliveryAddress, storeAddress, otherAddresses, altPhone, customerType). Server-sets `createdBy: ctx.user.name`. Drops undefined fields before insert. Fills the gap that `customers.create` only accepts name/phone/source/notes/defaultAddress.
+- **`NewCustomerDialog`** — modal wired into `CrmHome` for creating a customer with full CRM fields; redirects to new customer dashboard on success.
+- **`SubscriptionForm`** — sectioned form: contract terms (type, start date, credit limit, currency), 7-day schedule template via `ScheduleTemplateEditor` (per-day product + qty grid), optional agreement linkage, live weekly-qty and credit-usage preview, field-level validation.
+- **`ScheduleTemplateEditor`** — reusable per-day grid component (7 rows × product + qty columns) with running weekly totals.
+- **`NewSubscriptionPage`** + route `crm/customers/:customerId/subscriptions/new` (`canAccessCrm`, manager+admin) — full-page subscription creation flow wrapping `SubscriptionForm`.
+- **"Add subscription" button** on `CustomerDashboard`; **Draft badge** on subscription cards.
+- **Activate action** on `SubscriptionPage` — calls existing activation mutation; guarded by schedulability check (button disabled + tooltip when template is incomplete).
+- **`SUBSCRIPTION_STATUS_BADGE`** map added to `src/lib/crmStatusBadges.ts` — shared status → badge variant lookup for subscription status chips across all CRM surfaces.
+
+### Files
+`convex/crm/customers.ts` (additive: `createCustomer`), `src/pages/crm/NewSubscriptionPage.tsx` (new), `src/components/crm/SubscriptionForm.tsx` (new), `src/components/crm/ScheduleTemplateEditor.tsx` (new), `src/components/crm/NewCustomerDialog.tsx` (new), `src/lib/crmStatusBadges.ts` (additive: `SUBSCRIPTION_STATUS_BADGE`), `src/pages/crm/CrmHome.tsx` (New customer button), `src/pages/crm/CustomerDashboard.tsx` (Add subscription button + Draft badge), `src/pages/crm/SubscriptionPage.tsx` (Activate action), `src/App.tsx` (new route).
 
 ---
 

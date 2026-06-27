@@ -54,6 +54,58 @@ export const updateCustomerCrmFields = protectedMutation({
 });
 
 // ---------------------------------------------------------------------------
+// createCustomer — atomic create with the full CRM field union (one insert).
+// No single existing mutation carries all fields: customers.create lacks the
+// Phase-57 + Phase-A CRM fields; updateCustomerCrmFields lacks companyName/npwp/
+// billingAddress. This avoids the multi-call partial-write seam.
+// ---------------------------------------------------------------------------
+
+export const createCustomer = protectedMutation({
+  roles: ["manager", "admin"],
+  args: {
+    name: v.string(),
+    phone: v.optional(v.string()),
+    source: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    defaultAddress: v.optional(v.string()),
+    companyName: v.optional(v.string()),
+    npwp: v.optional(v.string()),
+    billingAddress: v.optional(v.string()),
+    keyContactName: v.optional(v.string()),
+    keyContactRole: v.optional(v.string()),
+    whatsapp: v.optional(v.string()),
+    email: v.optional(v.string()),
+    instagram: v.optional(v.string()),
+    otherSocials: v.optional(
+      v.array(
+        v.object({
+          platform: v.string(),
+          handle: v.string(),
+          url: v.optional(v.string()),
+        }),
+      ),
+    ),
+    deliveryAddress: v.optional(v.string()),
+    storeAddress: v.optional(v.string()),
+    otherAddresses: v.optional(v.array(v.string())),
+    altPhone: v.optional(v.string()),
+    customerType: v.optional(
+      v.union(v.literal("direct_b2c"), v.literal("b2b_wholesale")),
+    ),
+  },
+  handler: async (ctx, args) => {
+    // Insert only provided fields (drop undefined) + server-set createdBy.
+    const provided = Object.fromEntries(
+      Object.entries(args).filter(([, val]) => val !== undefined),
+    );
+    return await ctx.db.insert("customers", {
+      ...(provided as { name: string } & Record<string, unknown>),
+      createdBy: ctx.user.name,
+    });
+  },
+});
+
+// ---------------------------------------------------------------------------
 // T6: getCustomerRecord
 // ---------------------------------------------------------------------------
 

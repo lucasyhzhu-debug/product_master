@@ -29,6 +29,7 @@ import {
   CreditCard,
   Edit2,
   MapPin,
+  Plus,
   Settings,
   StickyNote,
   Users,
@@ -64,6 +65,7 @@ import { SubscriptionSelector } from "@/components/crm/SubscriptionSelector";
 import { DrawdownChart } from "@/components/crm/DrawdownChart";
 import { getErrorMessage, formatCurrency } from "@/lib/utils";
 import { formatSubscriptionWeekLabel, formatDateId } from "@/lib/dateUtils";
+import { SUBSCRIPTION_STATUS_BADGE } from "@/lib/crmStatusBadges";
 
 // ---------------------------------------------------------------------------
 // Types — mirror getCustomerRecord return shape
@@ -467,15 +469,23 @@ function FinancialPane({
 
       {/* Subscriptions list — A1, A4 */}
       <section aria-label="Subscriptions" className="space-y-2">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-          Subscriptions
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Subscriptions
+          </h2>
+          <Button size="sm" variant="outline" asChild className="text-xs">
+            <Link to={`/crm/customers/${customerId}/subscriptions/new`}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Add subscription
+            </Link>
+          </Button>
+        </div>
 
         {subscriptions.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No active subscriptions"
-            description="No subscriptions found for this customer."
+            title="No subscriptions yet"
+            description="Add a subscription to get started."
           />
         ) : (
           <div className="space-y-2">
@@ -527,9 +537,7 @@ function FinancialPane({
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Badge
                         className={`text-xs ${
-                          sub.status === "active"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-500"
+                          SUBSCRIPTION_STATUS_BADGE[sub.status] ?? "bg-gray-100 text-gray-500"
                         }`}
                       >
                         {sub.status}

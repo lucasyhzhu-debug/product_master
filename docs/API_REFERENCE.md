@@ -2751,6 +2751,34 @@ All functions are `protectedQuery` / `protectedMutation` from `convex/lib/functi
 #### Customers (`convex/crm/customers.ts`)
 
 ```typescript
+crm.customers.createCustomer({
+  name: string,
+  phone?: string,
+  source?: string,
+  notes?: string,
+  defaultAddress?: string,
+  companyName?: string,
+  npwp?: string,
+  billingAddress?: string,
+  keyContactName?: string,
+  keyContactRole?: string,
+  whatsapp?: string,
+  email?: string,
+  instagram?: string,
+  otherSocials?: string[],
+  deliveryAddress?: string,
+  storeAddress?: string,
+  otherAddresses?: string[],
+  altPhone?: string,
+  customerType?: string,
+})
+\ Returns: Id<"customers">
+\ Mutation, roles: ["manager","admin"]. Atomic single insert with full CRM field union.
+\ Server-sets createdBy: ctx.user.name. Drops undefined fields before insert.
+\ Exists because customers.create (convex/customers/mutations.ts) only accepts
+\ name/phone/source/notes/defaultAddress — the five original fields. This mutation
+\ carries the complete CRM field union in one atomic write. (PR #209)
+
 crm.customers.updateCustomerCrmFields({
   customerId: Id<"customers">,
   // All fields optional — only provided fields are patched:

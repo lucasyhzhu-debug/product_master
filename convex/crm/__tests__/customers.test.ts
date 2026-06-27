@@ -54,6 +54,44 @@ async function createSession(
 }
 
 // ---------------------------------------------------------------------------
+// createCustomer — T7
+// ---------------------------------------------------------------------------
+
+const createCustomerRef = anyApi.crm.customers.createCustomer;
+
+describe("createCustomer", () => {
+  it("inserts a customer with the full CRM field union in one call", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId } = await createSession(t, "manager", "Mgr Create");
+    const id = (await t.mutation(createCustomerRef, {
+      sessionId,
+      name: "UAT Cafe B2B",
+      companyName: "UAT Cafe Pte",
+      keyContactName: "Bu Sri",
+      whatsapp: "6281234560099",
+      email: "sri@uatcafe.id",
+      deliveryAddress: "Jl. Mawar 1",
+      storeAddress: "Jl. Melati 2",
+    })) as Id<"customers">;
+    const doc = await t.run(async (ctx) => ctx.db.get(id));
+    expect(doc?.name).toBe("UAT Cafe B2B");
+    expect(doc?.companyName).toBe("UAT Cafe Pte");
+    expect(doc?.keyContactName).toBe("Bu Sri");
+    expect(doc?.whatsapp).toBe("6281234560099");
+    expect(doc?.deliveryAddress).toBe("Jl. Mawar 1");
+    expect(doc?.createdBy).toBeTruthy();
+  });
+
+  it("rejects a non-manager caller", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId } = await createSession(t, "order_staff", "Staff Reject");
+    await expect(
+      t.mutation(createCustomerRef, { sessionId, name: "Nope" }),
+    ).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // T5 — updateCustomerCrmFields
 // ---------------------------------------------------------------------------
 
