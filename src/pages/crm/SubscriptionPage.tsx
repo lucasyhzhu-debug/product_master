@@ -37,6 +37,17 @@ import type { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
@@ -235,7 +246,7 @@ export function SubscriptionPage() {
             label: subscription.customerName ?? "Customer",
             to: `/crm/customers/${customerId}`,
           },
-          { label: "Subscription" },
+          { label: subscription.label || "Subscription" },
         ]}
       />
 
@@ -275,13 +286,33 @@ export function SubscriptionPage() {
           {/* Activate — draft only */}
           {subscription.status === "draft" && (
             <div className="flex flex-col items-end gap-1">
-              <Button
-                size="sm"
-                onClick={handleActivate}
-                disabled={activating || activationBlockedReason !== null}
-              >
-                {activating ? "Activating…" : "Activate"}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    disabled={activating || activationBlockedReason !== null}
+                  >
+                    {activating ? "Activating…" : "Activate"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Activate subscription?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      <strong>{subscription.label}</strong> will start on{" "}
+                      {utcToWibDateStr(subscription.startDate)}. Weekly credit:{" "}
+                      {formatCurrency(subscription.weeklyQty * subscription.unitPrice)}.
+                      This will begin generating weekly delivery cycles.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleActivate} aria-label="Confirm activation">
+                      Activate
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               {activationBlockedReason && (
                 <span className="text-xs text-muted-foreground">
                   {activationBlockedReason}
@@ -301,6 +332,13 @@ export function SubscriptionPage() {
         </div>
       </div>
 
+      {/* D3: Draft callout */}
+      {subscription.status === "draft" && (
+        <div className="rounded-md border border-muted bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+          Draft subscriptions don&apos;t generate delivery weeks yet. Activate to start weekly cycles.
+        </div>
+      )}
+
       {/* Subscription info */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div>
@@ -317,7 +355,7 @@ export function SubscriptionPage() {
         </div>
         <div>
           <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            Started
+            {subscription.startDate > Date.now() ? "STARTS" : "STARTED"}
           </p>
           <p className="text-sm font-medium">
             {utcToWibDateStr(subscription.startDate)}

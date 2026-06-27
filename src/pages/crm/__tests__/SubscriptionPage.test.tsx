@@ -258,13 +258,14 @@ describe("SubscriptionPage — parent customer link (A4 bidirectional)", () => {
 });
 
 describe("SubscriptionPage — breadcrumbs (A2)", () => {
-  it("renders Customer and Subscription in the breadcrumb trail", () => {
+  it("renders Customer and subscription label in the breadcrumb trail", () => {
     renderPage();
     const breadcrumb = screen.getByRole("navigation", {
       name: /breadcrumb/i,
     });
     expect(breadcrumb.textContent).toContain("Customer");
-    expect(breadcrumb.textContent).toContain("Subscription");
+    // D1: terminal segment is now subscription.label (fallback "Subscription").
+    expect(breadcrumb.textContent).toContain("Crystal Weekly");
   });
 });
 
@@ -409,8 +410,14 @@ describe("SubscriptionPage — Activate action (draft only)", () => {
   it("activates a complete draft — calls updateSubscription with status:active", async () => {
     mockSubscription = { ...SUB_DOC, status: "draft" as const, weeklyQty: 1050 };
     renderPage();
+    // Click the trigger button to open the AlertDialog.
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /activate/i }));
+    });
+    // Click the confirm button inside the dialog.
+    await act(async () => {
+      const confirmBtn = screen.getByRole("button", { name: /confirm activation/i });
+      fireEvent.click(confirmBtn);
     });
     expect(mockMutateFn).toHaveBeenCalledWith(
       expect.objectContaining({ status: "active" }),
@@ -426,8 +433,13 @@ describe("SubscriptionPage — Activate action (draft only)", () => {
       agreementId: AGREEMENT_ID,
     };
     renderPage();
+    // Click trigger to open dialog, then confirm.
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /activate/i }));
+    });
+    await act(async () => {
+      const confirmBtn = screen.getByRole("button", { name: /confirm activation/i });
+      fireEvent.click(confirmBtn);
     });
     // I4: assert ORDER — updateSubscription must fire FIRST, linkAgreement SECOND.
     expect(mockMutateFn).toHaveBeenNthCalledWith(
