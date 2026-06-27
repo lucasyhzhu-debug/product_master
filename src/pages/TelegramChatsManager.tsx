@@ -32,8 +32,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   useTelegramChats, useAssignRole, useArchiveChat, useRestoreChat, useSendTestMessage,
+  useSendAnnouncement,
 } from "@/hooks/convex/useTelegramChats";
 import { formatShortWIB, WIB_OFFSET_MS } from "@/lib/dateUtils";
 import { KNOWN_TELEGRAM_ROLES, TELEGRAM_BOT_USERNAME } from "../../convex/telegram/config";
@@ -82,11 +85,22 @@ export function TelegramChatsManager() {
     chatId: string; role: string;
   } | null>(null);
 
+  // Announcement composer state.
+  const [announceText, setAnnounceText] = useState("");
+  const [announceRole, setAnnounceRole] = useState<string>(
+    KNOWN_TELEGRAM_ROLES.includes("founders" as (typeof KNOWN_TELEGRAM_ROLES)[number])
+      ? "founders"
+      : KNOWN_TELEGRAM_ROLES[0],
+  );
+  const [announceConfirm, setAnnounceConfirm] = useState(false);
+  const [announceSending, setAnnounceSending] = useState(false);
+
   const chats = useTelegramChats(showArchived);
   const assignRole = useAssignRole();
   const archiveChat = useArchiveChat();
   const restoreChat = useRestoreChat();
   const sendTest = useSendTestMessage();
+  const sendAnnouncement = useSendAnnouncement();
 
   const filtered = useMemo(() => {
     if (!chats) return undefined;
@@ -222,6 +236,30 @@ export function TelegramChatsManager() {
     }
   }
 
+  async function confirmSendAnnouncement() {
+    setAnnounceConfirm(false);
+    setAnnounceSending(true);
+    try {
+      const res = await sendAnnouncement(announceRole, announceText);
+      toast.success(
+        res && "title" in res
+          ? `Announcement sent to '${res.title}'`
+          : "Announcement sent",
+      );
+      setAnnounceText("");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send announcement");
+    } finally {
+      setAnnounceSending(false);
+    }
+  }
+
+  // Display-only: which chat currently holds the selected announcement role.
+  // The backend re-resolves authoritatively at send time.
+  const announceTargetChat = chats.find(
+    (c) => c.role === announceRole && c.archivedAt === undefined,
+  );
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <PageHeader
@@ -234,6 +272,62 @@ export function TelegramChatsManager() {
           </div>
         }
       />
+
+      {/* Announcement composer — broadcast a one-off message to a role's chat. */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold">Send announcement</h3>
+            <p className="text-xs text-muted-foreground">
+              Broadcast a one-off message to the chat assigned to a role. Basic
+              HTML is supported (e.g. <code>&lt;b&gt;bold&lt;/b&gt;</code>).
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+            <div className="space-y-1.5">
+              <Label htmlFor="announce-role">Send to role</Label>
+              <Select value={announceRole} onValueChange={setAnnounceRole}>
+                <SelectTrigger id="announce-role" className="w-48"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {KNOWN_TELEGRAM_ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground pb-2">
+              {announceTargetChat ? (
+                <>→ delivers to <span className="font-medium">{announceTargetChat.title}</span></>
+              ) : (
+                <span className="text-amber-600">⚠ no active chat assigned to this role</span>
+              )}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="announce-text">Message</Label>
+            <Textarea
+              id="announce-text"
+              rows={6}
+              placeholder="Type your announcement…"
+              value={announceText}
+              onChange={(e) => setAnnounceText(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setAnnounceConfirm(true)}
+              disabled={
+                announceSending ||
+                announceText.trim().length === 0 ||
+                !announceTargetChat
+              }
+            >
+              <Send className="mr-2 h-4 w-4" />
+              {announceSending ? "Sending…" : "Send announcement"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">
@@ -368,6 +462,29 @@ export function TelegramChatsManager() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => void confirmTestSend()}>
+              Send to Telegram
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Announcement send confirmation. */}
+      <AlertDialog open={announceConfirm} onOpenChange={(o) => !o && setAnnounceConfirm(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send this announcement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It will be delivered to{" "}
+              <b>{announceTargetChat?.title ?? announceRole}</b> (role:{" "}
+              {announceRole}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-60 overflow-auto rounded-lg bg-muted p-4 text-sm whitespace-pre-wrap">
+            {announceText}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void confirmSendAnnouncement()}>
               Send to Telegram
             </AlertDialogAction>
           </AlertDialogFooter>

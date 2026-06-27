@@ -58,3 +58,17 @@ export function useSendTestMessage() {
     return convex.action(api.telegram.chatRegistry.sendTestMessage, { chatId, token });
   };
 }
+
+export function useSendAnnouncement() {
+  const convex = useConvex();
+  const { user } = useAuth();
+  const token = user?.token ?? "";
+  return (role: string, text: string) => {
+    if (!convex) return Promise.resolve(undefined); // provider-tolerant for RTL
+    return convex.action(api.telegram.chatRegistry.sendAnnouncement, {
+      role,
+      text,
+      token,
+    });
+  };
+}
