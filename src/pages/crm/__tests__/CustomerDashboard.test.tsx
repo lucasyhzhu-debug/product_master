@@ -276,7 +276,7 @@ describe("CustomerDashboard — empty subscriptions", () => {
       currentWeekPoolBySubscription: {},
     });
     renderPage();
-    expect(screen.getByText(/no active subscriptions/i)).toBeInTheDocument();
+    expect(screen.getByText(/no subscriptions yet/i)).toBeInTheDocument();
   });
 });
 

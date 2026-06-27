@@ -15,13 +15,15 @@
  *   D11: role gate at route level (canAccessCrm = manager+admin);
  *        both queries use roles: ["manager","admin"] — no Pitfall-#19 Unauthorized risk.
  */
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, CreditCard, Users } from "lucide-react";
+import { ArrowUpRight, CreditCard, Plus, Users } from "lucide-react";
 import { useSessionQuery } from "convex-helpers/react/sessions";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -34,6 +36,7 @@ import {
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
 import { Breadcrumbs } from "@/components/crm/Breadcrumbs";
+import { NewCustomerDialog } from "@/components/crm/NewCustomerDialog";
 import { DraftWhatsAppButton } from "@/components/crm/DraftWhatsAppButton";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 import {
@@ -280,6 +283,8 @@ function ActiveSubscriptionsSection({ rows }: { rows: ActiveSubRow[] }) {
 // ---------------------------------------------------------------------------
 
 export function CrmHome() {
+  const [newCustomerOpen, setNewCustomerOpen] = useState(false);
+
   // All hooks before any early returns (Pitfall #9).
   const fundingRows = useSessionQuery(
     api.subscriptions.scheduling.queries.getFundingDashboard,
@@ -299,12 +304,20 @@ export function CrmHome() {
     <div className="p-6 space-y-6">
       <Breadcrumbs trail={[{ label: "CRM" }]} />
 
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">CRM</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Customer relationship management
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">CRM</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Customer relationship management
+          </p>
+        </div>
+        <Button onClick={() => setNewCustomerOpen(true)} size="sm" className="shrink-0">
+          <Plus className="h-4 w-4 mr-1" />
+          New customer
+        </Button>
       </div>
+
+      <NewCustomerDialog open={newCustomerOpen} onOpenChange={setNewCustomerOpen} />
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">

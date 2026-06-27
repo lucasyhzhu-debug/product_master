@@ -155,7 +155,7 @@ export function AgreementUpload({
     <div className="space-y-2">
       {/* Lang selector */}
       <div className="flex items-center gap-3">
-        <Label className="text-xs text-muted-foreground">Language</Label>
+        <Label className="text-xs text-muted-foreground">Agreement language</Label>
         <div className="flex items-center gap-2">
           {(["id", "en"] as const).map((l) => (
             <button

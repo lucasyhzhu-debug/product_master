@@ -26,6 +26,19 @@ export const WEEK_STATUS_BADGE: Record<string, string> = {
   closed: "bg-gray-100 text-gray-500",
 };
 
+/**
+ * Subscription lifecycle status → Tailwind badge classes.
+ *
+ * Single source of truth shared by SubscriptionPage and CustomerDashboard
+ * (previously each had a local STATUS_BADGE / SUB_STATUS_BADGE copy — CRM B6).
+ */
+export const SUBSCRIPTION_STATUS_BADGE: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-600",
+  active: "bg-green-100 text-green-700",
+  terminating: "bg-amber-100 text-amber-700",
+  ended: "bg-red-100 text-red-700",
+};
+
 /** Funding-dashboard status → badge classes (subset shown on funding surfaces). */
 export const FUNDING_STATUS_BADGE: Record<string, string> = {
   confirmed: "bg-amber-100 text-amber-700",

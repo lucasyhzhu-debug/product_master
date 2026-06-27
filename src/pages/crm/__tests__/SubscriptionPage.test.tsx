@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 // ---------------------------------------------------------------------------
@@ -30,29 +30,34 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 let mockSubscription: unknown = undefined;
 let mockWeeks: unknown = undefined;
 let mockStatement: unknown = undefined;
+let mockMutateFn: ReturnType<typeof vi.fn>;
 
-// Ref-identity discrimination: track up to 3 unique query refs.
-const _seenRefs: unknown[] = [];
-const useSessionQueryMock = vi.fn((query: unknown) => {
-  const idx = _seenRefs.indexOf(query);
-  if (idx === -1) {
-    _seenRefs.push(query);
-    const newIdx = _seenRefs.length - 1;
-    if (newIdx === 0) return mockSubscription;
-    if (newIdx === 1) return mockWeeks;
-    return mockStatement;
-  }
-  if (idx === 0) return mockSubscription;
-  if (idx === 1) return mockWeeks;
+// Call-order discrimination: api refs are Proxy objects (new object per access),
+// so ref-identity fails on re-renders. Use call count mod 3 instead — hooks are
+// always called in the same order: 0=getSubscription, 1=listWeeks, 2=statement.
+//
+// INVARIANT: _callIdx MUST be a multiple of 3 after every full render.
+// The modulus equals the number of useSessionQuery calls the component makes.
+// If you add or remove a useSessionQuery call in SubscriptionPage, update
+// BOTH the mock dispatch (add/remove an `if` branch) AND the invariant
+// assertion in renderPage() below — otherwise tests will silently mis-map mocks.
+let _callIdx = 0;
+function sessionQueryDispatch() {
+  const pos = _callIdx % 3;
+  _callIdx++;
+  if (pos === 0) return mockSubscription;
+  if (pos === 1) return mockWeeks;
   return mockStatement;
-});
+}
+const useSessionQueryMock = vi.fn(sessionQueryDispatch);
 
 vi.mock("convex-helpers/react/sessions", () => ({
-  useSessionQuery: (...args: unknown[]) => useSessionQueryMock(...args),
-  useSessionMutation: vi.fn(() => vi.fn()),
+  // Args are ignored — the mock discriminates queries by call order (see _callIdx % 3 above).
+  useSessionQuery: () => useSessionQueryMock(),
+  useSessionMutation: vi.fn(() => mockMutateFn),
 }));
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 
 vi.mock("@/components/crm/Breadcrumbs", () => ({
   Breadcrumbs: ({ trail }: { trail: { label: string }[] }) => (
@@ -176,7 +181,10 @@ function renderPage(
   subId: string = SUB_ID,
   searchSuffix: string = "",
 ) {
-  return render(
+  // I5: Reset _callIdx at the START of each renderPage call so every invocation
+  // starts with a clean counter and the invariant guard validates that specific render.
+  _callIdx = 0;
+  const result = render(
     <MemoryRouter
       initialEntries={[
         `/crm/customers/${customerId}/subscriptions/${subId}${searchSuffix}`,
@@ -190,6 +198,11 @@ function renderPage(
       </Routes>
     </MemoryRouter>,
   );
+  // Guard: _callIdx must be a multiple of 3 after every full render.
+  // If this fires, SubscriptionPage's useSessionQuery call count changed —
+  // update the mock dispatch table and this comment to match the new count.
+  expect(_callIdx % 3).toBe(0);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,26 +211,15 @@ function renderPage(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  _seenRefs.length = 0;
+  _callIdx = 0;
+  mockMutateFn = vi.fn();
 
   // Happy-path defaults.
   mockSubscription = SUB_DOC;
   mockWeeks = [WEEK_2, WEEK_1]; // most-recent first
   mockStatement = STATEMENT_ROWS;
 
-  useSessionQueryMock.mockImplementation((query: unknown) => {
-    const idx = _seenRefs.indexOf(query);
-    if (idx === -1) {
-      _seenRefs.push(query);
-      const newIdx = _seenRefs.length - 1;
-      if (newIdx === 0) return mockSubscription;
-      if (newIdx === 1) return mockWeeks;
-      return mockStatement;
-    }
-    if (idx === 0) return mockSubscription;
-    if (idx === 1) return mockWeeks;
-    return mockStatement;
-  });
+  useSessionQueryMock.mockImplementation(sessionQueryDispatch);
 });
 
 // ---------------------------------------------------------------------------
@@ -256,13 +258,14 @@ describe("SubscriptionPage — parent customer link (A4 bidirectional)", () => {
 });
 
 describe("SubscriptionPage — breadcrumbs (A2)", () => {
-  it("renders Customer and Subscription in the breadcrumb trail", () => {
+  it("renders Customer and subscription label in the breadcrumb trail", () => {
     renderPage();
     const breadcrumb = screen.getByRole("navigation", {
       name: /breadcrumb/i,
     });
     expect(breadcrumb.textContent).toContain("Customer");
-    expect(breadcrumb.textContent).toContain("Subscription");
+    // D1: terminal segment is now subscription.label (fallback "Subscription").
+    expect(breadcrumb.textContent).toContain("Crystal Weekly");
   });
 });
 
@@ -282,7 +285,7 @@ describe("SubscriptionPage — CreditLedgerStatement signed amounts", () => {
   it("renders positive topup amount", () => {
     renderPage();
     // 100000 rendered as currency string; may appear multiple times (week metadata + table).
-    const matches = screen.getAllByText(/100[\.,]?000/);
+    const matches = screen.getAllByText(/100[.,]?000/);
     expect(matches.length).toBeGreaterThan(0);
   });
 
@@ -292,7 +295,7 @@ describe("SubscriptionPage — CreditLedgerStatement signed amounts", () => {
     // Query the table body for a cell containing the signed amount.
     const allCells = document.querySelectorAll("td");
     const hasNegative = Array.from(allCells).some(
-      (el) => el.textContent && /75[\.,]?000/.test(el.textContent),
+      (el) => el.textContent && /75[.,]?000/.test(el.textContent),
     );
     expect(hasNegative).toBe(true);
   });
@@ -310,9 +313,9 @@ describe("SubscriptionPage — CreditLedgerStatement week-scoped balanceAfter", 
     renderPage();
     // Row 1: balanceAfter=100000, Row 2: balanceAfter=25000.
     // Values may appear multiple times (week metadata + table); use getAllByText.
-    const matches100k = screen.getAllByText(/100[\.,]?000/);
+    const matches100k = screen.getAllByText(/100[.,]?000/);
     expect(matches100k.length).toBeGreaterThan(0);
-    const matches25k = screen.getAllByText(/25[\.,]?000/);
+    const matches25k = screen.getAllByText(/25[.,]?000/);
     expect(matches25k.length).toBeGreaterThan(0);
   });
 });
@@ -394,6 +397,59 @@ describe("SubscriptionPage — createdBy column", () => {
     // Both rows have createdBy "user_001".
     const createdByEls = screen.getAllByText(/user_001/);
     expect(createdByEls.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("SubscriptionPage — Activate action (draft only)", () => {
+  it("shows Activate button for a draft and disables it when weeklyQty is 0", () => {
+    mockSubscription = { ...SUB_DOC, status: "draft" as const, weeklyQty: 0 };
+    renderPage();
+    expect(screen.getByRole("button", { name: /activate/i })).toBeDisabled();
+  });
+
+  it("activates a complete draft — calls updateSubscription with status:active", async () => {
+    mockSubscription = { ...SUB_DOC, status: "draft" as const, weeklyQty: 1050 };
+    renderPage();
+    // Click the trigger button to open the AlertDialog.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /activate/i }));
+    });
+    // Click the confirm button inside the dialog.
+    await act(async () => {
+      const confirmBtn = screen.getByRole("button", { name: /confirm activation/i });
+      fireEvent.click(confirmBtn);
+    });
+    expect(mockMutateFn).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "active" }),
+    );
+  });
+
+  it("calls linkAgreement when activating a draft that has an agreementId", async () => {
+    const AGREEMENT_ID = "agr_test999";
+    mockSubscription = {
+      ...SUB_DOC,
+      status: "draft" as const,
+      weeklyQty: 35,
+      agreementId: AGREEMENT_ID,
+    };
+    renderPage();
+    // Click trigger to open dialog, then confirm.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /activate/i }));
+    });
+    await act(async () => {
+      const confirmBtn = screen.getByRole("button", { name: /confirm activation/i });
+      fireEvent.click(confirmBtn);
+    });
+    // I4: assert ORDER — updateSubscription must fire FIRST, linkAgreement SECOND.
+    expect(mockMutateFn).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ status: "active" }),
+    );
+    expect(mockMutateFn).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ agreementId: AGREEMENT_ID, subscriptionId: SUB_ID }),
+    );
   });
 });
 

@@ -17,7 +17,6 @@
 
 | Slice | Spec | Plan | Target |
 |-------|------|------|--------|
-| Subscription **creation & onboarding UI** (new customer, sectioned subscription form + schedule template, optional agreement, draft→activate) | `docs/superpowers/specs/2026-06-26-subscription-creation-onboarding-design.md` | `docs/superpowers/plans/2026-06-26-subscription-creation-onboarding.md` | Subscription milestone (sub-feature) |
 
 ---
 
