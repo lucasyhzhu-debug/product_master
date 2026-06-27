@@ -474,8 +474,8 @@ function FinancialPane({
         {subscriptions.length === 0 ? (
           <EmptyState
             icon={Users}
-            title="No active subscriptions"
-            description="No subscriptions found for this customer."
+            title="No subscriptions yet"
+            description="Add a subscription to get started."
           />
         ) : (
           <div className="space-y-2">

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 
 interface Props {
@@ -84,13 +85,13 @@ export function NewCustomerDialog({ open, onOpenChange }: Props) {
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <Label htmlFor="cust-name">Name *</Label>
+            <Label htmlFor="cust-name">Customer name *</Label>
             <Input id="cust-name" value={form.name} onChange={(e) => set("name", e.target.value)} />
           </div>
           <div><Label htmlFor="cust-company">Company</Label>
             <Input id="cust-company" value={form.companyName} onChange={(e) => set("companyName", e.target.value)} /></div>
-          <div><Label htmlFor="cust-contact">Key contact</Label>
-            <Input id="cust-contact" value={form.keyContactName} onChange={(e) => set("keyContactName", e.target.value)} /></div>
+          <div><Label htmlFor="cust-contact">Key contact name</Label>
+            <Input id="cust-contact" value={form.keyContactName} onChange={(e) => set("keyContactName", e.target.value)} placeholder="e.g. Budi Santoso" /></div>
           <div><Label htmlFor="cust-wa">WhatsApp</Label>
             <Input id="cust-wa" value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} /></div>
           <div><Label htmlFor="cust-phone">Phone</Label>
@@ -98,13 +99,13 @@ export function NewCustomerDialog({ open, onOpenChange }: Props) {
           <div><Label htmlFor="cust-email">Email</Label>
             <Input id="cust-email" value={form.email} onChange={(e) => set("email", e.target.value)} /></div>
           <div><Label htmlFor="cust-billing">Billing address</Label>
-            <Input id="cust-billing" value={form.billingAddress} onChange={(e) => set("billingAddress", e.target.value)} /></div>
+            <Textarea id="cust-billing" value={form.billingAddress} onChange={(e) => set("billingAddress", e.target.value)} rows={2} /></div>
           <div><Label htmlFor="cust-delivery">Delivery address</Label>
-            <Input id="cust-delivery" value={form.deliveryAddress} onChange={(e) => set("deliveryAddress", e.target.value)} /></div>
+            <Textarea id="cust-delivery" value={form.deliveryAddress} onChange={(e) => set("deliveryAddress", e.target.value)} rows={2} /></div>
           <div><Label htmlFor="cust-store">Store address</Label>
-            <Input id="cust-store" value={form.storeAddress} onChange={(e) => set("storeAddress", e.target.value)} /></div>
+            <Textarea id="cust-store" value={form.storeAddress} onChange={(e) => set("storeAddress", e.target.value)} rows={2} /></div>
           <div className="col-span-2"><Label htmlFor="cust-notes">Notes</Label>
-            <Input id="cust-notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} /></div>
+            <Textarea id="cust-notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={3} /></div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>Cancel</Button>

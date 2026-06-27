@@ -29,7 +29,7 @@ describe("NewCustomerDialog", () => {
   it("creates and navigates to the new customer hub", async () => {
     mockCreate.mockResolvedValue("cust123");
     render(<MemoryRouter><NewCustomerDialog open onOpenChange={() => {}} /></MemoryRouter>);
-    fireEvent.change(screen.getByLabelText(/^name/i), { target: { value: "UAT Cafe" } });
+    fireEvent.change(screen.getByLabelText(/customer name/i), { target: { value: "UAT Cafe" } });
     fireEvent.change(screen.getByLabelText(/whatsapp/i), { target: { value: "628111" } });
     fireEvent.click(screen.getByRole("button", { name: /create customer/i }));
     await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(
