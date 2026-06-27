@@ -1,0 +1,93 @@
+[
+  {
+    "n": 1,
+    "name": "CRM home",
+    "screenshot": "screens/01-crm-home.png",
+    "state": "ok",
+    "observed": "h1=\"CRM\". Body excerpt: \"Frollie Pro\\nDashboards\\nOrders\\nOps\\nFinance\\nConfig\\nE2E-Manager\\nCRM\\nCRM\\n\\nCustomer relationship management\\n\\nNEEDS FUNDING\\n\\n0\\n\\nweeks pending\\n\\nACTIVE SUBSCRIPTIONS\\n\\n6\\n\\nsubscriptions\\n\\nNeeds funding\\nAll caught up\\n\\nNo weeks awaiting payment or invoice right now.\\n\\nActive subscriptions\\nCustomer\\tLabel\\tCurrent week\\nUAT Cafe B2B\\n\\tUAT Weekly Cookies\\tDelivering\\nUAT-Sub-Test-1782395598604\\n\\tUAT-Sub-1782395598604\\tDelivering\\nUAT-Sub-Test-1782397912143\\n\\tUAT-Sub-1782397912143\\tDelivering\\nUAT Cafe B2B\\n\\tMorning Bundle A\\tDelivering\\nUAT Cafe B2B\\n\\tAfternoon Bundle B\\tClosed\\nUAT Persona 1782502788400\\n\\tPersona Morning Bundl\""
+  },
+  {
+    "n": 2,
+    "name": "Customer record hub",
+    "screenshot": "screens/02-customer-hub.png",
+    "state": "ok",
+    "observed": "h1=\"UAT Cafe B2B\". Morning Bundle A visible=true, Afternoon Bundle B visible=true. CRM links=6. PartnerPrice 75k leak=true, 65k leak=false."
+  },
+  {
+    "n": 3,
+    "name": "Schedule page — PLANNED fixture week",
+    "screenshot": "screens/03-schedule-planned-week.png",
+    "state": "ok",
+    "observed": "Status badge=\"Planned\". 'past 13:00 cutoff' warning present=true. 'needs supplier confirmation' badge present=true. Header 'Partner price:' shown on this manager CRM page=true."
+  },
+  {
+    "n": 3.1,
+    "name": "Monday — cutoff warn-not-lock invariant",
+    "screenshot": "screens/04-monday-cutoff-cell.png",
+    "state": "ok",
+    "observed": "Monday column: 'past 13:00 cutoff' shown=true; 'Add product' button enabled=true (warn must NOT lock editing)."
+  },
+  {
+    "n": 3.2,
+    "name": "Tuesday — above-baseline supplier-confirmation badge",
+    "screenshot": "screens/05-tuesday-supplier-badge.png",
+    "state": "ok",
+    "observed": "Tuesday column has 'needs supplier confirmation' badge=true. Cell text: \"TUE 30 Jun needs supplier confirmation Original Rp 600.000 Day total Rp 600.000 Add product\""
+  },
+  {
+    "n": 4,
+    "name": "LIVE write-path — bump qty above baseline + Save",
+    "screenshot": "screens/07-wed-after-save.png",
+    "state": "ok",
+    "observed": "Bumped Wed qty 5->8 and clicked 'Save plan'. Toast=\"Plan saved.\". Badge before save=false, badge after save=true (enforcement write path)."
+  },
+  {
+    "n": 5,
+    "name": "Negative check — seeded current week (default, no weekStart)",
+    "screenshot": "screens/08-current-week-default.png",
+    "state": "ok",
+    "observed": "Status badge=\"Delivering\". Spurious 'past 13:00 cutoff' warning present=false (must be FALSE — suppressed on locked grids). Locked/Amend notice present=true."
+  },
+  {
+    "n": 6,
+    "name": "Settings dialog — open (Manage subscription)",
+    "screenshot": "screens/09-settings-dialog-open.png",
+    "state": "ok",
+    "observed": "Found 2 'Manage subscription' triggers. Dialog opened. baseline input present=true, termination button present=true. Title snippet=\"Manage subscription\\n\\nMorning Bundle A\\n\\nNew baseline daily qty\\nChange baseline (e\""
+  },
+  {
+    "n": 6.1,
+    "name": "Baseline reject path — qty 0",
+    "screenshot": "screens/10-baseline-reject-zero.png",
+    "state": "ok",
+    "observed": "Entered 0 and submitted. Dialog still open (NOT submitted)=true. Toast=\"null\". Expected: no submission, no success toast."
+  },
+  {
+    "n": 6.2,
+    "name": "Baseline accept path — qty 7 (+14d staged change)",
+    "screenshot": "screens/12-baseline-accept-result.png",
+    "state": "ok",
+    "observed": "Entered 7 and submitted. Toast=\"Baseline change scheduled (effective in 14 days).\" (expect 'Baseline change scheduled (effective in 14 days).'). Dialog closed on success=true. Pre-submit screenshot 11."
+  },
+  {
+    "n": 7,
+    "name": "Termination — 30-day notice + confirm + disabled-after",
+    "screenshot": "screens/15-terminate-result.png",
+    "state": "ok",
+    "observed": "Trigger=\"Manage subscription Afternoon Bundle B\". Confirm step shown=true. Toast=\"30-day termination notice given.\" (expect '30-day termination notice given.'). Status 'terminating' shown on hub=true. Termination button DISABLED after=true. Confirm copy=\"Manage subscription Afternoon Bundle B New baseline daily qty Change baseline (effective in 14 days) This will schedule the subscription to end in 30 days and s\""
+  },
+  {
+    "n": 8,
+    "name": "Mobile viewport — schedule page (390px)",
+    "screenshot": "screens/17-mobile-schedule.png",
+    "state": "warn",
+    "observed": "Viewport 390x844. scrollWidth=450, clientWidth=390. Horizontal overflow=true. 7-col grid on narrow screen."
+  },
+  {
+    "n": 8.1,
+    "name": "Mobile viewport — settings dialog (390px)",
+    "screenshot": "screens/18-mobile-settings.png",
+    "state": "ok",
+    "observed": "Settings dialog on 390px. scrollWidth=390, clientWidth=390. Overflow=false."
+  }
+]
