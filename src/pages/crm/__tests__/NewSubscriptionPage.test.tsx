@@ -21,6 +21,11 @@ vi.mock("@/components/crm/SubscriptionForm", () => ({
   ),
 }));
 
+// useSessionQuery returns undefined (loading) so the breadcrumb falls back to "Customer".
+vi.mock("convex-helpers/react/sessions", () => ({
+  useSessionQuery: () => undefined,
+}));
+
 // Breadcrumbs — render real component (no convex dependency).
 
 import { NewSubscriptionPage } from "../NewSubscriptionPage";

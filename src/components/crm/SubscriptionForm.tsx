@@ -198,7 +198,7 @@ export function SubscriptionForm({ customerId }: Props) {
 
         {/* Baseline daily qty */}
         <div className="space-y-1.5">
-          <Label htmlFor="sub-baselineDailyQty">Baseline daily qty (whole IDR)</Label>
+          <Label htmlFor="sub-baselineDailyQty">Baseline daily qty (units/day)</Label>
           <Input
             id="sub-baselineDailyQty"
             type="number"
@@ -208,6 +208,9 @@ export function SubscriptionForm({ customerId }: Props) {
             onChange={(e) => setBaselineDailyQty(e.target.value)}
             placeholder="150"
           />
+          <p className="text-xs text-muted-foreground">
+            Reference only — set actual quantities per day in the schedule below.
+          </p>
         </div>
 
         {/* COGS basis */}
@@ -222,11 +225,14 @@ export function SubscriptionForm({ customerId }: Props) {
             onChange={(e) => setCogsBasis(e.target.value)}
             placeholder="12000"
           />
+          <p className="text-xs text-muted-foreground">
+            Production cost per unit — used for weekly margin tracking.
+          </p>
         </div>
 
         {/* Deliver by */}
         <div className="space-y-1.5">
-          <Label htmlFor="sub-deliverByTime">Deliver by</Label>
+          <Label htmlFor="sub-deliverByTime">Deliver by (WIB)</Label>
           <Input
             id="sub-deliverByTime"
             value={deliverByTime}
@@ -288,6 +294,7 @@ export function SubscriptionForm({ customerId }: Props) {
       {/* ── Weekly schedule template ───────────────────────────────────────── */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium">Weekly schedule template</h3>
+        <p className="text-xs text-muted-foreground">Add at least one product to a day to schedule deliveries.</p>
         {rawProductsQuery === undefined && (
           <p className="text-xs text-muted-foreground">Loading products…</p>
         )}
@@ -295,16 +302,16 @@ export function SubscriptionForm({ customerId }: Props) {
       </div>
 
       {/* ── Preview ──────────────────────────────────────────────────────── */}
-      <div className="rounded-md border p-3 space-y-1 text-sm bg-muted/30">
+      <div className="border-t-2 border-primary/20 bg-muted/50 rounded-md p-3 space-y-1 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Weekly qty</span>
-          <span data-testid="weekly-qty-preview" className="font-medium tabular-nums">
+          <span data-testid="weekly-qty-preview" className="font-semibold tabular-nums">
             {weeklyQty}
           </span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Weekly credit</span>
-          <span data-testid="weekly-credit-preview" className="font-medium tabular-nums">
+          <span data-testid="weekly-credit-preview" className="font-semibold tabular-nums">
             {weeklyCredit}
           </span>
         </div>
@@ -363,9 +370,18 @@ export function SubscriptionForm({ customerId }: Props) {
       </div>
 
       {/* ── Submit ────────────────────────────────────────────────────────── */}
-      <Button type="submit" disabled={!isValid || submitting} className="w-full">
-        {submitting ? "Creating…" : "Create subscription"}
-      </Button>
+      <div className="flex items-center justify-between gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => navigate(`/crm/customers/${customerId}`)}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!isValid || submitting}>
+          {submitting ? "Creating…" : "Create subscription"}
+        </Button>
+      </div>
     </form>
   );
 }
