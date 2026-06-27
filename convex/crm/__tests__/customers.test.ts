@@ -54,7 +54,7 @@ async function createSession(
 }
 
 // ---------------------------------------------------------------------------
-// createCustomer — T7
+// createCustomer — T7 (canonical create + dedup-by-phone)
 // ---------------------------------------------------------------------------
 
 const createCustomerRef = anyApi.crm.customers.createCustomer;
@@ -88,6 +88,81 @@ describe("createCustomer", () => {
     await expect(
       t.mutation(createCustomerRef, { sessionId, name: "Nope" }),
     ).rejects.toThrow();
+  });
+
+  // ---- dedup-by-phone tests ----
+
+  it("(a) new phone → inserts a new row", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId } = await createSession(t, "manager", "Mgr Dedup A");
+    const id = (await t.mutation(createCustomerRef, {
+      sessionId,
+      name: "Fresh Customer",
+      phone: "08111222333",
+    })) as Id<"customers">;
+    const allCustomers = await t.run(async (ctx) =>
+      ctx.db.query("customers").collect(),
+    );
+    expect(allCustomers).toHaveLength(1);
+    expect(allCustomers[0]._id).toBe(id);
+    expect(allCustomers[0].name).toBe("Fresh Customer");
+  });
+
+  it("(b) duplicate phone → returns existing id, no new row, gap-fills empty field, does NOT overwrite existing non-empty field", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId } = await createSession(t, "manager", "Mgr Dedup B");
+
+    // Seed an existing customer with phone + notes but no companyName.
+    const existingId = await t.run(async (ctx) =>
+      ctx.db.insert("customers", {
+        name: "Original Name",
+        phone: "08555666777",
+        notes: "keep this note",
+        createdBy: "seeder",
+      } as never),
+    );
+
+    // Call createCustomer with same phone; provide companyName (gap-fill) + different notes (must NOT overwrite).
+    const returnedId = (await t.mutation(createCustomerRef, {
+      sessionId,
+      name: "Should Not Overwrite Name",
+      phone: "08555666777",
+      companyName: "New Corp",
+      notes: "attempted overwrite",
+    })) as Id<"customers">;
+
+    // Returns existing id, not a new one.
+    expect(returnedId).toBe(existingId);
+
+    // No new row inserted.
+    const allCustomers = await t.run(async (ctx) =>
+      ctx.db.query("customers").collect(),
+    );
+    expect(allCustomers).toHaveLength(1);
+
+    // Gap-filled: companyName was empty → now set.
+    const doc = await t.run(async (ctx) => ctx.db.get(existingId));
+    expect(doc?.companyName).toBe("New Corp");
+
+    // Existing non-empty fields not overwritten: name and notes preserved.
+    expect(doc?.name).toBe("Original Name");
+    expect(doc?.notes).toBe("keep this note");
+
+    // createdBy never touched.
+    expect(doc?.createdBy).toBe("seeder");
+  });
+
+  it("(c) no phone → always inserts (two no-phone creates → two rows)", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId } = await createSession(t, "manager", "Mgr Dedup C");
+
+    await t.mutation(createCustomerRef, { sessionId, name: "No Phone A" });
+    await t.mutation(createCustomerRef, { sessionId, name: "No Phone B" });
+
+    const allCustomers = await t.run(async (ctx) =>
+      ctx.db.query("customers").collect(),
+    );
+    expect(allCustomers).toHaveLength(2);
   });
 });
 
