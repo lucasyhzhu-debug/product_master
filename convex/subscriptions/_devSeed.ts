@@ -738,3 +738,124 @@ export const seedCrmUat = mutation({
     };
   },
 });
+
+/**
+ * UAT fixture for Phase E Slice-2 rule enforcement (Journey A).
+ *
+ * Creates a NEXT-week **planned** (editable) week for Sub 1 "Morning Bundle A"
+ * so the schedule page surfaces BOTH new journey-A elements:
+ *   - Mon (day 0): `locked: true` on a planned week → amber "past 13:00 cutoff"
+ *     warning. Add-product stays ENABLED (warn-not-lock invariant).
+ *   - Tue (day 1): qty 8 > baseline 5, `needsSupplierConfirmation: true` →
+ *     orange supplier-confirmation badge.
+ *   - Wed–Fri: baseline qty 5, editable (operator can bump one above baseline
+ *     live and Save to exercise the enforcement write-path badge).
+ *
+ * Idempotent: deletes any pre-existing week at next-week weekStart for Sub 1
+ * before inserting. Self-guards vs prod. Dev-only.
+ */
+export const seedCutoffFixture = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const cloudUrl = process.env.CONVEX_CLOUD_URL ?? "";
+    if (cloudUrl.includes("decisive-wombat-7")) {
+      throw new Error(
+        "seedCutoffFixture: REFUSED — CONVEX_CLOUD_URL targets production. Dev only.",
+      );
+    }
+
+    const customer = await ctx.db
+      .query("customers")
+      .withIndex("by_phone", (q) => q.eq("phone", UAT_PHONE))
+      .first();
+    if (!customer) {
+      throw new Error("seedCutoffFixture: run seedCrmUat first (UAT customer missing).");
+    }
+
+    const subs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_customer", (q) => q.eq("customerId", customer._id))
+      .collect();
+    const sub1 = subs.find((s) => s.label === "Morning Bundle A");
+    if (!sub1) {
+      throw new Error("seedCutoffFixture: Sub 1 'Morning Bundle A' not found.");
+    }
+
+    const menuProduct = await ctx.db
+      .query("menuProducts")
+      .withIndex("by_active", (q) => q.eq("isActive", true))
+      .first();
+    const menuProductId = menuProduct?._id;
+    const productName = menuProduct?.name ?? "Frollie Snack";
+    const unitPrice = sub1.unitPrice;
+    const baseline = sub1.baselineDailyQty ?? 5;
+
+    const now = Date.now();
+    const nextWeekStart = computeWeekStart(now) + 7 * DAY_MS;
+    const { weekEnd } = computeWeekBounds(nextWeekStart);
+
+    // Idempotent: drop existing next-week row for this sub.
+    const existingWeek = await ctx.db
+      .query("subscriptionWeeks")
+      .withIndex("by_subscription_weekStart", (q) =>
+        q.eq("subscriptionId", sub1._id).eq("weekStart", nextWeekStart),
+      )
+      .first();
+    if (existingWeek) {
+      await ctx.db.delete(existingWeek._id);
+    }
+
+    const mkItems = (qty: number) =>
+      menuProductId
+        ? [
+            {
+              menuProductId,
+              productName,
+              qty,
+              unitPrice,
+              lineTotal: qty * unitPrice,
+            },
+          ]
+        : [];
+
+    const plannedDays = [0, 1, 2, 3, 4].map((i) => {
+      const aboveBaseline = i === 1;
+      const qty = aboveBaseline ? baseline + 3 : baseline; // Tue = 8 (>5)
+      return {
+        date: nextWeekStart + i * DAY_MS,
+        deliverByTime: "09:00",
+        items: mkItems(qty),
+        locked: i === 0, // Mon locked on a planned week → cutoff warning
+        needsSupplierConfirmation: aboveBaseline, // Tue above baseline → badge
+      };
+    });
+
+    const weekId = await ctx.db.insert("subscriptionWeeks", {
+      subscriptionId: sub1._id,
+      weekStart: nextWeekStart,
+      weekEnd,
+      status: "planned" as const,
+      plannedDays,
+      creditIssued: 0,
+      creditConsumed: 0,
+      creditRemaining: 0,
+      creditExpired: 0,
+      shortfall: 0,
+      shortfallFault: "none" as const,
+      refundDue: 0,
+    });
+
+    return {
+      ok: true,
+      subscriptionId: sub1._id,
+      weekId,
+      weekStart: nextWeekStart,
+      baseline,
+      navigate: `/crm/customers/${customer._id}/subscriptions/${sub1._id}/week?weekStart=${nextWeekStart}`,
+      summary:
+        `Planned next-week fixture for Sub 1 (baseline ${baseline}): ` +
+        `Mon locked (cutoff warning), Tue qty ${baseline + 3} (supplier badge), Wed–Fri editable @ ${baseline}. ` +
+        `Open schedule at weekStart=${nextWeekStart}.`,
+    };
+  },
+});
