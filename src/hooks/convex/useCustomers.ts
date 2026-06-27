@@ -11,13 +11,6 @@ import { createMutationHook } from "./createMutationHook";
 // Types
 // ============================================
 
-export interface CustomerCreateInput {
-  name: string;
-  phone?: string;
-  source?: string;
-  notes?: string;
-}
-
 export interface CustomerUpdateInput {
   name?: string;
   phone?: string;
@@ -62,7 +55,7 @@ export function useCustomerByPhone(phone: string | undefined) {
 /** Create a new customer. Canonical create — dedup-by-phone, full CRM field union. */
 export const useCreateCustomer = createMutationHook(
   api.crm.customers.createCustomer,
-  { successMessage: "Customer created", errorMessage: "Failed to create customer" }
+  { successMessage: "Customer saved", errorMessage: "Failed to save customer" }
 );
 
 /** Update an existing customer. */
