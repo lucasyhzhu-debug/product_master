@@ -59,9 +59,9 @@ export function useCustomerByPhone(phone: string | undefined) {
 // Mutation Hooks
 // ============================================
 
-/** Create a new customer. */
+/** Create a new customer. Canonical create — dedup-by-phone, full CRM field union. */
 export const useCreateCustomer = createMutationHook(
-  api.customers.mutations.create,
+  api.crm.customers.createCustomer,
   { successMessage: "Customer created", errorMessage: "Failed to create customer" }
 );
 
