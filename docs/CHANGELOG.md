@@ -14,6 +14,19 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Telegram broadcast announcements — 2026-06-27
+
+**For the team:** Managers/admins can now send a one-off message to a Telegram group straight from **Settings → Telegram Chats**. Pick the role (e.g. `founders`), type the message, hit **Send announcement** — it goes to whichever chat currently holds that role. No more copy-pasting into Telegram by hand.
+
+### Added
+- **`telegram.chatRegistry.sendAnnouncement`** (action, manager/admin) — sends arbitrary text to the chat assigned to a role. Destination is resolved **server-side by role** (`requireRoleAndResolveChat` internal query → `by_role_archived` lookup, same as `getChatIdByRole`) — the UI never passes a chat id. Bot token stays server-side. Records/clears `lastError` like `sendTestMessage`; sent with Telegram HTML parse mode (basic `<b>`/`<i>`/`<a>` supported).
+- **"Send announcement" composer** on `/admin/telegram-chats` (`TelegramChatsManager`) — role selector (defaults to `founders`), message textarea, live "delivers to <chat>" hint, and a confirm dialog previewing the message + destination before send. `useSendAnnouncement` hook (QRIS token pattern).
+
+### Files
+`convex/telegram/chatRegistry.ts` (additive: `sendAnnouncement` + `requireRoleAndResolveChat`), `src/hooks/convex/useTelegramChats.ts` (additive: `useSendAnnouncement`), `src/pages/TelegramChatsManager.tsx` (composer + confirm dialog), `src/pages/__tests__/TelegramChatsManager.test.tsx` (composer test + table-scoped combobox queries).
+
+---
+
 ## [Unreleased] — Subscription Rule Enforcement (Phase E · Slice 2) — 2026-06-27
 
 **For the team:** Standing B2B supply agreements now enforce their own rules automatically. After 13:00 the day before a delivery, that day's plan locks for changes — the CRM week calendar shows an amber "past 13:00 cutoff" warning (you can still edit; it's a heads-up, not a hard lock). Any day ordered above the agreed baseline shows a "needs supplier confirmation" badge. From a customer's page, managers can now schedule a permanent baseline change (takes effect in 14 days) or give a 30-day termination notice — after which no new weeks past the end date can be created. Confidential partner pricing stays hidden from staff order screens (re-audited, no leaks).

@@ -512,6 +512,80 @@ export const clearLastError = internalMutation({
   },
 });
 
+// ─── sendAnnouncement ────────────────────────────────────────────────────────
+
+/**
+ * @internal Auth + role→chat resolution for `sendAnnouncement`. Mirrors
+ * `requireChatRow` (manager/admin gate via an internal query so the raw action
+ * stays thin) but resolves the destination by ROLE rather than a caller-supplied
+ * chatId — so the UI never passes a chat literal and the send always targets
+ * whatever chat currently holds the role (same `by_role_archived` lookup as
+ * `getChatIdByRole`). Throws if the role is unknown or unassigned.
+ */
+export const requireRoleAndResolveChat = internalQuery({
+  args: { token: v.string(), role: v.string() },
+  handler: async (ctx, args): Promise<{ chatId: string; title: string }> => {
+    await requireRole(ctx, args.token, ["manager", "admin"]);
+    if (!isKnownTelegramRole(args.role)) {
+      throw new ConvexError(`Unknown Telegram role '${args.role}'`);
+    }
+    const row = await ctx.db
+      .query("telegramChats")
+      .withIndex("by_role_archived", (q) =>
+        q.eq("role", args.role).eq("archivedAt", undefined),
+      )
+      .first();
+    if (!row) {
+      throw new ConvexError(
+        `No active Telegram chat is assigned to role '${args.role}'. Assign one first.`,
+      );
+    }
+    return { chatId: row.chatId, title: row.title };
+  },
+});
+
+/**
+ * Send a one-off announcement (manager/admin) to the chat that currently holds
+ * `role`. The destination is resolved server-side by role (never a UI-supplied
+ * chat id), and the bot token stays server-side. `text` is sent with Telegram's
+ * HTML parse mode — basic tags (<b>, <i>, <a>) are supported; the caller is a
+ * trusted admin. Records/clears `lastError` like `sendTestMessage` so the admin
+ * table's Error badge reflects delivery health.
+ */
+export const sendAnnouncement = action({
+  args: { token: v.string(), role: v.string(), text: v.string() },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ ok: true; chatId: string; title: string }> => {
+    if (args.text.trim().length === 0) {
+      throw new ConvexError("Announcement text is empty");
+    }
+    const { chatId, title } = await ctx.runQuery(
+      internal.telegram.chatRegistry.requireRoleAndResolveChat,
+      { token: args.token, role: args.role },
+    );
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN missing");
+
+    try {
+      await sendTelegramHtml(botToken, chatId, args.text);
+      await ctx.runMutation(internal.telegram.chatRegistry.clearLastError, {
+        chatId,
+      });
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      const message = raw.length > 200 ? raw.slice(0, 199) + "…" : raw;
+      await ctx.runMutation(internal.telegram.chatRegistry.recordLastError, {
+        chatId,
+        message,
+      });
+      throw err;
+    }
+    return { ok: true, chatId, title };
+  },
+});
+
 // ─── seedChatFromEnv ─────────────────────────────────────────────────────────
 
 type SeedResult =

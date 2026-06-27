@@ -29,7 +29,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import React from "react";
 
@@ -112,6 +112,7 @@ const mockAssignRole = vi.fn();
 const mockArchive = vi.fn();
 const mockRestore = vi.fn();
 const mockSendTest = vi.fn();
+const mockSendAnnouncement = vi.fn();
 
 vi.mock("@/hooks/convex/useTelegramChats", () => ({
   useTelegramChats: (...a: unknown[]) => mockChats(...a),
@@ -119,6 +120,7 @@ vi.mock("@/hooks/convex/useTelegramChats", () => ({
   useArchiveChat: () => mockArchive,
   useRestoreChat: () => mockRestore,
   useSendTestMessage: () => mockSendTest,
+  useSendAnnouncement: () => mockSendAnnouncement,
 }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -196,9 +198,10 @@ describe("TelegramChatsManager reassignment dialog (spec case #21)", () => {
     ]);
     renderPage();
 
-    // Two native <select role="combobox"> elements rendered by the mock.
+    // Two native <select role="combobox"> elements rendered by the mock — scoped
+    // to the table so the announcement-composer role <select> is excluded.
     // [0] = Holder row (current value "pack-list"), [1] = Candidate row (value "_none").
-    const selects = screen.getAllByRole("combobox");
+    const selects = within(screen.getByRole("table")).getAllByRole("combobox");
     expect(selects).toHaveLength(2);
 
     // Fire change on Candidate's select to pick "pack-list" — a role already held by Holder.
@@ -241,7 +244,7 @@ describe("TelegramChatsManager restore-and-assign dialog", () => {
     ]);
     renderPage();
 
-    const select = screen.getAllByRole("combobox")[0];
+    const select = within(screen.getByRole("table")).getAllByRole("combobox")[0];
     fireEvent.change(select, { target: { value: "pack-list" } });
 
     await waitFor(() => {
@@ -254,6 +257,46 @@ describe("TelegramChatsManager restore-and-assign dialog", () => {
       expect(mockAssignRole).toHaveBeenCalledWith(
         expect.objectContaining({ restoreIfArchived: true, role: "pack-list", chatId: "-100A" }),
       );
+    });
+  });
+});
+
+// ============================================
+// Announcement composer — 1 test
+// ============================================
+
+describe("TelegramChatsManager announcement composer", () => {
+  it("sends the typed message to the selected role's chat after confirm", async () => {
+    mockChats.mockReturnValue([
+      {
+        _id: "1",
+        chatId: "-100F",
+        chatType: "supergroup",
+        title: "FrolliePro Updates",
+        role: "founders",
+        registeredAt: 0,
+        lastSeenAt: 0,
+      },
+    ]);
+    mockSendAnnouncement.mockResolvedValue({
+      ok: true,
+      chatId: "-100F",
+      title: "FrolliePro Updates",
+    });
+    renderPage();
+
+    fireEvent.change(screen.getByPlaceholderText(/type your announcement/i), {
+      target: { value: "Hello founders" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send announcement/i }));
+
+    // Confirm dialog appears, then confirm.
+    await screen.findByText(/Send this announcement\?/i);
+    fireEvent.click(screen.getByText("Send to Telegram"));
+
+    await waitFor(() => {
+      // Hook signature is (role, text) — role defaults to "founders".
+      expect(mockSendAnnouncement).toHaveBeenCalledWith("founders", "Hello founders");
     });
   });
 });
