@@ -859,3 +859,132 @@ export const seedCutoffFixture = mutation({
     };
   },
 });
+
+/**
+ * Dev-only reset for the CRM UAT fixture.
+ *
+ * seedCrmUat is idempotent-by-customer (matches UAT_PHONE) and returns early if
+ * the customer row exists. When a UAT run partially clears data (e.g. deletes
+ * subscriptions/weeks but leaves the customer), the seed can no longer rebuild
+ * a clean fixture. This mutation cascade-deletes every UAT-linked entity so the
+ * next seedCrmUat run recreates everything fresh.
+ *
+ * Purges (all reachable from the UAT customer):
+ *   orders + orderItems, invoices, supplyAgreements,
+ *   subscriptions → subscriptionWeeks + creditLedger, then the customer.
+ *
+ * Prod-safety: refuses to run against decisive-wombat-7.
+ *
+ * Run from dashboard (dev only): subscriptions/_devSeed:resetCrmUat
+ */
+export const resetCrmUat = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const cloudUrl = process.env.CONVEX_CLOUD_URL ?? "";
+    if (cloudUrl.includes("decisive-wombat-7")) {
+      throw new Error(
+        "resetCrmUat: REFUSED — CONVEX_CLOUD_URL targets production. Dev only.",
+      );
+    }
+
+    const customer = await ctx.db
+      .query("customers")
+      .withIndex("by_phone", (q) => q.eq("phone", UAT_PHONE))
+      .first();
+    if (!customer) {
+      return { ok: true, found: false, summary: "No UAT customer to reset." };
+    }
+    const customerId = customer._id;
+
+    const counts = {
+      orderItems: 0,
+      orders: 0,
+      invoices: 0,
+      supplyAgreements: 0,
+      subscriptionWeeks: 0,
+      creditLedger: 0,
+      subscriptions: 0,
+      customers: 0,
+    };
+
+    // ── Orders + their line items ─────────────────────────────────────────────
+    const orders = await ctx.db
+      .query("orders")
+      .withIndex("by_customer", (q) => q.eq("customerId", customerId))
+      .collect();
+    for (const order of orders) {
+      const items = await ctx.db
+        .query("orderItems")
+        .withIndex("by_order", (q) => q.eq("orderId", order._id))
+        .collect();
+      for (const item of items) {
+        await ctx.db.delete(item._id);
+        counts.orderItems++;
+      }
+      await ctx.db.delete(order._id);
+      counts.orders++;
+    }
+
+    // ── Invoices ──────────────────────────────────────────────────────────────
+    const invoices = await ctx.db
+      .query("invoices")
+      .withIndex("by_customer", (q) => q.eq("customerId", customerId))
+      .collect();
+    for (const inv of invoices) {
+      await ctx.db.delete(inv._id);
+      counts.invoices++;
+    }
+
+    // ── Supply agreements ─────────────────────────────────────────────────────
+    const agreements = await ctx.db
+      .query("supplyAgreements")
+      .withIndex("by_customer", (q) => q.eq("customerId", customerId))
+      .collect();
+    for (const ag of agreements) {
+      await ctx.db.delete(ag._id);
+      counts.supplyAgreements++;
+    }
+
+    // ── Subscriptions → weeks + ledger ────────────────────────────────────────
+    const subs = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_customer", (q) => q.eq("customerId", customerId))
+      .collect();
+    for (const sub of subs) {
+      const weeks = await ctx.db
+        .query("subscriptionWeeks")
+        .withIndex("by_subscription_weekStart", (q) =>
+          q.eq("subscriptionId", sub._id),
+        )
+        .collect();
+      for (const w of weeks) {
+        await ctx.db.delete(w._id);
+        counts.subscriptionWeeks++;
+      }
+      const ledger = await ctx.db
+        .query("creditLedger")
+        .withIndex("by_subscription", (q) => q.eq("subscriptionId", sub._id))
+        .collect();
+      for (const entry of ledger) {
+        await ctx.db.delete(entry._id);
+        counts.creditLedger++;
+      }
+      await ctx.db.delete(sub._id);
+      counts.subscriptions++;
+    }
+
+    // ── Customer ──────────────────────────────────────────────────────────────
+    await ctx.db.delete(customerId);
+    counts.customers = 1;
+
+    return {
+      ok: true,
+      found: true,
+      counts,
+      summary:
+        `Purged UAT fixture: ${counts.subscriptions} subs, ${counts.subscriptionWeeks} weeks, ` +
+        `${counts.creditLedger} ledger, ${counts.orders} orders, ${counts.invoices} invoices, ` +
+        `${counts.supplyAgreements} agreements, 1 customer. Re-run seedCrmUat.`,
+    };
+  },
+});
