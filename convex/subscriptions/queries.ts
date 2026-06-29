@@ -158,10 +158,12 @@ export const getOrderCreditStatus = protectedQuery({
     //   - subscription order ✓ (checked above)
     //   - status === "AwaitingPayment"
     //   - paymentStatus !== "Paid"
+    //   - (subscriptionCreditApplied ?? 0) === 0 — not already reserved (D5/IMP-4)
     //   - creditRemaining > 0 (mutation no-ops at 0, but surface should suppress button)
     const canApplyCredit =
       order.status === "AwaitingPayment" &&
       order.paymentStatus !== "Paid" &&
+      (order.subscriptionCreditApplied ?? 0) === 0 &&
       creditRemaining > 0;
 
     return {

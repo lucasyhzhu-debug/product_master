@@ -282,20 +282,12 @@ export const applyPartialCreditToAdHocOrder = protectedMutation({
     const coveredAmount = Math.min(remaining, order.finalTotal);
     const remainderAmount = order.finalTotal - coveredAmount;
 
-    // Post the drawdown (negative = debit the pool).
-    await postLedgerEntry(ctx, {
-      subscriptionId: order.subscriptionId,
-      subscriptionWeekId: order.subscriptionWeekId,
-      type: "drawdown",
-      amount: -coveredAmount,
-      createdBy: ctx.user._id,
-      orderId: order._id,
-      note: `Ad-hoc credit application on ${order.orderNumber} (${coveredAmount} IDR of ${order.finalTotal} IDR total)`,
-    });
-
-    // Label the order as deposit-funded; leave AwaitingPayment for the remainder.
+    // RESERVE (no eager drawdown — recognition posts the drawdown at delivery, D5/IMP-4 fix).
+    // Set order.subscriptionCreditApplied = coveredAmount so recognizeSubscriptionDelivery
+    // draws exactly that amount at delivery — not the full totalAmount.
     await ctx.db.patch(order._id, {
       fundingSource: "deposit",
+      subscriptionCreditApplied: coveredAmount,
       // status intentionally stays AwaitingPayment — remainder handled by QRIS/bank
     });
 
