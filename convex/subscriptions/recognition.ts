@@ -70,6 +70,8 @@ export async function recognizeSubscriptionDelivery(
   // surfacing a transient negative pool that self-corrects when the topup lands
   // (the pool is replayed from the full ledger on every postLedgerEntry). So we
   // always post the drawdown and log a console.warn for operator reconciliation.
+  const drawdownAmount = order.subscriptionCreditApplied ?? order.totalAmount;
+
   const priorEntries = await ctx.db
     .query("creditLedger")
     .withIndex("by_subscriptionWeek", (q) =>
@@ -80,12 +82,12 @@ export async function recognizeSubscriptionDelivery(
     priorEntries.map((e) => ({ type: e.type, amount: e.amount })),
   );
   const hasFunding = priorEntries.some((e) => e.type === "topup");
-  if (!hasFunding || priorPool.creditRemaining < order.totalAmount) {
+  if (!hasFunding || priorPool.creditRemaining < drawdownAmount) {
     console.warn(
       `[recognizeSubscriptionDelivery] recognizing ${order.orderNumber} against an ` +
         `under-funded credit pool (week ${order.subscriptionWeekId}): ` +
         `funded=${hasFunding}, remaining=${priorPool.creditRemaining}, ` +
-        `drawdown=${order.totalAmount}. Pool will go negative until funded — ` +
+        `drawdown=${drawdownAmount}. Pool will go negative until funded — ` +
         `expected funding (markWeeklyInvoicePaid) precedes delivery. Reconcile.`,
     );
   }
@@ -95,7 +97,7 @@ export async function recognizeSubscriptionDelivery(
     subscriptionId: order.subscriptionId,
     subscriptionWeekId: order.subscriptionWeekId,
     type: "drawdown",
-    amount: -order.totalAmount,
+    amount: -drawdownAmount,
     createdBy: author,
     orderId,
     note: `Sale recognized on delivery ${order.orderNumber}`,

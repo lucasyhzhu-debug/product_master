@@ -238,3 +238,66 @@ test("recognizeOnDelivery falls back to order.createdByUserId when actingUserId 
     expect(ledger[0].createdBy).toBe(userId); // falls back to order.createdByUserId
   });
 });
+
+// ---------------------------------------------------------------------------
+// T3 — subscriptionCreditApplied drawdown
+// ---------------------------------------------------------------------------
+
+/**
+ * Seeds a user, customer, funded subscription, and an ad-hoc credit order
+ * that carries `subscriptionCreditApplied` (only the credit-covered portion).
+ */
+async function seedAdHocCreditOrder(
+  t: ReturnType<typeof convexTest>,
+  opts: { totalAmount: number; subscriptionCreditApplied: number },
+) {
+  return await t.run(async (ctx) => {
+    const userId = await insertUser(ctx);
+    const customerId = await insertCustomer(ctx);
+    const { subscriptionId, subscriptionWeekId } = await insertSubscriptionFixture(
+      ctx,
+      userId,
+      customerId,
+    );
+    const orderId = await ctx.db.insert("orders", {
+      orderNumber: "0102-001",
+      customerId,
+      customerName: "Test Cafe",
+      status: "AwaitingDelivery",
+      paymentStatus: "Paid",
+      orderDate: Date.now(),
+      totalAmount: opts.totalAmount,
+      totalCost: 10000,
+      totalMargin: opts.totalAmount - 10000,
+      finalTotal: opts.totalAmount,
+      deliveryType: "Delivery",
+      createdBy: "test",
+      createdByUserId: userId,
+      itemCount: 1,
+      subscriptionId,
+      subscriptionWeekId,
+      subscriptionCreditApplied: opts.subscriptionCreditApplied,
+    } as never);
+    return { orderId, weekId: subscriptionWeekId, subId: subscriptionId };
+  });
+}
+
+test("ad-hoc credit order draws subscriptionCreditApplied, not totalAmount", async () => {
+  const t = convexTest(schema);
+  const { orderId } = await seedAdHocCreditOrder(t, {
+    totalAmount: 50000,
+    subscriptionCreditApplied: 14000,
+  });
+  await t.run(async (ctx) => {
+    const { recognizeSubscriptionDelivery } = await import("../recognition");
+    await recognizeSubscriptionDelivery(ctx, orderId);
+  });
+  const entries = await t.run(async (ctx) =>
+    ctx.db
+      .query("creditLedger")
+      .withIndex("by_order", (q) => q.eq("orderId", orderId))
+      .collect(),
+  );
+  expect(entries).toHaveLength(1);
+  expect(entries[0].amount).toBe(-14000); // reserved amount, NOT -50000
+});
