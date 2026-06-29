@@ -77,3 +77,68 @@ describe("nextBalanceAfter", () => {
     expect(nextBalanceAfter(30450000, -4350000)).toBe(26100000);
   });
 });
+
+import { computeCreditSplit } from "../creditMath";
+import type { Id } from "../../_generated/dataModel";
+
+const P1 = "p1" as Id<"menuProducts">;   // subscription product
+const P2 = "p2" as Id<"menuProducts">;   // off-plan product
+const allowed = new Set<string>([P1]);
+
+describe("computeCreditSplit", () => {
+  it("all eligible, credit covers full eligible subtotal (partner price)", () => {
+    // retail 10000, partner 7000; 8 units eligible
+    const s = computeCreditSplit(
+      [{ menuProductId: P1, qty: 8, retailUnitPrice: 10000 }],
+      allowed, 7000, 1_000_000,
+    );
+    expect(s.eligibleSubtotal).toBe(56000);   // 8 * 7000 (partner)
+    expect(s.creditCovered).toBe(56000);
+    expect(s.offPlanTotal).toBe(0);
+    expect(s.amountDue).toBe(0);
+    expect(s.lines[0].effectiveUnitPrice).toBe(7000);
+  });
+
+  it("partial: credit < eligible subtotal", () => {
+    const s = computeCreditSplit(
+      [{ menuProductId: P1, qty: 8, retailUnitPrice: 10000 }],
+      allowed, 7000, 30000,
+    );
+    expect(s.eligibleSubtotal).toBe(56000);
+    expect(s.creditCovered).toBe(30000);
+    expect(s.eligibleShortfall).toBe(26000);
+    expect(s.amountDue).toBe(26000);
+  });
+
+  it("mixed eligible + off-plan: off-plan at retail, always due", () => {
+    const s = computeCreditSplit(
+      [
+        { menuProductId: P1, qty: 2, retailUnitPrice: 10000 }, // partner 7000 -> 14000
+        { menuProductId: P2, qty: 1, retailUnitPrice: 25000 }, // off-plan retail 25000
+      ],
+      allowed, 7000, 1_000_000,
+    );
+    expect(s.eligibleSubtotal).toBe(14000);
+    expect(s.offPlanTotal).toBe(25000);
+    expect(s.creditCovered).toBe(14000);
+    expect(s.amountDue).toBe(25000); // off-plan only
+  });
+
+  it("off-plan only: creditCovered 0", () => {
+    const s = computeCreditSplit(
+      [{ menuProductId: P2, qty: 1, retailUnitPrice: 25000 }],
+      allowed, 7000, 1_000_000,
+    );
+    expect(s.creditCovered).toBe(0);
+    expect(s.amountDue).toBe(25000);
+  });
+
+  it("zero / negative available credit clamps to 0 covered", () => {
+    const s = computeCreditSplit(
+      [{ menuProductId: P1, qty: 2, retailUnitPrice: 10000 }],
+      allowed, 7000, -50,
+    );
+    expect(s.creditCovered).toBe(0);
+    expect(s.amountDue).toBe(14000);
+  });
+});
