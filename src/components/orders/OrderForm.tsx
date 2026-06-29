@@ -135,7 +135,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
   );
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null }) => {
+  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: string | null; companyName?: string | null }) => {
     const convexId = customer._id as Id<"customers">;
     setCustomerId(convexId);
     setCustomerSearch(customer.name);
@@ -435,7 +435,15 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
                       className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
                       onClick={() => handleCustomerSelect(customer)}
                     >
-                      <div className="font-medium">{customer.name}</div>
+                      <div className="font-medium">
+                        {customer.customerType === 'b2b_wholesale' && (
+                          <span className="text-xs font-semibold text-blue-600 mr-1">[B2B]</span>
+                        )}
+                        {customer.name}
+                        {customer.companyName && (
+                          <span className="text-muted-foreground font-normal"> — {customer.companyName}</span>
+                        )}
+                      </div>
                       {customer.phone && (
                         <div className="text-xs text-muted-foreground">{customer.phone}</div>
                       )}

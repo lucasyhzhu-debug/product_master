@@ -372,7 +372,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
     setItems(items.filter((item) => item.productId !== productId));
   };
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null }) => {
+  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: string | null; companyName?: string | null }) => {
     const convexId = customer._id as Id<"customers">;
     setSelectedCustomerId(convexId);
     setCustomerSearch(customer.name);
@@ -817,7 +817,15 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                               className="w-full px-4 py-3 text-left hover:bg-muted/50 text-sm border-b last:border-b-0 transition-colors"
                               onClick={() => handleCustomerSelect(customer)}
                             >
-                              <div className="font-medium text-foreground">{customer.name}</div>
+                              <div className="font-medium text-foreground">
+                                {customer.customerType === 'b2b_wholesale' && (
+                                  <span className="text-xs font-semibold text-blue-600 mr-1">[B2B]</span>
+                                )}
+                                {customer.name}
+                                {customer.companyName && (
+                                  <span className="text-muted-foreground font-normal"> — {customer.companyName}</span>
+                                )}
+                              </div>
                               {customer.phone && (
                                 <div className="text-xs text-muted-foreground mt-1">{customer.phone}</div>
                               )}
