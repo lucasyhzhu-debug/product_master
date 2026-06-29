@@ -8,7 +8,7 @@
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import schema from "../../schema";
-import { recognizeOnDelivery } from "../recognition";
+import { recognizeOnDelivery, recognizeSubscriptionDelivery } from "../recognition";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -289,7 +289,6 @@ test("ad-hoc credit order draws subscriptionCreditApplied, not totalAmount", asy
     subscriptionCreditApplied: 14000,
   });
   await t.run(async (ctx) => {
-    const { recognizeSubscriptionDelivery } = await import("../recognition");
     await recognizeSubscriptionDelivery(ctx, orderId);
   });
   const entries = await t.run(async (ctx) =>
