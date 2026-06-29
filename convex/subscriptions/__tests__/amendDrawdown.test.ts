@@ -245,6 +245,101 @@ describe("amendConfirmedWeek — draws down credit, no top-up invoice", () => {
   });
 });
 
+describe("amendConfirmedWeek — decreases & removals (symmetric amend)", () => {
+  it("reduces a day's order qty; surplus stays in the pool, no refund", async () => {
+    const t = convexTest(schema);
+    const f = await seedConfirmedFundedWeek(t); // funded + planned 150 on Tuesday
+
+    const res = await t.mutation(api.subscriptions.amend.amendConfirmedWeek, {
+      sessionId: f.sessionId,
+      subscriptionWeekId: f.subscriptionWeekId,
+      days: [{ date: TUE, items: [{ menuProductId: f.menuProductId, qty: 100 }] }],
+    });
+
+    // −50 units @ 29k = 1.45M reduced; no increase.
+    expect(res.deltaTotal).toBe(0);
+    expect(res.reducedTotal).toBe(50 * PRICE);
+    // Funded 150*29k, plan now 100*29k → no shortfall, 50*29k surplus left in pool.
+    expect(res.projectedShortfall).toBe(0);
+    expect(res.projectedEndingPool).toBe(50 * PRICE);
+
+    // The day's order was shrunk so the delivery draws down less.
+    const order = await t.run(async (ctx) => ctx.db.get(f.orderId));
+    expect(order!.totalAmount).toBe(100 * PRICE);
+    expect(order!.finalTotal).toBe(100 * PRICE);
+
+    const items = await t.run(async (ctx) =>
+      ctx.db.query("orderItems").withIndex("by_order", (q) => q.eq("orderId", f.orderId)).collect(),
+    );
+    const active = items.filter((i) => !i.isCancelled);
+    expect(active).toHaveLength(1);
+    expect(active[0].quantity).toBe(100);
+
+    // No top-up invoice, no refund ledger entry — surplus just sits in the pool.
+    expect(await topupInvoiceCount(t, f.subscriptionWeekId)).toBe(0);
+
+    const week = await t.run(async (ctx) => ctx.db.get(f.subscriptionWeekId));
+    expect(week!.plannedDays[0].items[0].qty).toBe(100);
+  });
+
+  it("removes an omitted day entirely — cancels its (undelivered) order", async () => {
+    const t = convexTest(schema);
+    const f = await seedConfirmedFundedWeek(t);
+
+    const res = await t.mutation(api.subscriptions.amend.amendConfirmedWeek, {
+      sessionId: f.sessionId,
+      subscriptionWeekId: f.subscriptionWeekId,
+      days: [], // omit the only planned day → full removal
+    });
+
+    expect(res.reducedTotal).toBe(150 * PRICE);
+    const order = await t.run(async (ctx) => ctx.db.get(f.orderId));
+    expect(order!.status).toBe("Cancelled");
+    expect(order!.totalAmount).toBe(0);
+
+    const week = await t.run(async (ctx) => ctx.db.get(f.subscriptionWeekId));
+    expect(week!.plannedDays).toHaveLength(0);
+  });
+
+  it("blocks reducing a day whose order is already delivered/recognized", async () => {
+    const t = convexTest(schema);
+    const f = await seedConfirmedFundedWeek(t);
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("creditLedger", {
+        subscriptionId: f.subscriptionId,
+        subscriptionWeekId: f.subscriptionWeekId,
+        type: "drawdown",
+        amount: -(150 * PRICE),
+        balanceAfter: 0,
+        createdBy: f.userId,
+        orderId: f.orderId,
+      } as never);
+    });
+
+    await expect(
+      t.mutation(api.subscriptions.amend.amendConfirmedWeek, {
+        sessionId: f.sessionId,
+        subscriptionWeekId: f.subscriptionWeekId,
+        days: [{ date: TUE, items: [{ menuProductId: f.menuProductId, qty: 100 }] }],
+      }),
+    ).rejects.toThrow(/already been delivered/);
+  });
+
+  it("rejects a no-op amendment identical to the current plan", async () => {
+    const t = convexTest(schema);
+    const f = await seedConfirmedFundedWeek(t);
+
+    await expect(
+      t.mutation(api.subscriptions.amend.amendConfirmedWeek, {
+        sessionId: f.sessionId,
+        subscriptionWeekId: f.subscriptionWeekId,
+        days: [{ date: TUE, items: [{ menuProductId: f.menuProductId, qty: 150 }] }],
+      }),
+    ).rejects.toThrow(/Nothing to amend/);
+  });
+});
+
 describe("billWeekShortfall — bills the projected shortfall as one top-up", () => {
   it("creates a single top-up invoice for the shortfall after an amendment", async () => {
     const t = convexTest(schema);
@@ -290,19 +385,6 @@ describe("billWeekShortfall — bills the projected shortfall as one top-up", ()
       }),
     ).rejects.toThrow(/already exists/);
     expect(await topupInvoiceCount(t, f.subscriptionWeekId)).toBe(1);
-  });
-
-  it("blocks omitting an existing planned day (ghost-order guard)", async () => {
-    const t = convexTest(schema);
-    const f = await seedConfirmedFundedWeek(t);
-    // Amendment omits the existing Tuesday day entirely → must be rejected.
-    await expect(
-      t.mutation(api.subscriptions.amend.amendConfirmedWeek, {
-        sessionId: f.sessionId,
-        subscriptionWeekId: f.subscriptionWeekId,
-        days: [{ date: WEEK_START + 2 * 86_400_000, items: [{ menuProductId: f.menuProductId, qty: 300 }] }],
-      }),
-    ).rejects.toThrow(/omitted from the amendment/);
   });
 
   it("throws when there is no shortfall to bill", async () => {

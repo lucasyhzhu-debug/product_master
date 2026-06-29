@@ -12,6 +12,7 @@ import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../../lib/functions";
 import { insertOrderWithItems } from "../../orders/helpers/insertOrder";
 import { generateNextOrderNumber } from "../../orders/helpers/customerResolution";
+import { formatSubscriptionDeliveryNote } from "../../lib/periodRange";
 
 export const confirmWeek = protectedMutation({
   roles: ["manager", "admin"],
@@ -60,6 +61,12 @@ export const confirmWeek = protectedMutation({
           orderDate: Date.now(),
           dueDate: day.date,
           deliveryDate: day.date,
+
+          // Stamp a crystal-clear delivery note so operators know exactly when
+          // each subscription card is due (e.g. "Deliver by 09:30; Monday 29/06/26").
+          // Uses the day's agreed deliver-by cutoff. Renders in the kanban card's
+          // notes section + order detail surfaces.
+          notes: formatSubscriptionDeliveryNote(day.date, day.deliverByTime),
 
           // Financials — partner price is the revenue; COGS resolved from BOM at production time
           totalAmount,

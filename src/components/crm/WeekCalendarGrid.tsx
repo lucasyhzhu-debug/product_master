@@ -35,7 +35,7 @@ export function WeekCalendarGrid({
   baselineDailyQty,
 }: WeekCalendarGridProps) {
   return (
-    <div className="grid grid-cols-7 gap-2">
+    <div className="flex flex-col gap-2">
       {Array.from({ length: 7 }, (_, i) => (
         <DayPlanCell
           key={i}

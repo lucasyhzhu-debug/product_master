@@ -183,8 +183,9 @@ describe("SubscriptionSchedulePage — confirmed week is locked (U1)", () => {
   it("disables quantity inputs when week is confirmed", () => {
     mockPlanningData = { week: CONFIRMED_WEEK, subscription: SUBSCRIPTION_BASE };
     renderPage();
-    const qtyInputs = screen.queryAllByRole("spinbutton");
-    // All quantity spinboxes must be disabled (one per line item)
+    // Qty fields are numeric text inputs (no spinner arrows) labelled "Quantity".
+    const qtyInputs = screen.queryAllByLabelText(/quantity/i);
+    // All quantity inputs must be disabled (one per line item)
     expect(qtyInputs.length).toBeGreaterThan(0);
     for (const input of qtyInputs) {
       expect(input).toBeDisabled();
@@ -224,7 +225,8 @@ describe("SubscriptionSchedulePage — planned week is editable (U1)", () => {
   it("quantity inputs are not disabled when week is planned", () => {
     mockPlanningData = { week: PLANNED_WEEK, subscription: SUBSCRIPTION_BASE };
     renderPage();
-    const qtyInputs = screen.queryAllByRole("spinbutton");
+    const qtyInputs = screen.queryAllByLabelText(/quantity/i);
+    expect(qtyInputs.length).toBeGreaterThan(0);
     for (const input of qtyInputs) {
       expect(input).not.toBeDisabled();
     }

@@ -7,6 +7,7 @@ import { detectAboveBaseline } from "./enforcement/detectAboveBaseline";
 import { insertOrderWithItems } from "../orders/helpers/insertOrder";
 import { generateNextOrderNumber } from "../orders/helpers/customerResolution";
 import {
+  cancelProductionRecords,
   createProductionRecordsForItem,
   updateProductionRecordsForQuantityChange,
 } from "../orders/helpers/productionRecords";
@@ -59,9 +60,41 @@ export function computeTopupDelta(args: {
   return { addedLines, deltaTotal };
 }
 
+export type RemovedLine = { productName: string; qty: number; unitPrice: number; lineTotal: number };
+
+/**
+ * Pure server-side delta for the DECREASE direction: per-product positive
+ * reduction between the funded plan and the amended plan, priced at unitPrice.
+ * Increases are ignored. Integer IDR. Symmetric counterpart to computeTopupDelta.
+ */
+export function computeReduceDelta(args: {
+  currentQtyByProduct: Record<string, number>;
+  newQtyByProduct: Record<string, number>;
+  unitPrice: number;
+  productNameByProduct: Record<string, string>;
+}): { removedLines: RemovedLine[]; reducedTotal: number } {
+  const { currentQtyByProduct, newQtyByProduct, unitPrice, productNameByProduct } = args;
+  const removedLines: RemovedLine[] = [];
+  let reducedTotal = 0;
+  for (const productId of Object.keys(currentQtyByProduct)) {
+    const dec = (currentQtyByProduct[productId] ?? 0) - (newQtyByProduct[productId] ?? 0);
+    if (dec > 0) {
+      const lineTotal = computeLineTotal(dec, unitPrice);
+      removedLines.push({
+        productName: productNameByProduct[productId] ?? "Unknown product",
+        qty: dec,
+        unitPrice,
+        lineTotal,
+      });
+      reducedTotal += lineTotal;
+    }
+  }
+  return { removedLines, reducedTotal };
+}
+
 /**
  * Product IDs whose amended qty is below the funded qty (a decrease/removal).
- * v1 amend is increases-only.
+ * Used to detect whether a day's plan changed in the decrease direction.
  */
 export function findProductDecreases(
   currentQtyByProduct: Record<string, number>,
@@ -171,6 +204,7 @@ async function applyDayOrder(
   }
 
   let changed = false;
+  const amendedProductIds = new Set<string>(items.map((it) => it.menuProductId));
   for (const it of items) {
     const existing = activeByProduct.get(it.menuProductId);
     const lineTotal = computeLineTotal(it.qty, unitPrice);
@@ -201,6 +235,17 @@ async function applyDayOrder(
       await createProductionRecordsForItem(ctx, newItemId, it.menuProductId, it.qty);
     }
   }
+
+  // A product present on the existing order but absent from the amended day is a
+  // removal — cancel its line + production records (undelivered, so safe). Mirrors
+  // the qty-down path; keeps the order total honest and stops it drawing down.
+  for (const [productId, oi] of activeByProduct) {
+    if (amendedProductIds.has(productId)) continue;
+    changed = true;
+    await ctx.db.patch(oi._id, { isCancelled: true });
+    await cancelProductionRecords(ctx, oi._id);
+  }
+
   if (!changed) return; // nothing changed on this day — skip the total recompute
 
   // Recompute order totals from all non-cancelled items.
@@ -220,6 +265,31 @@ async function applyDayOrder(
 }
 
 /**
+ * Fully remove an undelivered day from the week: cancel its order so it no longer
+ * delivers or draws down credit. Used when an amendment omits a previously-planned
+ * day entirely (a removal — the strongest form of a decrease).
+ */
+async function cancelDayOrder(ctx: MutationCtx, orderId: Id<"orders">): Promise<void> {
+  const orderItems = await ctx.db
+    .query("orderItems")
+    .withIndex("by_order", (q) => q.eq("orderId", orderId))
+    .collect();
+  for (const oi of orderItems) {
+    if (oi.isCancelled) continue;
+    await ctx.db.patch(oi._id, { isCancelled: true });
+    await cancelProductionRecords(ctx, oi._id);
+  }
+  await ctx.db.patch(orderId, {
+    status: "Cancelled",
+    totalAmount: 0,
+    totalCost: 0,
+    totalMargin: 0,
+    finalTotal: 0,
+    itemCount: 0,
+  });
+}
+
+/**
  * Amend a confirmed/invoiced/paid/delivering week: re-price the plan, persist
  * plannedDays, and **bump each amended day's actual order** so the larger
  * delivery draws DOWN the existing credit pool at delivery (recognition.ts).
@@ -228,10 +298,17 @@ async function applyDayOrder(
  * invoice. The added quantity simply consumes more prepaid credit; the pool runs
  * down faster and, once planned consumption exceeds funded credit, the week shows
  * a projected shortfall that the operator can bill in ONE top-up when ready
- * (billWeekShortfall). Increases only — reductions go through reconcile/refund.
+ * (billWeekShortfall).
+ *
+ * Symmetric (2026-06-29 follow-up): amend now also supports DECREASES and full
+ * day removals. Reducing an undelivered day shrinks its order so it draws LESS
+ * credit at delivery; the leftover simply stays in the pool (projection shows a
+ * smaller shortfall / a surplus). No auto-refund — surplus credit carries per the
+ * subscription's rollover policy.
  *
  * Guard: a day whose order has already been delivered (recognized) cannot be
- * amended — its drawdown is locked. Amend future/undelivered days only.
+ * amended in EITHER direction — its drawdown is locked. Amend future/undelivered
+ * days only.
  */
 export const amendConfirmedWeek = protectedMutation({
   roles: ["manager", "admin"],
@@ -271,37 +348,32 @@ export const amendConfirmedWeek = protectedMutation({
       productNameByProduct[uniqueProductIds[i]] = mp.name;
     }
 
-    const decreases = findProductDecreases(currentQtyByProduct, newQtyByProduct);
-    if (decreases.length > 0) {
-      throw new ConvexError(
-        "Amend supports increases only — one or more products would decrease or be removed. " +
-          "Handle reductions via reconcile/refund, not amend.",
-      );
-    }
-
-    // Every existing planned day MUST be present in the amendment (qty unchanged
-    // is fine). Omitting a day passes the week-aggregate increase guard while its
-    // already-created order keeps drawing down at delivery (a "ghost" drawdown the
-    // shortfall projection wouldn't see). Removing a day is a reduction → reconcile.
-    const amendedDates = new Set(args.days.map((d) => d.date));
+    // Fill in names for products that are being REMOVED (present in the funded
+    // plan but absent from the amendment) so the reduce-delta lines read sensibly.
     for (const oldDay of week.plannedDays) {
-      if (oldDay.items.length > 0 && !amendedDates.has(oldDay.date)) {
-        throw new ConvexError(
-          `Day ${new Date(oldDay.date).toISOString().slice(0, 10)} is in the current plan but was ` +
-            `omitted from the amendment. Amend supports increases only — to remove a planned day, ` +
-            `use reconcile/refund.`,
-        );
+      for (const it of oldDay.items) {
+        if (!(it.menuProductId in productNameByProduct)) {
+          productNameByProduct[it.menuProductId] = it.productName;
+        }
       }
     }
 
+    // Amend is now symmetric: increases draw MORE credit at delivery, decreases
+    // (and removals) draw LESS. Compute both directions; require at least one.
     const { addedLines, deltaTotal } = computeTopupDelta({
       currentQtyByProduct,
       newQtyByProduct,
       unitPrice,
       productNameByProduct,
     });
-    if (deltaTotal <= 0) {
-      throw new ConvexError("Amend supports increases only — the amended plan does not add quantity");
+    const { removedLines, reducedTotal } = computeReduceDelta({
+      currentQtyByProduct,
+      newQtyByProduct,
+      unitPrice,
+      productNameByProduct,
+    });
+    if (deltaTotal === 0 && reducedTotal === 0) {
+      throw new ConvexError("Nothing to amend — the amended plan is identical to the current plan");
     }
 
     // Map the week's existing orders by delivery date (non-cancelled).
@@ -315,18 +387,29 @@ export const amendConfirmedWeek = protectedMutation({
       orderByDate.set(o.deliveryDate, o);
     }
 
-    // Guard: block amending a day whose order has already been delivered/recognized.
+    // Guard: block changing ANY day whose order is already delivered/recognized —
+    // its drawdown is locked, so neither an increase, a decrease, nor a removal is
+    // allowed. Build the set of dates whose plan differs (changed or fully removed).
+    const amendedDates = new Set(args.days.map((d) => d.date));
+    const affectedDates = new Set<number>();
     for (const day of args.days) {
       const dayCurrent = aggregateQtyByProduct(week.plannedDays.filter((d) => d.date === day.date));
       const dayNew = aggregateQtyByProduct([day]);
-      const dayIncreased = Object.keys(dayNew).some(
-        (pid) => (dayNew[pid] ?? 0) > (dayCurrent[pid] ?? 0),
-      );
-      if (!dayIncreased) continue;
-      const order = orderByDate.get(day.date);
+      const allPids = new Set([...Object.keys(dayCurrent), ...Object.keys(dayNew)]);
+      const changed = [...allPids].some((pid) => (dayNew[pid] ?? 0) !== (dayCurrent[pid] ?? 0));
+      if (changed) affectedDates.add(day.date);
+    }
+    // Omitted days (planned with items, absent from the amendment) = full removals.
+    for (const oldDay of week.plannedDays) {
+      if (oldDay.items.length > 0 && !amendedDates.has(oldDay.date)) {
+        affectedDates.add(oldDay.date);
+      }
+    }
+    for (const date of affectedDates) {
+      const order = orderByDate.get(date);
       if (order && (await isOrderRecognized(ctx, order._id))) {
         throw new ConvexError(
-          `Cannot amend the day starting ${new Date(day.date).toISOString().slice(0, 10)} — ` +
+          `Cannot amend the day starting ${new Date(date).toISOString().slice(0, 10)} — ` +
             `it has already been delivered. Amend only future/undelivered days.`,
         );
       }
@@ -368,6 +451,16 @@ export const amendConfirmedWeek = protectedMutation({
       });
     }
 
+    // Cancel orders for days that were planned but omitted from the amendment
+    // (full removals). Recognized days were already blocked above.
+    const keptDates = new Set(plannedDays.map((d) => d.date));
+    for (const oldDay of week.plannedDays) {
+      if (oldDay.items.length > 0 && !keptDates.has(oldDay.date)) {
+        const order = orderByDate.get(oldDay.date);
+        if (order) await cancelDayOrder(ctx, order._id);
+      }
+    }
+
     // Report the projected end-of-week credit position (no invoice created).
     const ledger = await ctx.db
       .query("creditLedger")
@@ -380,6 +473,6 @@ export const amendConfirmedWeek = protectedMutation({
       creditIssued,
     });
 
-    return { deltaTotal, addedLines, projectedShortfall, projectedEndingPool };
+    return { deltaTotal, addedLines, reducedTotal, removedLines, projectedShortfall, projectedEndingPool };
   },
 });
