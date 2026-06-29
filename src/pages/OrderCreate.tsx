@@ -437,7 +437,8 @@ export function OrderCreate() {
         dueDate,
         soldBy: user?.name ?? undefined,
         notes: notes || undefined,
-        items: items.map((it) => ({
+        // FIX-4: filter to items with a productId so the submit matches the banner display
+        items: items.filter((it) => it.productId).map((it) => ({
           productName: it.productName,
           quantity: it.quantity,
           unitPrice: it.unitPrice,
@@ -445,6 +446,14 @@ export function OrderCreate() {
           menuProductId: it.productId as Id<"menuProducts">,
         })),
       });
+      // FIX-1: delete the auto-created Draft (orphan) before navigating to the credit order
+      if (draftOrderId && draftOrderId !== result.orderId) {
+        try {
+          await deleteOrder.mutate(draftOrderId);
+        } catch (_) {
+          // best-effort — the credit order already exists; don't block navigation
+        }
+      }
       setCreditOrderId(result.orderId);
       setShowCreditWhatsApp(true);
       toast.success('Credit-funded order created');

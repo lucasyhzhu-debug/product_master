@@ -3,6 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
 import { deriveCreditPool, computeScheduleTotal, deriveWeekShortfall, computeCreditSplit } from "./creditMath";
 import { getWibDateStr } from "../lib/periodRange";
+import { computeWeekAvailableCredit } from "./creditReservation";
 
 export const listSubscriptions = protectedQuery({
   roles: ["manager", "admin"],
@@ -266,39 +267,18 @@ export const getSubscriptionCreditContext = protectedQuery({
       let plannedDeliveriesRemaining = 0;
 
       if (week) {
-        // Derive pool from ledger entries (canonical — never re-key from week fields).
-        const entries = await ctx.db
-          .query("creditLedger")
-          .withIndex("by_subscriptionWeek", (q) =>
-            q.eq("subscriptionWeekId", week._id),
-          )
-          .collect();
-        const pool = deriveCreditPool(
-          entries.map((e) => ({ type: e.type, amount: e.amount })),
-        );
+        // Derive reservation-aware available credit (canonical — see creditReservation.ts).
+        // Called before any new order is created → the order-in-progress is not yet in
+        // the DB, so its reservation is not included (correct: shows pre-order headroom).
+        ({ availableCredit } = await computeWeekAvailableCredit(ctx, week._id));
 
-        // Fetch all non-cancelled credit orders in this week for:
-        //   (1) reservation netting, (2) status-aware planned-delivery count.
+        // Fetch orders separately for status-aware planned-delivery count below.
         const weekOrders = await ctx.db
           .query("orders")
           .withIndex("by_subscriptionWeek", (q) =>
             q.eq("subscriptionWeekId", week._id),
           )
           .collect();
-
-        // Reservation netting: sum subscriptionCreditApplied for un-recognized orders.
-        let reserved = 0;
-        for (const o of weekOrders) {
-          const applied = o.subscriptionCreditApplied ?? 0;
-          if (applied <= 0 || o.status === "Cancelled") continue;
-          // Recognized = has a by_order drawdown ledger row.
-          const recognized = await ctx.db
-            .query("creditLedger")
-            .withIndex("by_order", (q) => q.eq("orderId", o._id))
-            .first();
-          if (!recognized) reserved += applied;
-        }
-        availableCredit = Math.max(0, pool.creditRemaining - reserved);
 
         split = computeCreditSplit(
           args.draftItems,

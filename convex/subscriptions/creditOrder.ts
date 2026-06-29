@@ -16,8 +16,9 @@ import {
   type OrderItemInsert,
 } from "../orders/helpers/insertOrder";
 import { generateNextOrderNumber } from "../orders/helpers/customerResolution";
-import { computeCreditSplit, deriveCreditPool } from "./creditMath";
+import { computeCreditSplit } from "./creditMath";
 import { getWibDateStr } from "../lib/periodRange";
+import { computeWeekAvailableCredit } from "./creditReservation";
 import { renderTemplate } from "../whatsappTemplates/render";
 
 export const createCreditFundedOrder = protectedMutation({
@@ -55,32 +56,10 @@ export const createCreditFundedOrder = protectedMutation({
       throw new ConvexError("No funded subscription week covers this date");
     }
 
-    // --- Compute reservation-aware available credit (mirrors getSubscriptionCreditContext) ---
-    const ledgerEntries = await ctx.db
-      .query("creditLedger")
-      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
-      .collect();
-    const pool = deriveCreditPool(
-      ledgerEntries.map((e) => ({ type: e.type, amount: e.amount })),
-    );
-
-    // Subtract unrealized reservations: orders with subscriptionCreditApplied but no
-    // by_order drawdown yet (recognition posts the drawdown at delivery — T3).
-    const weekOrders = await ctx.db
-      .query("orders")
-      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
-      .collect();
-    let reserved = 0;
-    for (const o of weekOrders) {
-      const applied = o.subscriptionCreditApplied ?? 0;
-      if (applied <= 0 || o.status === "Cancelled") continue;
-      const recognized = await ctx.db
-        .query("creditLedger")
-        .withIndex("by_order", (q) => q.eq("orderId", o._id))
-        .first();
-      if (!recognized) reserved += applied;
-    }
-    const availableCredit = Math.max(0, pool.creditRemaining - reserved);
+    // --- Compute reservation-aware available credit (see creditReservation.ts) ---
+    // Called before insertOrderWithItems → the new order is not yet in the DB,
+    // so its reservation is not included. availableCredit = true headroom at create-time.
+    const { availableCredit } = await computeWeekAvailableCredit(ctx, week._id);
 
     // --- Server-side credit split (NEVER trust client amounts for eligible lines — C4) ---
     const allowed = new Set<string>(
@@ -210,16 +189,11 @@ export const getCreditOrderWhatsappDraft = protectedQuery({
     const week = await ctx.db.get(order.subscriptionWeekId);
     if (!week) return null;
 
-    // --- Credit pool (reservation-aware, INCLUDING this order) ---
-    const ledgerEntries = await ctx.db
-      .query("creditLedger")
-      .withIndex("by_subscriptionWeek", (q) =>
-        q.eq("subscriptionWeekId", week._id),
-      )
-      .collect();
-    const pool = deriveCreditPool(
-      ledgerEntries.map((e) => ({ type: e.type, amount: e.amount })),
-    );
+    // --- Credit pool (reservation-aware, INCLUDING this order — see creditReservation.ts) ---
+    // Called AFTER the order is created → this order IS in weekOrders with
+    // subscriptionCreditApplied set and no by_order ledger row, so it IS included
+    // in `reserved`. availableCredit = credit left AFTER this order (shown in WA summary).
+    const { availableCredit: creditRemaining } = await computeWeekAvailableCredit(ctx, week._id);
 
     const weekOrders = await ctx.db
       .query("orders")
@@ -227,18 +201,6 @@ export const getCreditOrderWhatsappDraft = protectedQuery({
         q.eq("subscriptionWeekId", week._id),
       )
       .collect();
-
-    let reserved = 0;
-    for (const o of weekOrders) {
-      const applied = o.subscriptionCreditApplied ?? 0;
-      if (applied <= 0 || o.status === "Cancelled") continue;
-      const recognized = await ctx.db
-        .query("creditLedger")
-        .withIndex("by_order", (q) => q.eq("orderId", o._id))
-        .first();
-      if (!recognized) reserved += applied;
-    }
-    const creditRemaining = Math.max(0, pool.creditRemaining - reserved);
 
     // --- Planned deliveries remaining ---
     const today = getWibDateStr(order.dueDate ?? Date.now());
