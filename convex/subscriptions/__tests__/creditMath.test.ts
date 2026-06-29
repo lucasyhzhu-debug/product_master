@@ -3,9 +3,30 @@ import {
   computeLineTotal,
   computeScheduleTotal,
   deriveCreditPool,
+  deriveWeekShortfall,
   nextBalanceAfter,
 } from "../creditMath";
 import type { PlannedDay } from "../types";
+
+describe("deriveWeekShortfall", () => {
+  it("reports a shortfall when planned consumption exceeds funded credit", () => {
+    expect(deriveWeekShortfall({ plannedConsumption: 7_250_000, creditIssued: 4_350_000 })).toEqual({
+      projectedShortfall: 2_900_000,
+      projectedEndingPool: -2_900_000,
+    });
+  });
+  it("reports no shortfall when funding covers the plan", () => {
+    expect(deriveWeekShortfall({ plannedConsumption: 4_350_000, creditIssued: 4_350_000 })).toEqual({
+      projectedShortfall: 0,
+      projectedEndingPool: 0,
+    });
+  });
+  it("reports a positive ending pool when over-funded", () => {
+    const r = deriveWeekShortfall({ plannedConsumption: 3_000_000, creditIssued: 4_350_000 });
+    expect(r.projectedShortfall).toBe(0);
+    expect(r.projectedEndingPool).toBe(1_350_000);
+  });
+});
 
 const line = (qty: number, unitPrice: number) =>
   ({ menuProductId: "x" as never, productName: "Dubai", qty, unitPrice, lineTotal: qty * unitPrice });
