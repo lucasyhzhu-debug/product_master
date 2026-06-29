@@ -100,8 +100,16 @@ export function formatWeeklyDeliveryProgress(rows: DeliveryProgressRow[]): strin
   if (!rows.length) return ["<b>📦 Weekly delivery progress</b>\n<i>No active accounts.</i>"];
   const header = "<b>📦 Weekly delivery progress</b>";
   const blocks = rows.map((r) => {
+    // `weeklyLeft` (allotment − used) is the single quota figure; the over-plan flag
+    // surfaces when delivered exceeds the WEEK'S PLAN (overBy, plan-based). One clean
+    // quota line — the old "X out of plan" / "remaining in quota" lines duplicated this.
     const over = r.overBy > 0 ? ` (⚠️ over plan by ${r.overBy})` : "";
-    return `<b>Week of ${fmtDate(r.weekStart)} — ${r.account}</b>\n${r.deliveredPcs} out of ${r.weekPlannedPcs}\n${r.remaining} pcs remaining in quota${over}`;
+    return (
+      `<b>Week of ${fmtDate(r.weekStart)} — ${r.account}</b>\n` +
+      `Shipped today: ${r.shippedTodayPcs} pcs\n` +
+      `Used this week: ${r.deliveredPcs}/${r.weeklyQty} — ${r.weeklyLeft} left${over}\n` +
+      `Credit remaining: ${fmtIDR(r.creditRemaining)}`
+    );
   });
   return packChunks(header, blocks);
 }

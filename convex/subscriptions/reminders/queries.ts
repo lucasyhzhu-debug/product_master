@@ -3,11 +3,18 @@ import { internalQuery } from "../../_generated/server";
 import type { QueryCtx } from "../../_generated/server";
 import type { Id } from "../../_generated/dataModel";
 import { getWibComponents } from "../../lib/periodRange";
+import { deriveCreditPool } from "../creditMath";
 import type {
   ConfirmRow, InvoiceDueRow, TodayDeliveriesRow, ReconcileRow, DeliveryProgressRow, DeliveryLine,
 } from "./types";
 
 const TERMINAL_DELIVERED = "Complete" as const;
+
+/** WIB calendar-day key (YYYYMMDD) for same-day comparison. */
+function wibDayKey(utcMs: number): number {
+  const c = getWibComponents(utcMs);
+  return c.year * 10000 + (c.month + 1) * 100 + c.day;
+}
 
 /** Subscriptions in `active` status (helper — read once per query). */
 async function activeSubscriptions(ctx: QueryCtx) {
@@ -157,10 +164,41 @@ export const getWeeklyDeliveryProgress = internalQuery({
       const deliveredPcs = itemLists
         .flat()
         .reduce((s: number, it) => s + it.quantity, 0);
+
+      // Pieces shipped TODAY (WIB): delivered orders whose SCHEDULED deliveryDate is
+      // today. Subscription orders are created per scheduled day and delivered on that
+      // day, so deliveryDate == actual ship day in the normal flow; a rare late delivery
+      // (completed a day after its scheduled date) would be attributed to the schedule
+      // day, not the completion day. completeOrders[i] ↔ itemLists[i] are index-aligned
+      // (Promise.all preserves map order).
+      const todayKey = wibDayKey(now);
+      let shippedTodayPcs = 0;
+      for (let i = 0; i < completeOrders.length; i++) {
+        const o = completeOrders[i];
+        if (o.deliveryDate !== undefined && wibDayKey(o.deliveryDate) === todayKey) {
+          shippedTodayPcs += itemLists[i].reduce((s: number, it) => s + it.quantity, 0);
+        }
+      }
+
+      // Weekly allotment left = weeklyQty − used this week (delivered). weeklyQty is a
+      // required schema field (counted in scheduled product pieces, same unit as used).
+      const weeklyQty = sub.weeklyQty;
+      const weeklyLeft = Math.max(0, weeklyQty - deliveredPcs);
+
+      // Credit remaining = derived pool (C10 — read the derived value, never re-key).
+      const ledger = await ctx.db
+        .query("creditLedger")
+        .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", week._id))
+        .collect();
+      const creditRemaining = deriveCreditPool(
+        ledger.map((e) => ({ type: e.type, amount: e.amount })),
+      ).creditRemaining;
+
       out.push({
         account: sub.label, weekStart: week.weekStart, weekPlannedPcs, deliveredPcs,
         remaining: Math.max(0, weekPlannedPcs - deliveredPcs),
         overBy: Math.max(0, deliveredPcs - weekPlannedPcs),
+        shippedTodayPcs, weeklyQty, weeklyLeft, creditRemaining,
       });
     }
     return out;

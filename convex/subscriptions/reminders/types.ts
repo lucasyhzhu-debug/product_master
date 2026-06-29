@@ -9,4 +9,8 @@ export type ReconcileRow = { account: string; weekStart: number; shortfall: numb
 export type DeliveryProgressRow = {
   account: string; weekStart: number;
   weekPlannedPcs: number; deliveredPcs: number; remaining: number; overBy: number;
+  /** End-of-day KPIs (2026-06-29): pieces shipped TODAY (WIB), the weekly allotment
+   *  (`weeklyQty`) and how much of it is left (`weeklyQty − used this week`), and the
+   *  derived credit pool remaining (integer IDR). */
+  shippedTodayPcs: number; weeklyQty: number; weeklyLeft: number; creditRemaining: number;
 };

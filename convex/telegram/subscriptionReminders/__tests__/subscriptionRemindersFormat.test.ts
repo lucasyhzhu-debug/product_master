@@ -9,12 +9,13 @@ import {
 describe("formatWeeklyDeliveryProgress", () => {
   it("renders one block per account with remaining (never negative) + over-plan flag", () => {
     const html = formatWeeklyDeliveryProgress([
-      { account: "Crystal Cafe", weekStart: Date.UTC(2026,5,22), weekPlannedPcs: 21, deliveredPcs: 8, remaining: 13, overBy: 0 },
-      { account: "Tamtem", weekStart: Date.UTC(2026,5,22), weekPlannedPcs: 14, deliveredPcs: 16, remaining: 0, overBy: 2 },
+      { account: "Crystal Cafe", weekStart: Date.UTC(2026,5,22), weekPlannedPcs: 21, deliveredPcs: 8, remaining: 13, overBy: 0,
+        shippedTodayPcs: 3, weeklyQty: 21, weeklyLeft: 13, creditRemaining: 100_000 },
+      { account: "Tamtem", weekStart: Date.UTC(2026,5,22), weekPlannedPcs: 14, deliveredPcs: 16, remaining: 0, overBy: 2,
+        shippedTodayPcs: 2, weeklyQty: 14, weeklyLeft: 0, creditRemaining: 0 },
     ]).join("\n");
     expect(html).toContain("Crystal Cafe");
-    expect(html).toContain("8 out of 21");
-    expect(html).toContain("13 pcs remaining");
+    expect(html).toContain("Used this week: 8/21 — 13 left"); // allotment quota line
     expect(html).toContain("Tamtem");
     expect(html).toMatch(/over.*2/i); // over-plan surfaced
   });
@@ -24,9 +25,20 @@ describe("formatWeeklyDeliveryProgress", () => {
   it("renders the WIB date with a 1-indexed month (June = 06, not 05)", () => {
     // weekStart = 2026-06-22 00:00 WIB (Date.UTC month index 5 = June).
     const html = formatWeeklyDeliveryProgress([
-      { account: "X", weekStart: Date.UTC(2026,5,21,17,0), weekPlannedPcs: 7, deliveredPcs: 0, remaining: 7, overBy: 0 },
+      { account: "X", weekStart: Date.UTC(2026,5,21,17,0), weekPlannedPcs: 7, deliveredPcs: 0, remaining: 7, overBy: 0,
+        shippedTodayPcs: 0, weeklyQty: 7, weeklyLeft: 7, creditRemaining: 0 },
     ]).join("\n");
     expect(html).toContain("22/06/26"); // guards the getWibComponents 0-indexed-month off-by-one
+  });
+
+  it("shows shipped-today, weekly allotment left, and credit remaining (the end-of-day KPIs)", () => {
+    const html = formatWeeklyDeliveryProgress([
+      { account: "Crystal Cafe", weekStart: Date.UTC(2026,5,22), weekPlannedPcs: 21, deliveredPcs: 8, remaining: 13, overBy: 0,
+        shippedTodayPcs: 5, weeklyQty: 21, weeklyLeft: 13, creditRemaining: 17_400_000 },
+    ]).join("\n");
+    expect(html).toContain("Shipped today: 5 pcs"); // pieces shipped TODAY
+    expect(html).toContain("— 13 left");            // weekly allotment remaining (weeklyQty − used)
+    expect(html).toContain("Rp 17,400,000");        // credit remaining (integer IDR, en-US commas)
   });
 });
 
@@ -99,6 +111,10 @@ describe("chunking — oversized input splits into multiple <= 4096-char chunks"
       deliveredPcs: i % 100,
       remaining: 100 - (i % 100),
       overBy: 0,
+      shippedTodayPcs: i % 20,
+      weeklyQty: 100,
+      weeklyLeft: 100 - (i % 100),
+      creditRemaining: (i % 50) * 29_000,
     }));
     const chunks = formatWeeklyDeliveryProgress(rows);
     expect(chunks.length).toBeGreaterThan(1);

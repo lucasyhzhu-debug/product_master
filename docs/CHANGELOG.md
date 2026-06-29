@@ -14,6 +14,19 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription end-of-day summary: shipped today / weekly left / credit remaining — 2026-06-29
+
+**For the team:** The daily 18:00 WIB subscription delivery-progress Telegram message now also shows, per active cafe: **pieces shipped today**, **how much of the weekly allotment is left** (`weeklyQty − used this week`), and **credit remaining**. This is the at-a-glance end-of-day check that the day's orders + credit draw-down all reconciled.
+
+### Changed
+- **`getWeeklyDeliveryProgress`** (`convex/subscriptions/reminders/queries.ts`) + **`DeliveryProgressRow`** (`reminders/types.ts`) — adds `shippedTodayPcs` (delivered orders whose `deliveryDate` is today, WIB), `weeklyQty`, `weeklyLeft` (`max(0, weeklyQty − deliveredPcs)`), and `creditRemaining` (derived from the week's `creditLedger` via `deriveCreditPool` — C10, never re-keyed).
+- **`formatWeeklyDeliveryProgress`** (`subscriptionRemindersFormat.ts`) — renders the three new lines (Shipped today / Used this week N/allotment − M left / Credit remaining). Recipient + cron unchanged (founders, daily 18:00 WIB) — reuses the existing resilient send + watchdog.
+
+### Tests
+- Formatter renders the new KPIs; query integration test asserts shipped-today (deliveryDate=today), weekly-left, and ledger-derived credit remaining.
+
+---
+
 ## [Unreleased] — Security: scrub leaked secrets before public-repo exposure — 2026-06-29
 
 **For the team:** The repo was made public, so credentials that had been committed (in docs/config) are now removed and a guard is in place to stop it recurring. **Action required (live secrets — scrubbing alone is not enough on a public repo):** (1) revoke the `@FrolliePOS_Bot` Telegram token via BotFather and store the new one in the FrolliePOS project's secrets; (2) change the K3Mart vendor password and set `K3MART_EMAIL`/`K3MART_PASSWORD` in Convex env. Already-dead secrets (expired GoBiz session token, expired session tokens in backups) need no rotation.
