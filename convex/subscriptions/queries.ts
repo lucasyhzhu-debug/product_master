@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
-import { deriveCreditPool } from "./creditMath";
+import { deriveCreditPool, computeScheduleTotal, deriveWeekShortfall } from "./creditMath";
 
 export const listSubscriptions = protectedQuery({
   roles: ["manager", "admin"],
@@ -44,6 +44,58 @@ export const getWeekPool = protectedQuery({
       .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", args.subscriptionWeekId))
       .collect();
     return { week, pool: deriveCreditPool(entries.map((e) => ({ type: e.type, amount: e.amount }))), entries };
+  },
+});
+
+/**
+ * getWeekShortfall — projected end-of-week credit position for a (possibly
+ * amended) week. Drives the "projected to overrun" flag + "Bill shortfall"
+ * offer: when the amended plan's consumption exceeds funded credit, the
+ * difference is the top-up the operator can bill in one go (billWeekShortfall).
+ *
+ * `funded` is true once any credit has been deposited (weekly invoice paid).
+ * The overrun offer is only meaningful for a funded week — an unfunded week is
+ * already fully covered by its unpaid weekly invoice.
+ */
+export const getWeekShortfall = protectedQuery({
+  roles: ["manager", "admin"],
+  args: { subscriptionWeekId: v.id("subscriptionWeeks") },
+  handler: async (ctx, args) => {
+    const week = await ctx.db.get(args.subscriptionWeekId);
+    if (!week) return null;
+    const entries = await ctx.db
+      .query("creditLedger")
+      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", args.subscriptionWeekId))
+      .collect();
+    const pool = deriveCreditPool(entries.map((e) => ({ type: e.type, amount: e.amount })));
+    const plannedConsumption = computeScheduleTotal(week.plannedDays);
+    const { projectedShortfall, projectedEndingPool } = deriveWeekShortfall({
+      plannedConsumption,
+      creditIssued: pool.creditIssued,
+    });
+    // A shortfall already billed (unpaid top-up invoice) must not re-offer — the
+    // gap closes when that invoice is paid (mirrors billWeekShortfall's guard).
+    const pendingTopup = await ctx.db
+      .query("invoices")
+      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", args.subscriptionWeekId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("invoiceKind"), "subscription_topup"),
+          q.neq(q.field("paymentStatus"), "Paid"),
+        ),
+      )
+      .first();
+    return {
+      plannedConsumption,
+      creditIssued: pool.creditIssued,
+      creditRemaining: pool.creditRemaining,
+      projectedShortfall,
+      projectedEndingPool,
+      funded: pool.creditIssued > 0,
+      hasPendingTopup: Boolean(pendingTopup),
+      // Only offer when funded, the plan will overrun, AND nothing's already billed.
+      shouldOfferTopup: pool.creditIssued > 0 && projectedShortfall > 0 && !pendingTopup,
+    };
   },
 });
 

@@ -118,7 +118,24 @@ type UnpaidInvoiceDoc = {
   paymentStatus: string;
   invoiceNumber?: string | null;
   finalTotal: number;
+  // Link targets (A1) — resolved server-side in getCustomerRecord.
+  subscriptionId: Id<"subscriptions"> | null;
+  weekStart: number | null;
+  orderId: Id<"orders"> | null;
 };
+
+/**
+ * Canonical page for an unpaid invoice (A1). Subscription invoices link to the
+ * week-invoice page; plain order invoices to the order-invoice page. There is no
+ * `/invoices/:id` route — linking there silently bounces to home (catch-all).
+ */
+function invoiceHref(customerId: Id<"customers">, inv: UnpaidInvoiceDoc): string | null {
+  if (inv.subscriptionId && inv.weekStart != null) {
+    return `/crm/customers/${customerId}/subscriptions/${inv.subscriptionId}/week/invoice?weekStart=${inv.weekStart}`;
+  }
+  if (inv.orderId) return `/orders/${inv.orderId}/invoice`;
+  return null;
+}
 
 type CustomerRecord = {
   customer: CustomerDoc;
@@ -590,19 +607,24 @@ function FinancialPane({
           <div className="space-y-1.5">
             {unpaidInvoices.map((inv) => {
               const displayNum = inv.invoiceNumber ?? `···${inv._id.slice(-6)}`;
+              const href = invoiceHref(customerId, inv);
               return (
                 <Card key={inv._id}>
                   <CardContent className="p-3 flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0">
                       <CreditCard className="h-4 w-4 text-amber-500 shrink-0" aria-hidden="true" />
                       {/* Link to the specific invoice page (A1) */}
-                      <Link
-                        to={`/invoices/${inv._id}`}
-                        className="text-sm font-medium hover:underline inline-flex items-center gap-0.5"
-                      >
-                        {displayNum}
-                        <ArrowUpRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-                      </Link>
+                      {href ? (
+                        <Link
+                          to={href}
+                          className="text-sm font-medium hover:underline inline-flex items-center gap-0.5"
+                        >
+                          {displayNum}
+                          <ArrowUpRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+                        </Link>
+                      ) : (
+                        <span className="text-sm font-medium">{displayNum}</span>
+                      )}
                       <span className="text-sm text-muted-foreground tabular-nums">
                         {formatCurrency(inv.finalTotal)}
                       </span>

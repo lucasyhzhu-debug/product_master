@@ -476,9 +476,15 @@ export function SubscriptionSchedulePage() {
                   .filter((d) => d.items.length > 0);
                 try {
                   const r = await amendWeek({ subscriptionWeekId: week._id, days });
-                  toast.success(
-                    `Amended — top-up invoice for ${formatCurrency(r.deltaTotal)} created. Mark it paid to fund the credit.`,
-                  );
+                  const extra = formatCurrency(r.deltaTotal);
+                  if (r.projectedShortfall > 0) {
+                    toast.success(
+                      `Amended — ${extra} more drawn from credit. This week is now projected to overrun by ` +
+                        `${formatCurrency(r.projectedShortfall)}; bill the shortfall from the invoice page when ready.`,
+                    );
+                  } else {
+                    toast.success(`Amended — ${extra} more will draw down from the existing credit pool.`);
+                  }
                   setAmending(false);
                   setLocalDays(null);
                 } catch (err) {
@@ -486,7 +492,7 @@ export function SubscriptionSchedulePage() {
                 }
               }}
             >
-              Save amendments &rarr; bill top-up
+              Save amendments &rarr; draw down credit
             </Button>
           )}
 

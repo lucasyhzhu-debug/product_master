@@ -17,8 +17,6 @@ import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import {
   ArrowLeft,
   CheckCircle2,
-  Copy,
-  FileText,
   Mail,
   MessageCircle,
   Printer,
@@ -34,37 +32,38 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingPage } from "@/components/shared/LoadingState";
+import { InvoicePrintView, type InvoicePrintData } from "@/components/invoice/InvoicePrintView";
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
-import { utcToWibDateStr, formatIndonesianDate, formatSubscriptionWeekLabel } from "@/lib/dateUtils";
+import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
+
+/**
+ * Aggregate the week's invoice lines by product for a compact, customer-facing
+ * invoice (one line per product for the whole week, not one per day). Keeps the
+ * printed invoice to a single page and reads as a standard B2B invoice.
+ */
+function aggregateItemsByProduct(
+  items: Array<{ productName: string; qty: number; unitPrice: number; lineTotal: number }>,
+): Array<{ productName: string; qty: number; unitPrice: number; lineTotal: number }> {
+  const map = new Map<string, { productName: string; qty: number; unitPrice: number; lineTotal: number }>();
+  for (const it of items) {
+    const key = `${it.productName}@@${it.unitPrice}`;
+    const cur = map.get(key);
+    if (cur) {
+      cur.qty += it.qty;
+      cur.lineTotal += it.lineTotal;
+    } else {
+      map.set(key, { productName: it.productName, qty: it.qty, unitPrice: it.unitPrice, lineTotal: it.lineTotal });
+    }
+  }
+  return [...map.values()].sort((a, b) => a.productName.localeCompare(b.productName));
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-
-type InvoiceItem = {
-  productName: string;
-  qty: number;
-  unitPrice: number;
-  lineTotal: number;
-  date?: number;
-};
-
-/** Group invoice items by their delivery date (epoch ms). */
-function groupByDate(items: InvoiceItem[]): Map<number | undefined, InvoiceItem[]> {
-  const map = new Map<number | undefined, InvoiceItem[]>();
-  for (const item of items) {
-    const key = item.date;
-    const bucket = map.get(key) ?? [];
-    bucket.push(item);
-    map.set(key, bucket);
-  }
-  return map;
-}
 
 const PAYMENT_STATUS_BADGE: Record<string, string> = {
   Unpaid: "bg-amber-100 text-amber-700",
@@ -117,7 +116,6 @@ export function SubscriptionWeeklyInvoicePage() {
   const navigate = useNavigate();
 
   const [marking, setMarking] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [showReconcile, setShowReconcile] = useState(false);
 
   // ---------------------------------------------------------------------------
@@ -162,6 +160,19 @@ export function SubscriptionWeeklyInvoicePage() {
   );
 
   const markPaidMutation = useSessionMutation(api.subscriptions.invoicing.markWeeklyInvoicePaid);
+
+  // Projected credit shortfall for this week (drives the "almost out of credit"
+  // offer-to-bill banner). subscriptionWeekId only known once the week loads.
+  const weekIdForShortfall: Id<"subscriptionWeeks"> | null =
+    planningData && planningData !== null && "week" in planningData
+      ? (planningData.week?._id ?? null)
+      : null;
+  const shortfall = useSessionQuery(
+    api.subscriptions.queries.getWeekShortfall,
+    weekIdForShortfall ? { subscriptionWeekId: weekIdForShortfall } : "skip",
+  );
+  const billShortfallMutation = useSessionMutation(api.subscriptions.invoicing.billWeekShortfall);
+  const [billing, setBilling] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Loading guards (D12)
@@ -236,24 +247,20 @@ export function SubscriptionWeeklyInvoicePage() {
   // ---------------------------------------------------------------------------
   // Derived display values
   // ---------------------------------------------------------------------------
-  const {
-    invoiceNumber,
-    paymentStatus,
-    items,
-    finalTotal,
-    buyerName,
-    bankName,
-    bankAccountNumber,
-    bankAccountName,
-  } = invoiceDoc;
+  const { invoiceNumber, paymentStatus, finalTotal, buyerName, bankName, bankAccountNumber, bankAccountName } =
+    invoiceDoc;
 
   const weekLabel = formatSubscriptionWeekLabel(weekStartMs);
   const statusClass =
     PAYMENT_STATUS_BADGE[paymentStatus ?? "Unpaid"] ?? "bg-gray-100 text-gray-500";
   const isPaid = paymentStatus === "Paid";
 
-  const byDate = groupByDate((items as InvoiceItem[]) ?? []);
-  const sortedDates = [...byDate.keys()].sort((a, b) => (a ?? 0) - (b ?? 0));
+  // Reuse the canonical customer-facing invoice generator (same as the ordering
+  // system). Aggregate the week's lines by product so it fits one page.
+  const printData: InvoicePrintData = {
+    ...invoiceDoc,
+    items: aggregateItemsByProduct(invoiceDoc.items),
+  };
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -270,11 +277,16 @@ export function SubscriptionWeeklyInvoicePage() {
     }
   }
 
-  function handleCopyRef() {
-    navigator.clipboard.writeText(invoiceNumber ?? "").then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+  async function handleBillShortfall() {
+    setBilling(true);
+    try {
+      const res = await billShortfallMutation({ subscriptionWeekId: week!._id });
+      toast.success(`Top-up invoice created for ${formatCurrency(res.projectedShortfall)}.`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to bill shortfall"));
+    } finally {
+      setBilling(false);
+    }
   }
 
   function handlePrint() {
@@ -309,7 +321,7 @@ export function SubscriptionWeeklyInvoicePage() {
   // Render
   // ---------------------------------------------------------------------------
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="space-y-4">
       {/* Header — hidden when printing */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between print:hidden">
         <div className="flex items-start gap-3">
@@ -389,134 +401,45 @@ export function SubscriptionWeeklyInvoicePage() {
         onOpenChange={setShowReconcile}
       />
 
-      {/* Bank transfer reference — PROMINENT (gap#1 A3, customer copies into memo) */}
-      <Card className="border-2 border-primary/30 print:border print:border-gray-400">
-        <CardContent className="pt-5 pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-                Bank Transfer Reference
+      {/* Almost-out-of-credit offer — surfaces when the (amended) plan will overrun
+          the funded credit. Billing it creates ONE top-up invoice for the shortfall. */}
+      {shortfall && shortfall.shouldOfferTopup && (
+        <Card className="border-amber-300 bg-amber-50 print:hidden">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="text-sm">
+              <p className="font-semibold text-amber-800">Credit almost used up</p>
+              <p className="text-amber-700 mt-0.5">
+                This week is projected to overrun its funded credit by{" "}
+                <span className="font-semibold tabular-nums">
+                  {formatCurrency(shortfall.projectedShortfall)}
+                </span>
+                . Bill the shortfall as one top-up when ready.
               </p>
-              <p className="text-2xl font-bold font-mono tracking-wider text-primary">
-                {invoiceNumber}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Customer copies this into the transfer memo field
-              </p>
-            </div>
-            <div className="flex flex-col gap-0.5 text-sm">
-              <p className="font-medium">{bankName}</p>
-              <p className="font-mono text-foreground">{bankAccountNumber}</p>
-              <p className="text-muted-foreground">a/n {bankAccountName}</p>
             </div>
             <Button
-              variant="outline"
               size="sm"
-              onClick={handleCopyRef}
-              className="self-start text-xs print:hidden"
+              onClick={handleBillShortfall}
+              disabled={billing}
+              className="shrink-0 text-xs"
             >
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
-              {copied ? "Copied!" : "Copy ref"}
+              {billing ? (
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Receipt className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Bill shortfall ({formatCurrency(shortfall.projectedShortfall)})
             </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Day-by-day invoice cards */}
-      {sortedDates.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="No items on this invoice"
-          description="The week has no planned delivery items."
-        />
-      ) : (
-        <div className="space-y-3">
-          {sortedDates.map((dateMs) => {
-            const dayItems = byDate.get(dateMs) ?? [];
-            const dayTotal = dayItems.reduce((s, it) => s + it.lineTotal, 0);
-            const dateLabel =
-              dateMs != null ? formatIndonesianDate(dateMs) : "Date not set";
-            const dateStr = dateMs != null ? utcToWibDateStr(dateMs) : "";
-
-            return (
-              <Card key={dateMs ?? "no-date"} className="print:shadow-none print:border">
-                <CardHeader className="pb-2 pt-4">
-                  <CardTitle className="text-sm font-semibold flex items-center justify-between">
-                    <span>{dateLabel}</span>
-                    <span className="text-xs text-muted-foreground font-normal">{dateStr}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pb-4">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-muted-foreground border-b">
-                        <th className="text-left pb-1.5 font-medium">Product</th>
-                        <th className="text-right pb-1.5 font-medium">Qty</th>
-                        <th className="text-right pb-1.5 font-medium">Unit price</th>
-                        <th className="text-right pb-1.5 font-medium">Subtotal</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dayItems.map((item, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="py-1.5 pr-2">{item.productName}</td>
-                          <td className="py-1.5 text-right tabular-nums">{item.qty}</td>
-                          <td className="py-1.5 text-right tabular-nums">
-                            {formatCurrency(item.unitPrice)}
-                          </td>
-                          <td className="py-1.5 text-right tabular-nums font-medium">
-                            {formatCurrency(item.lineTotal)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="pt-2 text-right text-xs text-muted-foreground font-medium"
-                        >
-                          Day total
-                        </td>
-                        <td className="pt-2 text-right font-semibold tabular-nums">
-                          {formatCurrency(dayTotal)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Week total */}
-      {sortedDates.length > 0 && (
-        <Card className="print:shadow-none print:border">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold">
-                  Week total (= credit funded on payment)
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{weekLabel}</p>
-              </div>
-              <p className="text-2xl font-bold tabular-nums">{formatCurrency(finalTotal)}</p>
-            </div>
-            <Separator className="my-3" />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Invoice {invoiceNumber}</span>
-              <Badge className={`text-xs font-medium ${statusClass}`}>
-                {paymentStatus ?? "Unpaid"}
-              </Badge>
-            </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Bottom CTA — only visible when unpaid and there are items */}
-      {!isPaid && sortedDates.length > 0 && (
+      {/* Customer-facing invoice — canonical print view (one page) */}
+      <div className="rounded border bg-white shadow-sm print:rounded-none print:border-0 print:shadow-none">
+        <InvoicePrintView data={printData} />
+      </div>
+
+      {/* Bottom CTA — only visible when unpaid */}
+      {!isPaid && (
         <div className="flex justify-end print:hidden">
           <MarkPaidInvoiceButton marking={marking} onClick={handleMarkPaid} />
         </div>

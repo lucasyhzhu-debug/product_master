@@ -24,6 +24,24 @@ import { getNextInvoiceNumber } from "../invoices/mutations";
 import { getWibDateStr } from "../lib/periodRange";
 import { isTerminalStatus } from "../orders/helpers/statusTransitions";
 import { postLedgerEntry } from "./ledger";
+import { computeScheduleTotal, deriveCreditPool, deriveWeekShortfall } from "./creditMath";
+
+/**
+ * Fallback company bank account for invoice snapshots when no default bank
+ * account is configured in Business Settings (`businessSettings.defaultBankAccountId`).
+ *
+ * WHY: subscription invoices snapshot bank details at creation. If the default
+ * bank is unset, the fields would snapshot empty strings and the invoice / WhatsApp
+ * draft would ship a blank "transfer to" account (silent failure). This mirrors the
+ * canonical order-confirmation account hardcoded in `src/lib/whatsappTemplates.ts`.
+ * The CONFIGURED default (when present) always wins — this is only a safety net.
+ * Operators should still configure the real default at /bank-accounts + /business-settings.
+ */
+export const DEFAULT_BANK = {
+  bankName: "BCA",
+  accountNumber: "6044830994",
+  name: "PT Malo Group Bahagia",
+} as const;
 
 // ---------------------------------------------------------------------------
 // Pure snapshot builder — shared by both weekly and topup invoice builders.
@@ -82,16 +100,22 @@ export async function buildInvoiceSnapshot(
     sellerEmail: settings?.email,
     sellerNpwp: settings?.npwp,
     sellerLogoStorageId: settings?.logoStorageId,
-    // Bank snapshot
-    bankName: bank?.bankName ?? "",
-    bankAccountNumber: bank?.accountNumber ?? "",
-    bankAccountName: bank?.name ?? "",
-    // Buyer snapshot
+    // Bank snapshot — fall back to the canonical company account so an invoice
+    // never ships a blank "transfer to" (configured default always wins).
+    bankName: bank?.bankName ?? DEFAULT_BANK.bankName,
+    bankAccountNumber: bank?.accountNumber ?? DEFAULT_BANK.accountNumber,
+    bankAccountName: bank?.name ?? DEFAULT_BANK.name,
+    // Buyer snapshot — customer-facing invoice block. Prefer the delivery
+    // address (a subscription is a recurring delivery) and the WhatsApp contact.
     buyerName: customer?.name ?? "Customer",
     buyerCompany: customer?.companyName,
     buyerNpwp: customer?.npwp,
-    buyerAddress: customer?.billingAddress ?? customer?.defaultAddress,
-    buyerPhone: customer?.phone,
+    buyerAddress:
+      customer?.deliveryAddress ??
+      customer?.billingAddress ??
+      customer?.defaultAddress ??
+      customer?.storeAddress,
+    buyerPhone: customer?.whatsapp ?? customer?.phone,
     items,
     subtotal,
     finalTotal: subtotal, // required field; there is no separate `total`
@@ -379,5 +403,79 @@ export const markTopupInvoicePaid = protectedMutation({
       "Top-up credit funded (deferred revenue — mid-week schedule delta)",
     );
     return invoice.subscriptionWeekId;
+  },
+});
+
+/**
+ * billWeekShortfall — bill the projected end-of-week credit shortfall as ONE
+ * top-up invoice (user directive 2026-06-29). Used when an amended week's
+ * planned consumption exceeds the funded credit ("projected to overrun"): rather
+ * than a separate invoice per amendment, the operator bills the whole shortfall
+ * once the customer is almost out of credit. Marking it paid funds the pool
+ * (existing markTopupInvoicePaid flow), closing the gap.
+ *
+ * Returns the new invoiceId, or null if there is no shortfall to bill.
+ */
+export const billWeekShortfall = protectedMutation({
+  roles: ["manager", "admin"],
+  args: { subscriptionWeekId: v.id("subscriptionWeeks") },
+  handler: async (ctx, args) => {
+    const week = await ctx.db.get(args.subscriptionWeekId);
+    if (!week) throw new ConvexError("Week not found");
+
+    const entries = await ctx.db
+      .query("creditLedger")
+      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", args.subscriptionWeekId))
+      .collect();
+    const pool = deriveCreditPool(entries.map((e) => ({ type: e.type, amount: e.amount })));
+    const plannedConsumption = computeScheduleTotal(week.plannedDays);
+    const { projectedShortfall } = deriveWeekShortfall({
+      plannedConsumption,
+      creditIssued: pool.creditIssued,
+    });
+
+    if (projectedShortfall <= 0) {
+      throw new ConvexError("This week has no projected credit shortfall to bill.");
+    }
+
+    // Idempotency: creating a top-up invoice does NOT raise creditIssued until it
+    // is marked paid, so a second call would see the same shortfall and bill again
+    // → over-funded pool. Refuse while an unpaid shortfall invoice already exists.
+    const existingUnpaid = await ctx.db
+      .query("invoices")
+      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", args.subscriptionWeekId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("invoiceKind"), "subscription_topup"),
+          q.neq(q.field("paymentStatus"), "Paid"),
+        ),
+      )
+      .first();
+    if (existingUnpaid) {
+      throw new ConvexError(
+        `An unpaid top-up invoice (${existingUnpaid.invoiceNumber ?? existingUnpaid._id}) already exists ` +
+          `for this week. Mark it paid or void it before billing the shortfall again.`,
+      );
+    }
+
+    const sub = await ctx.db.get(week.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
+    const weekLabel = getWibDateStr(week.weekStart);
+    const invoiceId = await buildTopupInvoice(ctx, {
+      subscriptionWeekId: week._id,
+      items: [
+        {
+          // qty/unitPrice as a single credit line — the shortfall is an amount,
+          // not a per-product quantity (amendments span multiple products/days).
+          productName: `Additional subscription credit — week of ${weekLabel}`,
+          qty: 1,
+          unitPrice: projectedShortfall,
+          lineTotal: projectedShortfall,
+        },
+      ],
+      generatedBy: ctx.user._id,
+    });
+
+    return { invoiceId, projectedShortfall, customerId: sub?.customerId ?? null };
   },
 });

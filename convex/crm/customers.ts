@@ -9,6 +9,7 @@
  */
 
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { protectedMutation, protectedQuery } from "../lib/functions";
 import { resolveCurrentWeek } from "./helpers/currentWeek";
 import { deriveCreditPool } from "../subscriptions/creditMath";
@@ -199,7 +200,33 @@ export const getCustomerRecord = protectedQuery({
       currentWeekPoolBySubscription[r.subId] = r.value;
     }
 
-    return { customer, subscriptions, agreements, currentWeekPoolBySubscription, unpaidInvoices };
+    // Enrich each unpaid invoice with the route params its canonical page needs
+    // (A1: every reference links to its object page). Subscription invoices resolve
+    // subscriptionId + weekStart via subscriptionWeekId → the week-invoice route;
+    // plain order invoices carry orderId → the order-invoice route. The frontend
+    // picks the target from whichever is present.
+    const unpaidInvoicesLinked = await Promise.all(
+      unpaidInvoices.map(async (inv) => {
+        let subscriptionId: Id<"subscriptions"> | null = null;
+        let weekStart: number | null = null;
+        if (inv.subscriptionWeekId) {
+          const wk = await ctx.db.get(inv.subscriptionWeekId);
+          if (wk) {
+            subscriptionId = wk.subscriptionId;
+            weekStart = wk.weekStart;
+          }
+        }
+        return { ...inv, subscriptionId, weekStart, orderId: inv.orderId ?? null };
+      }),
+    );
+
+    return {
+      customer,
+      subscriptions,
+      agreements,
+      currentWeekPoolBySubscription,
+      unpaidInvoices: unpaidInvoicesLinked,
+    };
   },
 });
 
