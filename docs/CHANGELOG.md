@@ -14,6 +14,20 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription order cards show a clear deliver-by note — 2026-06-29
+
+**For the team:** Every order card generated from a weekly subscription now carries a plain-language delivery note — e.g. **"Deliver by 09:30; Monday 29/06/26"** — so when you're dragging and confirming cards on the kanban you can tell at a glance which weekday and date (and the agreed deliver-by time) each one is for. The deliver-by time comes from the subscription's own "Deliver by" setting, not a fixed value.
+
+### Added
+- **`formatSubscriptionDeliveryNote(utcMs, deliverByTime)`** (`convex/lib/periodRange.ts`) — WIB-pinned weekday + `DD/MM/YY`, prefixed with the day's agreed deliver-by cutoff. Offset-adjusted so the date never drifts on a non-WIB server.
+
+### Changed
+- **`confirmWeek`** (`convex/subscriptions/scheduling/confirmWeek.ts`) — sets each generated order's `notes` to the deliver-by note, using that planned day's own `deliverByTime` (`subscriptionWeeks.plannedDays[].deliverByTime`). The existing `KanbanCard` notes box renders it, and it persists into the order slide-over / detail surfaces — no frontend changes needed.
+
+**Notes:** Only newly-confirmed weeks get the note (no backfill of already-generated orders). Subscription orders will now match the optional "orders with notes" kanban filter (opt-in, off by default).
+
+---
+
 ## [Unreleased] — Subscription amend: reduce as well as increase + schedule-grid UX fixes — 2026-06-29
 
 **For the team:** You can now **reduce** a subscription day (or remove it), not just increase it. If you accidentally bump Monday to 250 when you meant 150, just amend it back down — the smaller delivery draws less credit and the leftover stays in the customer'''s pool (no refund, no new invoice). Already-delivered days are still locked. The weekly **Schedule Calendar** now lays each day out on its **own full-width row** so the product dropdown is readable instead of squashed, and the quantity box has **no up/down arrows** and can be **cleared and retyped** (snaps back to 1 only if you leave it empty).
