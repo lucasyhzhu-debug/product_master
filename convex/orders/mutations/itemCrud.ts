@@ -3,6 +3,8 @@
  * Managing items within orders: add, remove, update quantity
  */
 import { mutation } from "../../_generated/server";
+import type { MutationCtx } from "../../_generated/server";
+import type { Id } from "../../_generated/dataModel";
 import { v } from "convex/values";
 
 // Pure calculation helpers (no ctx dependency)
@@ -106,6 +108,66 @@ export const addItem = mutation({
 });
 
 /**
+ * Remove item from order — INTERNAL helper (operates on ctx directly).
+ *
+ * Convex mutations cannot call other mutations, so the item/total/production
+ * math lives here and is reused by both the public `removeItem` mutation and the
+ * subscription edit orchestrator (editUndeliveredSubscriptionOrder). DO NOT
+ * duplicate this body — extend it here so all callers stay consistent.
+ */
+export async function removeItemInternal(
+  ctx: MutationCtx,
+  itemId: Id<"orderItems">
+): Promise<{ success: true; voucherCleared: boolean }> {
+  const item = await ctx.db.get(itemId);
+  if (!item) {
+    throw new Error("Order item not found");
+  }
+
+  const order = await ctx.db.get(item.orderId);
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  // Auto-release voucher when order is modified
+  const voucherCleared = await clearVoucherFromOrder(ctx, item.orderId);
+
+  // Re-fetch order if voucher was cleared
+  const currentOrder = voucherCleared ? await ctx.db.get(item.orderId) : order;
+  if (!currentOrder) {
+    throw new Error("Order not found after voucher clear");
+  }
+
+  // Calculate new totals
+  const newTotalAmount = currentOrder.totalAmount - item.lineTotal;
+  const newTotalCost = currentOrder.totalCost - item.lineCost;
+
+  // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
+  const newFinalTotal = recalculateFinalTotal(
+    newTotalAmount,
+    currentOrder.orderLevelDiscount,
+    currentOrder.orderLevelDiscountType,
+    currentOrder.deliveryFee
+  );
+
+  // Update order totals
+  await ctx.db.patch(item.orderId, {
+    totalAmount: newTotalAmount,
+    totalCost: newTotalCost,
+    totalMargin: currentOrder.totalMargin - item.lineMargin,
+    itemCount: currentOrder.itemCount - 1,
+    finalTotal: newFinalTotal,
+  });
+
+  // PRD-5: Delete orderItemProduction records (use helper)
+  await deleteProductionRecordsForItem(ctx, itemId);
+
+  // Delete item
+  await ctx.db.delete(itemId);
+  return { success: true, voucherCleared };
+}
+
+/**
  * Remove item from order.
  */
 export const removeItem = mutation({
@@ -113,52 +175,7 @@ export const removeItem = mutation({
     itemId: v.id("orderItems"),
   },
   handler: async (ctx, args) => {
-    const item = await ctx.db.get(args.itemId);
-    if (!item) {
-      throw new Error("Order item not found");
-    }
-
-    const order = await ctx.db.get(item.orderId);
-    if (!order) {
-      throw new Error("Order not found");
-    }
-
-    // Auto-release voucher when order is modified
-    const voucherCleared = await clearVoucherFromOrder(ctx, item.orderId);
-
-    // Re-fetch order if voucher was cleared
-    const currentOrder = voucherCleared ? await ctx.db.get(item.orderId) : order;
-    if (!currentOrder) {
-      throw new Error("Order not found after voucher clear");
-    }
-
-    // Calculate new totals
-    const newTotalAmount = currentOrder.totalAmount - item.lineTotal;
-    const newTotalCost = currentOrder.totalCost - item.lineCost;
-
-    // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
-    const newFinalTotal = recalculateFinalTotal(
-      newTotalAmount,
-      currentOrder.orderLevelDiscount,
-      currentOrder.orderLevelDiscountType,
-      currentOrder.deliveryFee
-    );
-
-    // Update order totals
-    await ctx.db.patch(item.orderId, {
-      totalAmount: newTotalAmount,
-      totalCost: newTotalCost,
-      totalMargin: currentOrder.totalMargin - item.lineMargin,
-      itemCount: currentOrder.itemCount - 1,
-      finalTotal: newFinalTotal,
-    });
-
-    // PRD-5: Delete orderItemProduction records (use helper)
-    await deleteProductionRecordsForItem(ctx, args.itemId);
-
-    // Delete item
-    await ctx.db.delete(args.itemId);
-    return { success: true, voucherCleared };
+    return await removeItemInternal(ctx, args.itemId);
   },
 });
 
@@ -264,6 +281,87 @@ export const replaceItems = mutation({
 });
 
 /**
+ * Update order item quantity — INTERNAL helper (operates on ctx directly).
+ *
+ * Shared by the public `updateItemQuantity` mutation and the subscription edit
+ * orchestrator. Updates the item line totals, the orderItemProduction records,
+ * the order totals + finalTotal, and clears any held voucher. DO NOT duplicate
+ * this body — see removeItemInternal for the same reuse rationale.
+ */
+export async function updateItemQuantityInternal(
+  ctx: MutationCtx,
+  itemId: Id<"orderItems">,
+  quantity: number
+): Promise<{ itemId: Id<"orderItems">; voucherCleared: boolean }> {
+  const item = await ctx.db.get(itemId);
+  if (!item) {
+    throw new Error("Order item not found");
+  }
+
+  const order = await ctx.db.get(item.orderId);
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  // Auto-release voucher when order is modified
+  const voucherCleared = await clearVoucherFromOrder(ctx, item.orderId);
+
+  // Re-fetch order if voucher was cleared
+  const currentOrder = voucherCleared ? await ctx.db.get(item.orderId) : order;
+  if (!currentOrder) {
+    throw new Error("Order not found after voucher clear");
+  }
+
+  // Calculate new line totals
+  const { lineTotal, lineCost, lineMargin } = calculateLineTotals(
+    quantity,
+    item.unitPrice,
+    item.unitCost,
+    item.discountAmount
+  );
+
+  // Calculate difference
+  const amountDiff = lineTotal - item.lineTotal;
+  const costDiff = lineCost - item.lineCost;
+  const marginDiff = lineMargin - item.lineMargin;
+
+  // Update item
+  await ctx.db.patch(itemId, {
+    quantity,
+    lineTotal,
+    lineCost,
+    lineMargin,
+  });
+
+  // PRD-5: Update orderItemProduction records with new quantity (use helper)
+  if (item.menuProductId) {
+    await updateProductionRecordsForQuantityChange(ctx, itemId, item.menuProductId, quantity);
+  }
+
+  // Calculate new order totals
+  const newTotalAmount = currentOrder.totalAmount + amountDiff;
+  const newTotalCost = currentOrder.totalCost + costDiff;
+
+  // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
+  const newFinalTotal = recalculateFinalTotal(
+    newTotalAmount,
+    currentOrder.orderLevelDiscount,
+    currentOrder.orderLevelDiscountType,
+    currentOrder.deliveryFee
+  );
+
+  // Update order totals
+  await ctx.db.patch(item.orderId, {
+    totalAmount: newTotalAmount,
+    totalCost: newTotalCost,
+    totalMargin: currentOrder.totalMargin + marginDiff,
+    finalTotal: newFinalTotal,
+  });
+
+  return { itemId, voucherCleared };
+}
+
+/**
  * Update order item quantity.
  */
 export const updateItemQuantity = mutation({
@@ -272,71 +370,6 @@ export const updateItemQuantity = mutation({
     quantity: v.number(),
   },
   handler: async (ctx, args) => {
-    const item = await ctx.db.get(args.itemId);
-    if (!item) {
-      throw new Error("Order item not found");
-    }
-
-    const order = await ctx.db.get(item.orderId);
-    if (!order) {
-      throw new Error("Order not found");
-    }
-
-    // Auto-release voucher when order is modified
-    const voucherCleared = await clearVoucherFromOrder(ctx, item.orderId);
-
-    // Re-fetch order if voucher was cleared
-    const currentOrder = voucherCleared ? await ctx.db.get(item.orderId) : order;
-    if (!currentOrder) {
-      throw new Error("Order not found after voucher clear");
-    }
-
-    // Calculate new line totals
-    const { lineTotal, lineCost, lineMargin } = calculateLineTotals(
-      args.quantity,
-      item.unitPrice,
-      item.unitCost,
-      item.discountAmount
-    );
-
-    // Calculate difference
-    const amountDiff = lineTotal - item.lineTotal;
-    const costDiff = lineCost - item.lineCost;
-    const marginDiff = lineMargin - item.lineMargin;
-
-    // Update item
-    await ctx.db.patch(args.itemId, {
-      quantity: args.quantity,
-      lineTotal,
-      lineCost,
-      lineMargin,
-    });
-
-    // PRD-5: Update orderItemProduction records with new quantity (use helper)
-    if (item.menuProductId) {
-      await updateProductionRecordsForQuantityChange(ctx, args.itemId, item.menuProductId, args.quantity);
-    }
-
-    // Calculate new order totals
-    const newTotalAmount = currentOrder.totalAmount + amountDiff;
-    const newTotalCost = currentOrder.totalCost + costDiff;
-
-    // Recalculate finalTotal with order-level discount and delivery fee (voucher already cleared)
-    const newFinalTotal = recalculateFinalTotal(
-      newTotalAmount,
-      currentOrder.orderLevelDiscount,
-      currentOrder.orderLevelDiscountType,
-      currentOrder.deliveryFee
-    );
-
-    // Update order totals
-    await ctx.db.patch(item.orderId, {
-      totalAmount: newTotalAmount,
-      totalCost: newTotalCost,
-      totalMargin: currentOrder.totalMargin + marginDiff,
-      finalTotal: newFinalTotal,
-    });
-
-    return { itemId: args.itemId, voucherCleared };
+    return await updateItemQuantityInternal(ctx, args.itemId, args.quantity);
   },
 });

@@ -247,8 +247,10 @@ export const listActiveSubscriptionsForCustomer = protectedQuery({
 // ---------------------------------------------------------------------------
 
 /** Statuses that indicate a scheduled delivery has already been dispatched or
- *  completed — planned day is no longer "remaining" for these. */
-const DELIVERY_DONE_STATUSES = new Set([
+ *  completed — planned day is no longer "remaining" for these.
+ *  EXPORTED (staffreview IMP-1) so T8's editUndeliveredSubscriptionOrder and the
+ *  credit context share ONE notion of "delivered" — guard can't drift. */
+export const DELIVERY_DONE_STATUSES = new Set<string>([
   "AwaitingDelivery",
   "Complete",
   // Legacy statuses kept for schema compat
