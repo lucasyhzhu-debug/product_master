@@ -13,6 +13,7 @@ import type { Id } from "../_generated/dataModel";
 import { protectedMutation, protectedQuery } from "../lib/functions";
 import { resolveCurrentWeek } from "./helpers/currentWeek";
 import { deriveCreditPool } from "../subscriptions/creditMath";
+import { phoneMatches } from "../lib/phone";
 
 // ---------------------------------------------------------------------------
 // T5: updateCustomerCrmFields
@@ -95,12 +96,22 @@ export const createCustomer = protectedMutation({
     ),
   },
   handler: async (ctx, args) => {
-    // Dedup-by-phone: if phone is provided and non-empty, look for an existing customer.
-    if (args.phone && args.phone.length > 0) {
-      const existing = await ctx.db
-        .query("customers")
-        .withIndex("by_phone", (q) => q.eq("phone", args.phone!))
-        .first();
+    // Dedup-by-phone: normalized multi-field scan across phone/whatsapp/altPhone.
+    // Replaces the former indexed by_phone exact-match — acceptable at current
+    // customer-table size (matches the search-scan pattern; see task T3 brief).
+    const candidateNumbers = [args.phone, args.whatsapp, args.altPhone].filter(
+      (n): n is string => typeof n === "string" && n.length > 0,
+    );
+    if (candidateNumbers.length > 0) {
+      const all = await ctx.db.query("customers").collect();
+      const existing = all.find((c) =>
+        candidateNumbers.some(
+          (n) =>
+            phoneMatches(n, c.phone) ||
+            phoneMatches(n, c.whatsapp) ||
+            phoneMatches(n, c.altPhone),
+        ),
+      );
       if (existing) {
         // Gap-fill enrich: patch only arg fields whose value is currently
         // undefined/null/empty-string on the existing doc. Never touch createdBy.
