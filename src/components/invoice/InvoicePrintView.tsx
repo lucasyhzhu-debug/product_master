@@ -1,5 +1,5 @@
 import type { Doc } from "../../../convex/_generated/dataModel";
-import { formatIndonesianDate } from "@/lib/dateUtils";
+import { formatIndonesianDate, formatWibDayLabel } from "@/lib/dateUtils";
 import { formatCurrency } from "@/lib/utils";
 
 // Derive from Convex schema type to prevent drift.
@@ -42,15 +42,45 @@ export type InvoicePrintData = Pick<
   sellerLogoUrl?: string | null;
 };
 
+type InvoiceItem = InvoicePrintData["items"][number];
+
 interface InvoicePrintViewProps {
   data: InvoicePrintData;
+  /**
+   * Show the "Authorized Signature" box. Order invoices keep it (default);
+   * the customer-facing subscription weekly invoice hides it — a prepaid weekly
+   * credit voucher is settled by bank transfer, not signed.
+   */
+  showSignature?: boolean;
 }
 
-export function InvoicePrintView({ data }: InvoicePrintViewProps) {
+/**
+ * Group line items by their delivery `date` (ascending). Returns null when no
+ * item carries a date — the caller then renders a flat table (order invoices).
+ * Subscription weekly invoices stamp a per-line date, so they render day-by-day.
+ */
+function groupItemsByDay(
+  items: InvoiceItem[],
+): Array<{ date: number; items: InvoiceItem[] }> | null {
+  if (!items.some((it) => it.date != null)) return null;
+  const map = new Map<number, InvoiceItem[]>();
+  for (const it of items) {
+    const key = it.date ?? 0;
+    const bucket = map.get(key);
+    if (bucket) bucket.push(it);
+    else map.set(key, [it]);
+  }
+  return [...map.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([date, dayItems]) => ({ date, items: dayItems }));
+}
+
+export function InvoicePrintView({ data, showSignature = true }: InvoicePrintViewProps) {
   const invoiceDate = formatIndonesianDate(data.generatedAt ?? Date.now());
   const orderDate = formatIndonesianDate(data.orderDate);
   const dueDate = data.dueDate ? formatIndonesianDate(data.dueDate) : "-";
   const isFinalized = !!data.invoiceNumber;
+  const dayGroups = groupItemsByDay(data.items);
 
   return (
     <div className="bg-white text-black max-w-[210mm] mx-auto">
@@ -145,24 +175,77 @@ export function InvoicePrintView({ data }: InvoicePrintViewProps) {
               <th className="py-2 text-right w-32">Line Total</th>
             </tr>
           </thead>
-          <tbody>
-            {data.items.map((item, idx) => (
-              <tr key={`${item.productName}-${idx}`} className="border-b border-gray-200">
-                <td className="py-2">{idx + 1}</td>
-                <td className="py-2">
-                  <span>{item.productName}</span>
-                  {item.variant && (
-                    <span className="block text-xs text-gray-500">
-                      {item.variant}
-                    </span>
-                  )}
-                </td>
-                <td className="py-2 text-right">{item.qty}</td>
-                <td className="py-2 text-right">{formatCurrency(item.unitPrice)}</td>
-                <td className="py-2 text-right">{formatCurrency(item.lineTotal)}</td>
-              </tr>
-            ))}
-          </tbody>
+          {dayGroups ? (
+            // Day-by-day: one <tbody> section per delivery date, each closed by a
+            // day subtotal row. Line numbers run continuously across all days.
+            (() => {
+              let rowNum = 0;
+              return dayGroups.map((group) => {
+                const daySubtotal = group.items.reduce((s, it) => s + it.lineTotal, 0);
+                return (
+                  <tbody key={`day-${group.date}`} className="border-b border-gray-200">
+                    <tr className="bg-gray-50">
+                      <td
+                        colSpan={5}
+                        className="py-1.5 text-xs font-semibold text-gray-600 uppercase tracking-wide"
+                      >
+                        {formatWibDayLabel(group.date)}
+                      </td>
+                    </tr>
+                    {group.items.map((item, idx) => {
+                      rowNum += 1;
+                      return (
+                        <tr
+                          key={`${group.date}-${item.productName}-${idx}`}
+                          className="border-b border-gray-100"
+                        >
+                          <td className="py-2">{rowNum}</td>
+                          <td className="py-2">
+                            <span>{item.productName}</span>
+                            {item.variant && (
+                              <span className="block text-xs text-gray-500">
+                                {item.variant}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2 text-right">{item.qty}</td>
+                          <td className="py-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                          <td className="py-2 text-right">{formatCurrency(item.lineTotal)}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr>
+                      <td colSpan={4} className="py-1.5 text-right text-xs text-gray-500">
+                        Day subtotal
+                      </td>
+                      <td className="py-1.5 text-right text-xs font-medium">
+                        {formatCurrency(daySubtotal)}
+                      </td>
+                    </tr>
+                  </tbody>
+                );
+              });
+            })()
+          ) : (
+            <tbody>
+              {data.items.map((item, idx) => (
+                <tr key={`${item.productName}-${idx}`} className="border-b border-gray-200">
+                  <td className="py-2">{idx + 1}</td>
+                  <td className="py-2">
+                    <span>{item.productName}</span>
+                    {item.variant && (
+                      <span className="block text-xs text-gray-500">
+                        {item.variant}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-2 text-right">{item.qty}</td>
+                  <td className="py-2 text-right">{formatCurrency(item.unitPrice)}</td>
+                  <td className="py-2 text-right">{formatCurrency(item.lineTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          )}
         </table>
       </div>
 
@@ -220,13 +303,15 @@ export function InvoicePrintView({ data }: InvoicePrintViewProps) {
         )}
       </div>
 
-      {/* Section 8: Signature Area */}
-      <div className="mx-8 mb-4">
-        <div className="border border-dashed border-gray-300 rounded p-4 h-[100px] flex flex-col justify-between">
-          <span className="text-xs text-gray-400">Authorized Signature</span>
-          <div />
+      {/* Section 8: Signature Area — omitted for the subscription weekly invoice */}
+      {showSignature && (
+        <div className="mx-8 mb-4">
+          <div className="border border-dashed border-gray-300 rounded p-4 h-[100px] flex flex-col justify-between">
+            <span className="text-xs text-gray-400">Authorized Signature</span>
+            <div />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Section 9: Footer */}
       <div className="mx-8 pb-6 text-center text-sm">

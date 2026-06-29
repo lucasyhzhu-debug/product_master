@@ -422,6 +422,7 @@ export function SubscriptionPage() {
               rows={statement.rows}
               customerId={customerIdTyped}
               subscriptionId={subId ?? ""}
+              weekStart={selectedWeek?.weekStart ?? 0}
             />
           )}
         </CardContent>

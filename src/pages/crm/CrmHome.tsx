@@ -249,11 +249,15 @@ function ActiveSubscriptionsSection({ rows }: { rows: ActiveSubRow[] }) {
                         </Link>
                       </TableCell>
 
-                      {/* Subscription label */}
+                      {/* Subscription label — A1: link to the subscription page */}
                       <TableCell>
-                        <span className="text-sm text-muted-foreground">
+                        <Link
+                          to={`/crm/customers/${customerId}/subscriptions/${subscription._id}`}
+                          className="text-sm font-medium hover:underline inline-flex items-center gap-0.5"
+                        >
                           {subLabel}
-                        </span>
+                          <ArrowUpRight className="h-3 w-3 text-muted-foreground" />
+                        </Link>
                       </TableCell>
 
                       {/* Current week status */}
