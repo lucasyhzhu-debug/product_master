@@ -85,9 +85,22 @@ stays hidden for them (CLAUDE.md Pitfall #19). Confidential figures (partner pri
 stay stripped server-side per role (CRM D11); `creditRemaining` is the derived pool
 (`deriveCreditPool` — never re-key, CRM C10).
 
-**Surfaces:** `OrderCreate.tsx` is the primary ordering sheet. Check whether
-`OrderForm.tsx` / `OrderFormPOS.tsx` (which also call `useCustomerSearch`) need the
-same treatment — per CLAUDE.md Pitfall #20, mirror order features across surfaces.
+**`creditRemaining` week resolution (staffreview IMP-3):** the selector renders on
+customer-select, before a due date exists, so `listActiveSubscriptionsForCustomer`
+cannot key the funding week off `dueDate` like `getSubscriptionCreditContext` does.
+Resolve against the **current open week** (today WIB, week `status ∈ {paid, delivering}`)
+and label the figure "this week's remaining." If no open funded week exists, return
+`creditRemaining: null` (selector still shows; the per-line banner fills detail once
+items + due date exist).
+
+**Surfaces (staffreview IMP-4):** `OrderCreate.tsx` is the primary ordering sheet and
+the only surface that gets the **subscription selector** in this slice. The
+**search-matching fix** (phone/whatsapp/altPhone normalization) lives in the shared
+`search` query, so `OrderForm.tsx` / `OrderFormPOS.tsx` (which also call
+`useCustomerSearch`) benefit automatically. The **`[B2B]` + companyName dropdown
+render** is per-component: mirror it into `OrderForm.tsx` and `OrderFormPOS.tsx` too
+(Pitfall #20) so customers look consistent across every order-entry surface — these are
+cheap render-only changes. The selector itself stays OrderCreate-only.
 
 #### Slice 1 — ALSO fix two dropdown problems (same slice)
 Grounded against the real schema (`schema.ts:178-206`): `customers` has `name`,
@@ -126,9 +139,40 @@ local prop/handler types (lines 9-11, 44) currently narrow customers to
 ### Slice 2 — edit a day's existing order before it ships
 Reduce (or change) pieces on a not-yet-delivered subscription order directly from the
 order tile. **Undelivered only** — no recognized-revenue correction (that's the hard
-case we explicitly avoid). On save: update items + production + totals and resync the
-week's `plannedDays` (reuse `resyncWeekPlanFromOrders`, shipped 2026-06-29). Wire
-**both** `OrderSlideOver.tsx` and `OrderDetail.tsx` (Pitfall #20).
+case we explicitly avoid). Wire **both** `OrderSlideOver.tsx` and `OrderDetail.tsx`
+(Pitfall #20).
+
+**Reuse, don't rebuild (staffreview IMP-1):** `convex/orders/mutations/itemCrud.ts`
+already has `updateItemQuantity` (line 269), `removeItem` (111), `replaceItems` (170) —
+`updateItemQuantity` already patches `orderItems`, updates the `orderItemProduction`
+records (via `updateProductionRecordsForQuantityChange`), recalculates order totals +
+`finalTotal`, and clears the voucher. Slice 2 is a **thin orchestrator**:
+1. **Guard**: order is a subscription order (`subscriptionId` + `subscriptionWeekId`)
+   AND undelivered (status not in delivered/recognized set) — reject otherwise.
+2. **Apply** the per-line reductions/removals via the existing `itemCrud` mutation(s).
+3. **Re-derive the credit reservation (CRITICAL — staffreview #1):** if the order has
+   `subscriptionCreditApplied > 0` and NO `by_order` credit-ledger row (un-recognized),
+   the reservation MUST be re-derived/capped to the new eligible total. Recognition at
+   delivery draws `subscriptionCreditApplied ?? totalAmount` (`recognition.ts:73`) and
+   `computeWeekAvailableCredit` subtracts `Σ subscriptionCreditApplied` for un-recognized
+   orders (`creditReservation.ts`) — leaving a stale-high reservation **over-draws the
+   pool at delivery** and **under-reports available credit** meanwhile (Pitfall #23). A
+   non-credit-funded subscription order (no reservation) needs no adjustment.
+4. **Resync** the week's `plannedDays` (reuse `resyncWeekPlanFromOrders`, shipped
+   2026-06-29).
+
+**Roles (staffreview IMP-2):** make the new orchestrator a single `protectedMutation`.
+If order_staff can edit from the order surfaces, its roles = `["order_staff","manager",
+"admin"]` AND `resyncWeekPlanFromOrders` must be widened to match (currently
+`["manager","admin"]`, Pitfall #19); otherwise keep Slice 2 manager/admin. **Decision
+needed in the plan.** Note the reused `itemCrud` mutations are plain `mutation` (no
+auth) — do NOT widen that gap; the orchestrator owns the auth check and calls the item
+logic internally.
+
+**TDD (money path → triple-review):** reduce a credit-funded order N→M pieces; assert
+`subscriptionCreditApplied` drops accordingly AND `computeWeekAvailableCredit` rises by
+the freed amount; assert undelivered-only guard rejects a recognized order; assert the
+schedule resyncs; edge: reduce below already-filled production count.
 
 ### Slice 3 — "add more" = a new credit-funded order
 When creating a new order for a customer with an active subscription, prompt **"This
