@@ -15,11 +15,14 @@
 
 > Forward queue for the **Subscription & Credit** milestone. Spec + plan + two staffreviews are on `main`; execution happens in a fresh worktree via the per-slice handoff under `.claude/handoff/`. Remove a row when its CHANGELOG entry lands.
 
-| Slice | Spec | Plan | Target |
-|-------|------|------|--------|
-| Ordering subscription-credit UX — Slice 1 ([B2B] flag + selector under name + dropdown matching) | `docs/superpowers/specs/2026-06-29-ordering-subscription-credit-ux-SPEC.md` | `docs/superpowers/plans/2026-06-29-ordering-subscription-credit-ux.md` (T1–T7) | v2.1 |
-| Ordering subscription-credit UX — Slice 2 (edit undelivered day-order; reservation re-derive) | same SPEC | same plan (T8–T11) | v2.1 |
-| Ordering subscription-credit UX — Slice 3 ("add more" = credit-funded order) | same SPEC | same plan (T12) | v2.1 |
+_(All three Ordering subscription-credit UX slices shipped: Slice 1 → v2.2.0, Slices 2+3 → v2.3.0.)_
+
+### Deferred from ordering-credit UX
+
+- **Mixed-eligibility credit re-split on edit** — editing a partial-credit order (where `0 < applied < total`) is currently rejected. Future: re-split the cart post-edit, re-derive the eligible sub-total, and update `subscriptionCreditApplied` to the capped new amount.
+- **Shared `NumericQtyInput` component** — the inline numeric qty field in `EditUndeliveredOrderControl` is the 4th copy of this pattern (also in schedule-planner cells, amend grid, order form). Extract to `src/components/ui/NumericQtyInput.tsx`.
+- **3 credit surfaces stacking on OrderCreate** — `SubscriptionCreditBanner`, "add more" prompt, and WhatsApp draft link all stack on `OrderCreate.tsx`. UX density review when a customer runs multiple credit transactions in sequence.
+- **Blank-qty-means-remove UX** — clearing a qty field to blank currently does not remove the line; setting to 0 and submitting does. Consider treating blank-on-submit as remove.
 
 ---
 

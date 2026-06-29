@@ -19,6 +19,23 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.3.0] — 2026-06-30 — Subscription order editing + add-more credit funding
+
+**For the team:** Order staff can now edit quantities on an undelivered subscription day-order (e.g. reduce items if the cafe calls in a change) directly from either the order slide-over or the order detail page. The credit reservation on the order is automatically re-derived to match the new total — no manual fix needed. Staff can also tap "Add more" on the OrderCreate screen to route additional credit-funded items through the existing credit checkout, without creating a separate non-credit order.
+
+### Added
+- **`editUndeliveredSubscriptionOrder({ orderId, lines:[{itemId, newQty}] })`** (`convex/subscriptions/editOrder.ts`) — reduces or removes lines on an undelivered subscription order. Re-derives `orders.subscriptionCreditApplied` to `Math.min(applied, newTotalAmount)` (never increases reservation). Resyncs the week plan after edit. Roles: `["order_staff", "manager", "admin"]`. Guards: subscription-order only · undelivered (deny-list `DELIVERY_DONE_STATUSES`) · not recognized (`isOrderRecognized`) · not settled week · rejects remove-all · rejects partial-credit orders (where `0 < applied < total`). Returns `{ ok: true }`.
+- **`EditUndeliveredOrderControl`** (`src/components/orders/EditUndeliveredOrderControl.tsx`) — edit button + inline qty inputs wired into **both** `OrderSlideOver.tsx` and `OrderDetail.tsx` (Pitfall #20). Read-only gate = `subscriptionId` present; edit gate = `subscriptionId && subscriptionWeekId` both present.
+- **`resolveFundedWeekCovering(ctx, subId, atMs)`** helper — extracted to deduplicate the funded-week predicate previously repeated across three subscription query/mutation files.
+- **OrderCreate "add more" prompt** — `SubscriptionCreditBanner` shows an "Add more items" link after a credit-funded order is created; routes through `createCreditFundedOrder` for consistency.
+
+### Changed
+- **`resyncWeekPlanFromOrders` roles** widened to `["order_staff", "manager", "admin"]` (was `["manager", "admin"]`) — needed for order_staff to trigger resync after editing a day-order (Pitfall #19).
+- **`DELIVERY_DONE_STATUSES`** exported from `convex/subscriptions/queries.ts` — shared deny-list used by both `editUndeliveredSubscriptionOrder` and `amendConfirmedWeek`.
+- **`itemCrud` internal helpers** (`addItem`, `updateItemQuantity`, `removeItem`) extracted from `convex/subscriptions/itemCrud.ts`; public mutations now delegate to these, enabling `editUndeliveredSubscriptionOrder` to reuse the same line manipulation logic.
+
+---
+
 ## [2.2.0] — 2026-06-30 — Ordering subscription-credit UX (Slice 1)
 
 **For the team:** Order staff can now place B2B subscription-credit orders end-to-end without needing a manager. The order form shows a `[B2B]` badge on subscription customers, auto-selects the customer's active subscription (or presents a radio when there are multiple), and lets order_staff create and draft the WhatsApp message — previously the form dead-ended at "Select a subscription above first" with nothing to click. Customer search now matches phone/WhatsApp/alt-phone and company name.

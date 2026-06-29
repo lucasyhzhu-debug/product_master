@@ -2651,6 +2651,30 @@ subscriptions.invoicing.billWeekShortfall({ subscriptionWeekId })   // 2026-06-2
   // Returns { invoiceId, projectedShortfall, customerId }. Throws if shortfall <= 0.
 ```
 
+#### Edit undelivered order (`convex/subscriptions/editOrder.ts`)
+
+```typescript
+subscriptions.editOrder.editUndeliveredSubscriptionOrder({
+  orderId: Id<"orders">,
+  lines: Array<{ itemId: Id<"orderItems">, newQty: number }>
+})
+// Reduces or removes lines on an undelivered subscription day-order.
+// Re-derives orders.subscriptionCreditApplied = Math.min(applied, newTotalAmount)
+// (never increases the reservation; keeps computeWeekAvailableCredit exact).
+// Resyncs the week plan via resyncWeekPlanFromOrders after edit.
+// Roles: ["order_staff", "manager", "admin"]
+// Guards:
+//   - subscription-order only (order.subscriptionId must be set)
+//   - undelivered: order.status NOT in DELIVERY_DONE_STATUSES (deny-list, no drift)
+//   - not recognized: isOrderRecognized(ctx, orderId) must be false
+//   - not settled week (subscriptionWeeks.status !== "settled" | "reconciled")
+//   - rejects remove-all (at least 1 line must remain)
+//   - rejects partial-credit orders (0 < subscriptionCreditApplied < totalAmount)
+// Returns: { ok: true }
+```
+
+**`resyncWeekPlanFromOrders` roles widened (2026-06-30)** — now accepts `["order_staff", "manager", "admin"]` (was `["manager", "admin"]`). Required so order_staff can trigger resync after editing a day-order (Pitfall #19).
+
 **Amend → credit draw-down (2026-06-29).** `subscriptions.amend.amendConfirmedWeek({ subscriptionWeekId, days })` no longer bills a top-up invoice. It re-prices the plan and **bumps the amended day's actual order** (qty + `orderItemProduction`) so the larger delivery draws down the existing credit pool at delivery. Increases only; blocks amending an already-delivered day and blocks omitting an existing planned day. Returns `{ deltaTotal, addedLines, projectedShortfall, projectedEndingPool }`.
 
 `subscriptions.queries.getWeekShortfall({ subscriptionWeekId })` (2026-06-29) — projected end-of-week credit position: `{ plannedConsumption, creditIssued, creditRemaining, projectedShortfall, projectedEndingPool, funded, hasPendingTopup, shouldOfferTopup }`. `shouldOfferTopup` = funded & projected to overrun & no unpaid top-up.
