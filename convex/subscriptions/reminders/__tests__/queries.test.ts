@@ -268,6 +268,44 @@ describe("getWeeklyDeliveryProgress", () => {
     expect(rows[0].overBy).toBe(0);
   });
 
+  it("reports shipped-today (deliveryDate=today), weekly allotment left, and ledger credit remaining", async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+    const wStart = now - 2 * DAY_MS;
+    const wEnd = now + 4 * DAY_MS;
+
+    await t.run(async (ctx) => {
+      const userId = await insertUser(ctx);
+      const customerId = await insertCustomer(ctx, "KPI Cafe");
+      const mpA = await insertMenuProduct(ctx, "ORI-KPI", "Original KPI");
+      const subId = await insertSubscription(ctx, userId, customerId, mpA, "KPI Cafe", "active"); // weeklyQty=70
+      const weekId = await insertWeek(ctx, subId, wStart, wEnd, "delivering", [now], mpA);
+
+      // A Complete order delivered TODAY with 5 pcs.
+      const ordId = await ctx.db.insert("orders", {
+        orderNumber: "0617-900", customerId, customerName: "KPI Cafe", status: "Complete", paymentStatus: "Paid",
+        orderDate: now, deliveryDate: now, totalAmount: 145000, totalCost: 0, totalMargin: 145000, finalTotal: 145000,
+        deliveryType: "Delivery", createdBy: "system", itemCount: 1, subscriptionId: subId, subscriptionWeekId: weekId,
+      } as never);
+      await ctx.db.insert("orderItems", {
+        orderId: ordId, productName: "P", quantity: 5, unitPrice: 29000, unitCost: 0, discountAmount: 0,
+        lineTotal: 145000, lineCost: 0, lineMargin: 145000,
+      } as never);
+
+      // Ledger: topup 87000 then drawdown −29000 → derived creditRemaining = 58000.
+      await ctx.db.insert("creditLedger", { subscriptionId: subId, subscriptionWeekId: weekId, type: "topup", amount: 87000, balanceAfter: 87000, createdBy: userId } as never);
+      await ctx.db.insert("creditLedger", { subscriptionId: subId, subscriptionWeekId: weekId, type: "drawdown", amount: -29000, balanceAfter: 58000, createdBy: userId, orderId: ordId } as never);
+    });
+
+    const rows = await t.query(internal.subscriptions.reminders.queries.getWeeklyDeliveryProgress, {});
+    expect(rows).toHaveLength(1);
+    expect(rows[0].shippedTodayPcs).toBe(5);   // delivered today
+    expect(rows[0].deliveredPcs).toBe(5);       // used this week
+    expect(rows[0].weeklyQty).toBe(70);
+    expect(rows[0].weeklyLeft).toBe(65);        // 70 − 5
+    expect(rows[0].creditRemaining).toBe(58000); // derived from the ledger, not the denormalised field
+  });
+
   it("skips accounts with no active current week", async () => {
     // Empty DB — no subscriptions, no weeks
     const t = convexTest(schema, modules);

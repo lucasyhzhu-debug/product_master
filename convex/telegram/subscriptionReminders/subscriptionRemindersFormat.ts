@@ -101,7 +101,14 @@ export function formatWeeklyDeliveryProgress(rows: DeliveryProgressRow[]): strin
   const header = "<b>📦 Weekly delivery progress</b>";
   const blocks = rows.map((r) => {
     const over = r.overBy > 0 ? ` (⚠️ over plan by ${r.overBy})` : "";
-    return `<b>Week of ${fmtDate(r.weekStart)} — ${r.account}</b>\n${r.deliveredPcs} out of ${r.weekPlannedPcs}\n${r.remaining} pcs remaining in quota${over}`;
+    return (
+      `<b>Week of ${fmtDate(r.weekStart)} — ${r.account}</b>\n` +
+      `Shipped today: ${r.shippedTodayPcs} pcs\n` +
+      `Used this week: ${r.deliveredPcs}/${r.weeklyQty} — ${r.weeklyLeft} left\n` +
+      `${r.deliveredPcs} out of ${r.weekPlannedPcs}\n` +
+      `${r.remaining} pcs remaining in quota${over}\n` +
+      `Credit remaining: ${fmtIDR(r.creditRemaining)}`
+    );
   });
   return packChunks(header, blocks);
 }
