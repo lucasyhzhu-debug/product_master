@@ -330,11 +330,15 @@ describe("SubscriptionPage — CreditLedgerStatement per-entry links (A1)", () =
     expect(orderLink).toBeTruthy();
   });
 
-  it("renders a link for an invoice entry", () => {
+  it("renders a link for an invoice entry → the week's invoice page (no /invoices/:id route)", () => {
     renderPage();
     const allLinks = screen.getAllByRole("link");
+    // Subscription invoices have no standalone /invoices/:id route — the entry
+    // links to the displayed week's invoice page (keyed by weekStart, default WEEK_2).
     const invLink = allLinks.find((a) =>
-      (a as HTMLAnchorElement).href.includes(INVOICE_ID),
+      (a as HTMLAnchorElement).href.includes(
+        `/subscriptions/${SUB_ID}/week/invoice?weekStart=${WEEK_2.weekStart}`,
+      ),
     );
     expect(invLink).toBeTruthy();
   });

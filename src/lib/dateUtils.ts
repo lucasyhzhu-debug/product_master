@@ -138,6 +138,20 @@ export function formatSubscriptionWeekLabel(weekStartMs: number): string {
 }
 
 /**
+ * Format a UTC epoch ms as a WIB-pinned weekday + day label, e.g. "Mon, 29 Jun".
+ * WIB-correct (timeZone: Asia/Jakarta) so per-day invoice rows never drift a day
+ * on a non-WIB machine. Used by the subscription weekly invoice's day-by-day lines.
+ */
+export function formatWibDayLabel(utcMs: number): string {
+  return new Date(utcMs).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone: "Asia/Jakarta",
+  });
+}
+
+/**
  * Compact Indonesian locale date-time (no year), e.g. "19 Jun 14.30".
  * Used by the CRM activity timeline rows for dense display.
  */

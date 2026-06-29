@@ -54,9 +54,11 @@ interface EntryLinkProps {
   link: LedgerStatementRow["link"];
   customerId: string;
   subscriptionId: string;
+  /** weekStart of the statement's week — targets the weekly-invoice page (A1). */
+  weekStart: number;
 }
 
-function EntryLink({ link, customerId, subscriptionId }: EntryLinkProps) {
+function EntryLink({ link, customerId, subscriptionId, weekStart }: EntryLinkProps) {
   if (!link.kind || !link.id) {
     return <span className="text-muted-foreground text-xs">—</span>;
   }
@@ -69,7 +71,10 @@ function EntryLink({ link, customerId, subscriptionId }: EntryLinkProps) {
     // A1: prefer the human order number; fall back to an id tail only if unresolved.
     label = link.label ? `Order ${link.label}` : `Order ···${link.id.slice(-6)}`;
   } else if (link.kind === "invoice") {
-    to = `/invoices/${link.id}`;
+    // Subscription invoices have no standalone /invoices/:id route — they live at
+    // the week's invoice page, keyed by weekStart (the ledger statement is per-week,
+    // so the invoice belongs to this week).
+    to = `/crm/customers/${customerId}/subscriptions/${subscriptionId}/week/invoice?weekStart=${weekStart}`;
     label = link.label ?? `Invoice ···${link.id.slice(-6)}`;
   } else if (link.kind === "week") {
     // Link back to SubscriptionPage with ?weekId= so the week selector activates
@@ -97,12 +102,15 @@ interface CreditLedgerStatementProps {
   rows: LedgerStatementRow[];
   customerId: string;
   subscriptionId: string;
+  /** weekStart of the displayed week — used to target invoice entry links (A1). */
+  weekStart: number;
 }
 
 export function CreditLedgerStatement({
   rows,
   customerId,
   subscriptionId,
+  weekStart,
 }: CreditLedgerStatementProps) {
   if (rows.length === 0) {
     return (
@@ -173,6 +181,7 @@ export function CreditLedgerStatement({
                   link={row.link}
                   customerId={customerId}
                   subscriptionId={subscriptionId}
+                  weekStart={weekStart}
                 />
               </td>
 

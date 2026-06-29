@@ -39,28 +39,6 @@ import { InvoicePrintView, type InvoicePrintData } from "@/components/invoice/In
 import { formatCurrency, getErrorMessage } from "@/lib/utils";
 import { formatSubscriptionWeekLabel } from "@/lib/dateUtils";
 
-/**
- * Aggregate the week's invoice lines by product for a compact, customer-facing
- * invoice (one line per product for the whole week, not one per day). Keeps the
- * printed invoice to a single page and reads as a standard B2B invoice.
- */
-function aggregateItemsByProduct(
-  items: Array<{ productName: string; qty: number; unitPrice: number; lineTotal: number }>,
-): Array<{ productName: string; qty: number; unitPrice: number; lineTotal: number }> {
-  const map = new Map<string, { productName: string; qty: number; unitPrice: number; lineTotal: number }>();
-  for (const it of items) {
-    const key = `${it.productName}@@${it.unitPrice}`;
-    const cur = map.get(key);
-    if (cur) {
-      cur.qty += it.qty;
-      cur.lineTotal += it.lineTotal;
-    } else {
-      map.set(key, { productName: it.productName, qty: it.qty, unitPrice: it.unitPrice, lineTotal: it.lineTotal });
-    }
-  }
-  return [...map.values()].sort((a, b) => a.productName.localeCompare(b.productName));
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -256,11 +234,9 @@ export function SubscriptionWeeklyInvoicePage() {
   const isPaid = paymentStatus === "Paid";
 
   // Reuse the canonical customer-facing invoice generator (same as the ordering
-  // system). Aggregate the week's lines by product so it fits one page.
-  const printData: InvoicePrintData = {
-    ...invoiceDoc,
-    items: aggregateItemsByProduct(invoiceDoc.items),
-  };
+  // system). Keep the per-line delivery `date` so the print view renders the
+  // week's lines grouped day-by-day (each line carries its delivery date).
+  const printData: InvoicePrintData = invoiceDoc;
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -435,7 +411,7 @@ export function SubscriptionWeeklyInvoicePage() {
 
       {/* Customer-facing invoice — canonical print view (one page) */}
       <div className="rounded border bg-white shadow-sm print:rounded-none print:border-0 print:shadow-none">
-        <InvoicePrintView data={printData} />
+        <InvoicePrintView data={printData} showSignature={false} />
       </div>
 
       {/* Bottom CTA — only visible when unpaid */}
