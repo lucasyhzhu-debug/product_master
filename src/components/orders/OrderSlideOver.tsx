@@ -6,6 +6,7 @@
  * Phase 14 Plan 04: Kanban board UI.
  * Phase 17.1: Added FulfillFromInventoryButton, Force Complete, resizable width,
  *             Edit/Delete/Shipping/Cancel parity with full OrderDetail page.
+ * T9: Subscription credit drawdown — creation branch (createContext prop).
  */
 import { format, isToday, isTomorrow, isPast, startOfDay } from 'date-fns';
 import { useMutation } from 'convex/react';
@@ -55,16 +56,44 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { SubscriptionCreditBanner } from './SubscriptionCreditBanner';
+import type { SubscriptionCreditContext } from './SubscriptionCreditBanner';
+import { useSubscriptionCreditContext } from '@/hooks/useSubscriptionCreditContext';
+import { buildWaMeUrl } from '@/lib/contactLinks';
 
 // ============================================
 // Types
 // ============================================
+
+/**
+ * Creation-context props (T9): passed when the slide-over is opened in
+ * "create credit order" mode (orderId=null).  Manager/admin only.
+ */
+export interface OrderSlideOverCreationContext {
+  customerId: Id<"customers">;
+  customerPhone?: string;
+  dueDate: number;
+  /**
+   * In-progress cart items — used for credit-split preview (useSubscriptionCreditContext)
+   * and for the createCreditFundedOrder mutation.
+   */
+  draftItems: {
+    menuProductId: Id<"menuProducts">;
+    qty: number;
+    retailUnitPrice: number;
+    productName: string;
+    unitCost: number;
+  }[];
+  notes?: string;
+}
 
 interface OrderSlideOverProps {
   orderId: Id<"orders"> | null;
   open: boolean;
   onClose: () => void;
   autoShowWhatsApp?: boolean; // Deprecated: kept for backward compatibility
+  /** When set with orderId=null, renders the subscription-credit creation branch. */
+  createContext?: OrderSlideOverCreationContext;
 }
 
 // ============================================
@@ -133,7 +162,7 @@ function SlideOverSkeleton() {
 // Component
 // ============================================
 
-export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: OrderSlideOverProps) {
+export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp, createContext }: OrderSlideOverProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
@@ -171,6 +200,35 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   // Mark delivered (subscription orders only — T5)
   const markDelivered = useSessionMutation(api.subscriptions.delivery.markSubscriptionDelivered);
   const [markingDelivered, setMarkingDelivered] = useState(false);
+
+  // ── Creation branch: subscription credit drawdown (T9) ─────────────────
+  // All hooks declared unconditionally (Pitfall #9). Gate on isManagerOrAdmin + createContext.
+  const [selectedSubId, setSelectedSubId] = useState<Id<"subscriptions"> | null>(null);
+  const [creditBusy, setCreditBusy] = useState(false);
+  const [creditOrderId, setCreditOrderId] = useState<Id<"orders"> | null>(null);
+  const [showCreditWhatsApp, setShowCreditWhatsApp] = useState(false);
+
+  const { contexts: creditContexts } = useSubscriptionCreditContext(
+    isManagerOrAdmin && !!createContext ? createContext.customerId : null,
+    createContext?.dueDate ?? Date.now(),
+    (createContext?.draftItems ?? []).map((it) => ({
+      menuProductId: it.menuProductId,
+      qty: it.qty,
+      retailUnitPrice: it.retailUnitPrice,
+    })),
+  );
+
+  const createCreditOrder = useSessionMutation(
+    api.subscriptions.creditOrder.createCreditFundedOrder,
+  );
+
+  const creditWhatsAppDraft = useSessionQuery(
+    api.subscriptions.creditOrder.getCreditOrderWhatsappDraft,
+    isManagerOrAdmin && creditOrderId ? { orderId: creditOrderId } : 'skip',
+  );
+
+  const logInteraction = useSessionMutation(api.crm.timeline.logCustomerInteraction);
+  // ── End creation branch hooks ──────────────────────────────────────────
 
   // Out-of-credit status + actions (subscription orders, manager/admin — T8)
   const creditStatus = useSessionQuery(
@@ -274,6 +332,38 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
   // Field access — support both camelCase (new) and snake_case (legacy) field names
   const getField = (obj: any, camel: string, snake: string) => obj?.[camel] ?? obj?.[snake];
 
+  // ── Creation branch handler (T9) ───────────────────────────────────────
+  const handleFulfilWithCredit = async () => {
+    if (!createContext || !selectedSubId) return;
+    setCreditBusy(true);
+    try {
+      const result = await createCreditOrder({
+        customerId: createContext.customerId,
+        subscriptionId: selectedSubId,
+        items: createContext.draftItems.map((it) => ({
+          productName: it.productName,
+          quantity: it.qty,
+          unitPrice: it.retailUnitPrice,
+          unitCost: it.unitCost,
+          menuProductId: it.menuProductId,
+        })),
+        dueDate: createContext.dueDate,
+        notes: createContext.notes,
+      });
+      toast.success(
+        `Credit order created — ${formatCurrency(result.creditCovered)} drawn down.` +
+        (result.amountDue > 0 ? ` ${formatCurrency(result.amountDue)} due from customer.` : ''),
+      );
+      setCreditOrderId(result.orderId);
+      setShowCreditWhatsApp(true);
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to create credit order'));
+    } finally {
+      setCreditBusy(false);
+    }
+  };
+  // ── End creation branch handler ────────────────────────────────────────
+
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent
@@ -292,11 +382,32 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
 
         {!order ? (
           <>
-            <SheetHeader>
-              <SheetTitle>Order Details</SheetTitle>
-              <SheetDescription>Loading order information...</SheetDescription>
-            </SheetHeader>
-            <SlideOverSkeleton />
+            {/* T9: creation branch — show credit banner when createContext provided (manager/admin) */}
+            {createContext && isManagerOrAdmin ? (
+              <div className="space-y-4 mt-6">
+                <SheetHeader>
+                  <SheetTitle>Fulfil with Subscription Credit</SheetTitle>
+                  <SheetDescription>
+                    Select a subscription to draw down weekly credit for this order.
+                  </SheetDescription>
+                </SheetHeader>
+                <SubscriptionCreditBanner
+                  contexts={creditContexts as SubscriptionCreditContext[] | null}
+                  selectedSubId={selectedSubId}
+                  onSelectSub={setSelectedSubId}
+                  onFulfilWithCredit={handleFulfilWithCredit}
+                  busy={creditBusy}
+                />
+              </div>
+            ) : (
+              <>
+                <SheetHeader>
+                  <SheetTitle>Order Details</SheetTitle>
+                  <SheetDescription>Loading order information...</SheetDescription>
+                </SheetHeader>
+                <SlideOverSkeleton />
+              </>
+            )}
           </>
         ) : (
           <>
@@ -841,6 +952,82 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
             orderId={orderId}
             onOpenChange={setShowQrisDialog}
           />
+        )}
+
+        {/* T9: Credit Order WhatsApp Summary (creation branch, manager/admin) */}
+        {createContext && showCreditWhatsApp && creditOrderId && (
+          <Dialog
+            open={showCreditWhatsApp}
+            onOpenChange={(v) => { if (!v) setShowCreditWhatsApp(false); }}
+          >
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-green-600" />
+                  Credit Order — WhatsApp Summary
+                </DialogTitle>
+                <DialogDescription>
+                  Copy and send via WhatsApp to the customer.
+                </DialogDescription>
+              </DialogHeader>
+              {creditWhatsAppDraft ? (
+                <div className="space-y-3">
+                  <div className="text-sm whitespace-pre-wrap rounded-md bg-muted border p-3">
+                    {creditWhatsAppDraft.text}
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(creditWhatsAppDraft.text);
+                        toast.success('Copied to clipboard');
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </Button>
+                    {(() => {
+                      const waUrl = buildWaMeUrl(createContext.customerPhone);
+                      if (!waUrl) return null;
+                      return (
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          onClick={async () => {
+                            window.open(
+                              `${waUrl}?text=${encodeURIComponent(creditWhatsAppDraft.text)}`,
+                              '_blank',
+                              'noopener,noreferrer',
+                            );
+                            try {
+                              await logInteraction({
+                                customerId: createContext.customerId,
+                                type: 'whatsapp_drafted',
+                                subscriptionId: selectedSubId ?? undefined,
+                                orderId: creditOrderId ?? undefined,
+                                summary: 'Subscription credit drawdown order WhatsApp drafted',
+                              });
+                            } catch {
+                              // best-effort — don't block the UX on log failure
+                            }
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          Open in WhatsApp
+                        </Button>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm text-muted-foreground">Loading summary…</span>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         )}
 
       </SheetContent>
