@@ -40,7 +40,8 @@
 | T8 | `SubscriptionCreditBanner` component + `useSubscriptionCreditContext` hook | `src/components/orders/SubscriptionCreditBanner.tsx`, `src/hooks/useSubscriptionCreditContext.ts` | W3 | T5 |
 | T9 | Wire banner + create + WhatsApp into `OrderSlideOver` (creation context) | `src/components/orders/OrderSlideOver.tsx` | W3 | T6,T7,T8 |
 | T10 | Mirror into `OrderDetail` | `src/pages/OrderDetail.tsx` | W3 | T6,T7,T8 |
-| T11 | Verification: build + type-check + full test + docs | docs + repo-wide | W4 | all |
+| T11 | CRM week back-refs: badge ad-hoc credit orders (additive display) | `src/components/crm/WeekBackReferences.tsx`, `__tests__/WeekBackReferences.test.tsx` | W3 | T6 |
+| T12 | Verification: build + type-check + full test + docs | docs + repo-wide | W4 | all |
 
 ---
 
@@ -49,12 +50,12 @@
 **Wave dispatch map (barrier between waves; parallelize within):**
 - **W1 (backend foundations, ≤4 parallel):** T1, T2 fully parallel (different files). T3, T4 each depend on T1's schema field but touch different files — run T3 ∥ T4 **after** T1's schema edit is on the branch. T2 ∥ everything.
 - **W2 (backend surface, ≤3 parallel):** T5, T6, T7 after W1. **Shared-file serialization:** T5 edits `convex/subscriptions/queries.ts` (adds `getSubscriptionCreditContext`) — T4 also edits `queries.ts` (`getOrderCreditStatus`), so **T4 (W1) lands before T5 (W2)** — no in-wave collision. T6 and T7 both write `convex/subscriptions/creditOrder.ts` → **serialize T6 then T7** (same agent or ordered), or put T7's draft query in `creditOrder.ts` as an append after T6. 
-- **W3 (frontend, ≤3 parallel):** T8 first (component+hook), then T9 ∥ T10 (distinct files, both consume T8).
-- **W4 (verification):** T11 solo, last.
+- **W3 (frontend, ≤3 parallel):** T8 first (component+hook), then T9 ∥ T10 ∥ T11 (distinct files; T9/T10 consume T8, T11 is independent — only needs T6's order shape).
+- **W4 (verification):** T12 solo, last.
 
 **Generated-file serialization:** every backend task that adds/edits a Convex function changes `convex/_generated/api.d.ts`. Run `npx convex codegen` **once per wave on the merged tree** (after W1 tasks merge, again after W2), not per task. If executing in isolated worktrees, re-run codegen on the integration branch before the next wave.
 
-**Critical path (min wall-clock):** T1 → T3/T4 → T6 → T9/T10 → T11. T2, T5, T7, T8 hang off this spine in parallel.
+**Critical path (min wall-clock):** T1 → T3/T4 → T6 → T9/T10 → T12. T2, T5, T7, T8, T11 hang off this spine in parallel.
 
 **What can't be done headless:** the final `/persona-uat` gate needs a live env (`npx convex dev` + `npm run dev` + dev seed `subscriptions/_devSeed:resetCrmUat`→`seedCrmUat`→`seedCutoffFixture`, manager PIN `999999`). If the executing session can't bring a live env up, flag persona-UAT `pending: needs live env` — do NOT claim done.
 
@@ -76,6 +77,7 @@
 | `src/hooks/useSubscriptionCreditContext.ts` | NEW — query hook with skip-until-customer. |
 | `src/components/orders/SubscriptionCreditBanner.tsx` | NEW — presentational banner (both surfaces render it). |
 | `src/components/orders/OrderSlideOver.tsx` / `src/pages/OrderDetail.tsx` | Wire banner into the creation context. |
+| `src/components/crm/WeekBackReferences.tsx` | Badge ad-hoc credit orders in the week's "Orders that drew down this credit" section (additive). |
 
 ---
 
@@ -940,7 +942,87 @@ git commit -m "feat(orders): mirror subscription credit drawdown into OrderDetai
 
 ---
 
-### Task T11: Verification + docs
+### Task T11: CRM week back-references — badge ad-hoc credit orders (additive display)
+
+**Files:**
+- Modify: `src/components/crm/WeekBackReferences.tsx:129-140` (the "Orders that drew down this credit" section)
+- Test: `src/components/crm/__tests__/WeekBackReferences.test.tsx`
+
+**Context (verified):** `api.crm.ledger.getWeekBackReferences` (`convex/crm/ledger.ts:67`) already collects **all** orders via `orders.by_subscriptionWeek` with **no** planned-only filter. Ad-hoc credit orders carry `subscriptionWeekId`, so they **already appear** in this section — no query change needed. The only gap is that staff can't distinguish a planned-day order from an ad-hoc credit top-up. This task adds an additive **badge**; it does NOT change any query or filter.
+
+**Interfaces:**
+- Consumes: `order.fundingSource` + `order.subscriptionCreditApplied` (T1) on the rows already returned by `getWeekBackReferences`. No backend change.
+
+- [ ] **Step 1: Write the failing test**
+
+In `src/components/crm/__tests__/WeekBackReferences.test.tsx`, mock `getWeekBackReferences` to return a planned order (`fundingSource:"subscription_credit"`, `subscriptionCreditApplied` undefined) and an ad-hoc credit order (`subscriptionCreditApplied: 14000`). Assert:
+
+```tsx
+it("badges ad-hoc credit orders distinctly from planned orders", () => {
+  mockBackRefs({
+    orders: [
+      { _id: "o1", orderNumber: "0629-001", status: "PaymentReceived", fundingSource: "subscription_credit" }, // planned
+      { _id: "o2", orderNumber: "0629-050", status: "PaymentReceived", fundingSource: "deposit", subscriptionCreditApplied: 14000 }, // ad-hoc
+    ],
+    ledgerEntries: [], fundingInvoice: null,
+  });
+  render(<WeekBackReferences subscriptionWeekId={"w1" as any} customerId={"c1" as any} subscriptionId={"s1" as any} />);
+  // both orders link; only the ad-hoc one carries the "Top-up" badge
+  expect(screen.getByText("0629-001")).toBeInTheDocument();
+  expect(screen.getByText("0629-050")).toBeInTheDocument();
+  const badges = screen.getAllByText(/top-?up/i);
+  expect(badges).toHaveLength(1);
+});
+```
+
+> Mirror the existing test setup in `src/components/crm/__tests__/WeekBackReferences.test.tsx`
+> (it already mocks `useSessionQuery`); add the two order rows above to its fixture.
+
+- [ ] **Step 2: Run to verify fail**
+
+Run: `npx vitest run src/components/crm/__tests__/WeekBackReferences.test.tsx -t "badges ad-hoc"`
+Expected: FAIL (no badge rendered).
+
+- [ ] **Step 3: Implement (additive — same section, extra badge)**
+
+In `WeekBackReferences.tsx`, in the orders `.map` (`:133-138`), render a small badge when the order is an ad-hoc credit order. Detection: `(order.subscriptionCreditApplied ?? 0) > 0`. Keep the existing link + status untouched:
+
+```tsx
+orders.map((order) => {
+  const isAdHocCredit = (order.subscriptionCreditApplied ?? 0) > 0;
+  return (
+    <RefLink key={order._id} to={`/orders/${order._id}`}>
+      <span className="font-mono text-xs">{order.orderNumber}</span>
+      <span className="text-xs opacity-70">· {order.status}</span>
+      {isAdHocCredit && (
+        <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+          Top-up
+        </span>
+      )}
+    </RefLink>
+  );
+})
+```
+
+> `getWeekBackReferences` returns full order docs, so `subscriptionCreditApplied` is already present
+> on each row after T1 — no backend change. If TS complains the field isn't on the returned type,
+> it's because codegen hasn't re-run; run `npx convex codegen` (the field is on the `orders` doc).
+
+- [ ] **Step 4: Run to verify pass**
+
+Run: `npx vitest run src/components/crm/__tests__/WeekBackReferences.test.tsx`
+Expected: PASS (new test + existing tests green).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/components/crm/WeekBackReferences.tsx src/components/crm/__tests__/WeekBackReferences.test.tsx
+git commit -m "feat(crm): badge ad-hoc credit orders in subscription week back-references (additive)"
+```
+
+---
+
+### Task T12: Verification + docs
 
 **Files:** docs + repo-wide.
 
@@ -972,7 +1054,7 @@ git commit -m "feat(orders): mirror subscription credit drawdown into OrderDetai
 - [ ] Eligible lines drawn at partner `unitPrice`; off-plan lines paid normally; partial works.
 - [ ] No double-spend across two un-delivered credit orders in one week.
 - [ ] Drawdown posts at delivery for exactly `subscriptionCreditApplied`; planned orders regress green.
-- [ ] CRM week shows the ad-hoc credit order + drawdown ledger row; `plannedDays` unchanged.
+- [ ] CRM week back-references list the ad-hoc credit order (badged "Top-up") + drawdown ledger row; `plannedDays` unchanged.
 - [ ] WhatsApp summary renders correct figures + logs `whatsapp_drafted`.
 - [ ] Path B refactored to reservation; both surfaces still render; IMP-4 resolved.
 - [ ] `/triple-review` + `/simplify xhigh` findings addressed; `/persona-uat` passed (or flagged `pending: needs live env`).
