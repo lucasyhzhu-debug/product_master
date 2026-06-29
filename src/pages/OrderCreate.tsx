@@ -115,6 +115,10 @@ export function OrderCreate() {
   // Subscription credit drawdown — selected subscription for the credit-funded order.
   // Set by the SubscriptionSelector (Customer card); available to order_staff + mgr + admin.
   const [selectedSubId, setSelectedSubId] = useState<Id<"subscriptions"> | null>(null);
+  // "Add more": prompt to fund this NEW order from the customer's subscription credit.
+  // null = not yet decided, 'accepted' = route submit through the credit draw-down,
+  // 'declined' = normal create (don't nag again for this draft).
+  const [creditIntent, setCreditIntent] = useState<'accepted' | 'declined' | null>(null);
   const [creditBusy, setCreditBusy] = useState(false);
   const [creditOrderId, setCreditOrderId] = useState<Id<"orders"> | null>(null);
   const [showCreditWhatsApp, setShowCreditWhatsApp] = useState(false);
@@ -290,6 +294,8 @@ export function OrderCreate() {
     // cross-customer selectedSubId would dead-end Fulfil with a backend reject.
     // SubscriptionSelector re-runs its single-sub auto-select for the new customer.
     setSelectedSubId(null);
+    // Reset the "use credit?" prompt so it re-asks for the newly chosen customer.
+    setCreditIntent(null);
 
     // Store the customer's saved default address for comparison
     setCustomerDefaultAddress(defaultAddress ?? '');
@@ -324,6 +330,7 @@ export function OrderCreate() {
     setCustomerSet(true);
     // Clear any subscription selected for the previous customer (see handleCustomerSelect).
     setSelectedSubId(null);
+    setCreditIntent(null);
 
     // Auto-create draft for new customer if not already editing
     if (!draftOrderId && !editDraftId) {
@@ -545,6 +552,14 @@ export function OrderCreate() {
       toast.error('Select or create a customer first');
       return;
     }
+    // "Add more" intent: route this submit through the subscription credit draw-down
+    // (createCreditFundedOrder) instead of a plain order create. handleFulfilWithCredit
+    // enforces its own guards (sub selected, due date + items present) and guides the
+    // operator if anything is missing — the actual draw-down only fires once they are.
+    if (creditIntent === 'accepted') {
+      await handleFulfilWithCredit();
+      return;
+    }
     if (isLowPrice && !lowPriceConfirmed) {
       setShowLowPriceWarning(true);
       return;
@@ -752,6 +767,49 @@ export function OrderCreate() {
             selectedSubId={selectedSubId}
             onSelect={setSelectedSubId}
           />
+        )}
+
+        {/* "Add more" prompt — fund this NEW order from the customer's subscription credit.
+            Shown on a fresh order for any customer with >=1 active subscription, until the
+            operator accepts or declines. Accepting routes the order submit through the
+            existing credit draw-down (handleFulfilWithCredit -> createCreditFundedOrder). */}
+        {!isEditMode && customerId !== null && activeSubs && activeSubs.length > 0 && creditIntent === null && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950">
+            <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+              This customer has an active subscription with credit — use it?
+            </p>
+            <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+              Fund this order from their subscription credit instead of collecting payment.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button
+                size="sm"
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                onClick={() => setCreditIntent('accepted')}
+              >
+                Use subscription credit
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setCreditIntent('declined')}>
+                No, normal order
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!isEditMode && creditIntent === 'accepted' && (
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950">
+            <span className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+              Funding this order from subscription credit on submit.
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-emerald-700 hover:text-emerald-900 dark:text-emerald-300"
+              onClick={() => setCreditIntent('declined')}
+            >
+              Undo
+            </Button>
+          </div>
         )}
       </Card>
 
