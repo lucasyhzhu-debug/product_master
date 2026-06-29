@@ -1,7 +1,8 @@
 # SPEC — Ordering screen: B2B subscription-credit UX + flexible daily orders
 
 **Date:** 2026-06-29
-**Status:** Draft spec (no code yet) — for a focused, triple-reviewed build later.
+**Status:** Slice 4 SHIPPED (PR #226). Slices 1–3 — all open questions RESOLVED
+2026-06-29; spec staffreviewed and being planned for a focused, triple-reviewed build.
 **Author:** session with Lucas.
 
 ## Problem
@@ -37,28 +38,90 @@ B2B cafe order the credit path is invisible until late and easy to miss.
 The concrete near-term ask.
 
 1. **`[B2B]` prefix in the customer dropdown.** In `CustomerSearch`'s result list,
-   prefix the name with `[B2B]` when the customer is `customerType === "b2b_wholesale"`
-   **and** has ≥1 active subscription. (Lucas's words: "a flag that says `[B2B]`
-   prefixed on their customer name … if they're a b2b customer with subscriptions.")
-2. **Subscription selector directly under the selected name.** When a `[B2B]`
-   customer is selected, render a compact selector **immediately under the name in
-   the Customer card** (not the late, items-gated banner) that lists their active
-   subscriptions and lets the operator pick which one's credit to use. Selecting one
-   sets `selectedSubId` (the state already exists at `OrderCreate.tsx:114`).
+   prefix the name with `[B2B]` when the customer is `customerType === "b2b_wholesale"`.
+   **DECISION 2026-06-29 (Q1 resolved):** the flag is purely `b2b_wholesale` — it does
+   NOT depend on having an active subscription. The *flag* and the *selector* are
+   decoupled: every B2B customer is flagged in the dropdown, but the subscription
+   selector (item 2) only appears for those with ≥1 active subscription. (This removes
+   the subscription lookup from the dropdown query's hot path — `hasActiveSubscription`
+   is no longer needed for the flag, only `customerType` + `companyName`.)
+2. **Subscription selector directly under the selected name.** When a selected
+   customer has ≥1 active subscription, render a compact selector **immediately under
+   the name in the Customer card** (not the late, items-gated banner) that lists their
+   active subscriptions and lets the operator pick which one's credit to use. Selecting
+   one sets `selectedSubId` (the state already exists at `OrderCreate.tsx:114`).
 3. **Decouple from items/due-date for visibility.** The *selector* shows on customer
    selection; the *credit split detail* (per-line coverage) can still fill in once
    items + due date exist. Reuse `SubscriptionCreditBanner`'s detail rendering but
    move the **subscription-choice** up to the Customer card.
 
-**Backend:** add a lightweight search-companion (or extend `customers.queries.search`
-to return `customerType` + a boolean `hasActiveSubscription`, and a per-customer
-`listActiveSubscriptions(customerId)` query for the selector). Keep `[B2B]` purely
-derived (B2B + has-active-sub), so non-subscription B2B customers don't get the flag
-spuriously.
+**CONFIRMED LIVE BUG — two facets (both must be fixed):**
+- **Facet A (documented):** the selector is rendered only when
+  `isManagerOrAdmin && customerId !== null && hasItems` **and** a due date
+  (`OrderCreate.tsx:902`), and its data hook `useSubscriptionCreditContext`
+  (`src/hooks/useSubscriptionCreditContext.ts:12`) passes `"skip"` until
+  `draftItems.length > 0`. So with a customer chosen but no items, there is nothing to
+  select. → Fix by decoupling the *choice* from items/due-date (item 3).
+- **Facet B (revealed by live screenshot 2026-06-29):** even once the banner DOES
+  appear, `SubscriptionCreditBanner` renders a radio **only when `multiSub`**
+  (`SubscriptionCreditBanner.tsx:135-139` shows the single-sub label as plain text —
+  no clickable control), and `selectedSubId` is **never auto-selected** (verified: it
+  is only ever set by that radio). So in the common **single-subscription** case
+  `selectedSubId` stays `null`, and clicking *Fulfil with Subscription Credit* dead-ends
+  at `handleFulfilWithCredit` → `toast.error('Select a subscription above first')`
+  (`OrderCreate.tsx:424`) — with nothing above to select. → **DECISION (Q2 resolved):
+  default-select when exactly one** active subscription (set `selectedSubId` to the
+  sole sub on load), and the new under-the-name selector renders a control for the
+  single-sub case too (not plain text), so the choice is always actionable.
+
+**Backend:** the dropdown query only needs `customerType` + `companyName` (the `[B2B]`
+flag is `customerType`-only per Q1 — no subscription lookup). Add a separate
+per-customer `listActiveSubscriptionsForCustomer(customerId)` query for the selector,
+returning `[{ subscriptionId, label, creditRemaining? }]` (active subs only). **Role
+scope (Q3 resolved): roles = `["order_staff","manager","admin"]`** — the `/orders/new`
+route is `canAccessOrders` (reachable by order_staff per `types.ts:774`), so the
+list-subscriptions query MUST include `order_staff` or the selector silently crashes /
+stays hidden for them (CLAUDE.md Pitfall #19). Confidential figures (partner price)
+stay stripped server-side per role (CRM D11); `creditRemaining` is the derived pool
+(`deriveCreditPool` — never re-key, CRM C10).
 
 **Surfaces:** `OrderCreate.tsx` is the primary ordering sheet. Check whether
 `OrderForm.tsx` / `OrderFormPOS.tsx` (which also call `useCustomerSearch`) need the
 same treatment — per CLAUDE.md Pitfall #20, mirror order features across surfaces.
+
+#### Slice 1 — ALSO fix two dropdown problems (same slice)
+Grounded against the real schema (`schema.ts:178-206`): `customers` has `name`,
+`phone?`, `whatsapp?`, **`altPhone?`** (a third number field — must be considered too),
+`companyName?`, `customerType?` (**optional** — legacy rows have no value, so the
+`[B2B]` test must treat `undefined` as not-B2B). The `search` query already returns
+**full customer docs** (`textSearch` returns `Doc<"customers">[]`), so `customerType`,
+`companyName`, `whatsapp` are already on the wire — only **matching** and **rendering**
+need work, not the return shape.
+
+**(a) Phone ↔ WhatsApp matching (one identity).** `api.customers.queries.search`
+currently matches only `["name","phone"]` (`queries.ts:36`) via the generic
+`textSearch` (full-table `.collect()` + case-insensitive substring, **no digit
+normalization** — `queryHelpers.ts:107-128`). A cafe whose number lives in `whatsapp`
+(or `altPhone`) but not `phone` fails to match and looks like a different/duplicate
+person. **Fix:** replace the generic call with a customer-specific search that (i)
+substring-matches `name` + `companyName`, and (ii) for a query that looks like a phone
+number, **digit-normalizes** (strip non-digits; treat leading `0`/`+62`/`62` as
+equivalent) and matches the normalized query against the digit-normalized `phone`,
+`whatsapp`, AND `altPhone` — so the two/three numbers are ONE identity. Keep it within
+the existing full-scan pattern (no new index needed; same cost as today's `textSearch`).
+- **Dedup-on-create:** `crm.customers.createCustomer` dedups by an **exact** `by_phone`
+  index match only (`customers.ts:99-104`) — it ignores `whatsapp`/`altPhone` and is
+  defeated by formatting variants (`0812…` vs `+62812…`). **Fix:** before insert, also
+  match the new customer's number (normalized) against existing `phone`/`whatsapp`/
+  `altPhone` so the same cafe isn't split. (No unique constraint exists — the known
+  concurrent-same-phone race from #211 is out of scope here.)
+
+**(b) Business name in the dropdown.** Render `companyName` alongside the name in each
+result and in the selected display so look-alikes are distinguishable — real case: a
+D2C "Marchella - Amsterdam" vs a B2B "Marchella" are indistinguishable today. E.g.
+`[B2B] Marchella — <companyName>` / `Marchella - Amsterdam`. `CustomerSearch.tsx`'s
+local prop/handler types (lines 9-11, 44) currently narrow customers to
+`_id/name/phone/defaultAddress` — widen them to carry `customerType` + `companyName`.
 
 ### Slice 2 — edit a day's existing order before it ships
 Reduce (or change) pieces on a not-yet-delivered subscription order directly from the
@@ -125,21 +188,32 @@ Telegram I/O (mirror the pack-list/sales-summary send pattern).
   its cron + resilient send + watchdog. No new kind, no ball-count helper (pieces only).
 - **Build order:** Slice 4 (SHIPPED on `feature/subscription-eod-summary-kpis`) then Slice 1, TDD, triple-review before merge.
 
-## Open questions
-1. **Dropdown flag rule:** `[B2B]` only when B2B **and** has an active subscription, or
-   for any `b2b_wholesale` customer regardless of subscription? (Spec assumes the
-   former — matches "b2b customer with subscriptions".)
-2. **Multiple active subscriptions:** show all in the selector (radio), default to the
-   only one when there's exactly one?
-3. **Non-manager staff:** the current banner is manager/admin-only. Should the B2B
-   selector be visible (read-only?) to order staff, or stay manager/admin? (Affects the
-   backend `roles` — see CLAUDE.md Pitfall #19: keep query roles ⊇ the route's
-   permission set.)
-4. ~~**Slice 4 timing**~~ — RESOLVED: reuses the existing 18:00 WIB cron.
+### Slices 1–3 decisions (locked 2026-06-29, this planning pass)
+- **[B2B] flag = `customerType === "b2b_wholesale"` only** (treat `undefined` as not-B2B);
+  decoupled from subscription state. Selector visibility = has-active-sub.
+- **Default-select the sole subscription** when a customer has exactly one active sub;
+  radio when >1. The single-sub selector renders an actual control (not plain text).
+- **Roles = `["order_staff","manager","admin"]`** for the new list-subscriptions query
+  and for selector visibility (route is `canAccessOrders`). Pitfall #19.
+- **Search matches** `name` + `companyName` + digit-normalized `phone`/`whatsapp`/`altPhone`
+  (one identity); dropdown shows `companyName` to disambiguate look-alikes.
+- **Dedup-on-create** also considers `whatsapp`/`altPhone` (normalized), not just exact `phone`.
+- **No stopgap** — the live single-sub bug is fixed only as part of the full Slice 1.
+
+## Open questions — ALL RESOLVED 2026-06-29 (Slices 1–3)
+1. ~~**Dropdown flag rule**~~ — RESOLVED: `[B2B]` for **any `b2b_wholesale`** customer
+   (flag decoupled from subscription; the *selector* still requires an active sub).
+2. ~~**Multiple active subscriptions**~~ — RESOLVED: radio list when >1; **auto-select
+   the sole sub** when exactly one (fixes live-bug Facet B).
+3. ~~**Non-manager staff**~~ — RESOLVED: the selector + its list-subscriptions query are
+   visible/usable to **`order_staff` + manager + admin** (route is `canAccessOrders`,
+   reachable by order_staff). Query `roles` MUST include `order_staff` (Pitfall #19).
+   Confidential figures stay stripped server-side per role (CRM D11).
+4. ~~**Slice 4 timing**~~ — RESOLVED: reuses the existing 18:00 WIB cron. (Slice 4 SHIPPED.)
 5. ~~**What "left" means**~~ — RESOLVED: weekly allotment remaining in **scheduled product
-   pieces** (`weeklyQty − pieces used this week`).
-6. **Slice 4 recipient:** internal ops (`subscription-ops`/`founders` Telegram role),
-   the **customer** directly, or both? Affects tone + which `telegramChats` role.
+   pieces** (`weeklyQty − pieces used this week`). (Slice 4 SHIPPED.)
+6. ~~**Slice 4 recipient**~~ — RESOLVED: founders (extended the existing
+   `weekly-delivery-progress` message). (Slice 4 SHIPPED, PR #226.)
 
 ## Non-goals
 - Editing/reducing **delivered/recognized** orders (recognized-revenue + balanceAfter
