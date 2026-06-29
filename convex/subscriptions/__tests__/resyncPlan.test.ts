@@ -17,11 +17,14 @@ const PRICE = 29_000;
 const WEEK_START = Date.UTC(2026, 5, 16);
 const MON = WEEK_START;
 
-async function createSession(t: TestT): Promise<{ sessionId: SessionId; userId: Id<"users"> }> {
-  const token = `manager-token-${Date.now()}-${Math.random()}` as SessionId;
+async function createSession(
+  t: TestT,
+  role: "manager" | "order_staff" | "kitchen" = "manager",
+): Promise<{ sessionId: SessionId; userId: Id<"users"> }> {
+  const token = `${role}-token-${Date.now()}-${Math.random()}` as SessionId;
   const userId = await t.run(async (ctx) => {
     const uid = await ctx.db.insert("users", {
-      name: "Test Manager", pinHash: "salt:hash", role: "manager", isActive: true,
+      name: `Test ${role}`, pinHash: "salt:hash", role, isActive: true,
       failedAttempts: 0, createdAt: Date.now(),
     } as never);
     await ctx.db.insert("sessions", { userId: uid, token, expiresAt: Date.now() + 8 * 3600 * 1000, createdAt: Date.now() } as never);
@@ -105,5 +108,31 @@ describe("resyncWeekPlanFromOrders", () => {
     expect(res.after).toEqual([]);
     const week = await t.run(async (ctx) => ctx.db.get(f.subscriptionWeekId));
     expect(week!.plannedDays).toHaveLength(0);
+  });
+
+  it("allows order_staff to resync (Pitfall #19)", async () => {
+    const t = convexTest(schema);
+    // Seed using a manager to create the data, then call with order_staff session.
+    const f = await seedDriftedWeek(t);
+    const { sessionId: staffSession } = await createSession(t, "order_staff");
+
+    const res = await t.mutation(api.subscriptions.resyncPlan.resyncWeekPlanFromOrders, {
+      sessionId: staffSession,
+      subscriptionWeekId: f.subscriptionWeekId,
+    });
+    expect(res.after).toEqual([{ date: MON, qty: 150 }]);
+  });
+
+  it("rejects kitchen role (unauthorized)", async () => {
+    const t = convexTest(schema);
+    const f = await seedDriftedWeek(t);
+    const { sessionId: kitchenSession } = await createSession(t, "kitchen");
+
+    await expect(
+      t.mutation(api.subscriptions.resyncPlan.resyncWeekPlanFromOrders, {
+        sessionId: kitchenSession,
+        subscriptionWeekId: f.subscriptionWeekId,
+      }),
+    ).rejects.toThrow();
   });
 });

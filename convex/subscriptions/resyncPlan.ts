@@ -117,7 +117,7 @@ export async function resyncWeekPlanInline(
  * what was billed or drawn down. It only makes the schedule tell the truth.
  */
 export const resyncWeekPlanFromOrders = protectedMutation({
-  roles: ["manager", "admin"],
+  roles: ["order_staff", "manager", "admin"],
   args: { subscriptionWeekId: v.id("subscriptionWeeks") },
   handler: async (ctx, args) => {
     return await resyncWeekPlanInline(ctx, args.subscriptionWeekId);
