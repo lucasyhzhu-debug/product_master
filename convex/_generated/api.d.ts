@@ -304,6 +304,7 @@ import type * as subscriptions_reconcile from "../subscriptions/reconcile.js";
 import type * as subscriptions_reconcileMath from "../subscriptions/reconcileMath.js";
 import type * as subscriptions_reminders_queries from "../subscriptions/reminders/queries.js";
 import type * as subscriptions_reminders_types from "../subscriptions/reminders/types.js";
+import type * as subscriptions_resyncPlan from "../subscriptions/resyncPlan.js";
 import type * as subscriptions_revenueGate from "../subscriptions/revenueGate.js";
 import type * as subscriptions_rollover from "../subscriptions/rollover.js";
 import type * as subscriptions_scheduleLine from "../subscriptions/scheduleLine.js";
@@ -638,6 +639,7 @@ declare const fullApi: ApiFromModules<{
   "subscriptions/reconcileMath": typeof subscriptions_reconcileMath;
   "subscriptions/reminders/queries": typeof subscriptions_reminders_queries;
   "subscriptions/reminders/types": typeof subscriptions_reminders_types;
+  "subscriptions/resyncPlan": typeof subscriptions_resyncPlan;
   "subscriptions/revenueGate": typeof subscriptions_revenueGate;
   "subscriptions/rollover": typeof subscriptions_rollover;
   "subscriptions/scheduleLine": typeof subscriptions_scheduleLine;

@@ -138,6 +138,9 @@ export function SubscriptionSchedulePage() {
   // Amend mutation (T3 backend)
   const amendWeek = useSessionMutation(api.subscriptions.amend.amendConfirmedWeek);
 
+  // Resync the schedule to match the actual orders (fixes plan↔order drift).
+  const resyncPlan = useSessionMutation(api.subscriptions.resyncPlan.resyncWeekPlanFromOrders);
+
   // ---------------------------------------------------------------------------
   // Local editable plan (derived from Convex week.plannedDays)
   // Convex is the source of truth; localDays shadows changes before seedWeek is called.
@@ -457,6 +460,34 @@ export function SubscriptionSchedulePage() {
           {amendable && !amending && (
             <Button variant="outline" size="sm" onClick={() => setAmending(true)} className="text-xs">
               <Pencil className="h-4 w-4 mr-1.5" /> Amend week
+            </Button>
+          )}
+
+          {/* Resync from orders — fixes a schedule that drifted from the real orders
+              (e.g. shows 250 when the delivered order is 150). Plan-only; never
+              touches orders or credit. */}
+          {amendable && !amending && week !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              title="Rebuild this week's schedule from its actual orders (does not change orders or credit)"
+              onClick={async () => {
+                try {
+                  const r = await resyncPlan({ subscriptionWeekId: week._id });
+                  const changed = JSON.stringify(r.before) !== JSON.stringify(r.after);
+                  toast.success(
+                    changed
+                      ? "Schedule resynced to match the actual orders."
+                      : "Schedule already matches the orders — no change.",
+                  );
+                  setLocalDays(null);
+                } catch (err) {
+                  toast.error(getErrorMessage(err, "Failed to resync schedule"));
+                }
+              }}
+            >
+              <RefreshCw className="h-4 w-4 mr-1.5" /> Resync from orders
             </Button>
           )}
 
