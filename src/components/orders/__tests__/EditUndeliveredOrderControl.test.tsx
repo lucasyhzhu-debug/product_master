@@ -123,6 +123,64 @@ describe("EditUndeliveredOrderControl — submit", () => {
     expect(toast.success).toHaveBeenCalled();
   });
 
+  it("preserves in-progress edits across an items-identity change while open", () => {
+    const { rerender } = render(
+      <EditUndeliveredOrderControl
+        orderId={ORDER_ID}
+        status="BeingPrepared"
+        isSubscriptionOrder={true}
+        items={ITEMS}
+      />,
+    );
+
+    // Open the editor, then edit a line.
+    fireEvent.click(screen.getByText(/edit order \(reduce\)/i));
+    const inputA = screen.getByLabelText(/quantity for original/i);
+    fireEvent.change(inputA, { target: { value: "2" } });
+    expect((inputA as HTMLInputElement).value).toBe("2");
+
+    // Simulate a Convex reactive push: parent re-renders with a NEW items array
+    // reference holding the SAME data — without closing the dialog.
+    const sameDataNewRef: EditUndeliveredOrderItem[] = ITEMS.map((it) => ({ ...it }));
+    rerender(
+      <EditUndeliveredOrderControl
+        orderId={ORDER_ID}
+        status="BeingPrepared"
+        isSubscriptionOrder={true}
+        items={sameDataNewRef}
+      />,
+    );
+
+    // The in-progress edit must survive (not reset to the current quantity).
+    expect((screen.getByLabelText(/quantity for original/i) as HTMLInputElement).value).toBe(
+      "2",
+    );
+  });
+
+  it("submits newQty 0 (remove line) when a qty is set to 0", async () => {
+    render(
+      <EditUndeliveredOrderControl
+        orderId={ORDER_ID}
+        status="BeingPrepared"
+        isSubscriptionOrder={true}
+        items={ITEMS}
+      />,
+    );
+
+    fireEvent.click(screen.getByText(/edit order \(reduce\)/i));
+
+    const inputA = screen.getByLabelText(/quantity for original/i);
+    fireEvent.change(inputA, { target: { value: "0" } });
+
+    fireEvent.click(screen.getByText(/save reductions/i));
+
+    await waitFor(() => expect(mockEdit).toHaveBeenCalledTimes(1));
+    expect(mockEdit).toHaveBeenCalledWith({
+      orderId: ORDER_ID,
+      lines: [{ itemId: "item_a", newQty: 0 }],
+    });
+  });
+
   it("blocks an increase (clamps to current → no changed line → Save disabled)", () => {
     render(
       <EditUndeliveredOrderControl
