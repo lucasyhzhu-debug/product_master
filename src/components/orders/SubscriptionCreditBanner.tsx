@@ -112,8 +112,7 @@ export function SubscriptionCreditBanner({
 
         {/* Context detail for the selected sub */}
         {(() => {
-          const ctx = selectedCtx;
-          if (!ctx) {
+          if (!selectedCtx) {
             // No subscription selected yet (choose one in the Customer card above)
             return (
               <p className="text-xs text-muted-foreground">
@@ -122,7 +121,7 @@ export function SubscriptionCreditBanner({
             );
           }
 
-          if (ctx.weekId === null) {
+          if (selectedCtx.weekId === null) {
             return (
               <p className="text-sm text-amber-700 dark:text-amber-400">
                 No credit available this week.
@@ -130,11 +129,11 @@ export function SubscriptionCreditBanner({
             );
           }
 
-          const split = ctx.split;
+          const split = selectedCtx.split;
           if (!split) {
             return (
               <p className="text-sm text-muted-foreground">
-                Available credit: {formatCurrency(ctx.availableCredit)}
+                Available credit: {formatCurrency(selectedCtx.availableCredit)}
               </p>
             );
           }

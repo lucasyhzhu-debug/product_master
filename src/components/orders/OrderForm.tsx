@@ -32,6 +32,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import type { MenuProduct } from '@/lib/types';
 import { getChannelOptions } from '@/lib/channels';
 import { ChannelBadge } from './ChannelBadge';
+import { CustomerLabel, type CustomerPickerOption } from './CustomerLabel';
 import { cn } from '@/lib/utils';
 
 // Internal form state types (snake_case for form compatibility)
@@ -135,7 +136,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
   );
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: "direct_b2c" | "b2b_wholesale" | null; companyName?: string | null }) => {
+  const handleCustomerSelect = (customer: CustomerPickerOption) => {
     const convexId = customer._id as Id<"customers">;
     setCustomerId(convexId);
     setCustomerSearch(customer.name);
@@ -436,13 +437,11 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
                       onClick={() => handleCustomerSelect(customer)}
                     >
                       <div className="font-medium">
-                        {customer.customerType === 'b2b_wholesale' && (
-                          <span className="text-xs font-semibold text-blue-600 mr-1">[B2B]</span>
-                        )}
-                        {customer.name}
-                        {customer.companyName && (
-                          <span className="text-muted-foreground font-normal"> — {customer.companyName}</span>
-                        )}
+                        <CustomerLabel
+                          name={customer.name}
+                          companyName={customer.companyName}
+                          customerType={customer.customerType}
+                        />
                       </div>
                       {customer.phone && (
                         <div className="text-xs text-muted-foreground">{customer.phone}</div>

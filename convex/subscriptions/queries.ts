@@ -199,39 +199,34 @@ export const listActiveSubscriptionsForCustomer = protectedQuery({
     ).filter((s) => s.status === "active");
 
     const todayMs = Date.now();
-    const out: Array<{
-      subscriptionId: Id<"subscriptions">;
-      label: string;
-      creditRemaining: number | null;
-    }> = [];
+    const out = await Promise.all(
+      subs.map(async (sub) => {
+        // Resolve the funded open week covering today (paid or delivering).
+        // A covering week always has weekStart <= today, so bound the scan via
+        // the index upper bound; keep the JS filter for weekEnd + status.
+        const weeks = await ctx.db
+          .query("subscriptionWeeks")
+          .withIndex("by_subscription_weekStart", (q) =>
+            q.eq("subscriptionId", sub._id).lte("weekStart", todayMs),
+          )
+          .collect();
+        const week =
+          weeks.find(
+            (w) =>
+              todayMs <= w.weekEnd &&
+              (w.status === "paid" || w.status === "delivering"),
+          ) ?? null;
 
-    for (const sub of subs) {
-      // Resolve the funded open week covering today (paid or delivering).
-      const weeks = await ctx.db
-        .query("subscriptionWeeks")
-        .withIndex("by_subscription_weekStart", (q) =>
-          q.eq("subscriptionId", sub._id),
-        )
-        .collect();
-      const week =
-        weeks.find(
-          (w) =>
-            w.weekStart <= todayMs &&
-            todayMs <= w.weekEnd &&
-            (w.status === "paid" || w.status === "delivering"),
-        ) ?? null;
+        let creditRemaining: number | null = null;
+        if (week) {
+          // CRM C10: derive from the pool — never re-key a denormalised total.
+          ({ availableCredit: creditRemaining } =
+            await computeWeekAvailableCredit(ctx, week._id));
+        }
 
-      let creditRemaining: number | null = null;
-      if (week) {
-        // CRM C10: derive from the pool — never re-key a denormalised total.
-        ({ availableCredit: creditRemaining } = await computeWeekAvailableCredit(
-          ctx,
-          week._id,
-        ));
-      }
-
-      out.push({ subscriptionId: sub._id, label: sub.label, creditRemaining });
-    }
+        return { subscriptionId: sub._id, label: sub.label, creditRemaining };
+      }),
+    );
     return out;
   },
 });

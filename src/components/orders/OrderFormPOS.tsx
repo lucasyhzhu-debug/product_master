@@ -33,6 +33,7 @@ import { DeliveryToggle } from './DeliveryToggle';
 import { VoucherInput, type AppliedVoucher } from './VoucherInput';
 import { ManagerOverrideDialog } from './ManagerOverrideDialog';
 import { LowPriceWarningDialog } from './LowPriceWarningDialog';
+import { CustomerLabel, type CustomerPickerOption } from './CustomerLabel';
 import {
   usePosProducts,
   usePackagingPosProducts,
@@ -372,7 +373,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
     setItems(items.filter((item) => item.productId !== productId));
   };
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: "direct_b2c" | "b2b_wholesale" | null; companyName?: string | null }) => {
+  const handleCustomerSelect = (customer: CustomerPickerOption) => {
     const convexId = customer._id as Id<"customers">;
     setSelectedCustomerId(convexId);
     setCustomerSearch(customer.name);
@@ -818,13 +819,11 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                               onClick={() => handleCustomerSelect(customer)}
                             >
                               <div className="font-medium text-foreground">
-                                {customer.customerType === 'b2b_wholesale' && (
-                                  <span className="text-xs font-semibold text-blue-600 mr-1">[B2B]</span>
-                                )}
-                                {customer.name}
-                                {customer.companyName && (
-                                  <span className="text-muted-foreground font-normal"> — {customer.companyName}</span>
-                                )}
+                                <CustomerLabel
+                                  name={customer.name}
+                                  companyName={customer.companyName}
+                                  customerType={customer.customerType}
+                                />
                               </div>
                               {customer.phone && (
                                 <div className="text-xs text-muted-foreground mt-1">{customer.phone}</div>
