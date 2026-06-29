@@ -18,8 +18,7 @@ import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
 
 // ---- Types ---------------------------------------------------------------
@@ -46,7 +45,7 @@ export interface SubscriptionCreditContext {
   subscriptionId: Id<"subscriptions">;
   label: string;
   weekId: Id<"subscriptionWeeks"> | null;
-  allowedProductIds: string[];
+  allowedProductIds: Id<"menuProducts">[];
   availableCredit: number;
   split: CreditSplit | null;
   plannedDeliveriesRemaining: number;
@@ -211,7 +210,7 @@ export function SubscriptionCreditBanner({
                   Credit covers {formatCurrency(split.creditCovered)}
                 </span>
                 <span className="font-semibold text-blue-900 dark:text-blue-100">
-                  Rp {split.amountDue.toLocaleString("id-ID")} due
+                  {formatCurrency(split.amountDue)} due
                 </span>
               </div>
             </div>
