@@ -14,6 +14,17 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription amend: reduce as well as increase + schedule-grid UX fixes — 2026-06-29
+
+**For the team:** You can now **reduce** a subscription day (or remove it), not just increase it. If you accidentally bump Monday to 250 when you meant 150, just amend it back down — the smaller delivery draws less credit and the leftover stays in the customer'''s pool (no refund, no new invoice). Already-delivered days are still locked. The weekly **Schedule Calendar** now lays each day out on its **own full-width row** so the product dropdown is readable instead of squashed, and the quantity box has **no up/down arrows** and can be **cleared and retyped** (snaps back to 1 only if you leave it empty).
+
+### Changed
+- **`amendConfirmedWeek`** (`convex/subscriptions/amend.ts`) — now **symmetric**: supports decreases and full day removals, not increases-only. Reducing an undelivered day shrinks its order (qty + `orderItemProduction`) so it draws **less** credit at delivery; removing a product cancels that order line; omitting a whole day cancels its (undelivered) order. Surplus credit just stays in the pool — no auto-refund. The delivered/recognized-day guard now blocks changes in **either** direction. Returns now also include `{ reducedTotal, removedLines }`. Replaces the old increases-only + ghost-order-omission guards.
+- **Schedule grid UX** — `WeekCalendarGrid` switched from a cramped 7-column grid to **one row per day**; `DayPlanCell` reflowed to a left-rail (day/date) + center (lines) + right-rail (day total) layout; `ProductLineEditor` qty field is now a numeric **text** input (no spinner arrows, clearable, coerced to ≥1 on blur) with a wider product dropdown.
+- **Amend toast** (`src/pages/crm/SubscriptionSchedulePage.tsx`) — phrases net decreases ("reduced by … — surplus stays in the pool") as well as increases.
+
+---
+
 ## [Unreleased] — Subscription invoice: day-by-day lines, no signature, ledger link fix + clickable sub label — 2026-06-29
 
 **For the team:** The customer-facing weekly subscription invoice now lists deliveries **day by day** (with a per-day subtotal) instead of collapsing the whole week into one line per product, and it **drops the signature box** — a prepaid weekly-credit voucher is settled by bank transfer, not signed. Clicking an invoice in a customer's **Credit Ledger Statement** now opens that week's invoice page instead of dead-ending, and the **subscription name in CRM → Active subscriptions** is now a real link to the subscription.
