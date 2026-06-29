@@ -21,6 +21,8 @@ import {
   EnhancedCancellationDialog,
 } from '@/components/orders';
 import { StatusActionButtons } from '@/components/orders/StatusActionButtons';
+import { EditUndeliveredOrderControl } from '@/components/orders/EditUndeliveredOrderControl';
+import type { EditUndeliveredOrderItem } from '@/components/orders/EditUndeliveredOrderControl';
 import { QrisChargeDialog } from '@/components/orders/QrisChargeDialog';
 import { AuditTrail } from '@/components/orders/AuditTrail';
 import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
@@ -222,7 +224,12 @@ export function OrderDetail() {
   }
 
   // Pitfall #20: subscription orders render read-only here too (MIRROR of OrderSlideOver.tsx).
+  // Read-only gating keys on subscription_id ALONE (matches OrderSlideOver) — a subscription
+  // order without a week must still be read-only, never fall into the editable branch.
   const isSubscriptionOrder = Boolean(order?.subscription_id);
+  // Reduce/remove on an undelivered order requires BOTH ids (the edit orchestrator does too).
+  // Passed ONLY to EditUndeliveredOrderControl — NOT to the read-only gates above.
+  const canReduceUndelivered = Boolean(order?.subscription_id && order?.subscription_week_id);
 
   if (!order) {
     return (
@@ -423,6 +430,21 @@ export function OrderDetail() {
                       <p className="text-[10px] text-amber-700/80">Note: splitting recognizes the covered sale now (at split). A later 'Mark delivered' will NOT post a second sale — recognition is suppressed by the per-order ledger guard.</p>
                     )}
                   </div>
+                )}
+                {/* Reduce / remove lines on an UNDELIVERED subscription order (T11,
+                    Pitfall #20 mirror of OrderSlideOver.tsx). Self-gates. */}
+                {orderId && (
+                  <EditUndeliveredOrderControl
+                    orderId={orderId}
+                    status={order.status}
+                    isSubscriptionOrder={canReduceUndelivered}
+                    items={order.items.map((item): EditUndeliveredOrderItem => ({
+                      id: item.id as unknown as Id<'orderItems'>,
+                      productName: item.product_name,
+                      productVariant: item.product_variant,
+                      quantity: item.quantity,
+                    }))}
+                  />
                 )}
                 {order.subscription_id && order.customer_id_raw && (
                   <Button

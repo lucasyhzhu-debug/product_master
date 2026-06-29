@@ -3,7 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
 import { deriveCreditPool, computeScheduleTotal, deriveWeekShortfall, computeCreditSplit } from "./creditMath";
 import { getWibDateStr } from "../lib/periodRange";
-import { computeWeekAvailableCredit } from "./creditReservation";
+import { computeWeekAvailableCredit, resolveFundedWeekCovering } from "./creditReservation";
 
 export const listSubscriptions = protectedQuery({
   roles: ["manager", "admin"],
@@ -202,20 +202,7 @@ export const listActiveSubscriptionsForCustomer = protectedQuery({
     const out = await Promise.all(
       subs.map(async (sub) => {
         // Resolve the funded open week covering today (paid or delivering).
-        // A covering week always has weekStart <= today, so bound the scan via
-        // the index upper bound; keep the JS filter for weekEnd + status.
-        const weeks = await ctx.db
-          .query("subscriptionWeeks")
-          .withIndex("by_subscription_weekStart", (q) =>
-            q.eq("subscriptionId", sub._id).lte("weekStart", todayMs),
-          )
-          .collect();
-        const week =
-          weeks.find(
-            (w) =>
-              todayMs <= w.weekEnd &&
-              (w.status === "paid" || w.status === "delivering"),
-          ) ?? null;
+        const week = await resolveFundedWeekCovering(ctx, sub._id, todayMs);
 
         let creditRemaining: number | null = null;
         if (week) {
@@ -247,8 +234,10 @@ export const listActiveSubscriptionsForCustomer = protectedQuery({
 // ---------------------------------------------------------------------------
 
 /** Statuses that indicate a scheduled delivery has already been dispatched or
- *  completed — planned day is no longer "remaining" for these. */
-const DELIVERY_DONE_STATUSES = new Set([
+ *  completed — planned day is no longer "remaining" for these.
+ *  EXPORTED (staffreview IMP-1) so T8's editUndeliveredSubscriptionOrder and the
+ *  credit context share ONE notion of "delivered" — guard can't drift. */
+export const DELIVERY_DONE_STATUSES = new Set<string>([
   "AwaitingDelivery",
   "Complete",
   // Legacy statuses kept for schema compat
@@ -291,19 +280,7 @@ export const getSubscriptionCreditContext = protectedQuery({
 
     for (const sub of subs) {
       // Resolve the funded, still-open week covering dueDate.
-      const weeks = await ctx.db
-        .query("subscriptionWeeks")
-        .withIndex("by_subscription_weekStart", (q) =>
-          q.eq("subscriptionId", sub._id),
-        )
-        .collect();
-      const week =
-        weeks.find(
-          (w) =>
-            w.weekStart <= args.dueDate &&
-            args.dueDate <= w.weekEnd &&
-            (w.status === "paid" || w.status === "delivering"),
-        ) ?? null;
+      const week = await resolveFundedWeekCovering(ctx, sub._id, args.dueDate);
 
       // Allowed products: union of all products in the subscription's schedule template.
       const allowedProductIds = Array.from(

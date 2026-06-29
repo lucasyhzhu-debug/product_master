@@ -44,6 +44,7 @@ import { ShippingAgencyButtons } from './ShippingAgencyButtons';
 import { ConfirmDialog } from '@/components/shared';
 import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
 import { OrderItems } from './OrderItems';
+import { EditUndeliveredOrderControl } from './EditUndeliveredOrderControl';
 import { getStatusColor } from '@/lib/orderConstants';
 import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -638,6 +639,23 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                         {markingDelivered ? 'Recognizing…' : 'Mark delivered'}
                       </Button>
                     )}
+                  {/* Reduce / remove lines on an UNDELIVERED subscription order (T10,
+                      Slice 2 money-path). Self-gates (subscription + editable status);
+                      order_staff+manager+admin (NO manager-only gate). Reused verbatim
+                      in OrderDetail.tsx — Pitfall #20. */}
+                  {orderId && (
+                    <EditUndeliveredOrderControl
+                      orderId={orderId}
+                      status={order.status}
+                      isSubscriptionOrder={Boolean(order.subscriptionId && order.subscriptionWeekId)}
+                      items={(order.items ?? []).map((item) => ({
+                        id: item._id,
+                        productName: item.productName,
+                        productVariant: item.productVariant ?? null,
+                        quantity: item.quantity,
+                      }))}
+                    />
+                  )}
                   {/* Out-of-credit flag + split / apply-credit (manager/admin, T8) */}
                   {isManagerOrAdmin && creditStatus && creditStatus.isOverCredit && (
                     <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-2 text-xs text-amber-800">

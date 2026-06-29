@@ -132,6 +132,7 @@ interface ConvexOrderDetail extends ConvexOrderBase {
   _id: Id<"orders">;
   customerId: Id<"customers">;
   subscriptionId?: Id<"subscriptions">;
+  subscriptionWeekId?: Id<"subscriptionWeeks">;
   paymentMethod?: string;
   orderDate: number;
   finalTotal?: number;
@@ -188,6 +189,7 @@ function transformToOrderDetail(order: ConvexOrderWithItems): OrderDetail {
     order_number: order.orderNumber,
     customer_id: order.customerId as unknown as number,
     subscription_id: (order.subscriptionId as unknown as string) ?? null,
+    subscription_week_id: (order.subscriptionWeekId as unknown as string) ?? null,
     customer_id_raw: (order.customerId as unknown as string) ?? null,
     customer_name: order.customerName,
     customer_phone: order.customerPhone ?? null,

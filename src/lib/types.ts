@@ -530,6 +530,8 @@ export interface OrderDetail {
   created_by: string;
   // Phase B (gap#2 / Pitfall #20): subscription linkage for read-only kanban rendering.
   subscription_id: string | null;
+  // Pitfall #20 parity: edit-control gate requires BOTH ids (matches OrderSlideOver).
+  subscription_week_id: string | null;
   customer_id_raw: string | null; // raw Convex customer id for scheduler deep-link
   items: OrderItem[];
   // WhatsApp templates for different stages

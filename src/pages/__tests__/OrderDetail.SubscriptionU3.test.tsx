@@ -138,10 +138,12 @@ const NORMAL_ORDER = {
   // No subscriptionId
 };
 
-/** Subscription order (subscriptionId set) */
+/** Subscription order (subscriptionId + subscriptionWeekId set — the control
+ * contract requires BOTH, mirroring OrderSlideOver / Pitfall #20 parity). */
 const SUBSCRIPTION_ORDER = {
   ...NORMAL_ORDER,
   subscription_id: "sub_xyz",
+  subscription_week_id: "subweek_xyz",
 };
 
 // ---------------------------------------------------------------------------
