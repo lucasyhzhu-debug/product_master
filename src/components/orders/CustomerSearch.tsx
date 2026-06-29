@@ -18,7 +18,7 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  const [selected, setSelected] = useState<{ id: Id<"customers"> | null; name: string; phone?: string; defaultAddress?: string } | null>(null);
+  const [selected, setSelected] = useState<{ id: Id<"customers"> | null; name: string; phone?: string; defaultAddress?: string; customerType?: string | null; companyName?: string | null } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,10 +41,10 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (customer: { _id: string; name: string; phone?: string | null; defaultAddress?: string | null }) => {
+  const handleSelect = (customer: { _id: string; name: string; phone?: string | null; defaultAddress?: string | null; customerType?: string | null; companyName?: string | null }) => {
     const id = customer._id as Id<"customers">;
     const defaultAddress = customer.defaultAddress ?? undefined;
-    setSelected({ id, name: customer.name, phone: customer.phone ?? undefined, defaultAddress });
+    setSelected({ id, name: customer.name, phone: customer.phone ?? undefined, defaultAddress, customerType: customer.customerType, companyName: customer.companyName });
     setSearchText('');
     setShowDropdown(false);
     setShowNewForm(false);
@@ -83,7 +83,15 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
           <User className="h-4 w-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{selected.name}</p>
+          <p className="font-medium text-sm truncate">
+            {selected.customerType === 'b2b_wholesale' && (
+              <span className="text-xs font-semibold text-blue-600 mr-1">[B2B]</span>
+            )}
+            {selected.name}
+            {selected.companyName && (
+              <span className="text-muted-foreground font-normal"> — {selected.companyName}</span>
+            )}
+          </p>
           {selected.phone && (
             <p className="text-xs text-muted-foreground">{selected.phone}</p>
           )}
@@ -155,7 +163,15 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
               className="w-full px-4 py-3 text-left hover:bg-muted/50 text-sm border-b last:border-b-0 transition-colors"
               onClick={() => handleSelect(customer)}
             >
-              <div className="font-medium">{customer.name}</div>
+              <div className="font-medium">
+                {customer.customerType === 'b2b_wholesale' && (
+                  <span className="text-xs font-semibold text-blue-600 mr-1">[B2B]</span>
+                )}
+                {customer.name}
+                {customer.companyName && (
+                  <span className="text-muted-foreground font-normal"> — {customer.companyName}</span>
+                )}
+              </div>
               {customer.phone && (
                 <div className="text-xs text-muted-foreground mt-0.5">{customer.phone}</div>
               )}
