@@ -14,6 +14,24 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription invoice: day-by-day lines, no signature, ledger link fix + clickable sub label — 2026-06-29
+
+**For the team:** The customer-facing weekly subscription invoice now lists deliveries **day by day** (with a per-day subtotal) instead of collapsing the whole week into one line per product, and it **drops the signature box** — a prepaid weekly-credit voucher is settled by bank transfer, not signed. Clicking an invoice in a customer's **Credit Ledger Statement** now opens that week's invoice page instead of dead-ending, and the **subscription name in CRM → Active subscriptions** is now a real link to the subscription.
+
+### Fixed
+- **Credit ledger invoice link** (`src/components/crm/CreditLedgerStatement.tsx`) — invoice rows pointed at `/invoices/:id`, a route that doesn't exist, so the link dead-ended. Now routes to the week's invoice page (`/crm/customers/:cid/subscriptions/:sid/week/invoice?weekStart=…`) via a new `weekStart` prop threaded from `SubscriptionPage`.
+- **CRM → Active subscriptions label** (`src/pages/crm/CrmHome.tsx`) — the "Label" cell was an inert `<span>`; it is now a `Link` to the subscription page.
+
+### Changed
+- **`InvoicePrintView`** (`src/components/invoice/InvoicePrintView.tsx`) — line items render grouped **day-by-day** (one `<tbody>` per delivery date, WIB-correct day label + per-day subtotal) when items carry a delivery `date`; falls back to the flat table for order invoices. New `showSignature` prop (default `true`) lets a caller omit the authorized-signature box.
+- **Subscription weekly invoice page** (`src/pages/crm/SubscriptionWeeklyInvoicePage.tsx`) — dropped `aggregateItemsByProduct`; passes items (with per-line dates) straight through and sets `showSignature={false}`. Supersedes the prior "aggregated by product to fit one page" behaviour. Note: a full 7-day week may now span two printed pages.
+- **`formatWibDayLabel`** added (`src/lib/dateUtils.ts`) — WIB-pinned "Mon, 29 Jun" day label.
+
+### Files
+`src/components/invoice/InvoicePrintView.tsx`, `src/components/crm/CreditLedgerStatement.tsx`, `src/pages/crm/{SubscriptionWeeklyInvoicePage,SubscriptionPage,CrmHome}.tsx`, `src/lib/dateUtils.ts`, `src/pages/crm/__tests__/SubscriptionPage.test.tsx`. PR #215 (`c7cf3bd3`).
+
+---
+
 ## [Unreleased] — Subscription invoicing: credit draw-down, customer-facing PDF, bank fallback, link fix — 2026-06-29
 
 **For the team:** Adjusting a subscription week now just **draws down the customer's existing prepaid credit** instead of firing off a confusing extra invoice. Bump today's order from 150 to 250 and the extra 100 simply eat into the credit pool — the customer sees no new bill. When the week is about to run out of credit, a **"Bill shortfall"** button appears so you can bill the whole top-up in one go. The weekly invoice PDF is now the same clean, one-page customer invoice the ordering system uses (with our BCA account + the cafe's business name, delivery address, and WhatsApp), and clicking an unpaid invoice from a customer record finally opens that week's invoice instead of bouncing to the home page.
