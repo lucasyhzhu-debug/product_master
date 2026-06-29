@@ -241,10 +241,10 @@ export function OrderCreate() {
     (addressDiffersFromCustomer || customerDefaultAddress === '');
 
   // ============================================
-  // Subscription credit (manager/admin only — placed BEFORE early returns, Pitfall #9)
+  // Subscription credit (order_staff + manager/admin — placed BEFORE early returns, Pitfall #9)
   // ============================================
-
-  const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
+  // Gated by customer/items only; the selector returns null when no active subs
+  // and the backend queries/mutation enforce role auth server-side.
 
   // Active subscriptions for the chosen customer — used by SubscriptionSelector in Customer card.
   // Hook is called unconditionally (Pitfall #9); passes null when no customer selected.
@@ -263,7 +263,7 @@ export function OrderCreate() {
   );
 
   const { contexts: creditContexts } = useSubscriptionCreditContext(
-    isManagerOrAdmin && customerId !== null && hasItems ? customerId : null,
+    customerId !== null && hasItems ? customerId : null,
     dueDate ?? Date.now(),
     draftItems,
   );
@@ -738,7 +738,7 @@ export function OrderCreate() {
         )}
         {/* Subscription selector — always visible once a B2B customer is chosen;
             auto-selects the sole sub (fixes live credit bug Facet B). */}
-        {isManagerOrAdmin && customerId !== null && (
+        {customerId !== null && (
           <SubscriptionSelector
             subs={activeSubs}
             selectedSubId={selectedSubId}
@@ -913,8 +913,8 @@ export function OrderCreate() {
         )}
       </Card>
 
-      {/* Subscription Credit Banner (manager/admin only — shows when customer + items present) */}
-      {isManagerOrAdmin && customerId !== null && hasItems && (
+      {/* Subscription Credit Banner — shows when customer + items present (role auth server-side) */}
+      {customerId !== null && hasItems && (
         <>
           {!dueDate && (
             <p className="px-1 text-xs text-amber-600">

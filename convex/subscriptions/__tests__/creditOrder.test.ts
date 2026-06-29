@@ -19,15 +19,16 @@ type TestT = ReturnType<typeof convexTest>;
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function createManagerSession(
+async function createSessionWithRole(
   t: TestT,
+  role: "order_staff" | "manager" | "admin" | "kitchen",
 ): Promise<{ sessionId: SessionId; userId: Id<"users"> }> {
-  const token = `manager-token-t6-${Date.now()}-${Math.random()}` as SessionId;
+  const token = `${role}-token-t6-${Date.now()}-${Math.random()}` as SessionId;
   const userId = await t.run(async (ctx) => {
     const uid = await ctx.db.insert("users", {
-      name: "Test Manager T6",
+      name: `Test ${role} T6`,
       pinHash: "salt:hash",
-      role: "manager",
+      role,
       isActive: true,
       failedAttempts: 0,
       createdAt: Date.now(),
@@ -41,6 +42,12 @@ async function createManagerSession(
     return uid as Id<"users">;
   });
   return { sessionId: token, userId };
+}
+
+async function createManagerSession(
+  t: TestT,
+): Promise<{ sessionId: SessionId; userId: Id<"users"> }> {
+  return createSessionWithRole(t, "manager");
 }
 
 /** Seeds an active subscription with a funded (delivering) week covering NOW. */
@@ -360,5 +367,50 @@ describe("createCreditFundedOrder — T6", () => {
         sessionId,
       }),
     ).rejects.toThrow("No funded subscription week covers this date");
+  });
+});
+
+describe("createCreditFundedOrder — role authorization (T6 fix)", () => {
+  it("order_staff is AUTHORIZED on the money-path mutation (not rejected)", async () => {
+    const t = convexTest(schema, modules);
+    // Seed data with a manager, then call the mutation with an order_staff session.
+    const { customerId, subId, productId, midWeekTs } =
+      await seedActiveSubFundedWeek(t, { unitPrice: 7000, creditRemaining: 100000 });
+
+    const { sessionId: orderStaffSession } = await createSessionWithRole(t, "order_staff");
+
+    const res = await t.mutation(api.subscriptions.creditOrder.createCreditFundedOrder, {
+      customerId,
+      subscriptionId: subId,
+      dueDate: midWeekTs,
+      items: [
+        { productName: "Original T6", quantity: 4, unitPrice: 10000, unitCost: 0, menuProductId: productId },
+      ],
+      sessionId: orderStaffSession,
+    });
+
+    // Reaches the handler and returns a real split (proves NOT auth-rejected).
+    expect(res.creditCovered).toBe(28000); // 4 × 7000
+    expect(res.orderId).toBeTruthy();
+  });
+
+  it("kitchen is STILL rejected on the money-path mutation", async () => {
+    const t = convexTest(schema, modules);
+    const { customerId, subId, productId, midWeekTs } =
+      await seedActiveSubFundedWeek(t, { unitPrice: 7000, creditRemaining: 100000 });
+
+    const { sessionId: kitchenSession } = await createSessionWithRole(t, "kitchen");
+
+    await expect(
+      t.mutation(api.subscriptions.creditOrder.createCreditFundedOrder, {
+        customerId,
+        subscriptionId: subId,
+        dueDate: midWeekTs,
+        items: [
+          { productName: "Original T6", quantity: 4, unitPrice: 10000, unitCost: 0, menuProductId: productId },
+        ],
+        sessionId: kitchenSession,
+      }),
+    ).rejects.toThrow("Unauthorized");
   });
 });

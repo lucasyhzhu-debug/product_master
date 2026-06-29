@@ -50,6 +50,9 @@ describe("SubscriptionSelector", () => {
     // The label should appear in the DOM
     expect(screen.getByText(/Amsterdam Coffee — Weekly/i)).toBeTruthy();
 
+    // M1: renders a real control (exactly one radio), not just label text
+    expect(screen.getAllByRole("radio")).toHaveLength(1);
+
     // Auto-select fires on mount
     await waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(SUB_ID_1);

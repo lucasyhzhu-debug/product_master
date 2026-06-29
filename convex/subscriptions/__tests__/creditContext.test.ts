@@ -11,15 +11,16 @@ const modules = import.meta.glob("/convex/**/*.ts");
 
 type TestT = ReturnType<typeof convexTest>;
 
-async function createManagerSession(
+async function createSessionWithRole(
   t: TestT,
+  role: "order_staff" | "manager" | "admin" | "kitchen",
 ): Promise<{ sessionId: SessionId; userId: Id<"users"> }> {
-  const token = `manager-token-t5-${Date.now()}-${Math.random()}` as SessionId;
+  const token = `${role}-token-t5-${Date.now()}-${Math.random()}` as SessionId;
   const userId = await t.run(async (ctx) => {
     const uid = await ctx.db.insert("users", {
-      name: "Test Manager T5",
+      name: `Test ${role} T5`,
       pinHash: "salt:hash",
-      role: "manager",
+      role,
       isActive: true,
       failedAttempts: 0,
       createdAt: Date.now(),
@@ -33,6 +34,12 @@ async function createManagerSession(
     return uid as Id<"users">;
   });
   return { sessionId: token, userId };
+}
+
+async function createManagerSession(
+  t: TestT,
+): Promise<{ sessionId: SessionId; userId: Id<"users"> }> {
+  return createSessionWithRole(t, "manager");
 }
 
 /** Seeds a funded (delivering) subscription week covering Date.now(). */
@@ -566,5 +573,46 @@ describe("getSubscriptionCreditContext — T5", () => {
     });
     // Cancelled order must NOT reduce availableCredit.
     expect(result[0].availableCredit).toBe(100000);
+  });
+
+  // -------------------------------------------------------------------------
+  // Role authorization (T6 fix): order_staff may now read the credit context.
+  // -------------------------------------------------------------------------
+
+  it("(h) order_staff is AUTHORIZED to read the credit context (not rejected)", async () => {
+    const t = convexTest(schema, modules);
+    const { customerId, productId } = await seedFundedWeek(t, {
+      creditRemaining: 100000,
+      unitPrice: 7000,
+    });
+    const { sessionId: orderStaffSession } = await createSessionWithRole(t, "order_staff");
+
+    const result = await t.query(api.subscriptions.queries.getSubscriptionCreditContext, {
+      customerId,
+      dueDate: Date.now(),
+      draftItems: [{ menuProductId: productId, qty: 2, retailUnitPrice: 10000 }],
+      sessionId: orderStaffSession,
+    });
+    // Reaches the handler and returns a real result (proves NOT auth-rejected).
+    expect(result).toHaveLength(1);
+    expect(result[0].split!.creditCovered).toBe(14000);
+  });
+
+  it("(i) kitchen is STILL rejected from reading the credit context", async () => {
+    const t = convexTest(schema, modules);
+    const { customerId } = await seedFundedWeek(t, {
+      creditRemaining: 100000,
+      unitPrice: 7000,
+    });
+    const { sessionId: kitchenSession } = await createSessionWithRole(t, "kitchen");
+
+    await expect(
+      t.query(api.subscriptions.queries.getSubscriptionCreditContext, {
+        customerId,
+        dueDate: Date.now(),
+        draftItems: [],
+        sessionId: kitchenSession,
+      }),
+    ).rejects.toThrow("Unauthorized");
   });
 });

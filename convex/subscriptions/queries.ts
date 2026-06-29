@@ -264,7 +264,7 @@ const DELIVERY_DONE_STATUSES = new Set([
 ]);
 
 export const getSubscriptionCreditContext = protectedQuery({
-  roles: ["manager", "admin"],
+  roles: ["order_staff", "manager", "admin"],
   args: {
     customerId: v.id("customers"),
     dueDate: v.number(),
