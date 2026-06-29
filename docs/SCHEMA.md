@@ -214,6 +214,15 @@ fundingSource: v.optional(v.union(
 .index("by_subscriptionWeek", ["subscriptionWeekId"])
 ```
 
+**`orders`** (credit drawdown reservation — 2026-06-29):
+```typescript
+subscriptionCreditApplied: v.optional(v.number()),
+// Integer IDR. Set when subscription credit is reserved on this order (createCreditFundedOrder
+// or applyPartialCreditToAdHocOrder). undefined = no credit reservation.
+// At delivery, recognizeSubscriptionDelivery draws this amount (not totalAmount) from the pool.
+// Cancellation: excluded from reservation netting in computeWeekAvailableCredit.
+```
+
 **`invoices`** (Phase A subscription invoice support):
 - `orderId` is now **optional** (`v.optional(v.id("orders"))`). Subscription weekly and top-up invoices have no single owning order.
 - `subscriptionWeekId: v.optional(v.id("subscriptionWeeks"))` — links invoice to a subscription week.
