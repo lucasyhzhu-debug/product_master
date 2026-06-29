@@ -73,6 +73,18 @@ export const getWeekShortfall = protectedQuery({
       plannedConsumption,
       creditIssued: pool.creditIssued,
     });
+    // A shortfall already billed (unpaid top-up invoice) must not re-offer — the
+    // gap closes when that invoice is paid (mirrors billWeekShortfall's guard).
+    const pendingTopup = await ctx.db
+      .query("invoices")
+      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", args.subscriptionWeekId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("invoiceKind"), "subscription_topup"),
+          q.neq(q.field("paymentStatus"), "Paid"),
+        ),
+      )
+      .first();
     return {
       plannedConsumption,
       creditIssued: pool.creditIssued,
@@ -80,8 +92,9 @@ export const getWeekShortfall = protectedQuery({
       projectedShortfall,
       projectedEndingPool,
       funded: pool.creditIssued > 0,
-      // Only surface the offer when funded AND the plan will overrun the funding.
-      shouldOfferTopup: pool.creditIssued > 0 && projectedShortfall > 0,
+      hasPendingTopup: Boolean(pendingTopup),
+      // Only offer when funded, the plan will overrun, AND nothing's already billed.
+      shouldOfferTopup: pool.creditIssued > 0 && projectedShortfall > 0 && !pendingTopup,
     };
   },
 });

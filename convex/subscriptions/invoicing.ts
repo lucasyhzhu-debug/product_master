@@ -438,7 +438,28 @@ export const billWeekShortfall = protectedMutation({
       throw new ConvexError("This week has no projected credit shortfall to bill.");
     }
 
+    // Idempotency: creating a top-up invoice does NOT raise creditIssued until it
+    // is marked paid, so a second call would see the same shortfall and bill again
+    // → over-funded pool. Refuse while an unpaid shortfall invoice already exists.
+    const existingUnpaid = await ctx.db
+      .query("invoices")
+      .withIndex("by_subscriptionWeek", (q) => q.eq("subscriptionWeekId", args.subscriptionWeekId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("invoiceKind"), "subscription_topup"),
+          q.neq(q.field("paymentStatus"), "Paid"),
+        ),
+      )
+      .first();
+    if (existingUnpaid) {
+      throw new ConvexError(
+        `An unpaid top-up invoice (${existingUnpaid.invoiceNumber ?? existingUnpaid._id}) already exists ` +
+          `for this week. Mark it paid or void it before billing the shortfall again.`,
+      );
+    }
+
     const sub = await ctx.db.get(week.subscriptionId);
+    if (!sub) throw new ConvexError("Subscription not found");
     const weekLabel = getWibDateStr(week.weekStart);
     const invoiceId = await buildTopupInvoice(ctx, {
       subscriptionWeekId: week._id,

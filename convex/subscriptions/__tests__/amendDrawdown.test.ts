@@ -268,6 +268,43 @@ describe("billWeekShortfall — bills the projected shortfall as one top-up", ()
     expect(await topupInvoiceCount(t, f.subscriptionWeekId)).toBe(1);
   });
 
+  it("is idempotent — refuses a second shortfall invoice while the first is unpaid", async () => {
+    const t = convexTest(schema);
+    const f = await seedConfirmedFundedWeek(t);
+
+    await t.mutation(api.subscriptions.amend.amendConfirmedWeek, {
+      sessionId: f.sessionId,
+      subscriptionWeekId: f.subscriptionWeekId,
+      days: [{ date: TUE, items: [{ menuProductId: f.menuProductId, qty: 250 }] }],
+    });
+
+    await t.mutation(api.subscriptions.invoicing.billWeekShortfall, {
+      sessionId: f.sessionId,
+      subscriptionWeekId: f.subscriptionWeekId,
+    });
+
+    await expect(
+      t.mutation(api.subscriptions.invoicing.billWeekShortfall, {
+        sessionId: f.sessionId,
+        subscriptionWeekId: f.subscriptionWeekId,
+      }),
+    ).rejects.toThrow(/already exists/);
+    expect(await topupInvoiceCount(t, f.subscriptionWeekId)).toBe(1);
+  });
+
+  it("blocks omitting an existing planned day (ghost-order guard)", async () => {
+    const t = convexTest(schema);
+    const f = await seedConfirmedFundedWeek(t);
+    // Amendment omits the existing Tuesday day entirely → must be rejected.
+    await expect(
+      t.mutation(api.subscriptions.amend.amendConfirmedWeek, {
+        sessionId: f.sessionId,
+        subscriptionWeekId: f.subscriptionWeekId,
+        days: [{ date: WEEK_START + 2 * 86_400_000, items: [{ menuProductId: f.menuProductId, qty: 300 }] }],
+      }),
+    ).rejects.toThrow(/omitted from the amendment/);
+  });
+
   it("throws when there is no shortfall to bill", async () => {
     const t = convexTest(schema);
     const f = await seedConfirmedFundedWeek(t);

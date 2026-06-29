@@ -81,9 +81,13 @@ export function findProductDecreases(
  * Recognition is idempotent on creditLedger.by_order, so a single entry = delivered.
  */
 async function isOrderRecognized(ctx: MutationCtx, orderId: Id<"orders">): Promise<boolean> {
+  // Only a `drawdown` entry means delivered/recognized. Other entry kinds
+  // (refund/adjustment) may also carry an orderId in future flows — don't let
+  // those falsely block an amendment of an undelivered day.
   const entry = await ctx.db
     .query("creditLedger")
     .withIndex("by_order", (q) => q.eq("orderId", orderId))
+    .filter((q) => q.eq(q.field("type"), "drawdown"))
     .first();
   return Boolean(entry);
 }
@@ -166,11 +170,13 @@ async function applyDayOrder(
     activeByProduct.set(oi.menuProductId, oi);
   }
 
+  let changed = false;
   for (const it of items) {
     const existing = activeByProduct.get(it.menuProductId);
     const lineTotal = computeLineTotal(it.qty, unitPrice);
     if (existing) {
       if (it.qty === existing.quantity) continue; // unchanged
+      changed = true;
       await ctx.db.patch(existing._id, {
         quantity: it.qty,
         lineTotal,
@@ -179,6 +185,7 @@ async function applyDayOrder(
       await updateProductionRecordsForQuantityChange(ctx, existing._id, it.menuProductId, it.qty);
     } else {
       // A product newly added to an already-existing day's order.
+      changed = true;
       const newItemId = await ctx.db.insert("orderItems", {
         orderId,
         productName: it.productName,
@@ -194,6 +201,7 @@ async function applyDayOrder(
       await createProductionRecordsForItem(ctx, newItemId, it.menuProductId, it.qty);
     }
   }
+  if (!changed) return; // nothing changed on this day — skip the total recompute
 
   // Recompute order totals from all non-cancelled items.
   const refreshed = await ctx.db
@@ -269,6 +277,21 @@ export const amendConfirmedWeek = protectedMutation({
         "Amend supports increases only — one or more products would decrease or be removed. " +
           "Handle reductions via reconcile/refund, not amend.",
       );
+    }
+
+    // Every existing planned day MUST be present in the amendment (qty unchanged
+    // is fine). Omitting a day passes the week-aggregate increase guard while its
+    // already-created order keeps drawing down at delivery (a "ghost" drawdown the
+    // shortfall projection wouldn't see). Removing a day is a reduction → reconcile.
+    const amendedDates = new Set(args.days.map((d) => d.date));
+    for (const oldDay of week.plannedDays) {
+      if (oldDay.items.length > 0 && !amendedDates.has(oldDay.date)) {
+        throw new ConvexError(
+          `Day ${new Date(oldDay.date).toISOString().slice(0, 10)} is in the current plan but was ` +
+            `omitted from the amendment. Amend supports increases only — to remove a planned day, ` +
+            `use reconcile/refund.`,
+        );
+      }
     }
 
     const { addedLines, deltaTotal } = computeTopupDelta({
