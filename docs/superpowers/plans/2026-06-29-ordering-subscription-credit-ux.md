@@ -513,14 +513,34 @@ test("reducing a credit-funded order lowers subscriptionCreditApplied and frees 
   expect(after.availableCredit).toBe(before.availableCredit + 4 * 29000); // freed
 });
 
-test("rejects editing a delivered/recognized order", async () => {
+test.each(["AwaitingDelivery", "Complete"])("rejects editing a %s order (real literals)", async (status) => {
   const t = convexTest(schema, modules);
-  const { sessionStaff, orderId, itemId } = await seedRecognizedOrder(t);
+  const { sessionStaff, orderId, itemId } = await seedSubscriptionOrderWithStatus(t, status);
   await expect(
     t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
       sessionId: sessionStaff, orderId, lines: [{ itemId, newQty: 1 }],
     }),
-  ).rejects.toThrow(/delivered|recognized|undelivered/i);
+  ).rejects.toThrow(/undelivered/i);
+});
+
+test("allows editing a PaymentReceived / BeingPrepared order (current-model undelivered)", async () => {
+  const t = convexTest(schema, modules);
+  const { sessionStaff, orderId, itemId } = await seedSubscriptionOrderWithStatus(t, "BeingPrepared");
+  await expect(
+    t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+      sessionId: sessionStaff, orderId, lines: [{ itemId, newQty: 1 }],
+    }),
+  ).resolves.toEqual({ ok: true });
+});
+
+test("rejects editing an order whose week is reconciled/closed (settled-week guard)", async () => {
+  const t = convexTest(schema, modules);
+  const { sessionStaff, orderId, itemId } = await seedSubscriptionOrderInReconciledWeek(t);
+  await expect(
+    t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+      sessionId: sessionStaff, orderId, lines: [{ itemId, newQty: 1 }],
+    }),
+  ).rejects.toThrow(/settled|reconciled|closed/i);
 });
 
 test("non-credit-funded subscription order edits items without touching reservation", async () => {
@@ -543,10 +563,12 @@ test("non-credit-funded subscription order edits items without touching reservat
 import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { computeWeekAvailableCredit } from "./creditReservation";
-import { resyncWeekPlanFromOrders } from "./resyncPlan"; // call its handler logic, or inline a shared helper
+import { DELIVERY_DONE_STATUSES } from "./queries"; // EXPORT this set from queries.ts (see note) — single source
 
-const UNDELIVERED_OK = new Set(["Draft", "AwaitingPayment", "Confirmed", "InProduction", "Boxed", "Labeled"]);
-// (Exclude AwaitingDelivery/Complete/legacy shipped/picked — those are dispatched/recognized.)
+// Undelivered = NOT dispatched/complete/cancelled. Use a DENY-list aligned to the
+// existing DELIVERY_DONE_STATUSES so the current Phase-14 model
+// (Draft/AwaitingPayment/PaymentReceived/BeingPrepared editable; AwaitingDelivery/Complete not)
+// and legacy statuses both stay correct — do NOT hand-roll an allow-list (it drifts; staffreview Critical #1).
 
 export const editUndeliveredSubscriptionOrder = protectedMutation({
   roles: ["order_staff", "manager", "admin"],
@@ -559,7 +581,7 @@ export const editUndeliveredSubscriptionOrder = protectedMutation({
     if (!order) throw new ConvexError("Order not found");
     if (!order.subscriptionId || !order.subscriptionWeekId)
       throw new ConvexError("Not a subscription order");
-    if (!UNDELIVERED_OK.has(order.status))
+    if (order.status === "Cancelled" || DELIVERY_DONE_STATUSES.has(order.status))
       throw new ConvexError(`Order is ${order.status} — only undelivered orders can be edited here`);
     // Guard: a recognized order (has by_order ledger row) is never editable here.
     const recognized = await ctx.db
@@ -595,7 +617,11 @@ export const editUndeliveredSubscriptionOrder = protectedMutation({
 });
 ```
 
-> Implementation notes for the executor: extract the body of `updateItemQuantity`/`removeItem`/`resyncWeekPlanFromOrders` into shared internal helpers (`updateItemQtyInternal`, `removeItemInternal`, `resyncWeekPlanInline`) so this orchestrator calls them in-process (Convex mutations can't call other mutations). Keep the existing public `mutation` exports delegating to the same helpers (DRY) — do NOT copy-paste the math. The reservation cap (`Math.min`) is correct because eligible lines are priced at the partner `unitPrice` at creation and reductions only lower the eligible total; full re-split is unnecessary for reduce-only.
+> Implementation notes for the executor:
+> - **Export the status set (staffreview IMP-1):** `DELIVERY_DONE_STATUSES` is currently a private `const` in `convex/subscriptions/queries.ts:197`. `export` it (or lift to `convex/subscriptions/statusSets.ts`) and import it here — single source, so the guard can't drift from the credit-context's notion of "delivered" (this drift already caused staffreview Critical #1).
+> - **Extract, don't copy:** extract the body of `updateItemQuantity`/`removeItem`/`resyncWeekPlanFromOrders` into shared internal helpers (`updateItemQtyInternal`, `removeItemInternal`, `resyncWeekPlanInline`) so this orchestrator calls them in-process (Convex mutations can't call other mutations). Keep the existing public `mutation` exports delegating to the same helpers (DRY) — do NOT copy-paste the math.
+> - **Keep the settled-week guard (staffreview IMP-2):** `resyncWeekPlanFromOrders` throws when `week.status ∈ {reconciled, closed}` (`resyncPlan.ts:28`). `resyncWeekPlanInline` MUST preserve that guard so editing an order in an already-settled week fails loudly, not silently rewrites a closed plan.
+> - The reservation cap (`Math.min`) is correct because eligible lines are priced at the partner `unitPrice` at creation and reductions only lower the eligible total; full re-split is unnecessary for reduce-only.
 
 - [ ] **Step 4: Run — expect PASS.** Re-run `creditContext`/`creditOrder`/`outOfCredit` tests (no regression).
 - [ ] **Step 5: Commit** — `git commit -m "feat(subscriptions): edit undelivered subscription order; re-derive credit reservation (Pitfall #23)"`
