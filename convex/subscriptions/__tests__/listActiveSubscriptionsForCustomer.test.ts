@@ -178,6 +178,69 @@ test("returns active subs only, with current-week creditRemaining", async () => 
   expect(out[0].creditRemaining).toBeGreaterThan(0);
 });
 
+test("creditRemaining is null when the active sub has no covering funded week", async () => {
+  const t = convexTest(schema, modules);
+  const { sessionId, userId } = await createSession(t, "manager", "nofund");
+  const NOW = Date.now();
+
+  const { customerId, subId } = await t.run(async (ctx) => {
+    const customerId = (await ctx.db.insert("customers", {
+      name: "Cafe T1 NoFund",
+      phone: "+628111000103",
+      createdBy: "test",
+    } as never)) as Id<"customers">;
+
+    // Active subscription with NO covering paid/delivering week for today.
+    const subId = (await ctx.db.insert("subscriptions", {
+      customerId,
+      label: "Unfunded Plan T1",
+      status: "active",
+      billingModel: "prepaid_weekly_credit",
+      unitPrice: 7000,
+      confidentialPrice: false,
+      baselineDailyQty: 10,
+      weeklyQty: 70,
+      deliverByTime: "09:00",
+      creditRolloverPolicy: "expire",
+      changeCutoffHour: 13,
+      changeCutoffDayOffset: -1,
+      permanentChangeNoticeDays: 14,
+      terminationNoticeDays: 30,
+      cogsBasis: 4000,
+      startDate: NOW - 3 * 86400000,
+      scheduleTemplate: [],
+      createdBy: userId,
+    } as never)) as Id<"subscriptions">;
+
+    // A week that does NOT cover today (already ended) — must not be matched.
+    await ctx.db.insert("subscriptionWeeks", {
+      subscriptionId: subId,
+      weekStart: NOW - 21 * 86400000,
+      weekEnd: NOW - 14 * 86400000,
+      status: "delivering",
+      plannedDays: [],
+      creditIssued: 0,
+      creditConsumed: 0,
+      creditRemaining: 0,
+      creditExpired: 0,
+      shortfall: 0,
+      shortfallFault: "none",
+      refundDue: 0,
+    } as never);
+
+    return { customerId, subId };
+  });
+
+  const out = await t.query(
+    api.subscriptions.queries.listActiveSubscriptionsForCustomer,
+    { sessionId, customerId },
+  );
+
+  expect(out).toHaveLength(1);
+  expect(out[0].subscriptionId).toBe(subId);
+  expect(out[0].creditRemaining).toBeNull();
+});
+
 test("order_staff is authorized; kitchen is rejected", async () => {
   const t = convexTest(schema, modules);
 

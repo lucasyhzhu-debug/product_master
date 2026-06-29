@@ -18,7 +18,7 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
-  const [selected, setSelected] = useState<{ id: Id<"customers"> | null; name: string; phone?: string; defaultAddress?: string; customerType?: string | null; companyName?: string | null } | null>(null);
+  const [selected, setSelected] = useState<{ id: Id<"customers"> | null; name: string; phone?: string; defaultAddress?: string; customerType?: "direct_b2c" | "b2b_wholesale" | null; companyName?: string | null } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +41,7 @@ export function CustomerSearch({ onCustomerSelect, onNewCustomer }: CustomerSear
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (customer: { _id: string; name: string; phone?: string | null; defaultAddress?: string | null; customerType?: string | null; companyName?: string | null }) => {
+  const handleSelect = (customer: { _id: string; name: string; phone?: string | null; defaultAddress?: string | null; customerType?: "direct_b2c" | "b2b_wholesale" | null; companyName?: string | null }) => {
     const id = customer._id as Id<"customers">;
     const defaultAddress = customer.defaultAddress ?? undefined;
     setSelected({ id, name: customer.name, phone: customer.phone ?? undefined, defaultAddress, customerType: customer.customerType, companyName: customer.companyName });

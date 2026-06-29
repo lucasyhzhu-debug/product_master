@@ -364,6 +364,11 @@ export const getSubscriptionCreditContext = protectedQuery({
         }).length;
       }
 
+      // D11 carve-out (Slice-1 triple-review M-d11): `split.lines[].effectiveUnitPrice`
+      // intentionally exposes the subscription's partner unit price to order_staff. This
+      // is a DELIBERATE, product-owner-approved exception (2026-06-30) to CRM principle
+      // D11 — order_staff need the partner price to explain the credit split at the
+      // counter. Do NOT "fix" this by stripping effectiveUnitPrice in a future D11 audit.
       out.push({
         subscriptionId: sub._id,
         label: sub.label,

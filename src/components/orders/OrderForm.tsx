@@ -135,7 +135,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
   );
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: string | null; companyName?: string | null }) => {
+  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: "direct_b2c" | "b2b_wholesale" | null; companyName?: string | null }) => {
     const convexId = customer._id as Id<"customers">;
     setCustomerId(convexId);
     setCustomerSearch(customer.name);

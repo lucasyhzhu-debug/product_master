@@ -372,7 +372,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
     setItems(items.filter((item) => item.productId !== productId));
   };
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: string | null; companyName?: string | null }) => {
+  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null; customerType?: "direct_b2c" | "b2b_wholesale" | null; companyName?: string | null }) => {
     const convexId = customer._id as Id<"customers">;
     setSelectedCustomerId(convexId);
     setCustomerSearch(customer.name);

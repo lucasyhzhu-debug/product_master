@@ -18,7 +18,11 @@ import type { Id } from "../_generated/dataModel";
 // ---------------------------------------------------------------------------
 
 export const logCustomerInteraction = protectedMutation({
-  roles: ["manager", "admin"],
+  // Slice-1 triple-review M-log: widened to include order_staff. Reachable from
+  // the OrderCreate credit flow (whatsapp_drafted), where order_staff would
+  // otherwise have their activity SILENTLY DROPPED (CRM B5/B7 event-log gap).
+  // This is the customer activity log — order_staff authoring here is intended.
+  roles: ["order_staff", "manager", "admin"],
   args: {
     customerId:     v.id("customers"),
     type:           v.union(

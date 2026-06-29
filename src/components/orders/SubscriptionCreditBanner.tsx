@@ -2,21 +2,19 @@
  * SubscriptionCreditBanner — T8
  *
  * Presentational-only banner shown in the order form when the customer has
- * active subscriptions. Displays available credit, per-line eligibility, and
- * lets staff select which subscription to fulfil with and trigger the draw-down.
+ * active subscriptions. Detail-only (T6): displays the per-line credit split and
+ * a Fulfil button. The subscription CHOICE lives in SubscriptionSelector (Customer
+ * card) and is passed in via selectedSubId — the banner no longer owns a radio.
  *
  * Props:
  *   contexts         — array from useSubscriptionCreditContext; null = loading
- *   selectedSubId    — currently selected subscriptionId (or null)
- *   onSelectSub      — called with subscriptionId when a radio is toggled
+ *   selectedSubId    — currently selected subscriptionId (or null) from SubscriptionSelector
  *   onFulfilWithCredit — called when the Fulfil button is clicked
  *   busy             — disables all interactive controls while a mutation runs
  */
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -55,7 +53,6 @@ interface SubscriptionCreditBannerProps {
   /** null = still loading; empty array = no active subs */
   contexts: SubscriptionCreditContext[] | null;
   selectedSubId: Id<"subscriptions"> | null;
-  onSelectSub: (id: Id<"subscriptions">) => void;
   onFulfilWithCredit: () => void;
   busy?: boolean;
 }
@@ -65,7 +62,6 @@ interface SubscriptionCreditBannerProps {
 export function SubscriptionCreditBanner({
   contexts,
   selectedSubId,
-  onSelectSub,
   onFulfilWithCredit,
   busy = false,
 }: SubscriptionCreditBannerProps) {
@@ -90,8 +86,9 @@ export function SubscriptionCreditBanner({
     return null;
   }
 
+  // The subscription choice now comes solely from selectedSubId (set by
+  // SubscriptionSelector on the Customer card). The banner is detail-only (T6).
   const selectedCtx = contexts.find((c) => c.subscriptionId === selectedSubId) ?? null;
-  const multiSub = contexts.length > 1;
 
   return (
     <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
@@ -101,48 +98,23 @@ export function SubscriptionCreditBanner({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 pb-3">
-        {/* Multi-sub selector */}
-        {multiSub && (
-          <RadioGroup
-            value={selectedSubId ?? ""}
-            onValueChange={(val) => onSelectSub(val as Id<"subscriptions">)}
-            className="gap-1"
-          >
-            {contexts.map((ctx) => (
-              <div key={ctx.subscriptionId} className="flex items-center gap-2">
-                <RadioGroupItem
-                  value={ctx.subscriptionId}
-                  id={`sub-${ctx.subscriptionId}`}
-                  disabled={busy}
-                />
-                <Label
-                  htmlFor={`sub-${ctx.subscriptionId}`}
-                  className="cursor-pointer text-sm text-blue-800 dark:text-blue-200"
-                >
-                  {ctx.label}
-                  {ctx.availableCredit > 0 && (
-                    <span className="ml-1 text-muted-foreground">
-                      ({formatCurrency(ctx.availableCredit)} available)
-                    </span>
-                  )}
-                </Label>
-              </div>
-            ))}
-          </RadioGroup>
-        )}
-
-        {/* Single-sub: show label inline */}
-        {!multiSub && (
+        {/* Selected subscription label (chosen via SubscriptionSelector) */}
+        {selectedCtx && (
           <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-            {contexts[0].label}
+            {selectedCtx.label}
+            {selectedCtx.availableCredit > 0 && (
+              <span className="ml-1 text-muted-foreground">
+                ({formatCurrency(selectedCtx.availableCredit)} available)
+              </span>
+            )}
           </p>
         )}
 
-        {/* Context detail for selected (or only) sub */}
+        {/* Context detail for the selected sub */}
         {(() => {
-          const ctx = multiSub ? selectedCtx : contexts[0];
+          const ctx = selectedCtx;
           if (!ctx) {
-            // Multi-sub but none selected yet
+            // No subscription selected yet (choose one in the Customer card above)
             return (
               <p className="text-xs text-muted-foreground">
                 Select a subscription above to see credit details.
@@ -223,9 +195,8 @@ export function SubscriptionCreditBanner({
           className="w-full"
           disabled={
             busy ||
-            (multiSub && selectedSubId === null) ||
-            selectedCtx?.weekId === null ||
-            (!multiSub && contexts[0].weekId === null)
+            selectedSubId === null ||
+            selectedCtx?.weekId === null
           }
           onClick={onFulfilWithCredit}
         >

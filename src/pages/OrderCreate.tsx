@@ -112,7 +112,8 @@ export function OrderCreate() {
   // Draft order ID (set from edit mode or auto-create)
   const [draftOrderId, setDraftOrderId] = useState<Id<"orders"> | null>(null);
 
-  // Subscription credit drawdown (manager/admin only)
+  // Subscription credit drawdown — selected subscription for the credit-funded order.
+  // Set by the SubscriptionSelector (Customer card); available to order_staff + mgr + admin.
   const [selectedSubId, setSelectedSubId] = useState<Id<"subscriptions"> | null>(null);
   const [creditBusy, setCreditBusy] = useState(false);
   const [creditOrderId, setCreditOrderId] = useState<Id<"orders"> | null>(null);
@@ -285,6 +286,10 @@ export function OrderCreate() {
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(false);
     setCustomerSet(true);
+    // Clear any subscription selected for the previous customer — a stale,
+    // cross-customer selectedSubId would dead-end Fulfil with a backend reject.
+    // SubscriptionSelector re-runs its single-sub auto-select for the new customer.
+    setSelectedSubId(null);
 
     // Store the customer's saved default address for comparison
     setCustomerDefaultAddress(defaultAddress ?? '');
@@ -317,6 +322,8 @@ export function OrderCreate() {
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(true);
     setCustomerSet(true);
+    // Clear any subscription selected for the previous customer (see handleCustomerSelect).
+    setSelectedSubId(null);
 
     // Auto-create draft for new customer if not already editing
     if (!draftOrderId && !editDraftId) {
@@ -736,7 +743,8 @@ export function OrderCreate() {
             onNewCustomer={handleNewCustomer}
           />
         )}
-        {/* Subscription selector — always visible once a B2B customer is chosen;
+        {/* Subscription selector — shown for ANY customer with >=1 active subscription
+            (not just B2B). SubscriptionSelector renders nothing when there are 0 subs and
             auto-selects the sole sub (fixes live credit bug Facet B). */}
         {customerId !== null && (
           <SubscriptionSelector
@@ -924,7 +932,6 @@ export function OrderCreate() {
           <SubscriptionCreditBanner
             contexts={creditContexts as SubscriptionCreditContext[] | null}
             selectedSubId={selectedSubId}
-            onSelectSub={setSelectedSubId}
             onFulfilWithCredit={handleFulfilWithCredit}
             busy={creditBusy || !dueDate}
           />
