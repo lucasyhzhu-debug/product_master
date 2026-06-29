@@ -109,6 +109,16 @@ end-to-end "is it working" check Lucas wants. Extract the message-composition in
 **pure function** `composeSubscriptionDaySummary(...)` so it's unit-tested without
 Telegram I/O (mirror the pack-list/sales-summary send pattern).
 
+## Decisions (locked 2026-06-29)
+- **"Left" = weekly allotment remaining:** `weeklyQty − (BOM balls delivered Mon→today this week)`.
+- **Recipient = internal ops:** `subscription-ops` Telegram role (via `getChatIdByRole`).
+- **Build order:** Slice 4 (the key acceptance test) + Slice 1, TDD, triple-review before merge.
+- **Integrate, don't reinvent:** extend the existing subscription reminder system
+  (`convex/subscriptions/reminders/`, daily cron at `crons.ts:112` →
+  `sendSubscriptionReminderResilient`) and reuse a ball-count helper
+  (`calculateBallStatsFromItems` / `buildBallCountMap` / `computeBallTotals`) + the
+  telegram registry. Add an end-of-day "day-summary" kind rather than a parallel system.
+
 ## Open questions
 1. **Dropdown flag rule:** `[B2B]` only when B2B **and** has an active subscription, or
    for any `b2b_wholesale` customer regardless of subscription? (Spec assumes the
