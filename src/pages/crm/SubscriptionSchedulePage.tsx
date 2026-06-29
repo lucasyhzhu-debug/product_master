@@ -476,14 +476,26 @@ export function SubscriptionSchedulePage() {
                   .filter((d) => d.items.length > 0);
                 try {
                   const r = await amendWeek({ subscriptionWeekId: week._id, days });
-                  const extra = formatCurrency(r.deltaTotal);
-                  if (r.projectedShortfall > 0) {
+                  const net = r.deltaTotal - r.reducedTotal;
+                  if (net > 0) {
+                    // Net increase — draws more credit at delivery.
+                    if (r.projectedShortfall > 0) {
+                      toast.success(
+                        `Amended — ${formatCurrency(r.deltaTotal)} more drawn from credit. This week is now ` +
+                          `projected to overrun by ${formatCurrency(r.projectedShortfall)}; bill the shortfall ` +
+                          `from the invoice page when ready.`,
+                      );
+                    } else {
+                      toast.success(`Amended — ${formatCurrency(r.deltaTotal)} more will draw down from the existing credit pool.`);
+                    }
+                  } else if (net < 0) {
+                    // Net decrease — draws less credit; surplus stays in the pool.
                     toast.success(
-                      `Amended — ${extra} more drawn from credit. This week is now projected to overrun by ` +
-                        `${formatCurrency(r.projectedShortfall)}; bill the shortfall from the invoice page when ready.`,
+                      `Amended — reduced by ${formatCurrency(r.reducedTotal)}. This week now draws less credit; ` +
+                        `the surplus stays in the pool.`,
                     );
                   } else {
-                    toast.success(`Amended — ${extra} more will draw down from the existing credit pool.`);
+                    toast.success("Amended — plan updated; no net change to credit drawn.");
                   }
                   setAmending(false);
                   setLocalDays(null);

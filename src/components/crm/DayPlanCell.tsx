@@ -92,24 +92,24 @@ export function DayPlanCell({
   return (
     <Card
       className={cn(
-        "flex flex-col h-full",
+        "flex flex-col sm:flex-row sm:items-stretch",
         hasLines ? "border-primary/20" : "border-dashed border-muted-foreground/25",
       )}
     >
-      <CardHeader className="pb-2 pt-3 px-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            {dayLabel}
-          </span>
-          <span className="text-xs text-muted-foreground">{formatDayDate(dateMs)}</span>
-        </div>
+      {/* Left rail — day label + date, fixed width on wider screens */}
+      <CardHeader className="py-3 px-3 sm:w-28 sm:shrink-0 sm:border-r flex flex-col justify-center gap-0.5">
+        <span className="text-sm font-semibold text-foreground uppercase tracking-wide">
+          {dayLabel}
+        </span>
+        <span className="text-xs text-muted-foreground">{formatDayDate(dateMs)}</span>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col gap-2 px-3 pb-3">
+      {/* Center — line items + flags + add button, takes all remaining width */}
+      <CardContent className="flex-1 flex flex-col gap-2 px-3 py-3 min-w-0">
         {/* Cutoff warning — visual only, never disables editing */}
         {pastCutoff && (
           <p
-            className="text-[10px] text-amber-600 flex items-center gap-1"
+            className="text-[11px] text-amber-600 flex items-center gap-1"
             role="status"
             title="Past today's 1 PM cutoff — you can still edit, but the supplier may already be packing this day."
           >
@@ -120,7 +120,7 @@ export function DayPlanCell({
         {/* Supplier confirmation badge — visual only */}
         {needsSupplierConfirmation && (
           <span
-            className="text-[10px] font-medium text-orange-700 bg-orange-100 rounded px-1 py-0.5 w-fit"
+            className="text-[11px] font-medium text-orange-700 bg-orange-100 rounded px-1.5 py-0.5 w-fit"
             title={supplierTitle}
           >
             Above baseline — needs supplier OK
@@ -129,11 +129,9 @@ export function DayPlanCell({
 
         {/* Line items */}
         {lines.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 italic flex-1 flex items-center justify-center">
-            No delivery
-          </p>
+          <p className="text-sm text-muted-foreground/60 italic py-1">No delivery</p>
         ) : (
-          <div className="flex flex-col gap-1.5 flex-1">
+          <div className="flex flex-col gap-2">
             {lines.map((line, idx) => (
               <ProductLineEditor
                 key={idx}
@@ -148,23 +146,13 @@ export function DayPlanCell({
           </div>
         )}
 
-        {/* Day subtotal */}
-        {hasLines && (
-          <div className="border-t pt-1.5 flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">Day total</span>
-            <span className="text-xs font-semibold tabular-nums">
-              {formatCurrency(dayTotal)}
-            </span>
-          </div>
-        )}
-
         {/* Add product */}
         {!locked && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="w-full h-7 text-xs text-muted-foreground border border-dashed"
+            className="w-full sm:w-fit h-8 text-xs text-muted-foreground border border-dashed"
             onClick={addLine}
             disabled={products.length === 0}
           >
@@ -173,6 +161,14 @@ export function DayPlanCell({
           </Button>
         )}
       </CardContent>
+
+      {/* Right rail — day total, fixed width on wider screens */}
+      {hasLines && (
+        <div className="px-3 py-3 sm:w-36 sm:shrink-0 sm:border-l flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 border-t sm:border-t-0">
+          <span className="text-xs text-muted-foreground">Day total</span>
+          <span className="text-sm font-semibold tabular-nums">{formatCurrency(dayTotal)}</span>
+        </div>
+      )}
     </Card>
   );
 }
