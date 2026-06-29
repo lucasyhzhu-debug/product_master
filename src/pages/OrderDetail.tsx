@@ -224,7 +224,7 @@ export function OrderDetail() {
   }
 
   // Pitfall #20: subscription orders render read-only here too (MIRROR of OrderSlideOver.tsx).
-  const isSubscriptionOrder = Boolean(order?.subscription_id);
+  const isSubscriptionOrder = Boolean(order?.subscription_id && order?.subscription_week_id);
 
   if (!order) {
     return (
