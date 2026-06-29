@@ -17,6 +17,9 @@
 
 | Slice | Spec | Plan | Target |
 |-------|------|------|--------|
+| Ordering subscription-credit UX — Slice 1 ([B2B] flag + selector under name + dropdown matching) | `docs/superpowers/specs/2026-06-29-ordering-subscription-credit-ux-SPEC.md` | `docs/superpowers/plans/2026-06-29-ordering-subscription-credit-ux.md` (T1–T7) | v2.1 |
+| Ordering subscription-credit UX — Slice 2 (edit undelivered day-order; reservation re-derive) | same SPEC | same plan (T8–T11) | v2.1 |
+| Ordering subscription-credit UX — Slice 3 ("add more" = credit-funded order) | same SPEC | same plan (T12) | v2.1 |
 
 ---
 
