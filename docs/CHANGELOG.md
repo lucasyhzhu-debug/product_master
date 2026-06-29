@@ -14,6 +14,29 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription invoicing: credit draw-down, customer-facing PDF, bank fallback, link fix — 2026-06-29
+
+**For the team:** Adjusting a subscription week now just **draws down the customer's existing prepaid credit** instead of firing off a confusing extra invoice. Bump today's order from 150 to 250 and the extra 100 simply eat into the credit pool — the customer sees no new bill. When the week is about to run out of credit, a **"Bill shortfall"** button appears so you can bill the whole top-up in one go. The weekly invoice PDF is now the same clean, one-page customer invoice the ordering system uses (with our BCA account + the cafe's business name, delivery address, and WhatsApp), and clicking an unpaid invoice from a customer record finally opens that week's invoice instead of bouncing to the home page.
+
+### Changed
+- **`amendConfirmedWeek`** (`convex/subscriptions/amend.ts`) — no longer creates a `subscription_topup` invoice on every amendment. It re-prices the plan **and bumps the amended day's actual order** (qty + `orderItemProduction` records) so the larger delivery draws down the existing credit pool at delivery (`recognizeSubscriptionDelivery` posts `-order.totalAmount`). Increases only; blocks amending an already-delivered (recognized) day and blocks omitting an existing planned day (ghost-order guard). Returns `{ deltaTotal, addedLines, projectedShortfall, projectedEndingPool }`.
+- **Subscription weekly invoice page** (`src/pages/crm/SubscriptionWeeklyInvoicePage.tsx`) — renders via the canonical **`InvoicePrintView`** (same generator as order invoices) instead of a bespoke day-by-day print layout; items aggregated by product to fit one page. Shows the "almost out of credit" banner + Bill-shortfall action.
+- **`buildInvoiceSnapshot`** (`convex/subscriptions/invoicing.ts`) — bank fields fall back to `DEFAULT_BANK` (BCA · 6044830994 · PT Malo Group Bahagia) when no default bank is configured (configured default still wins) so invoices never ship blank. Buyer snapshot now prefers `deliveryAddress` and `whatsapp`.
+
+### Added
+- **`getWeekShortfall`** (query, `convex/subscriptions/queries.ts`) — projected end-of-week credit position + `shouldOfferTopup` flag (funded & projected to overrun & no pending top-up).
+- **`billWeekShortfall`** (mutation, `convex/subscriptions/invoicing.ts`) — bills the full projected shortfall as ONE `subscription_topup` invoice; idempotent (refuses while an unpaid top-up exists).
+- **`deriveWeekShortfall`** pure helper (`convex/subscriptions/creditMath.ts`).
+- **Unpaid-invoice deep links** (`convex/crm/customers.ts` + `CustomerDashboard.tsx`) — `getCustomerRecord` enriches each unpaid invoice with `subscriptionId`+`weekStart`; links route to the real `…/week/invoice?weekStart=…` page (order invoices → `/orders/:id/invoice`). Replaces the dead `/invoices/:id` link that bounced to home.
+
+### Files
+`convex/subscriptions/{amend,invoicing,queries,creditMath,_devSeed}.ts`, `convex/crm/customers.ts`, `src/pages/crm/{SubscriptionWeeklyInvoicePage,CustomerDashboard,SubscriptionSchedulePage}.tsx`, `convex/subscriptions/__tests__/{amendDrawdown,creditMath}.test.ts`.
+
+### Operator follow-up
+Configure the real default bank once in prod: `/bank-accounts` → add BCA / PT Malo Group Bahagia / 6044830994, then `/business-settings` → set as Default. (Fallback covers it either way; existing blank invoices won't backfill.)
+
+---
+
 ## [Unreleased] — Telegram broadcast announcements — 2026-06-27
 
 **For the team:** Managers/admins can now send a one-off message to a Telegram group straight from **Settings → Telegram Chats**. Pick the role (e.g. `founders`), type the message, hit **Send announcement** — it goes to whichever chat currently holds that role. No more copy-pasting into Telegram by hand.
