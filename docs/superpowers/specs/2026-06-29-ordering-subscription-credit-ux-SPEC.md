@@ -74,12 +74,40 @@ customer has an active subscription with credit — use it?"** and, if yes, fund
 the existing credit-funded-order mutation; the new order links to the customer and
 draws on the chosen subscription.
 
-### Slice 4 — end-of-day summary message
-At end of day, send (Telegram, per the existing `telegramChats` registry — see
-CLAUDE.md Pitfall #21/#22) a per-active-subscription summary: **pieces used this week,
-pieces remaining, remaining credit**. Counts must be **BOM-resolved balls** (CLAUDE.md
-Business Rule #13), not product units. Likely a daily cron + a `COMMAND_POLICY`-gated
-send. Define the trigger time (WIB) and recipient role.
+### Slice 4 — end-of-day Telegram summary (THE KEY ACCEPTANCE TEST)
+Per Lucas: the daily Telegram message is **the primary proof the whole flow works** —
+if shipped/left/credit come out right, the orders + draw-down underneath are right. So
+this is both a deliverable and the system's acceptance test.
+
+**Message content (per active subscription, once per day):**
+- **Shipped today** — BOM-resolved balls (Big+Mid) across the subscription's orders
+  *delivered today* (WIB). Count balls, NOT product rows (Business Rule #13). Show pcs
+  (and optionally IDR).
+- **Left** — *needs definition, see Q5.* Candidate: remaining of the weekly allotment
+  = `weeklyQty − balls used so far this week` (used = sum of delivered balls Mon→today).
+- **Credit remaining** — `deriveCreditPool(weekLedger).creditRemaining` (integer IDR,
+  read the derived pool, never re-key — CRM C10).
+
+**Example:**
+```
+📦 Crystal Cafe — subscription, Mon 29 Jun (WIB)
+Shipped today: 150 pcs
+Used this week: 150 / 750 pcs  →  600 left
+Credit remaining: Rp 17.400.000
+```
+
+**Mechanism:** a daily WIB cron iterates active subscriptions with delivery activity
+today and sends via `getChatIdByRole({ role: <Q6> })`; if it's also a `/`-command,
+add a `COMMAND_POLICY` entry (deny-by-default). Thread `generatedAt` through (no
+`Date.now()` drift — see `lessons_packlist_overdue`).
+
+**Acceptance test (TDD — write first):** seed a subscription week funded with a known
+topup, deliver a known qty today (posting the drawdown), and assert the *composed
+message string* equals the expected shipped/left/credit line-for-line. This single
+test exercises BOM ball-counting, the drawdown, and the derived pool together — the
+end-to-end "is it working" check Lucas wants. Extract the message-composition into a
+**pure function** `composeSubscriptionDaySummary(...)` so it's unit-tested without
+Telegram I/O (mirror the pack-list/sales-summary send pattern).
 
 ## Open questions
 1. **Dropdown flag rule:** `[B2B]` only when B2B **and** has an active subscription, or
@@ -91,7 +119,13 @@ send. Define the trigger time (WIB) and recipient role.
    selector be visible (read-only?) to order staff, or stay manager/admin? (Affects the
    backend `roles` — see CLAUDE.md Pitfall #19: keep query roles ⊇ the route's
    permission set.)
-4. **Slice 4 timing + recipient:** what WIB hour, and which Telegram role/group?
+4. **Slice 4 timing:** what WIB hour does the end-of-day cron fire?
+5. **What "left" means (Slice 4):** remaining of the **weekly allotment** (`weeklyQty −
+   balls used this week`), OR remaining **undelivered planned** pieces for the rest of
+   the week, OR remaining **credit expressed as pieces** (`creditRemaining ÷ unitPrice`)?
+   These differ once a cafe over/under-orders vs plan.
+6. **Slice 4 recipient:** internal ops (`subscription-ops`/`founders` Telegram role),
+   the **customer** directly, or both? Affects tone + which `telegramChats` role.
 
 ## Non-goals
 - Editing/reducing **delivered/recognized** orders (recognized-revenue + balanceAfter
