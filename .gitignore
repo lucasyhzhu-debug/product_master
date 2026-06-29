@@ -10,6 +10,10 @@ api/.env
 # Keep example/template files (these are safe to commit)
 !.env.example
 
+# Database backups / exports — NEVER commit (contain PIN hashes, session tokens, PII)
+backups/
+*.zip
+
 # =============================================================================
 # DATABASE
 # =============================================================================

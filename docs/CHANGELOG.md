@@ -14,6 +14,22 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Security: scrub leaked secrets before public-repo exposure — 2026-06-29
+
+**For the team:** The repo was made public, so credentials that had been committed (in docs/config) are now removed and a guard is in place to stop it recurring. **Action required (live secrets — scrubbing alone is not enough on a public repo):** (1) revoke the `@FrolliePOS_Bot` Telegram token via BotFather and store the new one in the FrolliePOS project's secrets; (2) change the K3Mart vendor password and set `K3MART_EMAIL`/`K3MART_PASSWORD` in Convex env. Already-dead secrets (expired GoBiz session token, expired session tokens in backups) need no rotation.
+
+### Changed
+- **K3Mart default credentials** now sourced from Convex env (`K3MART_EMAIL`/`K3MART_PASSWORD`) instead of hardcoded literals (`convex/platformCredentials/mutations.ts`). `seedDefaultCredentials` throws a clear error if unset. Mirrors the existing `GOBIZ_*`/`GRAB_*` env pattern.
+
+### Removed
+- Untracked 4 `backups/*.zip` database exports (contained PIN hashes + session tokens). `backups/` and `*.zip` now gitignored.
+- Redacted live secrets from docs: Telegram bot token (`docs/telegram/telegram-bot-integration.md`), GoBiz JWE bearer token (`docs/apiS/gojek search transactions documentation.txt`), and K3Mart password copies in `.planning/.../02-security-docs/`.
+
+### Added
+- **Pre-commit secret guard** (`.githooks/pre-commit` + `.gitleaks.toml`) — blocks commits introducing likely-live secrets (Telegram/AWS/Google/Stripe/Xendit/GitHub/Slack tokens, private keys, bearer JWTs). Uses gitleaks when installed, regex fallback otherwise. Auto-wired via npm `prepare` → `git config core.hooksPath .githooks`. Covers `docs/**`/`.planning/**`, the direct-to-main paths that bypass build/test gates.
+
+---
+
 ## [Unreleased] — Subscription: resync schedule from orders (fix plan↔order drift) — 2026-06-29
 
 **For the team:** If a subscription week's **Schedule Calendar shows a different quantity than the actual order** (e.g. Monday shows 250 but the real delivered order is 150 — the two drifted apart after an edit), there's now a **"Resync from orders"** button on the schedule page. It rebuilds the schedule to match the real orders. It's display-only and **never changes any order, delivery, or credit** — so it's always safe to click. (Recognition always drew down the *order* amount, so your credit was already correct; only the schedule was stale.)

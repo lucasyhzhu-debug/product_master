@@ -294,8 +294,8 @@ VITE_CONVEX_URL=https://your-project-name.convex.cloud
 **File:** `convex/platformCredentials/mutations.ts` (lines 6-9)
 ```typescript
 const K3MART_DEFAULTS = {
-  email: "malostudio.id@gmail.com",
-  password: "12345678",
+  email: "<redacted>",
+  password: "<redacted>",  // historical literal scrubbed before repo went public; now sourced from Convex env
 };
 ```
 

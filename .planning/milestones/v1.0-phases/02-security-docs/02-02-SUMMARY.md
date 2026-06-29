@@ -61,7 +61,7 @@ completed: 2026-02-13
 - Force-pushed rewritten history to GitHub (all branches updated)
 - Cherry-picked 34 local phase commits (phases 01, 02-01, 03 research) onto rewritten history since they had not been pushed before the mirror clone
 - Ran TruffleHog secrets scan: 18 findings, all false positives (PostgreSQL URL templates in documentation)
-- Confirmed K3Mart default password "12345678" in convex/platformCredentials/mutations.ts as previously documented known limitation
+- Confirmed K3Mart default password (literal scrubbed; now sourced from Convex env) in convex/platformCredentials/mutations.ts as previously documented known limitation
 - Deleted 22 stale local branches and ran aggressive GC to ensure no orphaned objects with env file data remain
 - Restored stashed local working-copy changes after history rewrite
 - CONVEX_DEPLOY_KEY rotated in GitHub Settings and Convex Dashboard (user-confirmed)
@@ -93,7 +93,7 @@ completed: 2026-02-13
 
 | Finding | File | Verdict |
 |---------|------|---------|
-| K3Mart default password "12345678" | convex/platformCredentials/mutations.ts:8 | Known limitation -- documented in SECURITY.md |
+| K3Mart default password (literal scrubbed) | convex/platformCredentials/mutations.ts:8 | Known limitation -- documented in SECURITY.md |
 | `access_token` cookie handling | convex/integrations/gobiz/adapter.ts | Expected -- GoBiz API integration code |
 
 ### Deployment Identifiers

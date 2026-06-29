@@ -2,11 +2,16 @@ import { v } from "convex/values";
 import { mutation, internalMutation } from "../_generated/server";
 import { requireRole } from "../lib/auth";
 
-// Default K3Mart credentials for auto-seeding
-const K3MART_DEFAULTS = {
-  email: "malostudio.id@gmail.com",
-  password: "12345678",
-} as const;
+// Default K3Mart credentials for auto-seeding — sourced from Convex env, never
+// hardcoded (this file is in a public repo). Set K3MART_EMAIL / K3MART_PASSWORD
+// via `npx convex env set` (mirrors the GOBIZ_*/GRAB_* env pattern). Returns
+// null when unset so the seed throws a clear, actionable error.
+function getK3MartDefaults(): { email: string; password: string } | null {
+  const email = process.env.K3MART_EMAIL;
+  const password = process.env.K3MART_PASSWORD;
+  if (!email || !password) return null;
+  return { email, password };
+}
 
 /**
  * Save or update platform credentials (admin-only).
@@ -236,10 +241,16 @@ export const seedDefaultCredentials = internalMutation({
     if (existing) return existing._id;
 
     if (args.platformId === "k3mart") {
+      const defaults = getK3MartDefaults();
+      if (!defaults) {
+        throw new Error(
+          "K3Mart default credentials not configured. Set K3MART_EMAIL and K3MART_PASSWORD in Convex env (npx convex env set), then re-run the seed.",
+        );
+      }
       return await ctx.db.insert("platformCredentials", {
         platformId: args.platformId,
-        email: K3MART_DEFAULTS.email,
-        password: K3MART_DEFAULTS.password,
+        email: defaults.email,
+        password: defaults.password,
         updatedBy: "system",
         updatedAt: Date.now(),
       });

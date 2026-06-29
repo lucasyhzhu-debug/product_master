@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "vite",
     "build": "tsc -b && tsc -p convex/tsconfig.json --noEmit && vite build",
     "preview": "vite preview",

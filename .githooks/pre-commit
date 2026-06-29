@@ -1,0 +1,72 @@
+#!/bin/sh
+# =============================================================================
+# Pre-commit secret guard
+# -----------------------------------------------------------------------------
+# Blocks commits that introduce likely-live secrets. Covers ALL staged files,
+# with special attention to docs/** and .planning/** — the paths CLAUDE.md
+# allows direct-to-main (bypassing build/test gates), which is exactly how two
+# real secrets reached this repo before it went public (Telegram token + GoBiz
+# JWE in documentation).
+#
+# Wiring: `npm install` runs the "prepare" script, which sets
+#   git config core.hooksPath .githooks
+# so this hook activates automatically for every clone. No husky dependency.
+#
+# Uses gitleaks when installed (richer ruleset); always runs a regex fallback
+# so protection holds even without gitleaks. Bypass (discouraged):
+#   git commit --no-verify
+# =============================================================================
+set -eu
+
+# --- 1. gitleaks (if available) ---------------------------------------------
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks protect --staged --redact --no-banner; then
+    echo "❌ gitleaks detected secrets in staged changes. Commit aborted."
+    echo "   Review above. False positive? add to .gitleaks.toml allowlist."
+    exit 1
+  fi
+fi
+
+# --- 2. Regex fallback (always runs) ----------------------------------------
+# Only inspect ADDED lines in the staged diff (not existing content).
+added=$(git diff --cached --diff-filter=ACM -U0 | grep '^+' | grep -v '^+++' || true)
+[ -z "$added" ] && exit 0
+
+# High-signal live-secret patterns (one per line).
+patterns='-----BEGIN [A-Z ]*PRIVATE KEY-----
+[0-9]{8,10}:AA[A-Za-z0-9_-]{30,}
+AKIA[0-9A-Z]{16}
+AIza[0-9A-Za-z_-]{35}
+sk_live_[0-9A-Za-z]{20,}
+xnd_(production|live)_[0-9A-Za-z]{15,}
+ghp_[0-9A-Za-z]{36}
+github_pat_[0-9A-Za-z_]{50,}
+xox[baprs]-[0-9A-Za-z-]{10,}
+Bearer eyJ[A-Za-z0-9_=-]{30,}'
+
+# Placeholders/examples we intentionally ship — never block these.
+allow='AAExample|<BOT_TOKEN>|<BEARER_TOKEN>|<[A-Z_]*TOKEN>|your-|example\.com|REPLACE|DUMMY|xxxx'
+
+hits=""
+oldIFS=$IFS
+IFS='
+'
+for p in $patterns; do
+  [ -z "$p" ] && continue
+  m=$(printf '%s\n' "$added" | grep -E -e "$p" | grep -Ev -e "$allow" || true)
+  if [ -n "$m" ]; then
+    hits="${hits}
+  ── pattern: ${p}
+${m}"
+  fi
+done
+IFS=$oldIFS
+
+if [ -n "$hits" ]; then
+  printf '❌ Possible secret(s) in staged changes (pre-commit secret guard):%s\n\n' "$hits"
+  echo "Move the value to an env var / secrets store and use a placeholder in tracked files."
+  echo "If this is genuinely a false positive: add it to .gitleaks.toml or, last resort, commit with --no-verify."
+  exit 1
+fi
+
+exit 0
