@@ -14,6 +14,16 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription: resync schedule from orders (fix plan↔order drift) — 2026-06-29
+
+**For the team:** If a subscription week's **Schedule Calendar shows a different quantity than the actual order** (e.g. Monday shows 250 but the real delivered order is 150 — the two drifted apart after an edit), there's now a **"Resync from orders"** button on the schedule page. It rebuilds the schedule to match the real orders. It's display-only and **never changes any order, delivery, or credit** — so it's always safe to click. (Recognition always drew down the *order* amount, so your credit was already correct; only the schedule was stale.)
+
+### Added
+- **`resyncWeekPlanFromOrders`** (mutation, `convex/subscriptions/resyncPlan.ts`) — rebuilds a week's `plannedDays` from its non-cancelled orders + items (grouped by delivery date), preserving each day's `deliverByTime`/`locked`. Touches only `plannedDays`; refuses on `reconciled`/`closed` weeks. Manager+admin.
+- **"Resync from orders"** button on `SubscriptionSchedulePage` (amendable weeks) — calls the above and toasts whether anything changed.
+
+---
+
 ## [Unreleased] — Subscription Credit Drawdown in Order Create — 2026-06-29
 
 **For the team:** Managers and admins can now create a new order for a subscription customer directly from a subscription's weekly credit pool. When you open "New Order" and select a subscription customer, a banner shows how much prepaid credit is available for this week. Eligible products (those in the subscription plan) are automatically re-priced to the partner rate. Full credit cover → the order is immediately marked **Paid** (subscription credit). Partial cover → the credit portion is reserved and the customer pays only the remainder via QRIS/bank. Credit is drawn down at delivery (not at order creation), matching the subscription's existing recognition model.
