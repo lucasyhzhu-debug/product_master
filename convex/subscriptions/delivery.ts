@@ -1,6 +1,10 @@
 import { v, ConvexError } from "convex/values";
 import { protectedMutation } from "../lib/functions";
 import { recognizeSubscriptionDelivery } from "./recognition";
+import {
+  computeIsKitchenVisible,
+  logStatusTransition,
+} from "../orders/helpers/statusTransitions";
 
 /**
  * A subscription order is "deliverable" (recognizable) once it is funded and not
@@ -17,8 +21,19 @@ export function isDeliverableSubscriptionStatus(status: string): boolean {
 
 /**
  * Scoped "Mark delivered" action for subscription orders (order surfaces are
- * otherwise read-only). Transitions the order to AwaitingDelivery and recognizes
- * the sale via the existing helper. Manager+admin; idempotent (re-press = no-op).
+ * otherwise read-only). Recognizes the sale via the existing helper AND drives the
+ * order to the terminal `Complete` status. Manager+admin; idempotent (re-press =
+ * no-op once Complete; recognition de-dupes via creditLedger.by_order).
+ *
+ * Why Complete (not AwaitingDelivery): recognition originally fired on the
+ * BeingPrepared→AwaitingDelivery edge, but subscription orders are read-only on
+ * every order surface, so nothing ever moved them from AwaitingDelivery to
+ * Complete — they piled up forever in the "awaiting delivery" kanban column with
+ * no way to finish (operator-reported bug). The single "Mark delivered" press is
+ * the operator confirming the order is delivered, so it lands the order in the
+ * terminal state in one step. Recognition is status-agnostic (it reads
+ * subscriptionCreditApplied ?? totalAmount and de-dupes on the ledger), so posting
+ * the drawdown here is unchanged — no double-draw, same realized-sale timing.
  *
  * NOTE (R2): intentionally bypasses generic moveForward stock/production side
  * effects — subscription orders are credit-funded and production rows were created
@@ -38,9 +53,6 @@ export const markSubscriptionDelivered = protectedMutation({
         `Order status is ${order.status}; only a funded subscription order can be marked delivered`,
       );
     }
-    if (order.status !== "AwaitingDelivery") {
-      await ctx.db.patch(order._id, { status: "AwaitingDelivery" });
-    }
     // Capture whether a ledger entry already existed BEFORE recognition (to detect
     // the split-then-deliver path where recognition fired at split time).
     const ledgerExistedBefore = Boolean(
@@ -51,6 +63,25 @@ export const markSubscriptionDelivered = protectedMutation({
     );
     // Idempotent: returns early if a ledger entry already exists for this order.
     await recognizeSubscriptionDelivery(ctx, order._id, ctx.user._id);
+
+    // Drive to the terminal Complete state so the order leaves "awaiting delivery".
+    // Mirrors the generic status flow: completedAt stamped, kitchen visibility cleared.
+    const fromStatus = order.status;
+    await ctx.db.patch(order._id, {
+      status: "Complete",
+      completedAt: Date.now(),
+      isKitchenVisible: computeIsKitchenVisible("Complete"),
+    });
+    await logStatusTransition(
+      ctx,
+      order._id,
+      fromStatus,
+      "Complete",
+      "Subscription order marked delivered",
+      "user",
+      ctx.user._id,
+    );
+
     return {
       orderId: order._id,
       newlyRecognized: !ledgerExistedBefore,
