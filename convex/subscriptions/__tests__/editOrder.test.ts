@@ -47,6 +47,8 @@ interface SeedOpts {
   creditApplied?: number;
   /** seed orderItemProduction + BOM wiring for the edge test. */
   withProduction?: { unitsCompleted: number };
+  /** add a SECOND order line (distinct product) of this qty — for multi-line tests. */
+  extraQty?: number;
 }
 
 async function seed(t: TestT, opts: SeedOpts = {}) {
@@ -57,6 +59,7 @@ async function seed(t: TestT, opts: SeedOpts = {}) {
     qty = 150,
     creditApplied,
     withProduction,
+    extraQty,
   } = opts;
 
   const { sessionId, userId } = await createSession(t, role);
@@ -79,14 +82,25 @@ async function seed(t: TestT, opts: SeedOpts = {}) {
     // Funded week (topup only — order NOT yet recognized/delivered → no drawdown row).
     await ctx.db.insert("creditLedger", { subscriptionId, subscriptionWeekId, type: "topup", amount: WEEKLY_FUND, balanceAfter: WEEKLY_FUND, createdBy: userId } as never);
 
+    const grandTotal = (qty + (extraQty ?? 0)) * PRICE;
+    const lineCount = extraQty !== undefined ? 2 : 1;
     const orderFields: Record<string, unknown> = {
       orderNumber: "0616-001", customerId, customerName: "Cafe", customerPhone: "+62812", status: orderStatus, paymentStatus: "Unpaid",
-      orderDate: Date.now(), dueDate: MON, deliveryDate: MON, totalAmount: qty * PRICE, totalCost: 0, totalMargin: qty * PRICE, finalTotal: qty * PRICE,
-      deliveryType: "Delivery", itemCount: 1, createdBy: "Test", isKitchenVisible: true, createdByUserId: userId, subscriptionId, subscriptionWeekId, fundingSource: "subscription_credit",
+      orderDate: Date.now(), dueDate: MON, deliveryDate: MON, totalAmount: grandTotal, totalCost: 0, totalMargin: grandTotal, finalTotal: grandTotal,
+      deliveryType: "Delivery", itemCount: lineCount, createdBy: "Test", isKitchenVisible: true, createdByUserId: userId, subscriptionId, subscriptionWeekId, fundingSource: "subscription_credit",
     };
     if (creditApplied !== undefined) orderFields.subscriptionCreditApplied = creditApplied;
     const orderId = await ctx.db.insert("orders", orderFields as never);
     const orderItemId = await ctx.db.insert("orderItems", { orderId, productName: "Original 80g", quantity: qty, unitPrice: PRICE, unitCost: 0, discountAmount: 0, lineTotal: qty * PRICE, lineCost: 0, lineMargin: qty * PRICE, menuProductId } as never);
+
+    let orderItemId2: Id<"orderItems"> | undefined;
+    let menuProductId2: Id<"menuProducts"> | undefined;
+    if (extraQty !== undefined) {
+      menuProductId2 = await ctx.db.insert("menuProducts", {
+        code: "ORI-45", name: "Original 45g", grams: 45, defaultPrice: 25000, isActive: true, unitCost: 0, cachedProductionSummary: "1 Mid",
+      } as never);
+      orderItemId2 = await ctx.db.insert("orderItems", { orderId, productName: "Original 45g", quantity: extraQty, unitPrice: PRICE, unitCost: 0, discountAmount: 0, lineTotal: extraQty * PRICE, lineCost: 0, lineMargin: extraQty * PRICE, menuProductId: menuProductId2 } as never);
+    }
 
     if (withProduction) {
       const productionUnitTypeId = await ctx.db.insert("productionUnitTypes", {
@@ -103,7 +117,7 @@ async function seed(t: TestT, opts: SeedOpts = {}) {
       } as never);
     }
 
-    return { customerId, menuProductId, subscriptionId, subscriptionWeekId, orderId, orderItemId };
+    return { customerId, menuProductId, subscriptionId, subscriptionWeekId, orderId, orderItemId, orderItemId2, menuProductId2 };
   });
   return { sessionId, userId, ...ids };
 }
@@ -192,18 +206,103 @@ describe("editUndeliveredSubscriptionOrder", () => {
     ).rejects.toThrow(/reduce|add more/i);
   });
 
-  // 5c. newQty === 0 removes the line.
-  it("removes a line when newQty is 0", async () => {
+  // 5c. newQty === 0 removes a line (multi-line order — at least one line remains).
+  it("removes a line when newQty is 0 (multi-line)", async () => {
     const t = convexTest(schema);
-    const f = await seed(t, { qty: 150, creditApplied: 150 * PRICE });
+    const f = await seed(t, { qty: 150, extraQty: 50, creditApplied: 200 * PRICE });
     await t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
       sessionId: f.sessionId, orderId: f.orderId, lines: [{ itemId: f.orderItemId, newQty: 0 }],
     });
     const item = await t.run(async (ctx) => ctx.db.get(f.orderItemId));
     expect(item).toBeNull();
+    const item2 = await t.run(async (ctx) => ctx.db.get(f.orderItemId2!));
+    expect(item2).not.toBeNull(); // the other line survives
     const order = await t.run(async (ctx) => ctx.db.get(f.orderId));
-    expect(order!.totalAmount).toBe(0);
-    expect(order!.subscriptionCreditApplied).toBe(0); // capped to new total
+    expect(order!.totalAmount).toBe(50 * PRICE);
+    expect(order!.subscriptionCreditApplied).toBe(50 * PRICE); // capped to new total
+  });
+
+  // Minor-A. Removing EVERY line is rejected (no zombie 0-item order).
+  it("rejects removing every line (zombie guard — must cancel instead)", async () => {
+    const t = convexTest(schema);
+    const f = await seed(t, { qty: 150, creditApplied: 150 * PRICE });
+    await expect(
+      t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+        sessionId: f.sessionId, orderId: f.orderId, lines: [{ itemId: f.orderItemId, newQty: 0 }],
+      }),
+    ).rejects.toThrow(/remove every line|cancel the order/i);
+    // The line edit rolled back — order + item intact.
+    const item = await t.run(async (ctx) => ctx.db.get(f.orderItemId));
+    expect(item).not.toBeNull();
+    const order = await t.run(async (ctx) => ctx.db.get(f.orderId));
+    expect(order!.totalAmount).toBe(150 * PRICE);
+  });
+
+  // Minor-B. A PARTIAL-credit order (0 < applied < total) is rejected so the
+  // Math.min reservation cap stays provably exact (only full-cover edits here).
+  it("rejects editing a partial-credit order", async () => {
+    const t = convexTest(schema);
+    // qty 150 → total 150*PRICE, but only 100*PRICE reserved → partial.
+    const f = await seed(t, { qty: 150, creditApplied: 100 * PRICE });
+    await expect(
+      t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+        sessionId: f.sessionId, orderId: f.orderId, lines: [{ itemId: f.orderItemId, newQty: 120 }],
+      }),
+    ).rejects.toThrow(/partial-credit|credit flow/i);
+  });
+
+  // Minor-C(a). Multi-line order: only SOME lines change; untouched lines stay intact.
+  it("reduces only the changed line, leaving other lines untouched", async () => {
+    const t = convexTest(schema);
+    const f = await seed(t, { qty: 150, extraQty: 50, creditApplied: 200 * PRICE });
+    await t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+      sessionId: f.sessionId, orderId: f.orderId, lines: [{ itemId: f.orderItemId, newQty: 100 }],
+    });
+    const item1 = await t.run(async (ctx) => ctx.db.get(f.orderItemId));
+    const item2 = await t.run(async (ctx) => ctx.db.get(f.orderItemId2!));
+    expect(item1!.quantity).toBe(100); // changed
+    expect(item2!.quantity).toBe(50); // untouched
+    const order = await t.run(async (ctx) => ctx.db.get(f.orderId));
+    expect(order!.totalAmount).toBe(150 * PRICE); // 100 + 50
+    expect(order!.subscriptionCreditApplied).toBe(150 * PRICE);
+  });
+
+  // Minor-C(b). newQty === current quantity is a no-op (no change, no error).
+  it("treats newQty equal to current quantity as a no-op", async () => {
+    const t = convexTest(schema);
+    const f = await seed(t, { qty: 150, creditApplied: 150 * PRICE });
+    const res = await t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+      sessionId: f.sessionId, orderId: f.orderId, lines: [{ itemId: f.orderItemId, newQty: 150 }],
+    });
+    expect(res).toEqual({ ok: true });
+    const order = await t.run(async (ctx) => ctx.db.get(f.orderId));
+    expect(order!.totalAmount).toBe(150 * PRICE);
+    expect(order!.subscriptionCreditApplied).toBe(150 * PRICE);
+  });
+
+  // Minor-C(c). A line whose item belongs to a DIFFERENT order is rejected.
+  it("rejects a line whose item is not on this order", async () => {
+    const t = convexTest(schema);
+    const f1 = await seed(t, { qty: 150, creditApplied: 150 * PRICE });
+    const f2 = await seed(t, { qty: 100, creditApplied: 100 * PRICE });
+    await expect(
+      t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+        sessionId: f1.sessionId, orderId: f1.orderId, lines: [{ itemId: f2.orderItemId, newQty: 50 }],
+      }),
+    ).rejects.toThrow(/not on this order/i);
+  });
+
+  // Minor-C(d). Empty lines: no-op resync (no item change), still resolves ok.
+  it("handles empty lines as a no-op resync", async () => {
+    const t = convexTest(schema);
+    const f = await seed(t, { qty: 150, creditApplied: 150 * PRICE });
+    const res = await t.mutation(api.subscriptions.editOrder.editUndeliveredSubscriptionOrder, {
+      sessionId: f.sessionId, orderId: f.orderId, lines: [],
+    });
+    expect(res).toEqual({ ok: true });
+    const order = await t.run(async (ctx) => ctx.db.get(f.orderId));
+    expect(order!.totalAmount).toBe(150 * PRICE);
+    expect(order!.subscriptionCreditApplied).toBe(150 * PRICE);
   });
 
   // 6. Edge: reduce below the already-filled production count behaves sanely (no throw).

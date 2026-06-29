@@ -224,7 +224,12 @@ export function OrderDetail() {
   }
 
   // Pitfall #20: subscription orders render read-only here too (MIRROR of OrderSlideOver.tsx).
-  const isSubscriptionOrder = Boolean(order?.subscription_id && order?.subscription_week_id);
+  // Read-only gating keys on subscription_id ALONE (matches OrderSlideOver) — a subscription
+  // order without a week must still be read-only, never fall into the editable branch.
+  const isSubscriptionOrder = Boolean(order?.subscription_id);
+  // Reduce/remove on an undelivered order requires BOTH ids (the edit orchestrator does too).
+  // Passed ONLY to EditUndeliveredOrderControl — NOT to the read-only gates above.
+  const canReduceUndelivered = Boolean(order?.subscription_id && order?.subscription_week_id);
 
   if (!order) {
     return (
@@ -432,7 +437,7 @@ export function OrderDetail() {
                   <EditUndeliveredOrderControl
                     orderId={orderId}
                     status={order.status}
-                    isSubscriptionOrder={isSubscriptionOrder}
+                    isSubscriptionOrder={canReduceUndelivered}
                     items={order.items.map((item): EditUndeliveredOrderItem => ({
                       id: item.id as unknown as Id<'orderItems'>,
                       productName: item.product_name,

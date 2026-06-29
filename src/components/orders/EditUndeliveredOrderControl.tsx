@@ -88,23 +88,31 @@ export function EditUndeliveredOrderControl({
     return null;
   }
 
-  // Changed lines = reductions only. An empty / non-numeric field is treated as
-  // 0 (remove); anything above the current qty is clamped down to current (no
-  // increase), which lands it equal-to-original and is filtered out.
-  const changedLines = items
-    .map((it) => {
-      const raw = qty[it.id];
-      const parsed = raw === undefined || raw.trim() === '' ? 0 : parseInt(raw, 10);
-      const clamped = Number.isNaN(parsed)
-        ? it.quantity
-        : Math.min(Math.max(parsed, 0), it.quantity);
-      return { itemId: it.id, newQty: clamped, original: it.quantity };
-    })
-    .filter((l) => l.newQty < l.original);
+  // Resulting qty per line. An empty / non-numeric field is treated as 0 (remove);
+  // anything above the current qty is clamped down to current (no increase).
+  const lineStates = items.map((it) => {
+    const raw = qty[it.id];
+    const parsed = raw === undefined || raw.trim() === '' ? 0 : parseInt(raw, 10);
+    const clamped = Number.isNaN(parsed)
+      ? it.quantity
+      : Math.min(Math.max(parsed, 0), it.quantity);
+    return { itemId: it.id, newQty: clamped, original: it.quantity };
+  });
+
+  // Changed lines = reductions only (lands equal-to-original lines are filtered out).
+  const changedLines = lineStates.filter((l) => l.newQty < l.original);
+
+  // Minor-A: removing EVERY line leaves a zombie 0-item order — steer staff to
+  // Cancel instead (backend also rejects this). Disable Save + show a hint.
+  const removesAllLines = lineStates.every((l) => l.newQty === 0);
 
   const handleSubmit = async () => {
     if (changedLines.length === 0) {
       toast.error('Reduce at least one line first.');
+      return;
+    }
+    if (removesAllLines) {
+      toast.error('Cannot remove every line — cancel the order instead.');
       return;
     }
     setSubmitting(true);
@@ -174,6 +182,12 @@ export function EditUndeliveredOrderControl({
             ))}
           </div>
 
+          {removesAllLines && (
+            <p className="text-xs text-amber-600">
+              This would remove every line. Cancel the order instead of emptying it.
+            </p>
+          )}
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -186,7 +200,7 @@ export function EditUndeliveredOrderControl({
             <Button
               size="sm"
               onClick={handleSubmit}
-              disabled={submitting || changedLines.length === 0}
+              disabled={submitting || changedLines.length === 0 || removesAllLines}
             >
               {submitting ? (
                 <>

@@ -556,7 +556,10 @@ export function OrderCreate() {
     // (createCreditFundedOrder) instead of a plain order create. handleFulfilWithCredit
     // enforces its own guards (sub selected, due date + items present) and guides the
     // operator if anything is missing — the actual draw-down only fires once they are.
-    if (creditIntent === 'accepted') {
+    // Nitpick-D: credit draw-down is a NEW-order flow only. The credit UI is already
+    // hidden in edit mode (see the !isEditMode gates above), so this is belt-and-
+    // suspenders — never route an edit submit through createCreditFundedOrder.
+    if (creditIntent === 'accepted' && !isEditMode) {
       await handleFulfilWithCredit();
       return;
     }

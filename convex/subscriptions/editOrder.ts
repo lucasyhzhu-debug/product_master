@@ -63,6 +63,25 @@ export const editUndeliveredSubscriptionOrder = protectedMutation({
       throw new ConvexError("Order already recognized — cannot edit");
     }
 
+    // Nitpick-D: hoist the settled-week check to the TOP — read the week up front
+    // and reject a reconciled/closed week BEFORE any item writes (avoids wasted
+    // writes that the transaction would roll back; reads more defensively).
+    // resyncWeekPlanInline keeps its own identical guard (belt-and-suspenders).
+    const week = await ctx.db.get(order.subscriptionWeekId);
+    if (!week) throw new ConvexError("Subscription week not found");
+    if (week.status === "reconciled" || week.status === "closed") {
+      throw new ConvexError(`Week is ${week.status} and settled — its order cannot be edited`);
+    }
+
+    // Minor-B (money-path safety): only FULL-cover or non-credit orders are editable here.
+    // A partial-credit reservation (0 < applied < total) would be over-stated by the
+    // Math.min cap below (the documented FUTURE mixed re-split gap). Reject it so the cap
+    // is provably exact. Non-credit (applied === 0) and full-cover (applied === total) pass.
+    const appliedAtStart = order.subscriptionCreditApplied ?? 0;
+    if (appliedAtStart > 0 && appliedAtStart !== order.totalAmount) {
+      throw new ConvexError("Partial-credit orders can't be reduced here yet — adjust via the credit flow");
+    }
+
     // Apply per-line reductions / removals (REUSE itemCrud math via internal helpers).
     for (const ln of args.lines) {
       const item = await ctx.db.get(ln.itemId);
@@ -81,10 +100,23 @@ export const editUndeliveredSubscriptionOrder = protectedMutation({
       // ln.newQty === item.quantity → no-op
     }
 
+    // Minor-A: reject removing EVERY line — that leaves a non-Cancelled 0-item/0-total
+    // zombie order lingering on the kanban that later recognizes a 0 drawdown. Staff
+    // must Cancel instead. The throw rolls back all line edits above via the transaction.
+    const remainingItems = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", order._id))
+      .collect();
+    if (remainingItems.filter((it) => !it.isCancelled).length === 0) {
+      throw new ConvexError("Cannot remove every line — cancel the order instead");
+    }
+
     // Re-derive the credit reservation DOWN (Pitfall #23). Eligible lines were
     // priced at the subscription's partner unitPrice at creation; reductions only
     // lower the eligible total, so a Math.min cap is correct for reduce-only (no
     // full re-split needed). Only touch credit-funded orders (reservation > 0).
+    // The cap is provably EXACT because partial-credit orders are rejected upstream
+    // (Minor-B guard) — every editable credit-funded order is full-cover.
     const fresh = await ctx.db.get(args.orderId);
     if (fresh && (fresh.subscriptionCreditApplied ?? 0) > 0) {
       const newReservation = Math.min(fresh.subscriptionCreditApplied!, fresh.totalAmount);
