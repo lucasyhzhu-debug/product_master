@@ -130,12 +130,20 @@ export function WeekBackReferences({
         {orders.length === 0 ? (
           <SectionEmpty message="No orders linked to this week." />
         ) : (
-          orders.map((order) => (
-            <RefLink key={order._id} to={`/orders/${order._id}`}>
-              <span className="font-mono text-xs">{order.orderNumber}</span>
-              <span className="text-xs opacity-70">· {order.status}</span>
-            </RefLink>
-          ))
+          orders.map((order) => {
+            const isAdHocCredit = (order.subscriptionCreditApplied ?? 0) > 0;
+            return (
+              <RefLink key={order._id} to={`/orders/${order._id}`}>
+                <span className="font-mono text-xs">{order.orderNumber}</span>
+                <span className="text-xs opacity-70">· {order.status}</span>
+                {isAdHocCredit && (
+                  <span className="ml-1 rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                    Top-up
+                  </span>
+                )}
+              </RefLink>
+            );
+          })
         )}
       </BackRefSection>
 

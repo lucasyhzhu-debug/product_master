@@ -2,6 +2,7 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import type { QueryCtx } from "../_generated/server";
 import type { OrderWithItems } from "./types";
+import { renderTemplate } from "../whatsappTemplates/render";
 
 // Mirrors the same prefix regex in helpers.ts — used for smart delivery info detection
 const PICKUP_PREFIX_RE = /^pick up:\s*/i;
@@ -46,20 +47,6 @@ function deriveEffectivePaymentStatus(order: OrderWithItems): string {
 // ============================================
 // Template Variable Substitution
 // ============================================
-
-/**
- * Replace template variables with actual values.
- */
-function renderTemplate(
-  templateString: string,
-  variables: Record<string, string>
-): string {
-  let result = templateString;
-  for (const [key, value] of Object.entries(variables)) {
-    result = result.replace(new RegExp(key.replace(/[{}]/g, "\\$&"), "g"), value);
-  }
-  return result;
-}
 
 /**
  * Build variables object from order data for template rendering.

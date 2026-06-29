@@ -342,6 +342,10 @@ export default defineSchema({
         v.literal("normal"),
       ),
     ),
+    // Phase: subscription credit drawdown — reserved/drawn credit (integer IDR).
+    // Reservation lives on the order row (no new ledger type); recognition draws
+    // this exact amount at delivery. undefined on planned orders (fall back to totalAmount).
+    subscriptionCreditApplied: v.optional(v.number()),
   })
     .index("by_order_number", ["orderNumber"])
     .index("by_customer", ["customerId"])

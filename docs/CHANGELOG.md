@@ -14,6 +14,35 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Subscription Credit Drawdown in Order Create — 2026-06-29
+
+**For the team:** Managers and admins can now create a new order for a subscription customer directly from a subscription's weekly credit pool. When you open "New Order" and select a subscription customer, a banner shows how much prepaid credit is available for this week. Eligible products (those in the subscription plan) are automatically re-priced to the partner rate. Full credit cover → the order is immediately marked **Paid** (subscription credit). Partial cover → the credit portion is reserved and the customer pays only the remainder via QRIS/bank. Credit is drawn down at delivery (not at order creation), matching the subscription's existing recognition model.
+
+### Added
+- **`orders.subscriptionCreditApplied`** (schema field) — optional integer IDR reservation amount set on the order row when credit is applied. `undefined` on orders with no credit reservation; drives recognition at delivery.
+- **`getSubscriptionCreditContext`** (query, `convex/subscriptions/queries.ts`) — per active subscription returns `{ subscriptionId, label, weekId, allowedProductIds, availableCredit, split, plannedDeliveriesRemaining }`. `availableCredit` is reservation-aware (pool − un-recognized reservations from non-Cancelled orders).
+- **`createCreditFundedOrder`** (mutation, `convex/subscriptions/creditOrder.ts`) — creates an ad-hoc order funded by a subscription customer's prepaid weekly credit. Re-derives the split server-side, reserves credit on the order row, posts NO ledger entry at creation. Full cover → `{fundingSource:"subscription_credit", paymentStatus:"Paid", paymentMethod:"subscription_credit", status:"PaymentReceived"}`. Partial → `{fundingSource:"deposit", status:"AwaitingPayment", paymentStatus:"Unpaid"}`. Returns `{ orderId, creditCovered, amountDue, offPlanTotal, eligibleShortfall }`.
+- **`getCreditOrderWhatsappDraft`** (query, `convex/subscriptions/creditOrder.ts`) — renders a WhatsApp top-up summary `{ text } | null` for the created credit order.
+- **`computeCreditSplit`** pure helper (`convex/subscriptions/creditMath.ts`) — splits cart into credit-eligible (re-priced to partner `unitPrice`) vs off-plan (retail), applies available credit. Integer IDR.
+- **`computeWeekAvailableCredit`** (`convex/subscriptions/creditReservation.ts`) — shared reservation-netting helper (pool − Σ un-recognized `subscriptionCreditApplied`, excluding Cancelled orders).
+- **`renderTemplate`** (`convex/whatsappTemplates/render.ts`) — shared WhatsApp template renderer extracted from `orders/whatsapp.ts`; new seed template `SUBSCRIPTION_CREDIT_TOPUP`.
+- **`SubscriptionCreditBanner`** (`src/components/orders/SubscriptionCreditBanner.tsx`) — presentational banner shown on OrderCreate when a subscription customer is selected, surfacing available credit and eligible/off-plan split preview.
+- **`useSubscriptionCreditContext`** hook (`src/hooks/useSubscriptionCreditContext.ts`) — wraps `getSubscriptionCreditContext` for the banner.
+- **Banner wired into `src/pages/OrderCreate.tsx`** (new-order creation flow, manager/admin only). NOT wired into `OrderSlideOver`/`OrderDetail` — those are existing-order operate surfaces; the at-creation credit selection has a single home on `OrderCreate`.
+- **Top-up badge on `WeekBackReferences`** (`src/components/crm/WeekBackReferences.tsx`) — additive "Top-up" badge on ad-hoc credit orders in the subscription week back-references panel.
+
+### Changed
+- **`recognizeSubscriptionDelivery`** (`convex/subscriptions/recognition.ts`) — at delivery draws `subscriptionCreditApplied ?? totalAmount` (the reserved amount, not totalAmount, so partial-credit orders draw the correct reserved slice).
+- **`applyPartialCreditToAdHocOrder`** (`convex/subscriptions/outOfCredit.ts`) — Path B refactored from eager drawdown to the reservation model (IMP-4 resolution): now sets `subscriptionCreditApplied` on the order row and posts NO ledger entry at application time; recognition draws at delivery. `getOrderCreditStatus.canApplyCredit` returns `false` once an order is already reserved.
+
+### Files
+`convex/schema.ts` (`subscriptionCreditApplied` field), `convex/subscriptions/{queries,creditOrder,creditMath,creditReservation,recognition,outOfCredit}.ts`, `convex/whatsappTemplates/render.ts`, `src/pages/OrderCreate.tsx`, `src/components/orders/SubscriptionCreditBanner.tsx`, `src/hooks/useSubscriptionCreditContext.ts`, `src/components/crm/WeekBackReferences.tsx`. PR #216.
+
+### Known follow-up
+Payment/mark-paid/QRIS collection does not yet subtract `subscriptionCreditApplied` for **partial** credit orders (full-cover orders are unaffected — already Paid). Pre-existing gap in Path B. Tracked in ROADMAP.
+
+---
+
 ## [Unreleased] — Subscription order cards show a clear deliver-by note — 2026-06-29
 
 **For the team:** Every order card generated from a weekly subscription now carries a plain-language delivery note — e.g. **"Deliver by 09:30; Monday 29/06/26"** — so when you're dragging and confirming cards on the kanban you can tell at a glance which weekday and date (and the agreed deliver-by time) each one is for. The deliver-by time comes from the subscription's own "Deliver by" setting, not a fixed value.

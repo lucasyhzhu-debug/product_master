@@ -286,6 +286,8 @@ import type * as storageLocations_queries from "../storageLocations/queries.js";
 import type * as subscriptions__devSeed from "../subscriptions/_devSeed.js";
 import type * as subscriptions_amend from "../subscriptions/amend.js";
 import type * as subscriptions_creditMath from "../subscriptions/creditMath.js";
+import type * as subscriptions_creditOrder from "../subscriptions/creditOrder.js";
+import type * as subscriptions_creditReservation from "../subscriptions/creditReservation.js";
 import type * as subscriptions_delivery from "../subscriptions/delivery.js";
 import type * as subscriptions_enforcement_applyPendingBaselineChanges from "../subscriptions/enforcement/applyPendingBaselineChanges.js";
 import type * as subscriptions_enforcement_cutoffMath from "../subscriptions/enforcement/cutoffMath.js";
@@ -331,6 +333,7 @@ import type * as vouchers_mutations from "../vouchers/mutations.js";
 import type * as vouchers_queries from "../vouchers/queries.js";
 import type * as whatsappTemplates_mutations from "../whatsappTemplates/mutations.js";
 import type * as whatsappTemplates_queries from "../whatsappTemplates/queries.js";
+import type * as whatsappTemplates_render from "../whatsappTemplates/render.js";
 
 import type {
   ApiFromModules,
@@ -617,6 +620,8 @@ declare const fullApi: ApiFromModules<{
   "subscriptions/_devSeed": typeof subscriptions__devSeed;
   "subscriptions/amend": typeof subscriptions_amend;
   "subscriptions/creditMath": typeof subscriptions_creditMath;
+  "subscriptions/creditOrder": typeof subscriptions_creditOrder;
+  "subscriptions/creditReservation": typeof subscriptions_creditReservation;
   "subscriptions/delivery": typeof subscriptions_delivery;
   "subscriptions/enforcement/applyPendingBaselineChanges": typeof subscriptions_enforcement_applyPendingBaselineChanges;
   "subscriptions/enforcement/cutoffMath": typeof subscriptions_enforcement_cutoffMath;
@@ -662,6 +667,7 @@ declare const fullApi: ApiFromModules<{
   "vouchers/queries": typeof vouchers_queries;
   "whatsappTemplates/mutations": typeof whatsappTemplates_mutations;
   "whatsappTemplates/queries": typeof whatsappTemplates_queries;
+  "whatsappTemplates/render": typeof whatsappTemplates_render;
 }>;
 
 /**

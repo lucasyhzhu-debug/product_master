@@ -221,6 +221,26 @@ See you soon! 👋`,
       "{pickup_location}",
     ],
   },
+  {
+    code: "SUBSCRIPTION_CREDIT_TOPUP",
+    name: "Subscription Credit Top-up",
+    description: "Sent after a credit-funded ad-hoc subscription order",
+    templateId: `Halo {customerName}! 🙏 Terima kasih.
+Pesanan hari ini: {itemsText}
+Kami pakai kredit langganan Rp {creditUsed} untuk pesanan ini.
+Sisa kredit minggu ini: Rp {creditRemaining} · Pengiriman terjadwal tersisa: {plannedDeliveriesRemaining}.`,
+    templateEn: `Halo {customerName}! 🙏 Terima kasih.
+Pesanan hari ini: {itemsText}
+Kami pakai kredit langganan Rp {creditUsed} untuk pesanan ini.
+Sisa kredit minggu ini: Rp {creditRemaining} · Pengiriman terjadwal tersisa: {plannedDeliveriesRemaining}.`,
+    availableVariables: [
+      "{customerName}",
+      "{itemsText}",
+      "{creditUsed}",
+      "{creditRemaining}",
+      "{plannedDeliveriesRemaining}",
+    ],
+  },
 ];
 
 /**

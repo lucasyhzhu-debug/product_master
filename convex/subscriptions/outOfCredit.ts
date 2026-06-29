@@ -235,7 +235,9 @@ export const splitScheduledOrderOnCredit = protectedMutation({
  *
  * For an ad-hoc order placed by a subscription customer when some credit remains:
  *   1. coveredAmount = min(remainingCredit, order.finalTotal) — integer IDR.
- *   2. Post a `drawdown` ledger entry for coveredAmount (negative, IDR).
+ *   2. RESERVE: sets order.subscriptionCreditApplied = coveredAmount.
+ *      No creditLedger entry is posted at this stage — recognition draws the
+ *      credit at delivery (recognizeSubscriptionDelivery), per D5/IMP-4.
  *   3. Set order.fundingSource = "deposit" (credit acting as a pre-payment).
  *   4. Leave order at status "AwaitingPayment" — the uncovered remainder is
  *      collected via the normal QRIS / bank flow. No new deposit subsystem (§13.2).
@@ -243,7 +245,7 @@ export const splitScheduledOrderOnCredit = protectedMutation({
  * Constraints:
  *   - The order must be linked to a subscription (subscriptionId + subscriptionWeekId).
  *   - The order must be at status "AwaitingPayment"; already-paid orders are
- *     rejected to prevent double-drawdown.
+ *     rejected to prevent double-reservation.
  *   - If remainingCredit = 0, no-ops and returns coveredAmount = 0.
  *
  * Returns: { coveredAmount, remainderAmount }
@@ -282,20 +284,12 @@ export const applyPartialCreditToAdHocOrder = protectedMutation({
     const coveredAmount = Math.min(remaining, order.finalTotal);
     const remainderAmount = order.finalTotal - coveredAmount;
 
-    // Post the drawdown (negative = debit the pool).
-    await postLedgerEntry(ctx, {
-      subscriptionId: order.subscriptionId,
-      subscriptionWeekId: order.subscriptionWeekId,
-      type: "drawdown",
-      amount: -coveredAmount,
-      createdBy: ctx.user._id,
-      orderId: order._id,
-      note: `Ad-hoc credit application on ${order.orderNumber} (${coveredAmount} IDR of ${order.finalTotal} IDR total)`,
-    });
-
-    // Label the order as deposit-funded; leave AwaitingPayment for the remainder.
+    // RESERVE (no eager drawdown — recognition posts the drawdown at delivery, D5/IMP-4 fix).
+    // Set order.subscriptionCreditApplied = coveredAmount so recognizeSubscriptionDelivery
+    // draws exactly that amount at delivery — not the full totalAmount.
     await ctx.db.patch(order._id, {
       fundingSource: "deposit",
+      subscriptionCreditApplied: coveredAmount,
       // status intentionally stays AwaitingPayment — remainder handled by QRIS/bank
     });
 

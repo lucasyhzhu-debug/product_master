@@ -280,6 +280,49 @@ describe("WeekBackReferences — invoice empty state (D12)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// T11 — Top-up badge on ad-hoc credit orders
+// ---------------------------------------------------------------------------
+
+describe("WeekBackReferences — Top-up badge (T11)", () => {
+  it("badges ad-hoc credit orders distinctly from planned orders", () => {
+    mockReturn = {
+      orders: [
+        {
+          _id: "o1",
+          orderNumber: "0629-001",
+          status: "PaymentReceived",
+          fundingSource: "subscription_credit",
+        },
+        {
+          _id: "o2",
+          orderNumber: "0629-050",
+          status: "PaymentReceived",
+          fundingSource: "deposit",
+          subscriptionCreditApplied: 14000,
+        },
+      ],
+      ledgerEntries: [],
+      fundingInvoice: null,
+    };
+    render(
+      <MemoryRouter>
+        <WeekBackReferences
+          subscriptionWeekId={"w1" as any}
+          customerId={"c1" as any}
+          subscriptionId={"s1" as any}
+        />
+      </MemoryRouter>,
+    );
+    // Both orders render as links
+    expect(screen.getByText("0629-001")).toBeInTheDocument();
+    expect(screen.getByText("0629-050")).toBeInTheDocument();
+    // Only the ad-hoc order carries the "Top-up" badge (exact text, not the section heading)
+    const badges = screen.getAllByText("Top-up");
+    expect(badges).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // All-empty state
 // ---------------------------------------------------------------------------
 

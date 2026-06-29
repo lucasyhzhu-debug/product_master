@@ -1,3 +1,4 @@
+import type { Id } from "../_generated/dataModel";
 import type { CreditPool, LedgerType, PlannedDay } from "./types";
 
 export function computeLineTotal(qty: number, unitPrice: number): number {
@@ -62,4 +63,55 @@ export function deriveCreditPool(entries: { type: LedgerType; amount: number }[]
     // refund / adjustment only move remaining
   }
   return { creditIssued, creditConsumed, creditRemaining, creditExpired };
+}
+
+export interface CreditSplitLine {
+  menuProductId: Id<"menuProducts">;
+  qty: number;
+  retailUnitPrice: number;
+  eligible: boolean;
+  effectiveUnitPrice: number;
+  lineTotal: number;
+}
+
+export interface CreditSplit {
+  lines: CreditSplitLine[];
+  eligibleSubtotal: number;
+  offPlanTotal: number;
+  creditCovered: number;
+  eligibleShortfall: number;
+  amountDue: number;
+}
+
+/**
+ * Split a draft cart into credit-eligible (subscription products, re-priced to the
+ * partner unitPrice — the pool's denomination, C4) and off-plan (retail) buckets,
+ * then apply available credit to the eligible subtotal. Integer IDR; no item splitting.
+ */
+export function computeCreditSplit(
+  items: { menuProductId: Id<"menuProducts">; qty: number; retailUnitPrice: number }[],
+  allowedProductIds: Set<string>,
+  subscriptionUnitPrice: number,
+  availableCredit: number,
+): CreditSplit {
+  const lines: CreditSplitLine[] = items.map((it) => {
+    const eligible = allowedProductIds.has(it.menuProductId as unknown as string);
+    const effectiveUnitPrice = eligible ? subscriptionUnitPrice : it.retailUnitPrice;
+    return {
+      menuProductId: it.menuProductId,
+      qty: it.qty,
+      retailUnitPrice: it.retailUnitPrice,
+      eligible,
+      effectiveUnitPrice,
+      lineTotal: Math.round(it.qty * effectiveUnitPrice),
+    };
+  });
+  const eligibleSubtotal = lines.filter((l) => l.eligible).reduce((s, l) => s + l.lineTotal, 0);
+  const offPlanTotal = lines.filter((l) => !l.eligible).reduce((s, l) => s + l.lineTotal, 0);
+  const creditCovered = Math.min(eligibleSubtotal, Math.max(0, availableCredit));
+  const eligibleShortfall = eligibleSubtotal - creditCovered;
+  return {
+    lines, eligibleSubtotal, offPlanTotal, creditCovered,
+    eligibleShortfall, amountDue: eligibleShortfall + offPlanTotal,
+  };
 }

@@ -3056,6 +3056,94 @@ Pure helper (unit-tested, no ctx):
 isOverCredit(orderFinalTotal: number, creditRemaining: number): boolean
   // Returns true when orderFinalTotal > creditRemaining (strict; exact coverage is NOT over-credit).
 ```
+### Subscription credit drawdown in OrderCreate — 2026-06-29
+
+All functions `protectedQuery`/`protectedMutation` with `roles: ["manager","admin"]`, `token: v.string()` required.
+
+#### Credit context query (`convex/subscriptions/queries.ts`)
+
+```typescript
+subscriptions.queries.getSubscriptionCreditContext({ subscriptionId, token })
+  // Per active subscription, returns the available-credit context for a new ad-hoc order.
+  // Returns: {
+  //   subscriptionId: Id<"subscriptions">,
+  //   label: string,
+  //   weekId: Id<"subscriptionWeeks"> | null,
+  //   allowedProductIds: Id<"menuProducts">[],  // products in current week plan
+  //   availableCredit: number,  // IDR; pool − Σ un-recognized subscriptionCreditApplied (excl. Cancelled)
+  //   split: { eligibleTotal: number, offPlanTotal: number, creditCovered: number, amountDue: number } | null,
+  //   plannedDeliveriesRemaining: number,
+  // } | null  // null if no active subscription week
+  //
+  // availableCredit uses computeWeekAvailableCredit (convex/subscriptions/creditReservation.ts)
+  // which nets out existing un-recognized reservations so concurrent order creation doesn't
+  // double-spend the pool. eligibleTotal prices subscription-plan items at partner unitPrice.
+```
+
+#### Create credit-funded order (`convex/subscriptions/creditOrder.ts`)
+
+```typescript
+subscriptions.creditOrder.createCreditFundedOrder({
+  subscriptionId: Id<"subscriptions">,
+  items: Array<{ menuProductId: Id<"menuProducts">, qty: number, unitPrice: number }>,
+  customerId: Id<"customers">,
+  channel: string,
+  token: string,
+})
+  // Creates an ad-hoc order funded by the subscription customer's prepaid weekly credit.
+  // Server-side split re-derivation (ignores client-supplied split to prevent tampering).
+  //
+  // Full cover (creditCovered >= orderTotal):
+  //   fundingSource: "subscription_credit", paymentStatus: "Paid",
+  //   paymentMethod: "subscription_credit", status: "PaymentReceived"
+  //
+  // Partial cover (creditCovered < orderTotal):
+  //   fundingSource: "deposit", status: "AwaitingPayment", paymentStatus: "Unpaid"
+  //   subscriptionCreditApplied = creditCovered (reservation only; no ledger entry)
+  //
+  // In both cases: NO creditLedger entry at creation. Recognition draws at delivery via
+  // recognizeSubscriptionDelivery (subscriptionCreditApplied ?? totalAmount).
+  //
+  // Returns: { orderId, creditCovered, amountDue, offPlanTotal, eligibleShortfall }
+  //   eligibleShortfall: IDR amount of eligible items not covered by credit (= 0 for full cover)
+```
+
+Pure helper (unit-tested, no ctx, `convex/subscriptions/creditMath.ts`):
+```typescript
+computeCreditSplit(args: {
+  items: CartItem[],
+  allowedProductIds: Set<string>,
+  unitPriceByProduct: Record<string, number>,
+  availableCredit: number,
+}): { eligibleTotal: number, offPlanTotal: number, creditCovered: number, amountDue: number }
+  // Splits cart into credit-eligible (re-priced to subscription partner unitPrice) vs off-plan
+  // (retail price). creditCovered = min(eligibleTotal, availableCredit). Integer IDR throughout.
+```
+
+Shared reservation-netting helper (internal, `convex/subscriptions/creditReservation.ts`):
+```typescript
+computeWeekAvailableCredit(ctx: QueryCtx, weekId: Id<"subscriptionWeeks">): Promise<number>
+  // pool − Σ subscriptionCreditApplied for non-Cancelled, un-recognized orders in the week.
+  // "Un-recognized" = no creditLedger drawdown row for that orderId.
+```
+
+#### WhatsApp draft query (`convex/subscriptions/creditOrder.ts`)
+
+```typescript
+subscriptions.creditOrder.getCreditOrderWhatsappDraft({ orderId, token })
+  // Returns { text: string } | null — WhatsApp summary for a credit-funded ad-hoc order
+  // using the SUBSCRIPTION_CREDIT_TOPUP template (convex/whatsappTemplates/render.ts).
+  // null if order is not a credit-funded subscription order.
+```
+
+#### Path B behavior change (`convex/subscriptions/outOfCredit.ts`)
+
+`applyPartialCreditToAdHocOrder` (Path B: apply credit to an existing AwaitingPayment ad-hoc order) is refactored from eager drawdown to the reservation model:
+- **Before (IMP-4 bug):** posted a `drawdown` creditLedger entry immediately at application time.
+- **After (IMP-4 fix):** sets `subscriptionCreditApplied` on the order row only; posts NO ledger entry. Recognition draws at delivery. `getOrderCreditStatus.canApplyCredit` returns `false` once reserved.
+
+---
+
 ### Subscription Telegram notification layer — Phase E Slice 1 (2026-06-25)
 
 Outbound-only Telegram reminders for subscription operations. **All functions are `internal*` (cron context, no token, no public/staff surface).** Read-only except a `telegramDeliveries` receipt. No schema change. Ship-dark until an operator assigns the `subscription-ops` / `founders` chats via `/admin/telegram-chats`.
