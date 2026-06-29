@@ -32,6 +32,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import type { MenuProduct } from '@/lib/types';
 import { getChannelOptions } from '@/lib/channels';
 import { ChannelBadge } from './ChannelBadge';
+import { CustomerLabel, type CustomerPickerOption } from './CustomerLabel';
 import { cn } from '@/lib/utils';
 
 // Internal form state types (snake_case for form compatibility)
@@ -135,7 +136,7 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
     { amount: 0, cost: 0, margin: 0, totalDiscount: 0 }
   );
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null }) => {
+  const handleCustomerSelect = (customer: CustomerPickerOption) => {
     const convexId = customer._id as Id<"customers">;
     setCustomerId(convexId);
     setCustomerSearch(customer.name);
@@ -435,7 +436,13 @@ export function OrderForm({ onSuccess }: OrderFormProps) {
                       className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
                       onClick={() => handleCustomerSelect(customer)}
                     >
-                      <div className="font-medium">{customer.name}</div>
+                      <div className="font-medium">
+                        <CustomerLabel
+                          name={customer.name}
+                          companyName={customer.companyName}
+                          customerType={customer.customerType}
+                        />
+                      </div>
                       {customer.phone && (
                         <div className="text-xs text-muted-foreground">{customer.phone}</div>
                       )}

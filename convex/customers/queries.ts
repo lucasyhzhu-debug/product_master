@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
-import { listAll, textSearch } from "../lib/queryHelpers";
+import { listAll } from "../lib/queryHelpers";
+import { normalizePhone, phoneMatches } from "../lib/phone";
 
 /**
  * List all customers.
@@ -25,7 +26,11 @@ export const get = query({
 });
 
 /**
- * Search customers by name or phone.
+ * Search customers by name, companyName, or phone/whatsapp/altPhone.
+ *
+ * Phone matching is digit-normalised so "+62 812-3456", "0812-3456", and
+ * "081234..." are treated as one identity. companyName substring matching
+ * enables B2B cafe lookups by trading name.
  */
 export const search = query({
   args: {
@@ -33,7 +38,24 @@ export const search = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await textSearch(ctx, "customers", args.query, ["name", "phone"], args.limit ?? 20);
+    const q = args.query.trim();
+    const lower = q.toLowerCase();
+    const looksNumeric = normalizePhone(q).length >= 4;
+    const all = await ctx.db.query("customers").collect();
+    return all
+      .filter((c) => {
+        if (c.name?.toLowerCase().includes(lower)) return true;
+        if (c.companyName?.toLowerCase().includes(lower)) return true;
+        if (looksNumeric) {
+          return (
+            phoneMatches(q, c.phone) ||
+            phoneMatches(q, c.whatsapp) ||
+            phoneMatches(q, c.altPhone)
+          );
+        }
+        return false;
+      })
+      .slice(0, args.limit ?? 20);
   },
 });
 

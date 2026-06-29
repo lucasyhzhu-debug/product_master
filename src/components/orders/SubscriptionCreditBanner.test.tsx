@@ -2,16 +2,17 @@
  * SubscriptionCreditBanner RTL smoke tests (T8).
  *
  * Presentational-only component — no Convex, no hooks mocking needed.
+ * Detail-only banner (T6): subscription CHOICE lives in SubscriptionSelector and
+ * is passed in via selectedSubId. The banner no longer owns a radio / onSelectSub.
  *
  * Assertions:
  *   1. renders nothing when contexts = [] (no active subscriptions)
- *   2. renders "Rp" + due figure for a single context with a split
- *   3. disables the Fulfil button until a sub is selected when 2 contexts
+ *   2. renders "Rp" + due figure for the selected single context with a split
+ *   3. Fulfil button disabled when no sub selected, enabled once selectedSubId is set
  */
 
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
   SubscriptionCreditBanner,
   type SubscriptionCreditContext,
@@ -79,49 +80,52 @@ describe("SubscriptionCreditBanner", () => {
       <SubscriptionCreditBanner
         contexts={[]}
         selectedSubId={null}
-        onSelectSub={vi.fn()}
         onFulfilWithCredit={vi.fn()}
       />,
     );
     expect(container.firstChild).toBeNull();
   });
 
-  it("renders Rp + due figure for a single context with a split", () => {
+  it("renders Rp + due figure for the selected single context with a split", () => {
     const ctx = makeCtx(SUB_ID_1, "Plan A", WEEK_ID, 15000);
     render(
       <SubscriptionCreditBanner
         contexts={[ctx]}
-        selectedSubId={null}
-        onSelectSub={vi.fn()}
+        selectedSubId={SUB_ID_1}
         onFulfilWithCredit={vi.fn()}
       />,
     );
-    // Should show the "Rp X due" summary line (full text content of the span)
+    // Detail renders only when selectedSubId matches a context — assert the
+    // "{amountDue} due" summary line the component actually renders.
     expect(screen.getByText(/Rp 15\.000 due/)).toBeInTheDocument();
   });
 
-  it("disables the Fulfil button until a sub is selected when 2 contexts present", async () => {
+  it("disables Fulfil until a sub is selected when 2 contexts present", () => {
     const ctx1 = makeCtx(SUB_ID_1, "Plan A");
     const ctx2 = makeCtx(SUB_ID_2, "Plan B");
-    const onSelect = vi.fn();
-    const onFulfil = vi.fn();
 
-    render(
+    // No sub selected → button disabled (selection lives in SubscriptionSelector).
+    const { rerender } = render(
       <SubscriptionCreditBanner
         contexts={[ctx1, ctx2]}
         selectedSubId={null}
-        onSelectSub={onSelect}
-        onFulfilWithCredit={onFulfil}
+        onFulfilWithCredit={vi.fn()}
       />,
     );
+    expect(
+      screen.getByRole("button", { name: /fulfil with subscription credit/i }),
+    ).toBeDisabled();
 
-    // Button should be disabled when no sub selected
-    const btn = screen.getByRole("button", { name: /fulfil with subscription credit/i });
-    expect(btn).toBeDisabled();
-
-    // Click a radio — simulate selection by clicking the radio item
-    const radio1 = screen.getByRole("radio", { name: /Plan A/i });
-    await userEvent.click(radio1);
-    expect(onSelect).toHaveBeenCalled();
+    // Once a sub is selected (week present, not busy) → button enabled.
+    rerender(
+      <SubscriptionCreditBanner
+        contexts={[ctx1, ctx2]}
+        selectedSubId={SUB_ID_1}
+        onFulfilWithCredit={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /fulfil with subscription credit/i }),
+    ).toBeEnabled();
   });
 });

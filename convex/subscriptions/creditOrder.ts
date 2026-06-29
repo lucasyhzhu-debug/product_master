@@ -22,7 +22,7 @@ import { computeWeekAvailableCredit } from "./creditReservation";
 import { renderTemplate } from "../whatsappTemplates/render";
 
 export const createCreditFundedOrder = protectedMutation({
-  roles: ["manager", "admin"],
+  roles: ["order_staff", "manager", "admin"],
   args: {
     customerId: v.id("customers"),
     subscriptionId: v.id("subscriptions"),
@@ -179,7 +179,7 @@ const CREDIT_DELIVERY_DONE_STATUSES = new Set([
  * how much credit is still uncommitted after this order was created.
  */
 export const getCreditOrderWhatsappDraft = protectedQuery({
-  roles: ["manager", "admin"],
+  roles: ["order_staff", "manager", "admin"],
   args: { orderId: v.id("orders") },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);

@@ -166,6 +166,7 @@ import type * as lib_journalHelpers from "../lib/journalHelpers.js";
 import type * as lib_jwt from "../lib/jwt.js";
 import type * as lib_periodBuckets from "../lib/periodBuckets.js";
 import type * as lib_periodRange from "../lib/periodRange.js";
+import type * as lib_phone from "../lib/phone.js";
 import type * as lib_queryHelpers from "../lib/queryHelpers.js";
 import type * as lib_stockDelta from "../lib/stockDelta.js";
 import type * as lib_telegramHtml from "../lib/telegramHtml.js";
@@ -501,6 +502,7 @@ declare const fullApi: ApiFromModules<{
   "lib/jwt": typeof lib_jwt;
   "lib/periodBuckets": typeof lib_periodBuckets;
   "lib/periodRange": typeof lib_periodRange;
+  "lib/phone": typeof lib_phone;
   "lib/queryHelpers": typeof lib_queryHelpers;
   "lib/stockDelta": typeof lib_stockDelta;
   "lib/telegramHtml": typeof lib_telegramHtml;

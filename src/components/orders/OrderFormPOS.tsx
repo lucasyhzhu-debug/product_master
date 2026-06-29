@@ -33,6 +33,7 @@ import { DeliveryToggle } from './DeliveryToggle';
 import { VoucherInput, type AppliedVoucher } from './VoucherInput';
 import { ManagerOverrideDialog } from './ManagerOverrideDialog';
 import { LowPriceWarningDialog } from './LowPriceWarningDialog';
+import { CustomerLabel, type CustomerPickerOption } from './CustomerLabel';
 import {
   usePosProducts,
   usePackagingPosProducts,
@@ -372,7 +373,7 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
     setItems(items.filter((item) => item.productId !== productId));
   };
 
-  const handleCustomerSelect = (customer: { _id: string; name: string; phone?: string | null }) => {
+  const handleCustomerSelect = (customer: CustomerPickerOption) => {
     const convexId = customer._id as Id<"customers">;
     setSelectedCustomerId(convexId);
     setCustomerSearch(customer.name);
@@ -817,7 +818,13 @@ export function OrderFormPOS({ onSuccess, editOrderId }: OrderFormPOSProps) {
                               className="w-full px-4 py-3 text-left hover:bg-muted/50 text-sm border-b last:border-b-0 transition-colors"
                               onClick={() => handleCustomerSelect(customer)}
                             >
-                              <div className="font-medium text-foreground">{customer.name}</div>
+                              <div className="font-medium text-foreground">
+                                <CustomerLabel
+                                  name={customer.name}
+                                  companyName={customer.companyName}
+                                  customerType={customer.customerType}
+                                />
+                              </div>
                               {customer.phone && (
                                 <div className="text-xs text-muted-foreground mt-1">{customer.phone}</div>
                               )}

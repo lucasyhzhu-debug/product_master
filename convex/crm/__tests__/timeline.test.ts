@@ -177,12 +177,33 @@ describe("logCustomerInteraction", () => {
     expect(row!.direction).toBe("system");
   });
 
-  it("order_staff token → Unauthorized", async () => {
+  it("order_staff logs interaction → allowed (M-log widen; reachable via credit flow)", async () => {
     const t = convexTest(schema, modules);
-    const { sessionId } = await createSession(t, "order_staff", "Staff Log");
+    const { sessionId, userId } = await createSession(t, "order_staff", "Staff Log");
 
     const customerId = await t.run(async (ctx) =>
       ctx.db.insert("customers", { name: "Cafe Staff Log", createdBy: "test" } as never),
+    );
+
+    const activityId = await t.mutation(logCustomerInteractionRef, {
+      sessionId,
+      customerId,
+      type: "whatsapp_drafted",
+      summary: "Drafted WhatsApp",
+    });
+
+    const row = await t.run(async (ctx) => ctx.db.get(activityId)) as Doc<"customerActivity"> | null;
+    expect(row).not.toBeNull();
+    expect(row!.actor).toBe(userId);
+    expect(row!.type).toBe("whatsapp_drafted");
+  });
+
+  it("kitchen token → Unauthorized", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId } = await createSession(t, "kitchen" as never, "Kitchen Log");
+
+    const customerId = await t.run(async (ctx) =>
+      ctx.db.insert("customers", { name: "Cafe Kitchen Log", createdBy: "test" } as never),
     );
 
     await expect(

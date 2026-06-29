@@ -180,6 +180,58 @@ export const getOrderCreditStatus = protectedQuery({
 });
 
 // ---------------------------------------------------------------------------
+// listActiveSubscriptionsForCustomer — lightweight selector for the order
+// sheet's B2B subscription picker (Task T1). Returns only active subs with
+// the current-week reservation-aware credit remaining.
+// Roles: canAccessOrders route → order_staff + manager + admin (Pitfall #19).
+// D11: unitPrice (confidential partner price) is NOT returned.
+// ---------------------------------------------------------------------------
+
+export const listActiveSubscriptionsForCustomer = protectedQuery({
+  roles: ["order_staff", "manager", "admin"],
+  args: { customerId: v.id("customers") },
+  handler: async (ctx, args) => {
+    const subs = (
+      await ctx.db
+        .query("subscriptions")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect()
+    ).filter((s) => s.status === "active");
+
+    const todayMs = Date.now();
+    const out = await Promise.all(
+      subs.map(async (sub) => {
+        // Resolve the funded open week covering today (paid or delivering).
+        // A covering week always has weekStart <= today, so bound the scan via
+        // the index upper bound; keep the JS filter for weekEnd + status.
+        const weeks = await ctx.db
+          .query("subscriptionWeeks")
+          .withIndex("by_subscription_weekStart", (q) =>
+            q.eq("subscriptionId", sub._id).lte("weekStart", todayMs),
+          )
+          .collect();
+        const week =
+          weeks.find(
+            (w) =>
+              todayMs <= w.weekEnd &&
+              (w.status === "paid" || w.status === "delivering"),
+          ) ?? null;
+
+        let creditRemaining: number | null = null;
+        if (week) {
+          // CRM C10: derive from the pool — never re-key a denormalised total.
+          ({ availableCredit: creditRemaining } =
+            await computeWeekAvailableCredit(ctx, week._id));
+        }
+
+        return { subscriptionId: sub._id, label: sub.label, creditRemaining };
+      }),
+    );
+    return out;
+  },
+});
+
+// ---------------------------------------------------------------------------
 // getSubscriptionCreditContext — reservation-aware credit context for a
 // customer's active subscriptions. Used by Task 8 (frontend order form) to
 // show how much credit is available and how the current cart splits.
@@ -207,7 +259,7 @@ const DELIVERY_DONE_STATUSES = new Set([
 ]);
 
 export const getSubscriptionCreditContext = protectedQuery({
-  roles: ["manager", "admin"],
+  roles: ["order_staff", "manager", "admin"],
   args: {
     customerId: v.id("customers"),
     dueDate: v.number(),
@@ -307,6 +359,11 @@ export const getSubscriptionCreditContext = protectedQuery({
         }).length;
       }
 
+      // D11 carve-out (Slice-1 triple-review M-d11): `split.lines[].effectiveUnitPrice`
+      // intentionally exposes the subscription's partner unit price to order_staff. This
+      // is a DELIBERATE, product-owner-approved exception (2026-06-30) to CRM principle
+      // D11 — order_staff need the partner price to explain the credit split at the
+      // counter. Do NOT "fix" this by stripping effectiveUnitPrice in a future D11 audit.
       out.push({
         subscriptionId: sub._id,
         label: sub.label,

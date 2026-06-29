@@ -34,7 +34,9 @@ import type { OrderLineItem } from '@/lib/types';
 import type { Id } from '../../convex/_generated/dataModel';
 import { PageHeader } from '@/components/layout';
 import { SubscriptionCreditBanner, type SubscriptionCreditContext } from '@/components/orders/SubscriptionCreditBanner';
+import { SubscriptionSelector } from '@/components/orders/SubscriptionSelector';
 import { useSubscriptionCreditContext } from '@/hooks/useSubscriptionCreditContext';
+import { useActiveSubscriptionsForCustomer } from '@/hooks/useActiveSubscriptionsForCustomer';
 import { buildWaMeUrl } from '@/lib/contactLinks';
 
 // Low price threshold (Rp 20,000)
@@ -110,7 +112,8 @@ export function OrderCreate() {
   // Draft order ID (set from edit mode or auto-create)
   const [draftOrderId, setDraftOrderId] = useState<Id<"orders"> | null>(null);
 
-  // Subscription credit drawdown (manager/admin only)
+  // Subscription credit drawdown — selected subscription for the credit-funded order.
+  // Set by the SubscriptionSelector (Customer card); available to order_staff + mgr + admin.
   const [selectedSubId, setSelectedSubId] = useState<Id<"subscriptions"> | null>(null);
   const [creditBusy, setCreditBusy] = useState(false);
   const [creditOrderId, setCreditOrderId] = useState<Id<"orders"> | null>(null);
@@ -239,10 +242,14 @@ export function OrderCreate() {
     (addressDiffersFromCustomer || customerDefaultAddress === '');
 
   // ============================================
-  // Subscription credit (manager/admin only — placed BEFORE early returns, Pitfall #9)
+  // Subscription credit (order_staff + manager/admin — placed BEFORE early returns, Pitfall #9)
   // ============================================
+  // Gated by customer/items only; the selector returns null when no active subs
+  // and the backend queries/mutation enforce role auth server-side.
 
-  const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
+  // Active subscriptions for the chosen customer — used by SubscriptionSelector in Customer card.
+  // Hook is called unconditionally (Pitfall #9); passes null when no customer selected.
+  const { subs: activeSubs } = useActiveSubscriptionsForCustomer(customerId);
 
   const draftItems = useMemo(
     () =>
@@ -257,7 +264,7 @@ export function OrderCreate() {
   );
 
   const { contexts: creditContexts } = useSubscriptionCreditContext(
-    isManagerOrAdmin && customerId !== null && hasItems ? customerId : null,
+    customerId !== null && hasItems ? customerId : null,
     dueDate ?? Date.now(),
     draftItems,
   );
@@ -279,6 +286,10 @@ export function OrderCreate() {
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(false);
     setCustomerSet(true);
+    // Clear any subscription selected for the previous customer — a stale,
+    // cross-customer selectedSubId would dead-end Fulfil with a backend reject.
+    // SubscriptionSelector re-runs its single-sub auto-select for the new customer.
+    setSelectedSubId(null);
 
     // Store the customer's saved default address for comparison
     setCustomerDefaultAddress(defaultAddress ?? '');
@@ -311,6 +322,8 @@ export function OrderCreate() {
     setCustomerPhone(phone ?? '');
     setIsNewCustomer(true);
     setCustomerSet(true);
+    // Clear any subscription selected for the previous customer (see handleCustomerSelect).
+    setSelectedSubId(null);
 
     // Auto-create draft for new customer if not already editing
     if (!draftOrderId && !editDraftId) {
@@ -730,6 +743,16 @@ export function OrderCreate() {
             onNewCustomer={handleNewCustomer}
           />
         )}
+        {/* Subscription selector — shown for ANY customer with >=1 active subscription
+            (not just B2B). SubscriptionSelector renders nothing when there are 0 subs and
+            auto-selects the sole sub (fixes live credit bug Facet B). */}
+        {customerId !== null && (
+          <SubscriptionSelector
+            subs={activeSubs}
+            selectedSubId={selectedSubId}
+            onSelect={setSelectedSubId}
+          />
+        )}
       </Card>
 
       {/* 2. Due Date Section */}
@@ -898,8 +921,8 @@ export function OrderCreate() {
         )}
       </Card>
 
-      {/* Subscription Credit Banner (manager/admin only — shows when customer + items present) */}
-      {isManagerOrAdmin && customerId !== null && hasItems && (
+      {/* Subscription Credit Banner — shows when customer + items present (role auth server-side) */}
+      {customerId !== null && hasItems && (
         <>
           {!dueDate && (
             <p className="px-1 text-xs text-amber-600">
@@ -909,7 +932,6 @@ export function OrderCreate() {
           <SubscriptionCreditBanner
             contexts={creditContexts as SubscriptionCreditContext[] | null}
             selectedSubId={selectedSubId}
-            onSelectSub={setSelectedSubId}
             onFulfilWithCredit={handleFulfilWithCredit}
             busy={creditBusy || !dueDate}
           />
