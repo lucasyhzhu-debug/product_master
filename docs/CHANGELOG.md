@@ -14,6 +14,21 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [Unreleased] — Fix: subscription "Mark delivered" now completes the order (no longer stuck in Awaiting Delivery) — 2026-06-30
+
+**For the team:** Subscription orders could not be finished — pressing "Mark delivered" recognized the sale but left the order sitting in the **Awaiting Delivery** column forever, and pressing again just said _"Sale was already recognized earlier… no new sale posted."_ Now a single press marks the order **delivered (Complete)** in one step. Existing stuck orders clear on the next press.
+
+### Fixed
+- **`markSubscriptionDelivered`** (`convex/subscriptions/delivery.ts`) — previously only transitioned to `AwaitingDelivery` + recognized the sale, but subscription orders are read-only on every order surface (Pitfall #20) so nothing ever drove the valid `AwaitingDelivery → Complete` edge → orders piled up in the awaiting-delivery kanban column. The mutation now also drives the order to terminal `Complete`: `completedAt` stamped, `isKitchenVisible` cleared, audit `status_change` logged. Recognition is unchanged and idempotent (`subscriptionCreditApplied ?? totalAmount`, de-duped on `creditLedger.by_order`) — no double drawdown, same realized-sale timing.
+
+### Changed
+- Delivered toasts reworded on **both** order surfaces (`src/pages/OrderDetail.tsx`, `src/components/orders/OrderSlideOver.tsx`, Pitfall #20) — "Order delivered — sale recognized." / "Order delivered. Sale was already recognized earlier…".
+
+### Tests
+- `convex/subscriptions/__tests__/delivery.test.ts` — full mutation via convex-test: fresh `BeingPrepared` order → `Complete` + exactly one drawdown (`newlyRecognized=true`); already-recognized `AwaitingDelivery` order (split path) → `Complete` with no second drawdown (`newlyRecognized=false`).
+
+---
+
 ## [Unreleased] — Subscription end-of-day summary: shipped today / weekly left / credit remaining — 2026-06-29
 
 **For the team:** The daily 18:00 WIB subscription delivery-progress Telegram message now also shows, per active cafe: **pieces shipped today**, **how much of the weekly allotment is left** (`weeklyQty − used this week`), and **credit remaining**. This is the at-a-glance end-of-day check that the day's orders + credit draw-down all reconciled.
