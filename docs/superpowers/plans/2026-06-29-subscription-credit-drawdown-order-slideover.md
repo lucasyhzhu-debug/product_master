@@ -705,47 +705,57 @@ export const createCreditFundedOrder = protectedMutation({
       const line = split.lines[i];
       const lineTotal = line.lineTotal;
       return {
+        // Item shape verified against confirmWeek.ts:84-94.
         productName: it.productName,
-        productVariant: it.productVariant,
         quantity: it.quantity,
-        unitPrice: line.effectiveUnitPrice,
+        unitPrice: line.effectiveUnitPrice,  // eligible -> partner price (C4)
         unitCost: it.unitCost,
+        discountAmount: 0,
         lineTotal,
         lineCost: 0,
         lineMargin: lineTotal,
         menuProductId: it.menuProductId,
-        isCancelled: false,
-        // ...any other required orderItems fields per schema — copy from confirmWeek's item build.
       } as OrderItemInsert;
     });
     const totalAmount = split.eligibleSubtotal + split.offPlanTotal;
 
     const fullyCovered = split.amountDue === 0;
+    const customer = await ctx.db.get(args.customerId);
+    if (!customer) throw new ConvexError("Customer not found");
     const orderNumber = await generateNextOrderNumber(ctx);
+
+    // Field set verified against confirmWeek.ts:47-83 (the canonical subscription-order build).
+    // OrderInsert = WithoutSystemFields<Doc<"orders">>; type-check enforces completeness.
     const orderFields: OrderInsert = {
-      // ↓↓↓ copy the full required field set from confirmWeek.ts's order build, then override: ↓↓↓
       orderNumber,
       customerId: args.customerId,
-      // status/payment per branch (C2 / IMP-3 raw values):
+      customerName: customer.name,            // SNAPSHOT (required)
+      customerPhone: customer.phone ?? "",    // SNAPSHOT (required)
+      // status/payment per branch (C2 / IMP-3 raw values — both decoupled fields set):
       status: fullyCovered ? "PaymentReceived" : "AwaitingPayment",
       paymentStatus: fullyCovered ? "Paid" : "Unpaid",
       paymentMethod: fullyCovered ? "subscription_credit" : undefined,
       fundingSource: fullyCovered ? "subscription_credit" : "deposit",
-      subscriptionId: sub._id,
-      subscriptionWeekId: week._id,
-      subscriptionCreditApplied: split.creditCovered,
-      deliveryDate: args.dueDate,
+      orderDate: args.dueDate,
       dueDate: args.dueDate,
+      deliveryDate: args.dueDate,
+      deliveryType: "Delivery",               // required v.string()
       totalAmount,
       totalCost: 0,
       totalMargin: totalAmount,
       finalTotal: totalAmount,
       itemCount: items.length,
+      createdBy: ctx.user.name,               // required v.string()
+      createdByUserId: ctx.user._id,
+      isKitchenVisible: true,
+      subscriptionId: sub._id,
+      subscriptionWeekId: week._id,
+      subscriptionCreditApplied: split.creditCovered,
       soldBy: args.soldBy,
       notes: args.notes,
-      orderDate: args.dueDate,
-      // ...remaining required fields (channel, deliveryType, isKitchenVisible, etc.) — confirmWeek parity.
     } as OrderInsert;
+    // If type-check reports any further required orders field, copy its value from
+    // confirmWeek.ts:47-83 — do NOT route through statusUpdates (IMP-3 bypass preserved).
 
     const orderId = await insertOrderWithItems(ctx, { orderFields, items });
     return {
@@ -860,7 +870,7 @@ git commit -m "feat(subscription): SUBSCRIPTION_CREDIT_TOPUP whatsapp draft + sh
 
 ```ts
 // src/hooks/useSubscriptionCreditContext.ts
-import { useSessionQuery } from "...";
+import { useSessionQuery } from "convex-helpers/react/sessions"; // verified import path
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
