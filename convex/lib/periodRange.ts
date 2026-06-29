@@ -287,3 +287,36 @@ export function utcToWibHourStr(utcMs: number): string {
   const hour = wib.getUTCHours().toString().padStart(2, "0");
   return `${date} ${hour}`;
 }
+
+const WIB_WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+/**
+ * Build the crystal-clear delivery note stamped on each subscription-generated
+ * order, e.g. "Deliver by 09:30; Monday 29/06/26". Combines the agreed
+ * deliver-by cutoff (the day's `deliverByTime`, WIB) with a WIB-pinned weekday +
+ * DD/MM/YY date so anyone scanning the kanban knows exactly when each card is
+ * due. WIB-correct (offset-adjusted) so the weekday/date never drifts on a
+ * non-WIB server.
+ *
+ * @param utcMs - delivery day epoch ms (WIB midnight of that day)
+ * @param deliverByTime - agreed cutoff as "HH:MM" WIB (subscriptionWeeks.plannedDays[].deliverByTime)
+ */
+export function formatSubscriptionDeliveryNote(utcMs: number, deliverByTime: string): string {
+  if (!Number.isFinite(utcMs)) {
+    throw new Error(`formatSubscriptionDeliveryNote: non-finite input ${utcMs}`);
+  }
+  const wib = new Date(utcMs + WIB_OFFSET_MS);
+  const weekday = WIB_WEEKDAYS[wib.getUTCDay()];
+  const dd = wib.getUTCDate().toString().padStart(2, "0");
+  const mm = (wib.getUTCMonth() + 1).toString().padStart(2, "0");
+  const yy = (wib.getUTCFullYear() % 100).toString().padStart(2, "0");
+  return `Deliver by ${deliverByTime}; ${weekday} ${dd}/${mm}/${yy}`;
+}
