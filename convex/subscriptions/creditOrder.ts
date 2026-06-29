@@ -4,10 +4,11 @@
  * At creation: reserves credit (sets subscriptionCreditApplied on the order row).
  * No creditLedger entry at this stage; recognition posts the drawdown at delivery (T3).
  *
- * T7 will append a getSubscriptionOrderHistory query to this file — leave room below.
+ * getCreditOrderWhatsappDraft (T7) is appended below — it builds a WhatsApp summary for
+ * the operator to send after creating a credit-funded order.
  */
 import { v, ConvexError } from "convex/values";
-import { protectedMutation } from "../lib/functions";
+import { protectedMutation, protectedQuery } from "../lib/functions";
 import { orderItemInput } from "../orders/validators";
 import {
   insertOrderWithItems,
@@ -16,6 +17,8 @@ import {
 } from "../orders/helpers/insertOrder";
 import { generateNextOrderNumber } from "../orders/helpers/customerResolution";
 import { computeCreditSplit, deriveCreditPool } from "./creditMath";
+import { getWibDateStr } from "../lib/periodRange";
+import { renderTemplate } from "../whatsappTemplates/render";
 
 export const createCreditFundedOrder = protectedMutation({
   roles: ["manager", "admin"],
@@ -169,5 +172,122 @@ export const createCreditFundedOrder = protectedMutation({
       offPlanTotal: split.offPlanTotal,
       eligibleShortfall: split.eligibleShortfall,
     };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// T7: WhatsApp credit top-up summary draft
+// ---------------------------------------------------------------------------
+
+/** Statuses that indicate a planned delivery has been dispatched/completed. */
+const CREDIT_DELIVERY_DONE_STATUSES = new Set([
+  "AwaitingDelivery",
+  "Complete",
+  "WaitingShipment",
+  "WaitingPickup",
+  "CompleteShipped",
+  "PickedUp",
+]);
+
+/**
+ * Build a WhatsApp draft for a credit-funded subscription order.
+ *
+ * Returns `{ text }` using the `SUBSCRIPTION_CREDIT_TOPUP` template, or
+ * `null` if the order is not a credit-funded subscription order or the
+ * template has not been seeded.
+ *
+ * `creditRemaining` = pool − total reserved (including this order) — i.e.
+ * how much credit is still uncommitted after this order was created.
+ */
+export const getCreditOrderWhatsappDraft = protectedQuery({
+  roles: ["manager", "admin"],
+  args: { orderId: v.id("orders") },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) return null;
+    if (!order.subscriptionCreditApplied || !order.subscriptionWeekId) return null;
+
+    const week = await ctx.db.get(order.subscriptionWeekId);
+    if (!week) return null;
+
+    // --- Credit pool (reservation-aware, INCLUDING this order) ---
+    const ledgerEntries = await ctx.db
+      .query("creditLedger")
+      .withIndex("by_subscriptionWeek", (q) =>
+        q.eq("subscriptionWeekId", week._id),
+      )
+      .collect();
+    const pool = deriveCreditPool(
+      ledgerEntries.map((e) => ({ type: e.type, amount: e.amount })),
+    );
+
+    const weekOrders = await ctx.db
+      .query("orders")
+      .withIndex("by_subscriptionWeek", (q) =>
+        q.eq("subscriptionWeekId", week._id),
+      )
+      .collect();
+
+    let reserved = 0;
+    for (const o of weekOrders) {
+      const applied = o.subscriptionCreditApplied ?? 0;
+      if (applied <= 0 || o.status === "Cancelled") continue;
+      const recognized = await ctx.db
+        .query("creditLedger")
+        .withIndex("by_order", (q) => q.eq("orderId", o._id))
+        .first();
+      if (!recognized) reserved += applied;
+    }
+    const creditRemaining = Math.max(0, pool.creditRemaining - reserved);
+
+    // --- Planned deliveries remaining ---
+    const today = getWibDateStr(order.dueDate ?? Date.now());
+    const deliveredWibDates = new Set<string>(
+      weekOrders
+        .filter(
+          (o) =>
+            CREDIT_DELIVERY_DONE_STATUSES.has(o.status) &&
+            o.deliveryDate !== undefined,
+        )
+        .map((o) => getWibDateStr(o.deliveryDate!)),
+    );
+    const plannedDeliveriesRemaining = week.plannedDays.filter((d) => {
+      const dStr = getWibDateStr(d.date);
+      if (dStr >= today) return true;
+      return !deliveredWibDates.has(dStr);
+    }).length;
+
+    // --- Template ---
+    const templateRow = await ctx.db
+      .query("whatsappTemplates")
+      .withIndex("by_code", (q) => q.eq("code", "SUBSCRIPTION_CREDIT_TOPUP"))
+      .first();
+    if (!templateRow) return null;
+
+    // --- Order items summary ---
+    const items = await ctx.db
+      .query("orderItems")
+      .withIndex("by_order", (q) => q.eq("orderId", order._id))
+      .collect();
+    const itemsText = items
+      .map((it) => {
+        const priceK = it.unitPrice / 1000;
+        let desc = it.productName;
+        if (it.productVariant && !it.productName.includes(it.productVariant)) {
+          desc += ` (${it.productVariant})`;
+        }
+        return `• ${it.quantity}x ${desc} @ ${priceK.toFixed(0)}k`;
+      })
+      .join("\n");
+
+    const text = renderTemplate(templateRow.templateId, {
+      "{customerName}": order.customerName,
+      "{itemsText}": itemsText,
+      "{creditUsed}": order.subscriptionCreditApplied.toLocaleString("id-ID"),
+      "{creditRemaining}": creditRemaining.toLocaleString("id-ID"),
+      "{plannedDeliveriesRemaining}": String(plannedDeliveriesRemaining),
+    });
+
+    return { text };
   },
 });

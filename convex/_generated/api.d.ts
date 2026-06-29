@@ -332,6 +332,7 @@ import type * as vouchers_mutations from "../vouchers/mutations.js";
 import type * as vouchers_queries from "../vouchers/queries.js";
 import type * as whatsappTemplates_mutations from "../whatsappTemplates/mutations.js";
 import type * as whatsappTemplates_queries from "../whatsappTemplates/queries.js";
+import type * as whatsappTemplates_render from "../whatsappTemplates/render.js";
 
 import type {
   ApiFromModules,
@@ -664,6 +665,7 @@ declare const fullApi: ApiFromModules<{
   "vouchers/queries": typeof vouchers_queries;
   "whatsappTemplates/mutations": typeof whatsappTemplates_mutations;
   "whatsappTemplates/queries": typeof whatsappTemplates_queries;
+  "whatsappTemplates/render": typeof whatsappTemplates_render;
 }>;
 
 /**
