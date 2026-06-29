@@ -6,15 +6,20 @@
 ## Update Instructions
 
 After merging any code change, add a new entry with:
-- Date and descriptive title
+- Version + date + descriptive title (heading: `## [2.1.1] — YYYY-MM-DD — <title>`)
 - 1 or 2 liner for humans to understand that is none-techinical - how does it benefit them
 - Summary of what changed
 - Files modified (if significant)
 - Any migration steps or breaking changes
 
+### Versioning (MAJOR.MINOR.PATCH)
+- **Feature** → bump MINOR: `2.0` → `2.1` → `2.2` (a new capability)
+- **Sub-feature / fix** → bump PATCH: `2.1` → `2.1.1` → `2.1.2` (an enhancement or fix to an existing feature)
+- **Milestone** → bump MAJOR: → `3.0.0` (not yet reached)
+
 ---
 
-## [Unreleased] — Fix: subscription "Mark delivered" now completes the order (no longer stuck in Awaiting Delivery) — 2026-06-30
+## [2.1.1] — 2026-06-30 — Fix: subscription "Mark delivered" now completes the order (no longer stuck in Awaiting Delivery)
 
 **For the team:** Subscription orders could not be finished — pressing "Mark delivered" recognized the sale but left the order sitting in the **Awaiting Delivery** column forever, and pressing again just said _"Sale was already recognized earlier… no new sale posted."_ Now a single press marks the order **delivered (Complete)** in one step. Existing stuck orders clear on the next press.
 
