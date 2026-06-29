@@ -13,7 +13,7 @@ import type { Id } from "../_generated/dataModel";
 import { protectedMutation, protectedQuery } from "../lib/functions";
 import { resolveCurrentWeek } from "./helpers/currentWeek";
 import { deriveCreditPool } from "../subscriptions/creditMath";
-import { phoneMatches } from "../lib/phone";
+import { phonesEqual } from "../lib/phone";
 
 // ---------------------------------------------------------------------------
 // T5: updateCustomerCrmFields
@@ -96,9 +96,10 @@ export const createCustomer = protectedMutation({
     ),
   },
   handler: async (ctx, args) => {
-    // Dedup-by-phone: normalized multi-field scan across phone/whatsapp/altPhone.
-    // Replaces the former indexed by_phone exact-match — acceptable at current
-    // customer-table size (matches the search-scan pattern; see task T3 brief).
+    // Dedup-by-phone: normalized EQUALITY scan across phone/whatsapp/altPhone.
+    // Uses phonesEqual() (not phoneMatches) so a prefix-substring of a different
+    // number does NOT false-merge two distinct customers (fix brief T3 review).
+    // Acceptable at current customer-table size (full scan; see task T3 brief).
     const candidateNumbers = [args.phone, args.whatsapp, args.altPhone].filter(
       (n): n is string => typeof n === "string" && n.length > 0,
     );
@@ -107,9 +108,9 @@ export const createCustomer = protectedMutation({
       const existing = all.find((c) =>
         candidateNumbers.some(
           (n) =>
-            phoneMatches(n, c.phone) ||
-            phoneMatches(n, c.whatsapp) ||
-            phoneMatches(n, c.altPhone),
+            phonesEqual(n, c.phone) ||
+            phonesEqual(n, c.whatsapp) ||
+            phonesEqual(n, c.altPhone),
         ),
       );
       if (existing) {

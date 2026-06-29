@@ -183,6 +183,32 @@ describe("createCustomer normalized dedup", () => {
     expect(rows).toHaveLength(2);
   });
 
+  it("(j) prefix-substring MUST NOT dedup different numbers (false-merge guard)", async () => {
+    // "08121" normalizes to "8121"; "0812111122" normalizes to "812111122".
+    // "812111122".includes("8121") is TRUE (substring), but these are DIFFERENT customers.
+    // This test confirms dedup uses equality, not substring containment.
+    const t = convexTest(schema, modules);
+    const { sessionId } = await createSession(t, "manager", "Mgr Dedup J");
+
+    await t.run(async (ctx) =>
+      ctx.db.insert("customers", {
+        name: "Long Number Cafe",
+        phone: "0812111122",
+        createdBy: "seeder",
+      } as never),
+    );
+
+    // "08121" is a PREFIX of the existing number — different customer, must NOT dedup.
+    await t.mutation(createCustomerRef, {
+      sessionId,
+      name: "Short Prefix Cafe",
+      phone: "08121",
+    });
+
+    const rows = await t.run((ctx) => ctx.db.query("customers").collect());
+    expect(rows).toHaveLength(2);
+  });
+
   it("(i) exact-phone dedup still works after normalized scan replaces indexed lookup", async () => {
     const t = convexTest(schema, modules);
     const { sessionId } = await createSession(t, "manager", "Mgr Dedup I");

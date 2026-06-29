@@ -27,10 +27,28 @@ export function normalizePhone(raw: string): string {
  *
  * Returns false when `candidate` is absent or when `query` is shorter than
  * 4 digits (too short to be a meaningful phone lookup).
+ *
+ * NOTE: uses substring containment — correct for search (partial input matches).
+ * For identity/dedup checks use phonesEqual() instead.
  */
 export function phoneMatches(query: string, candidate?: string | null): boolean {
   if (!candidate) return false;
   const q = normalizePhone(query);
   if (q.length < 4) return false;
   return normalizePhone(candidate).includes(q);
+}
+
+/**
+ * True if both strings normalize to the SAME phone identity (digits-only,
+ * ID country code collapsed).
+ *
+ * Use for dedup/identity checks; use phoneMatches() for substring search.
+ * Requires at least 4 digits after normalization (guards against empty/too-short strings
+ * accidentally matching each other).
+ */
+export function phonesEqual(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  const na = normalizePhone(a);
+  const nb = normalizePhone(b);
+  return na.length >= 4 && na === nb;
 }
