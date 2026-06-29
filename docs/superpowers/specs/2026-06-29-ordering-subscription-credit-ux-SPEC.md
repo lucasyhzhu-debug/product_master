@@ -80,11 +80,16 @@ if shipped/left/credit come out right, the orders + draw-down underneath are rig
 this is both a deliverable and the system's acceptance test.
 
 **Message content (per active subscription, once per day):**
-- **Shipped today** — BOM-resolved balls (Big+Mid) across the subscription's orders
-  *delivered today* (WIB). Count balls, NOT product rows (Business Rule #13). Show pcs
-  (and optionally IDR).
-- **Left** — *needs definition, see Q5.* Candidate: remaining of the weekly allotment
-  = `weeklyQty − balls used so far this week` (used = sum of delivered balls Mon→today).
+- **Counting unit = the subscription's scheduled product pieces** (the `qty` on the
+  schedule / `orderItems.quantity`), NOT BOM-resolved balls. The cafe's quota
+  (`weeklyQty`) is expressed in those scheduled product pieces, so shipped/used/left
+  must use the same unit for the subtraction to be meaningful. Business Rule #13 (count
+  balls) governs sales/production-volume metrics, NOT a subscription cafe's piece quota
+  — decided 2026-06-29 (Lucas: "whatever product is in the subscription schedule").
+- **Shipped today** — sum of `orderItems.quantity` across the subscription's orders
+  *delivered today* (WIB).
+- **Left** — weekly allotment remaining = `weeklyQty − pieces used so far this week`
+  (used = sum of delivered product-unit qty Mon→today).
 - **Credit remaining** — `deriveCreditPool(weekLedger).creditRemaining` (integer IDR,
   read the derived pool, never re-key — CRM C10).
 
@@ -104,20 +109,21 @@ add a `COMMAND_POLICY` entry (deny-by-default). Thread `generatedAt` through (no
 **Acceptance test (TDD — write first):** seed a subscription week funded with a known
 topup, deliver a known qty today (posting the drawdown), and assert the *composed
 message string* equals the expected shipped/left/credit line-for-line. This single
-test exercises BOM ball-counting, the drawdown, and the derived pool together — the
+test exercises the piece-counting, the drawdown, and the derived pool together — the
 end-to-end "is it working" check Lucas wants. Extract the message-composition into a
 **pure function** `composeSubscriptionDaySummary(...)` so it's unit-tested without
 Telegram I/O (mirror the pack-list/sales-summary send pattern).
 
 ## Decisions (locked 2026-06-29)
-- **"Left" = weekly allotment remaining:** `weeklyQty − (BOM balls delivered Mon→today this week)`.
-- **Recipient = internal ops:** `subscription-ops` Telegram role (via `getChatIdByRole`).
-- **Build order:** Slice 4 (the key acceptance test) + Slice 1, TDD, triple-review before merge.
-- **Integrate, don't reinvent:** extend the existing subscription reminder system
-  (`convex/subscriptions/reminders/`, daily cron at `crons.ts:112` →
-  `sendSubscriptionReminderResilient`) and reuse a ball-count helper
-  (`calculateBallStatsFromItems` / `buildBallCountMap` / `computeBallTotals`) + the
-  telegram registry. Add an end-of-day "day-summary" kind rather than a parallel system.
+- **Counting unit = scheduled product pieces** (`orderItems.quantity`), NOT BOM balls.
+- **"Left" = weekly allotment remaining:** `weeklyQty − (pieces delivered Mon→today this week)`.
+- **Recipient = founders** — the existing `weekly-delivery-progress` message already
+  goes to founders daily at 18:00 WIB; Lucas chose to **extend that message** rather than
+  add a separate subscription-ops one. (Supersedes the earlier "subscription-ops" idea.)
+- **Mechanism = extend the existing kind:** add the three KPIs to `weekly-delivery-progress`
+  (query `getWeeklyDeliveryProgress` + formatter `formatWeeklyDeliveryProgress`), reusing
+  its cron + resilient send + watchdog. No new kind, no ball-count helper (pieces only).
+- **Build order:** Slice 4 (SHIPPED on `feature/subscription-eod-summary-kpis`) then Slice 1, TDD, triple-review before merge.
 
 ## Open questions
 1. **Dropdown flag rule:** `[B2B]` only when B2B **and** has an active subscription, or
@@ -129,11 +135,9 @@ Telegram I/O (mirror the pack-list/sales-summary send pattern).
    selector be visible (read-only?) to order staff, or stay manager/admin? (Affects the
    backend `roles` — see CLAUDE.md Pitfall #19: keep query roles ⊇ the route's
    permission set.)
-4. **Slice 4 timing:** what WIB hour does the end-of-day cron fire?
-5. **What "left" means (Slice 4):** remaining of the **weekly allotment** (`weeklyQty −
-   balls used this week`), OR remaining **undelivered planned** pieces for the rest of
-   the week, OR remaining **credit expressed as pieces** (`creditRemaining ÷ unitPrice`)?
-   These differ once a cafe over/under-orders vs plan.
+4. ~~**Slice 4 timing**~~ — RESOLVED: reuses the existing 18:00 WIB cron.
+5. ~~**What "left" means**~~ — RESOLVED: weekly allotment remaining in **scheduled product
+   pieces** (`weeklyQty − pieces used this week`).
 6. **Slice 4 recipient:** internal ops (`subscription-ops`/`founders` Telegram role),
    the **customer** directly, or both? Affects tone + which `telegramChats` role.
 

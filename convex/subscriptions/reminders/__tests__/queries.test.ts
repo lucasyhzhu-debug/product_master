@@ -292,6 +292,18 @@ describe("getWeeklyDeliveryProgress", () => {
         lineTotal: 145000, lineCost: 0, lineMargin: 145000,
       } as never);
 
+      // A Complete order delivered YESTERDAY (different WIB day) — must NOT count toward
+      // shippedTodayPcs, though it DOES count toward deliveredPcs (this week).
+      const ordYesterday = await ctx.db.insert("orders", {
+        orderNumber: "0617-901", customerId, customerName: "KPI Cafe", status: "Complete", paymentStatus: "Paid",
+        orderDate: now - DAY_MS, deliveryDate: now - DAY_MS, totalAmount: 58000, totalCost: 0, totalMargin: 58000, finalTotal: 58000,
+        deliveryType: "Delivery", createdBy: "system", itemCount: 1, subscriptionId: subId, subscriptionWeekId: weekId,
+      } as never);
+      await ctx.db.insert("orderItems", {
+        orderId: ordYesterday, productName: "P", quantity: 2, unitPrice: 29000, unitCost: 0, discountAmount: 0,
+        lineTotal: 58000, lineCost: 0, lineMargin: 58000,
+      } as never);
+
       // Ledger: topup 87000 then drawdown −29000 → derived creditRemaining = 58000.
       await ctx.db.insert("creditLedger", { subscriptionId: subId, subscriptionWeekId: weekId, type: "topup", amount: 87000, balanceAfter: 87000, createdBy: userId } as never);
       await ctx.db.insert("creditLedger", { subscriptionId: subId, subscriptionWeekId: weekId, type: "drawdown", amount: -29000, balanceAfter: 58000, createdBy: userId, orderId: ordId } as never);
@@ -299,10 +311,10 @@ describe("getWeeklyDeliveryProgress", () => {
 
     const rows = await t.query(internal.subscriptions.reminders.queries.getWeeklyDeliveryProgress, {});
     expect(rows).toHaveLength(1);
-    expect(rows[0].shippedTodayPcs).toBe(5);   // delivered today
-    expect(rows[0].deliveredPcs).toBe(5);       // used this week
+    expect(rows[0].shippedTodayPcs).toBe(5);   // ONLY today's order (yesterday's excluded by WIB key)
+    expect(rows[0].deliveredPcs).toBe(7);       // used this week = today (5) + yesterday (2)
     expect(rows[0].weeklyQty).toBe(70);
-    expect(rows[0].weeklyLeft).toBe(65);        // 70 − 5
+    expect(rows[0].weeklyLeft).toBe(63);        // 70 − 7
     expect(rows[0].creditRemaining).toBe(58000); // derived from the ledger, not the denormalised field
   });
 

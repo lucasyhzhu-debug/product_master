@@ -165,7 +165,12 @@ export const getWeeklyDeliveryProgress = internalQuery({
         .flat()
         .reduce((s: number, it) => s + it.quantity, 0);
 
-      // Pieces shipped TODAY (WIB): delivered orders whose deliveryDate is today.
+      // Pieces shipped TODAY (WIB): delivered orders whose SCHEDULED deliveryDate is
+      // today. Subscription orders are created per scheduled day and delivered on that
+      // day, so deliveryDate == actual ship day in the normal flow; a rare late delivery
+      // (completed a day after its scheduled date) would be attributed to the schedule
+      // day, not the completion day. completeOrders[i] ↔ itemLists[i] are index-aligned
+      // (Promise.all preserves map order).
       const todayKey = wibDayKey(now);
       let shippedTodayPcs = 0;
       for (let i = 0; i < completeOrders.length; i++) {
@@ -175,8 +180,9 @@ export const getWeeklyDeliveryProgress = internalQuery({
         }
       }
 
-      // Weekly allotment left = weeklyQty − used this week (delivered).
-      const weeklyQty = sub.weeklyQty ?? 0;
+      // Weekly allotment left = weeklyQty − used this week (delivered). weeklyQty is a
+      // required schema field (counted in scheduled product pieces, same unit as used).
+      const weeklyQty = sub.weeklyQty;
       const weeklyLeft = Math.max(0, weeklyQty - deliveredPcs);
 
       // Credit remaining = derived pool (C10 — read the derived value, never re-key).

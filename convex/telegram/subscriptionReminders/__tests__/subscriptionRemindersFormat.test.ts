@@ -15,8 +15,7 @@ describe("formatWeeklyDeliveryProgress", () => {
         shippedTodayPcs: 2, weeklyQty: 14, weeklyLeft: 0, creditRemaining: 0 },
     ]).join("\n");
     expect(html).toContain("Crystal Cafe");
-    expect(html).toContain("8 out of 21");
-    expect(html).toContain("13 pcs remaining");
+    expect(html).toContain("Used this week: 8/21 — 13 left"); // allotment quota line
     expect(html).toContain("Tamtem");
     expect(html).toMatch(/over.*2/i); // over-plan surfaced
   });
@@ -37,9 +36,9 @@ describe("formatWeeklyDeliveryProgress", () => {
       { account: "Crystal Cafe", weekStart: Date.UTC(2026,5,22), weekPlannedPcs: 21, deliveredPcs: 8, remaining: 13, overBy: 0,
         shippedTodayPcs: 5, weeklyQty: 21, weeklyLeft: 13, creditRemaining: 17_400_000 },
     ]).join("\n");
-    expect(html).toContain("Shipped today: 5"); // pieces shipped TODAY
-    expect(html).toMatch(/13 left/i);           // weekly allotment remaining (weeklyQty − used)
-    expect(html).toMatch(/17[.,]400[.,]000/);   // credit remaining (integer IDR)
+    expect(html).toContain("Shipped today: 5 pcs"); // pieces shipped TODAY
+    expect(html).toContain("— 13 left");            // weekly allotment remaining (weeklyQty − used)
+    expect(html).toContain("Rp 17,400,000");        // credit remaining (integer IDR, en-US commas)
   });
 });
 
