@@ -623,9 +623,9 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                           try {
                             const result = await markDelivered({ orderId: orderId! });
                             if (result.newlyRecognized) {
-                              toast.success('Delivery recognized — sale posted.');
+                              toast.success('Order delivered — sale recognized.');
                             } else {
-                              toast.success('Marked delivered. Sale was already recognized earlier (e.g. at credit split) — no new sale posted.');
+                              toast.success('Order delivered. Sale was already recognized earlier (e.g. at credit split) — no new sale posted.');
                             }
                           } catch (err) {
                             toast.error(getErrorMessage(err, 'Failed to mark delivered'));
