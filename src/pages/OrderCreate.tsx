@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Send, Save, Loader2, Package, User, MapPin, Calendar, FileText, Ticket, ShieldCheck, AlertCircle, Trash2 } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
-import { useSessionQuery } from 'convex-helpers/react/sessions';
+import { useSessionQuery, useSessionMutation } from 'convex-helpers/react/sessions';
 import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -27,12 +27,15 @@ import {
   type OrderCreateInput,
 } from '@/hooks/convex';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getErrorMessage } from '@/lib/utils';
 import { parseDeliveryAddress } from '@/lib/deliveryUtils';
 import { toast } from 'sonner';
 import type { OrderLineItem } from '@/lib/types';
 import type { Id } from '../../convex/_generated/dataModel';
 import { PageHeader } from '@/components/layout';
+import { SubscriptionCreditBanner, type SubscriptionCreditContext } from '@/components/orders/SubscriptionCreditBanner';
+import { useSubscriptionCreditContext } from '@/hooks/useSubscriptionCreditContext';
+import { buildWaMeUrl } from '@/lib/contactLinks';
 
 // Low price threshold (Rp 20,000)
 const LOW_PRICE_THRESHOLD = 20000;
@@ -106,6 +109,12 @@ export function OrderCreate() {
 
   // Draft order ID (set from edit mode or auto-create)
   const [draftOrderId, setDraftOrderId] = useState<Id<"orders"> | null>(null);
+
+  // Subscription credit drawdown (manager/admin only)
+  const [selectedSubId, setSelectedSubId] = useState<Id<"subscriptions"> | null>(null);
+  const [creditBusy, setCreditBusy] = useState(false);
+  const [creditOrderId, setCreditOrderId] = useState<Id<"orders"> | null>(null);
+  const [showCreditWhatsApp, setShowCreditWhatsApp] = useState(false);
 
   // Track whether we've loaded Draft data (prevent re-setting on re-render)
   const hasLoadedDraft = useRef(false);
@@ -228,6 +237,37 @@ export function OrderCreate() {
     customerId !== null &&
     deliveryAddress.trim() !== '' &&
     (addressDiffersFromCustomer || customerDefaultAddress === '');
+
+  // ============================================
+  // Subscription credit (manager/admin only — placed BEFORE early returns, Pitfall #9)
+  // ============================================
+
+  const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
+
+  const draftItems = useMemo(
+    () =>
+      items
+        .filter((it) => it.productId)
+        .map((it) => ({
+          menuProductId: it.productId as Id<"menuProducts">,
+          qty: it.quantity,
+          retailUnitPrice: it.unitPrice,
+        })),
+    [items],
+  );
+
+  const { contexts: creditContexts } = useSubscriptionCreditContext(
+    isManagerOrAdmin && customerId !== null && hasItems ? customerId : null,
+    dueDate ?? Date.now(),
+    draftItems,
+  );
+
+  const createCreditOrder = useSessionMutation(api.subscriptions.creditOrder.createCreditFundedOrder);
+  const creditWhatsAppDraft = useSessionQuery(
+    api.subscriptions.creditOrder.getCreditOrderWhatsappDraft,
+    creditOrderId ? { orderId: creditOrderId } : 'skip',
+  );
+  const logInteraction = useSessionMutation(api.crm.timeline.logCustomerInteraction);
 
   // ============================================
   // Handlers
@@ -375,6 +415,45 @@ export function OrderCreate() {
     });
     setLowPriceConfirmed(false);
   }, []);
+
+  const handleFulfilWithCredit = async () => {
+    if (!customerId || !dueDate) {
+      toast.error(!customerId ? 'Select a customer first' : 'Set a due date first to enable credit fulfilment');
+      return;
+    }
+    if (!selectedSubId) {
+      toast.error('Select a subscription above first');
+      return;
+    }
+    if (!hasItems) {
+      toast.error('Add at least one product');
+      return;
+    }
+    setCreditBusy(true);
+    try {
+      const result = await createCreditOrder({
+        customerId,
+        subscriptionId: selectedSubId,
+        dueDate,
+        soldBy: user?.name ?? undefined,
+        notes: notes || undefined,
+        items: items.map((it) => ({
+          productName: it.productName,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          unitCost: it.unitCost || 0,
+          menuProductId: it.productId as Id<"menuProducts">,
+        })),
+      });
+      setCreditOrderId(result.orderId);
+      setShowCreditWhatsApp(true);
+      toast.success('Credit-funded order created');
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Failed to create credit order'));
+    } finally {
+      setCreditBusy(false);
+    }
+  };
 
   const handleDeleteDraft = useCallback(async () => {
     if (!draftOrderId) return;
@@ -810,6 +889,24 @@ export function OrderCreate() {
         )}
       </Card>
 
+      {/* Subscription Credit Banner (manager/admin only — shows when customer + items present) */}
+      {isManagerOrAdmin && customerId !== null && hasItems && (
+        <>
+          {!dueDate && (
+            <p className="px-1 text-xs text-amber-600">
+              Set a due date above to enable subscription credit fulfilment.
+            </p>
+          )}
+          <SubscriptionCreditBanner
+            contexts={creditContexts as SubscriptionCreditContext[] | null}
+            selectedSubId={selectedSubId}
+            onSelectSub={setSelectedSubId}
+            onFulfilWithCredit={handleFulfilWithCredit}
+            busy={creditBusy || !dueDate}
+          />
+        </>
+      )}
+
       {/* 5. Voucher Section */}
       <Card className="p-5">
         <div className="flex items-center gap-3 mb-4">
@@ -988,6 +1085,84 @@ export function OrderCreate() {
         onConfirm={handleLowPriceConfirm}
         isSubmitting={isSubmitting}
       />
+
+      {/* Credit order WhatsApp dialog — shown after handleFulfilWithCredit succeeds */}
+      {showCreditWhatsApp && creditOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-background rounded-xl shadow-xl p-6 max-w-sm mx-4 space-y-4">
+            <h3 className="font-semibold text-base">Order Created — Send Summary?</h3>
+            {creditWhatsAppDraft === undefined ? (
+              <div className="flex items-center gap-2 py-2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Preparing message…</span>
+              </div>
+            ) : creditWhatsAppDraft ? (
+              <div className="bg-muted border p-3 rounded text-xs whitespace-pre-wrap max-h-48 overflow-y-auto">
+                {creditWhatsAppDraft.text}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No draft available.</p>
+            )}
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard.writeText(creditWhatsAppDraft?.text ?? '');
+                  toast.success('Copied to clipboard');
+                }}
+                disabled={!creditWhatsAppDraft}
+              >
+                Copy
+              </Button>
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                disabled={!creditWhatsAppDraft}
+                onClick={async () => {
+                  const orderId = creditOrderId;
+                  const waBase = buildWaMeUrl(customerPhone);
+                  if (waBase && creditWhatsAppDraft) {
+                    window.open(
+                      `${waBase}?text=${encodeURIComponent(creditWhatsAppDraft.text)}`,
+                      '_blank',
+                      'noopener,noreferrer',
+                    );
+                  }
+                  if (customerId) {
+                    try {
+                      await logInteraction({
+                        customerId,
+                        type: 'whatsapp_drafted',
+                        orderId,
+                        subscriptionId: selectedSubId ?? undefined,
+                        summary: 'Drafted subscription credit order WhatsApp summary',
+                      });
+                    } catch (_) {
+                      // best-effort — don't block navigation
+                    }
+                  }
+                  setShowCreditWhatsApp(false);
+                  navigate(`/orders?open=${orderId}`);
+                }}
+              >
+                Open in WhatsApp
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const orderId = creditOrderId;
+                  setShowCreditWhatsApp(false);
+                  navigate(`/orders?open=${orderId}`);
+                }}
+              >
+                Skip
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Soft-block: address doesn't look valid */}
       {showAddressConfirm && (
