@@ -19,6 +19,27 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.2.0] — 2026-06-30 — Ordering subscription-credit UX (Slice 1)
+
+**For the team:** Order staff can now place B2B subscription-credit orders end-to-end without needing a manager. The order form shows a `[B2B]` badge on subscription customers, auto-selects the customer's active subscription (or presents a radio when there are multiple), and lets order_staff create and draft the WhatsApp message — previously the form dead-ended at "Select a subscription above first" with nothing to click. Customer search now matches phone/WhatsApp/alt-phone and company name.
+
+### Added
+- **`listActiveSubscriptionsForCustomer({ customerId })`** (`convex/subscriptions/queries.ts`) — lightweight subscription picker for the order sheet. Returns `[{ subscriptionId, label, creditRemaining|null }]`. `creditRemaining` from `computeWeekAvailableCredit` (reservation-aware). D11: partner `unitPrice` NOT returned. Roles: `order_staff`, `manager`, `admin`.
+- **`SubscriptionSelector`** (`src/components/orders/SubscriptionSelector.tsx`) — auto-selects sole active subscription; radio when >1. Renders under the Customer card. Fixes the live "Select a subscription above first" dead-end (was only shown for `multiSub`, so single-sub never set `selectedSubId`).
+- **`CustomerLabel`** (`src/components/orders/CustomerLabel.tsx`) — shared `[B2B] <companyName>` display component used across `CustomerSearch`, `OrderFormPOS`, and `OrderCreate`. Decoupled from subscription state.
+- **`normalizePhone` / `phoneMatches` / `phonesEqual`** (`convex/lib/phone.ts`) — canonical phone normalization; dedup-on-create uses `phonesEqual` (not substring match).
+
+### Changed
+- **Customer search** (`convex/crm/customers/queries.ts`) now matches normalized `phone`, `whatsapp`, `altPhone`, and `companyName` in addition to name. Dedup-on-create keyed on normalized equality.
+- **Roles widened to `["order_staff", "manager", "admin"]`** on `getSubscriptionCreditContext`, `createCreditFundedOrder`, `getCreditOrderWhatsappDraft` (was `["manager", "admin"]`); and `logCustomerInteraction` (`convex/crm/timeline.ts`) widened so order_staff's `whatsapp_drafted` activity is not silently dropped.
+- **3 `isManagerOrAdmin` frontend gates dropped** from `OrderCreate.tsx` — subscription credit UI now renders for order_staff.
+- **D11 deliberate carve-out (product-owner approved 2026-06-30):** `getSubscriptionCreditContext.split.effectiveUnitPrice` IS visible to order_staff on the order-sheet (needed for credit-split pricing). Operate-surface credit fns (`getOrderCreditStatus`, `splitScheduledOrderOnCredit`, `applyPartialCreditToAdHocOrder`) stay `manager+admin` — Slice 2.
+
+### Deferred
+- Extract shared `resolveFundedWeekCovering(ctx, subId, atMs)` helper — funded-week predicate is currently duplicated across `listActiveSubscriptionsForCustomer`, `getSubscriptionCreditContext`, and `createCreditFundedOrder`. Tracked for Slice 2.
+
+---
+
 ## [2.1.1] — 2026-06-30 — Fix: subscription "Mark delivered" now completes the order (no longer stuck in Awaiting Delivery)
 
 **For the team:** Subscription orders could not be finished — pressing "Mark delivered" recognized the sale but left the order sitting in the **Awaiting Delivery** column forever, and pressing again just said _"Sale was already recognized earlier… no new sale posted."_ Now a single press marks the order **delivered (Complete)** in one step. Existing stuck orders clear on the next press.

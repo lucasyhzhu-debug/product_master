@@ -3060,6 +3060,31 @@ isOverCredit(orderFinalTotal: number, creditRemaining: number): boolean
 
 All functions `protectedQuery`/`protectedMutation` with `roles: ["manager","admin"]`, `token: v.string()` required.
 
+#### Subscription selector query — Slice 1 (2026-06-30) (`convex/subscriptions/queries.ts`)
+
+```typescript
+subscriptions.queries.listActiveSubscriptionsForCustomer({ customerId, token })
+  // Lightweight subscription picker for the B2B order sheet.
+  // Returns all active subscriptions for the customer with reservation-aware credit remaining.
+  //
+  // Returns: Array<{
+  //   subscriptionId: Id<"subscriptions">,
+  //   label: string,
+  //   creditRemaining: number | null,  // null if no open funded week; integer IDR
+  // }>
+  //
+  // creditRemaining = computeWeekAvailableCredit(weekId) — nets out un-recognized reservations.
+  // D11: partner unitPrice NOT returned. Roles: order_staff + manager + admin.
+```
+
+**Role widenings — Slice 1 (2026-06-30).** The following functions previously required `["manager", "admin"]`; all now accept `["order_staff", "manager", "admin"]` so order staff can complete the B2B credit-order flow end-to-end:
+- `getSubscriptionCreditContext` — credit context + split; `split.effectiveUnitPrice` is intentionally visible to order_staff (deliberate D11 carve-out, approved 2026-06-30).
+- `createCreditFundedOrder` — creates a credit-funded ad-hoc order.
+- `getCreditOrderWhatsappDraft` — builds the WhatsApp summary for a credit order.
+- `logCustomerInteraction` (`convex/crm/timeline.ts`) — widened so order_staff's `whatsapp_drafted` activity event is not silently dropped from the CRM timeline.
+
+Operate-surface credit functions (`getOrderCreditStatus`, `splitScheduledOrderOnCredit`, `applyPartialCreditToAdHocOrder`) intentionally remain `manager+admin` — Slice 2.
+
 #### Credit context query (`convex/subscriptions/queries.ts`)
 
 ```typescript
