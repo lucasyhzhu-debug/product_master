@@ -34,7 +34,9 @@ import type { OrderLineItem } from '@/lib/types';
 import type { Id } from '../../convex/_generated/dataModel';
 import { PageHeader } from '@/components/layout';
 import { SubscriptionCreditBanner, type SubscriptionCreditContext } from '@/components/orders/SubscriptionCreditBanner';
+import { SubscriptionSelector } from '@/components/orders/SubscriptionSelector';
 import { useSubscriptionCreditContext } from '@/hooks/useSubscriptionCreditContext';
+import { useActiveSubscriptionsForCustomer } from '@/hooks/useActiveSubscriptionsForCustomer';
 import { buildWaMeUrl } from '@/lib/contactLinks';
 
 // Low price threshold (Rp 20,000)
@@ -243,6 +245,10 @@ export function OrderCreate() {
   // ============================================
 
   const isManagerOrAdmin = user?.role === 'admin' || user?.role === 'manager';
+
+  // Active subscriptions for the chosen customer — used by SubscriptionSelector in Customer card.
+  // Hook is called unconditionally (Pitfall #9); passes null when no customer selected.
+  const { subs: activeSubs } = useActiveSubscriptionsForCustomer(customerId);
 
   const draftItems = useMemo(
     () =>
@@ -728,6 +734,15 @@ export function OrderCreate() {
           <CustomerSearch
             onCustomerSelect={handleCustomerSelect}
             onNewCustomer={handleNewCustomer}
+          />
+        )}
+        {/* Subscription selector — always visible once a B2B customer is chosen;
+            auto-selects the sole sub (fixes live credit bug Facet B). */}
+        {isManagerOrAdmin && customerId !== null && (
+          <SubscriptionSelector
+            subs={activeSubs}
+            selectedSubId={selectedSubId}
+            onSelect={setSelectedSubId}
           />
         )}
       </Card>
