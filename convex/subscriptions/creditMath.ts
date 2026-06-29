@@ -1,3 +1,4 @@
+import type { Id } from "../_generated/dataModel";
 import type { CreditPool, LedgerType, PlannedDay } from "./types";
 
 export function computeLineTotal(qty: number, unitPrice: number): number {
@@ -63,8 +64,6 @@ export function deriveCreditPool(entries: { type: LedgerType; amount: number }[]
   }
   return { creditIssued, creditConsumed, creditRemaining, creditExpired };
 }
-
-import type { Id } from "../_generated/dataModel";
 
 export interface CreditSplitLine {
   menuProductId: Id<"menuProducts">;

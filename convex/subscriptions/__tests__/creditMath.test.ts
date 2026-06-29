@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
+  computeCreditSplit,
   computeLineTotal,
   computeScheduleTotal,
   deriveCreditPool,
   deriveWeekShortfall,
   nextBalanceAfter,
 } from "../creditMath";
+import type { Id } from "../../_generated/dataModel";
 import type { PlannedDay } from "../types";
 
 describe("deriveWeekShortfall", () => {
@@ -77,9 +79,6 @@ describe("nextBalanceAfter", () => {
     expect(nextBalanceAfter(30450000, -4350000)).toBe(26100000);
   });
 });
-
-import { computeCreditSplit } from "../creditMath";
-import type { Id } from "../../_generated/dataModel";
 
 const P1 = "p1" as Id<"menuProducts">;   // subscription product
 const P2 = "p2" as Id<"menuProducts">;   // off-plan product

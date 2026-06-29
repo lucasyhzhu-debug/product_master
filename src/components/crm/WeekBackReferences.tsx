@@ -131,7 +131,7 @@ export function WeekBackReferences({
           <SectionEmpty message="No orders linked to this week." />
         ) : (
           orders.map((order) => {
-            const isAdHocCredit = ((order as { subscriptionCreditApplied?: number }).subscriptionCreditApplied ?? 0) > 0;
+            const isAdHocCredit = (order.subscriptionCreditApplied ?? 0) > 0;
             return (
               <RefLink key={order._id} to={`/orders/${order._id}`}>
                 <span className="font-mono text-xs">{order.orderNumber}</span>

@@ -185,6 +185,7 @@ export const getCreditOrderWhatsappDraft = protectedQuery({
     const order = await ctx.db.get(args.orderId);
     if (!order) return null;
     if (!order.subscriptionCreditApplied || !order.subscriptionWeekId) return null;
+    if (order.dueDate == null) return null;
 
     const week = await ctx.db.get(order.subscriptionWeekId);
     if (!week) return null;
@@ -203,7 +204,7 @@ export const getCreditOrderWhatsappDraft = protectedQuery({
       .collect();
 
     // --- Planned deliveries remaining ---
-    const today = getWibDateStr(order.dueDate ?? Date.now());
+    const today = getWibDateStr(order.dueDate);
     const deliveredWibDates = new Set<string>(
       weekOrders
         .filter(
