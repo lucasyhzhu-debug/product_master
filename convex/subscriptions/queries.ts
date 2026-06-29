@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { protectedQuery } from "../lib/functions";
-import { deriveCreditPool, computeScheduleTotal, deriveWeekShortfall } from "./creditMath";
+import { deriveCreditPool, computeScheduleTotal, deriveWeekShortfall, computeCreditSplit } from "./creditMath";
+import { getWibDateStr } from "../lib/periodRange";
 
 export const listSubscriptions = protectedQuery({
   roles: ["manager", "admin"],
@@ -174,5 +175,168 @@ export const getOrderCreditStatus = protectedQuery({
       canSplit,
       canApplyCredit,
     };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// getSubscriptionCreditContext — reservation-aware credit context for a
+// customer's active subscriptions. Used by Task 8 (frontend order form) to
+// show how much credit is available and how the current cart splits.
+//
+// availableCredit = max(0, pool.creditRemaining − reservedByUnrecognized)
+// where a credit order is "reserved" if:
+//   - subscriptionCreditApplied > 0
+//   - status != "Cancelled"
+//   - has NO by_order creditLedger row (un-recognized — recognition posts the
+//     actual drawdown entry at delivery per D5/IMP-4)
+// A recognized order (has a by_order ledger row) already reduced
+// pool.creditRemaining via its drawdown entry; must NOT double-reduce.
+// ---------------------------------------------------------------------------
+
+/** Statuses that indicate a scheduled delivery has already been dispatched or
+ *  completed — planned day is no longer "remaining" for these. */
+const DELIVERY_DONE_STATUSES = new Set([
+  "AwaitingDelivery",
+  "Complete",
+  // Legacy statuses kept for schema compat
+  "WaitingShipment",
+  "WaitingPickup",
+  "CompleteShipped",
+  "PickedUp",
+]);
+
+export const getSubscriptionCreditContext = protectedQuery({
+  roles: ["manager", "admin"],
+  args: {
+    customerId: v.id("customers"),
+    dueDate: v.number(),
+    draftItems: v.array(
+      v.object({
+        menuProductId: v.id("menuProducts"),
+        qty: v.number(),
+        retailUnitPrice: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const subs = (
+      await ctx.db
+        .query("subscriptions")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect()
+    ).filter((s) => s.status === "active");
+
+    const out: Array<{
+      subscriptionId: Id<"subscriptions">;
+      label: string;
+      weekId: Id<"subscriptionWeeks"> | null;
+      allowedProductIds: string[];
+      availableCredit: number;
+      split: ReturnType<typeof computeCreditSplit> | null;
+      plannedDeliveriesRemaining: number;
+    }> = [];
+
+    for (const sub of subs) {
+      // Resolve the funded, still-open week covering dueDate.
+      const weeks = await ctx.db
+        .query("subscriptionWeeks")
+        .withIndex("by_subscription_weekStart", (q) =>
+          q.eq("subscriptionId", sub._id),
+        )
+        .collect();
+      const week =
+        weeks.find(
+          (w) =>
+            w.weekStart <= args.dueDate &&
+            args.dueDate <= w.weekEnd &&
+            (w.status === "paid" || w.status === "delivering"),
+        ) ?? null;
+
+      // Allowed products: union of all products in the subscription's schedule template.
+      const allowedProductIds = Array.from(
+        new Set(
+          sub.scheduleTemplate.flatMap((d) =>
+            d.items.map((it) => it.menuProductId as unknown as string),
+          ),
+        ),
+      );
+
+      let availableCredit = 0;
+      let split: ReturnType<typeof computeCreditSplit> | null = null;
+      let plannedDeliveriesRemaining = 0;
+
+      if (week) {
+        // Derive pool from ledger entries (canonical — never re-key from week fields).
+        const entries = await ctx.db
+          .query("creditLedger")
+          .withIndex("by_subscriptionWeek", (q) =>
+            q.eq("subscriptionWeekId", week._id),
+          )
+          .collect();
+        const pool = deriveCreditPool(
+          entries.map((e) => ({ type: e.type, amount: e.amount })),
+        );
+
+        // Fetch all non-cancelled credit orders in this week for:
+        //   (1) reservation netting, (2) status-aware planned-delivery count.
+        const weekOrders = await ctx.db
+          .query("orders")
+          .withIndex("by_subscriptionWeek", (q) =>
+            q.eq("subscriptionWeekId", week._id),
+          )
+          .collect();
+
+        // Reservation netting: sum subscriptionCreditApplied for un-recognized orders.
+        let reserved = 0;
+        for (const o of weekOrders) {
+          const applied = o.subscriptionCreditApplied ?? 0;
+          if (applied <= 0 || o.status === "Cancelled") continue;
+          // Recognized = has a by_order drawdown ledger row.
+          const recognized = await ctx.db
+            .query("creditLedger")
+            .withIndex("by_order", (q) => q.eq("orderId", o._id))
+            .first();
+          if (!recognized) reserved += applied;
+        }
+        availableCredit = Math.max(0, pool.creditRemaining - reserved);
+
+        split = computeCreditSplit(
+          args.draftItems,
+          new Set(allowedProductIds),
+          sub.unitPrice,
+          availableCredit,
+        );
+
+        // Status-aware planned deliveries remaining:
+        // A planned day is "remaining" if it's in the future OR its matched
+        // delivery order hasn't reached a dispatched/complete state yet.
+        const deliveredWibDates = new Set<string>(
+          weekOrders
+            .filter(
+              (o) =>
+                DELIVERY_DONE_STATUSES.has(o.status) &&
+                o.deliveryDate !== undefined,
+            )
+            .map((o) => getWibDateStr(o.deliveryDate!)),
+        );
+        const today = getWibDateStr(args.dueDate);
+        plannedDeliveriesRemaining = week.plannedDays.filter((d) => {
+          const dStr = getWibDateStr(d.date);
+          if (dStr >= today) return true; // future day: definitely remaining
+          return !deliveredWibDates.has(dStr); // past day: remaining unless delivered
+        }).length;
+      }
+
+      out.push({
+        subscriptionId: sub._id,
+        label: sub.label,
+        weekId: week?._id ?? null,
+        allowedProductIds,
+        availableCredit,
+        split,
+        plannedDeliveriesRemaining,
+      });
+    }
+    return out;
   },
 });
