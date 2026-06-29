@@ -7,8 +7,50 @@
  *   - getCreditOrderWhatsappDraft   (creditOrder.ts)
  */
 import type { QueryCtx, MutationCtx } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { deriveCreditPool } from "./creditMath";
+
+/**
+ * resolveFundedWeekCovering — the funded subscription week covering timestamp `atMs`.
+ *
+ * Returns the `subscriptionWeeks` row for `subscriptionId` whose interval contains
+ * `atMs` (weekStart ≤ atMs ≤ weekEnd) and whose status is funded ("paid" or
+ * "delivering"), or `null` if no such week exists.
+ *
+ * Index bound: a covering week always has `weekStart ≤ atMs`, so the scan is
+ * upper-bounded via `.lte("weekStart", atMs)` (behavior-preserving — it cannot
+ * exclude any week that would pass the JS filter). The remaining `atMs ≤ weekEnd`
+ * and status checks stay in JS.
+ *
+ * DRY note: extracted from three formerly-verbatim copies of this predicate —
+ *   - listActiveSubscriptionsForCustomer (queries.ts, atMs = today)
+ *   - getSubscriptionCreditContext       (queries.ts, atMs = dueDate)
+ *   - createCreditFundedOrder            (creditOrder.ts, atMs = dueDate)
+ * Distinct from crm/helpers/currentWeek.ts `resolveCurrentWeek` (latest weekStart,
+ * no weekEnd/status filter — different semantics).
+ *
+ * @param ctx            QueryCtx or MutationCtx — only db reads are performed
+ * @param subscriptionId The subscription whose weeks to scan
+ * @param atMs           The timestamp the funded week must cover
+ */
+export async function resolveFundedWeekCovering(
+  ctx: QueryCtx | MutationCtx,
+  subscriptionId: Id<"subscriptions">,
+  atMs: number,
+): Promise<Doc<"subscriptionWeeks"> | null> {
+  const weeks = await ctx.db
+    .query("subscriptionWeeks")
+    .withIndex("by_subscription_weekStart", (q) =>
+      q.eq("subscriptionId", subscriptionId).lte("weekStart", atMs),
+    )
+    .collect();
+  return (
+    weeks.find(
+      (w) =>
+        atMs <= w.weekEnd && (w.status === "paid" || w.status === "delivering"),
+    ) ?? null
+  );
+}
 
 /**
  * Compute the reservation-aware available credit for a subscription week.

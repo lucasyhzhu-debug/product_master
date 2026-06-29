@@ -18,7 +18,7 @@ import {
 import { generateNextOrderNumber } from "../orders/helpers/customerResolution";
 import { computeCreditSplit } from "./creditMath";
 import { getWibDateStr } from "../lib/periodRange";
-import { computeWeekAvailableCredit } from "./creditReservation";
+import { computeWeekAvailableCredit, resolveFundedWeekCovering } from "./creditReservation";
 import { renderTemplate } from "../whatsappTemplates/render";
 
 export const createCreditFundedOrder = protectedMutation({
@@ -42,16 +42,7 @@ export const createCreditFundedOrder = protectedMutation({
     }
 
     // --- Find funded week covering dueDate (status paid or delivering) ---
-    const weeks = await ctx.db
-      .query("subscriptionWeeks")
-      .withIndex("by_subscription_weekStart", (q) => q.eq("subscriptionId", sub._id))
-      .collect();
-    const week = weeks.find(
-      (w) =>
-        w.weekStart <= args.dueDate &&
-        args.dueDate <= w.weekEnd &&
-        (w.status === "paid" || w.status === "delivering"),
-    );
+    const week = await resolveFundedWeekCovering(ctx, sub._id, args.dueDate);
     if (!week) {
       throw new ConvexError("No funded subscription week covers this date");
     }
