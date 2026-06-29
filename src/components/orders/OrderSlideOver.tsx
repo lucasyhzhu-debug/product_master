@@ -648,7 +648,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                       orderId={orderId}
                       status={order.status}
                       isSubscriptionOrder={Boolean(order.subscriptionId && order.subscriptionWeekId)}
-                      items={(order.items ?? []).map((item: any) => ({
+                      items={(order.items ?? []).map((item) => ({
                         id: item._id,
                         productName: item.productName,
                         productVariant: item.productVariant ?? null,

@@ -27,6 +27,7 @@ import {
   updateItemQuantityInternal,
 } from "../orders/mutations/itemCrud";
 import { resyncWeekPlanInline } from "./resyncPlan";
+import { isOrderRecognized } from "./amend";
 
 export const editUndeliveredSubscriptionOrder = protectedMutation({
   roles: ["order_staff", "manager", "admin"],
@@ -54,12 +55,10 @@ export const editUndeliveredSubscriptionOrder = protectedMutation({
     }
 
     // Recognized backstop: an order with a by_order drawdown row already drew the
-    // pool down at delivery — editing it would desync billed vs delivered.
-    const recognized = await ctx.db
-      .query("creditLedger")
-      .withIndex("by_order", (q) => q.eq("orderId", order._id))
-      .first();
-    if (recognized) {
+    // pool down at delivery — editing it would desync billed vs delivered. Reuse the
+    // canonical helper (filters type==="drawdown" so a future refund/adjustment row
+    // carrying an orderId doesn't falsely block an undelivered edit).
+    if (await isOrderRecognized(ctx, order._id)) {
       throw new ConvexError("Order already recognized — cannot edit");
     }
 

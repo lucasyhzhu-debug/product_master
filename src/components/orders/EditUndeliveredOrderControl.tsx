@@ -14,7 +14,7 @@
  * Roles: order_staff + manager + admin (the mutation accepts all three; this
  * surface is order_staff-reachable — NO manager-only gate here).
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useSessionMutation } from 'convex-helpers/react/sessions';
 import { Pencil, Loader2 } from 'lucide-react';
 import { api } from '../../../convex/_generated/api';
@@ -65,23 +65,12 @@ export function EditUndeliveredOrderControl({
   const [open, setOpen] = useState(false);
   const [qty, setQty] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const wasOpen = useRef(false);
 
-  // Reset edit state from the CURRENT items ONLY on the open transition
-  // (false→true). The parent (OrderSlideOver) rebuilds `items` via an inline
-  // .map every render, so its identity changes on ANY reactive push; depending
-  // on `items` here would re-fire while OPEN and silently wipe in-progress
-  // edits. Reading `items` inside the effect (not as a dep) keeps the open-time
-  // snapshot current without re-initializing on later identity changes.
-  useEffect(() => {
-    if (open && !wasOpen.current) {
-      const init: Record<string, string> = {};
-      for (const it of items) init[it.id] = String(it.quantity);
-      setQty(init);
-    }
-    wasOpen.current = open;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  // Snapshot the per-line qty at the moment the dialog opens (in the Edit-button
+  // onClick below — `open` only goes true there). The parent (OrderSlideOver)
+  // rebuilds `items` via an inline .map every render, so its identity changes on
+  // ANY reactive push; snapshotting on open (not in an effect keyed on `items`)
+  // means later identity changes don't wipe in-progress edits while open.
 
   // Gate (Pitfall #9: after all hooks): subscription order + undelivered status.
   if (!isSubscriptionOrder || !EDITABLE_STATUSES.includes(status) || items.length === 0) {
@@ -136,7 +125,12 @@ export function EditUndeliveredOrderControl({
         variant="outline"
         size="sm"
         className="w-full text-violet-700 border-violet-300 hover:bg-violet-100"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          const init: Record<string, string> = {};
+          for (const it of items) init[it.id] = String(it.quantity);
+          setQty(init);
+          setOpen(true);
+        }}
       >
         <Pencil className="h-4 w-4 mr-2" />
         Edit order (reduce)

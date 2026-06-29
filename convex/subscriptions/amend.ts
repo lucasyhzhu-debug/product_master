@@ -113,7 +113,7 @@ export function findProductDecreases(
  * Has this order already recognized its sale (drawdown posted at delivery)?
  * Recognition is idempotent on creditLedger.by_order, so a single entry = delivered.
  */
-async function isOrderRecognized(ctx: MutationCtx, orderId: Id<"orders">): Promise<boolean> {
+export async function isOrderRecognized(ctx: MutationCtx, orderId: Id<"orders">): Promise<boolean> {
   // Only a `drawdown` entry means delivered/recognized. Other entry kinds
   // (refund/adjustment) may also carry an orderId in future flows — don't let
   // those falsely block an amendment of an undelivered day.
