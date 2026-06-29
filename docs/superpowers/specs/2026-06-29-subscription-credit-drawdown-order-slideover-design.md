@@ -91,28 +91,37 @@ select a customer with an active subscription:
 | `logCustomerInteraction(...)` | `crm/timeline.ts:20` | Logs `whatsapp_drafted` with `subscriptionId`/`orderId`/`summary`. Reuse for the draft-logging. |
 | `renderTemplate(str, vars)` | `orders/whatsapp.ts:53` | Variable substitution. **Currently a private fn** — extract to a shared helper to reuse for the credit summary (different variable set). |
 
-### 3.3 The Path B conflict — **this design supersedes it**
+### 3.3 Relationship to the existing credit UI — **refactor, do NOT delete** (staffreview C1)
 
-`applyPartialCreditToAdHocOrder` (`subscriptions/outOfCredit.ts:251`) already implements a
-partial-credit-to-ad-hoc-order flow, BUT:
+There is **already** a credit flow wired into both surfaces, but it is the **operate** surface for
+an *already-open* subscription order, not a creation flow:
 
-- It **draws down eagerly at apply-time** against `week.creditRemaining` (no reservation).
-- It labels `fundingSource:"deposit"` and leaves the order `AwaitingPayment`.
-- It is **dormant** (no UI wired) and is the documented **IMP-4 inconsistency**: an eager
-  drawdown's `by_order` ledger row would later **suppress** the at-delivery drawdown
-  (recognition's idempotency guard keys on `creditLedger.by_order`), so the sale recognizes
-  early instead of at delivery.
+- `getOrderCreditStatus({orderId})` (`subscriptions/queries.ts:120`) drives the buttons.
+- `applyPartialCreditToAdHocOrder` (`outOfCredit.ts:251`) — **LIVE callers** at
+  `src/components/orders/OrderSlideOver.tsx:181` and `src/pages/OrderDetail.tsx:131`.
+- `splitScheduledOrderOnCredit` (Path A) — scheduler over-credit split, separate concern.
 
-**Resolution (this spec).** The new flow is the canonical ad-hoc credit path and uses the
-**at-delivery + reservation** model (D4/D5). It does **not** call `applyPartialCreditToAdHocOrder`.
-That mutation is **deprecated and removed** in this phase (it has no callers); its split-math
-helpers `coveredQty`/`remainderQty` are retained (pure, reused). `splitScheduledOrderOnCredit`
-(Path A) is a separate scheduler-time concern and is left untouched (still dormant), but the
-same `subscriptionCreditApplied`-aware recognition (§5.3) is now compatible with it.
+`applyPartialCreditToAdHocOrder` today **draws down eagerly at apply-time** against
+`week.creditRemaining` (no reservation), labels `fundingSource:"deposit"`, leaves the order
+`AwaitingPayment` — the documented **IMP-4 inconsistency**: an eager drawdown's `by_order` ledger
+row later **suppresses** the at-delivery drawdown (recognition's idempotency guard keys on
+`creditLedger.by_order`), so the sale recognizes early.
 
-> Staffreview check: confirm `applyPartialCreditToAdHocOrder` truly has zero callers
-> (grep `applyPartialCreditToAdHocOrder` across `src/` + `convex/`) before deleting; if a UI
-> reference exists, repoint it to the new flow instead of deleting.
+**Why it's effectively unreachable today:** nothing links a *freshly-created ad-hoc* order to a
+subscription, so the precondition (subscription-linked + `AwaitingPayment` + credit remaining) is
+rarely met. **The new at-creation flow (`createCreditFundedOrder`, §5.3) is the missing link** that
+produces subscription-linked ad-hoc orders.
+
+**Resolution (this spec):**
+1. **Refactor `applyPartialCreditToAdHocOrder`** to the reservation model — drop the eager
+   `postLedgerEntry`; set `subscriptionCreditApplied` + `fundingSource:"deposit"`, leave recognition
+   to delivery. This unifies the post-hoc button and the at-creation flow on **one** model and
+   **resolves IMP-4**. Do **not** delete it (it has live callers).
+2. Update `getOrderCreditStatus.canApplyCredit` so it does **not** offer a second credit application
+   on an order already credit-reserved at creation (`subscriptionCreditApplied` already set).
+3. Keep `splitScheduledOrderOnCredit` (Path A) and `coveredQty`/`remainderQty` (pure helpers, still
+   used by Path A) untouched. The `subscriptionCreditApplied`-aware recognition (§5.3) is compatible
+   with all paths.
 
 ---
 
@@ -168,35 +177,49 @@ frontend mirror under `src/lib/`).
 export interface CreditSplitLine {
   menuProductId: Id<"menuProducts">;
   qty: number;
-  unitPrice: number;        // integer IDR
-  lineTotal: number;        // qty * unitPrice
+  retailUnitPrice: number;  // normal price (off-plan lines bill at this)
   eligible: boolean;        // menuProductId ∈ allowedProductIds
+  // eligible lines are RE-PRICED at the subscription partner price (C4):
+  effectiveUnitPrice: number; // = subscriptionUnitPrice if eligible, else retailUnitPrice
+  lineTotal: number;        // qty * effectiveUnitPrice
 }
 
 export interface CreditSplit {
   lines: CreditSplitLine[];
-  eligibleSubtotal: number;   // Σ lineTotal where eligible
-  offPlanTotal: number;       // Σ lineTotal where !eligible
+  eligibleSubtotal: number;   // Σ lineTotal where eligible   (at partner price)
+  offPlanTotal: number;       // Σ lineTotal where !eligible  (at retail price)
   creditCovered: number;      // min(eligibleSubtotal, availableCredit)
   eligibleShortfall: number;  // eligibleSubtotal − creditCovered
   amountDue: number;          // eligibleShortfall + offPlanTotal
 }
 
 export function computeCreditSplit(
-  items: { menuProductId: Id<"menuProducts">; qty: number; unitPrice: number }[],
+  items: { menuProductId: Id<"menuProducts">; qty: number; retailUnitPrice: number }[],
   allowedProductIds: Set<string>,
+  subscriptionUnitPrice: number,   // C4 — eligible lines re-priced to this
   availableCredit: number,
 ): CreditSplit
 ```
 
-- Integer IDR throughout (`Math.round` on line totals; no floats).
+- Integer IDR throughout (`Math.round` on line totals; no floats — C10).
+- **C4 — pool denomination.** The credit pool is funded at the subscription's **partner
+  `unitPrice`** (planned orders are priced there; `recognizeSubscriptionDelivery` draws
+  `order.totalAmount` at that price). So eligible lines MUST be re-priced to
+  `subscriptionUnitPrice` for both the split math and the created order line, otherwise a
+  retail-priced top-up would draw more value than the prepaid pool holds. Off-plan lines stay at
+  `retailUnitPrice` and are paid normally.
 - `creditCovered = min(eligibleSubtotal, max(0, availableCredit))`.
-- This single function feeds the banner display (FE) **and** the server re-derivation (BE) so
-  the two never diverge.
+- This single function feeds the banner display (FE) **and** the server re-derivation (BE) so the
+  two never diverge. Import seam confirmed: `src/` already imports `convex/` pure helpers (e.g.
+  `convex/reports/platform`, `convex/expenses/helpers`) — no `src/lib/` mirror needed.
 
-> **Granularity note (D3).** Coverage is computed on the **eligible subtotal**, not per-unit
-> floor (unlike Path A's `coveredQty`). The order is created whole; credit simply covers a
-> rupiah amount of the eligible lines and the rest is due. We do **not** split order items.
+> **Granularity note (D3).** Coverage is on the **eligible subtotal**, not per-unit floor (unlike
+> Path A's `coveredQty`). The order is created whole; credit covers a rupiah amount of the eligible
+> lines and the rest is due. We do **not** split order items.
+> **Confidentiality (D11/I2).** `subscriptionUnitPrice` is `confidentialPrice`. It is consumed
+> server-side and embedded in eligible-line totals (unavoidable — the created order shows partner
+> price on those lines, consistent with planned subscription orders). The context query must NOT
+> return it as a standalone field. Surface is manager/admin only.
 
 ### 5.2 Query — `getSubscriptionCreditContext`
 
@@ -211,7 +234,7 @@ args: {
   draftItems: v.array(v.object({       // current cart, for live split
     menuProductId: v.id("menuProducts"),
     qty: v.number(),
-    unitPrice: v.number(),
+    retailUnitPrice: v.number(),       // normal price; eligible lines re-priced server-side (C4)
   })),
 }
 returns: Array<{
@@ -219,8 +242,10 @@ returns: Array<{
   weekId: Id<"subscriptionWeeks"> | null,
   allowedProductIds: string[],
   availableCredit: number,
-  split: CreditSplit | null,           // null when weekId null
+  split: CreditSplit | null,           // null when weekId null; eligible lines at partner price (C4)
   plannedDeliveriesRemaining: number,  // D8, for the eventual summary
+  // NOTE (I2): partner `subscription.unitPrice` is NOT returned as a field — only IDR figures
+  // (availableCredit, creditCovered, line totals). It is confidentialPrice.
 }>
 ```
 
@@ -253,7 +278,12 @@ returns: Array<{
    > This reserves for **all** un-recognized credit orders in the week — planned orders too
    > carry credit they will draw at delivery. Netting them is what prevents an ad-hoc order
    > from eating credit already committed to undelivered planned deliveries.
-5. `split = computeCreditSplit(draftItems, Set(allowedProductIds), availableCredit)`.
+   > **C3 — netting invariant.** `pool.creditRemaining` already excludes *recognized* drawdowns
+   > (their ledger rows are in the replay). `reserved` counts only *un-recognized* credit orders
+   > (the `by_order` "no ledger row yet" test). A historical order the old eager path already drew
+   > down has a `by_order` row → excluded from `reserved` (no double count). Test this explicitly.
+5. `split = computeCreditSplit(draftItems, Set(allowedProductIds), subscription.unitPrice, availableCredit)`
+   — eligible lines re-priced to the partner `unitPrice` (C4).
 6. `plannedDeliveriesRemaining` (D8) = count of `week.plannedDays` with `date ≥ startOfTodayWIB`
    that are not yet delivered. "Not delivered" = the planned day's generated order has not
    reached `AwaitingDelivery`/`Complete` (resolve via `orders.by_subscriptionWeek` matched on
@@ -284,27 +314,31 @@ returns: { orderId, creditCovered, amountDue, offPlanTotal, eligibleShortfall }
    ("No funded subscription week covers this date"). **Use `ConvexError`, not `Error`**
    (Pitfall: plain `Error` → opaque "Server Error" in prod — see lesson
    `lesson_convex_error_masking_slot_contract`).
-3. Recompute `availableCredit` (reservation-aware) and `split = computeCreditSplit(items, …)`
-   **server-side**. Ignore any client-supplied amounts.
-4. Create the order + items via `insertOrderWithItems` (shared write path) using
-   `order.totalAmount = eligibleSubtotal + offPlanTotal` (full value; credit is recorded
-   separately, not by shrinking the order).
+3. Recompute `availableCredit` (reservation-aware) and `split = computeCreditSplit(items,
+   allowedProductIds, subscription.unitPrice, availableCredit)` **server-side**. Ignore any
+   client-supplied amounts. Eligible lines re-priced to the partner `unitPrice` (C4).
+4. Create the order + items via `insertOrderWithItems` (shared write path). Eligible-line
+   `unitPrice` = `subscription.unitPrice`; off-plan lines = retail. `order.totalAmount =
+   eligibleSubtotal(partner) + offPlanTotal(retail)` (full value; credit is recorded separately
+   via `subscriptionCreditApplied`, not by shrinking the order).
 5. Patch subscription linkage on the order:
    - `subscriptionId`, `subscriptionWeekId = weekId`, `deliveryDate = dueDate`.
-   - `subscriptionCreditApplied = split.creditCovered` (the **reserved** amount).
-   - `fundingSource`:
-     - `amountDue === 0` (fully covered, all eligible) → `"subscription_credit"`.
-     - `creditCovered > 0 && amountDue > 0` → `"deposit"` (credit is partial pre-payment).
-     - `creditCovered === 0` → `"normal"` (no credit; effectively a plain order — see step 7).
-   - **Payment/status:**
-     - `amountDue === 0` → set the order onto the funded path (no `AwaitingPayment`); match
-       how `confirmWeek` seeds planned-order status so it flows into production. Set
-       `paymentStatus` consistently (the week's prepayment covers it).
-     - `amountDue > 0` → `status:"AwaitingPayment"`, `paymentStatus:"Unpaid"`; the remainder is
-       collected by the normal QRIS/bank flow (mirrors Path B's remainder handling).
-   > Staffreview check: confirm the exact status/paymentStatus values `confirmWeek` sets on
-   > planned orders, and replicate them for the `amountDue === 0` branch (decoupled
-   > status/paymentStatus — see Pitfall in `lessons_phase_84`).
+   - `subscriptionCreditApplied = split.creditCovered` (the **reserved** amount, partner-priced).
+   - **`fundingSource` + status (C2) — the order is created AFTER the week is funded
+     (`delivering`), so `markWeeklyInvoicePaid` will never sweep it; set its funded state directly:**
+     - `amountDue === 0` (fully covered) → mirror `markWeeklyInvoicePaid`'s exact triple
+       (`invoicing.ts:270-280`): `{ fundingSource:"subscription_credit", paymentStatus:"Paid",
+       paymentMethod:"subscription_credit", status:"PaymentReceived" }` → flows into production,
+       nothing due.
+     - `creditCovered > 0 && amountDue > 0` → `{ fundingSource:"deposit", status:"AwaitingPayment",
+       paymentStatus:"Unpaid" }`; remainder via normal QRIS/bank (mirrors refactored Path B).
+     - `creditCovered === 0` → reject (step 7); the credit button is disabled in this state.
+   > **IMP-3 (C2).** `markWeeklyInvoicePaid` sets that triple via a deliberate **raw `db.patch`**,
+   > bypassing `statusUpdates` side-effects (packaging stock reservation, status-transition audit,
+   > kitchen-visibility) — subscription-order packaging reservation is DEFERRED. The
+   > `amountDue === 0` branch must follow the **same deliberate bypass** (do NOT route through
+   > `statusUpdates`); packaging reservation for these ad-hoc orders stays deferred too. Decoupled
+   > status/paymentStatus must BOTH be set (Pitfall `lessons_phase_84`).
 6. **No ledger entry here.** The order row is the reservation (D5). The drawdown posts at
    delivery (§5.3 recognition extension).
 7. If `creditCovered === 0` (caller invoked credit flow but nothing is eligible / no credit):
@@ -451,16 +485,26 @@ WhatsApp. Run at execution close-out (`/persona-uat`).
 
 ---
 
-## 10. Open Questions for Staffreview
+## 10. Open Questions — RESOLVED by staffreview (2026-06-29)
 
-1. **Funded-week status set** (§5.2 step 2) — confirm `{paid, delivering}` is the exact set of
-   "credit available" week statuses; widen if a funded week can sit elsewhere.
-2. **`confirmWeek` planned-order status/paymentStatus** — replicate exactly for the
-   `amountDue === 0` branch (§5.3 step 5).
-3. **Pure-helper import seam** — can `src/` import `convex/subscriptions/creditMath.ts`
-   directly, or is a `src/lib/` mirror needed? (Check existing FE imports of `convex/` pure code.)
-4. **Path B deletion safety** — confirm zero callers of `applyPartialCreditToAdHocOrder`.
-5. **`plannedDeliveriesRemaining` "delivered" test** — confirm the cleanest way to detect a
-   planned day's delivery state (order status by date) vs a simple `date ≥ today` count.
-6. **CRM week order list** — does the subscription/week page already list
-   `orders.by_subscriptionWeek` including non-planned orders, or does it need widening?
+1. **Funded-week status set** — `markWeeklyInvoicePaid` (`invoicing.ts:281`) sets the funded week
+   to **`delivering`**; tests/fixtures also use `paid`. Set = **`{paid, delivering}`**. ✅ Resolved.
+2. **Funded-order status** — NOT `confirmWeek` (that sets `AwaitingPayment`). The funded triple is
+   `markWeeklyInvoicePaid`'s `{paymentStatus:"Paid", paymentMethod:"subscription_credit",
+   status:"PaymentReceived"}` (raw patch, IMP-3). Folded into §5.3 step 5. ✅ Resolved (C2).
+3. **Pure-helper import seam** — `src/` already imports `convex/` pure helpers (e.g.
+   `convex/reports/platform`, `convex/expenses/helpers`). No mirror needed. ✅ Resolved.
+4. **Path B** — NOT dormant; **live callers** at `OrderSlideOver.tsx:181` + `OrderDetail.tsx:131`
+   (operate UI for existing orders). **Refactor to reservation model, do not delete.** Folded into
+   §3.3. ✅ Resolved (C1).
+5. **`plannedDeliveriesRemaining` "delivered" test** — planned day delivered when its generated
+   order has reached `AwaitingDelivery`/`Complete`; else `date ≥ todayWIB`. §5.2 step 6 + review I1.
+6. **CRM week order list** — still verify at plan-time whether the subscription/week page lists
+   `orders.by_subscriptionWeek` including non-planned orders, or needs widening to show ad-hoc
+   credit orders. (Lower risk — additive display.) ⏳ Plan-time check.
+
+### Note — existing operate UI vs new creation banner (review I3)
+The new credit banner renders during **order building** (`customerId` + `draftItems`, no `orderId`).
+The existing `getOrderCreditStatus` operate UI keys on an **existing `orderId`**. These are two
+distinct contexts within the same components; the plan wires the banner into the creation branch in
+**both** `OrderSlideOver.tsx` and `OrderDetail.tsx` (Pitfall #20).
