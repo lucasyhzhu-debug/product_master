@@ -280,6 +280,251 @@ describe("getSubscriptionCreditContext — T5", () => {
     expect(result[0].availableCredit).toBe(20000);
   });
 
+  // ---------------------------------------------------------------------------
+  // Tests (f) and (g) cover plannedDeliveriesRemaining status-aware logic:
+  //
+  // Query rule (lines 323-327 in queries.ts):
+  //   - future planned day  (dStr >= today)         → ALWAYS counted
+  //   - past planned day    (dStr < today)
+  //       + order with deliveryDate on that WIB date AND status in DELIVERY_DONE_STATUSES
+  //                                                  → NOT counted (already dispatched)
+  //       + no such done order                       → counted (degradation path)
+  // ---------------------------------------------------------------------------
+
+  it("(f) plannedDeliveriesRemaining: past day w/ done-status order excluded, future day still counted", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId, userId } = await createManagerSession(t);
+    const NOW = Date.now();
+    // Use whole-day offsets so WIB date strings are guaranteed distinct across timezones.
+    const pastDayTs = NOW - 2 * 86400000;    // 2 days ago
+    const futureDayTs = NOW + 1 * 86400000;  // tomorrow
+    const dueDate = NOW;                      // "today" — between past and future
+
+    const weekStart = NOW - 3 * 86400000;
+    const weekEnd = NOW + 4 * 86400000;
+
+    const { customerId, subscriptionId, weekId, productId } = await t.run(async (ctx) => {
+      const productId = (await ctx.db.insert("menuProducts", {
+        code: "T5-PROD-F",
+        name: "Test Product T5-F",
+        grams: 80,
+        defaultPrice: 10000,
+        isActive: true,
+        unitCost: 5000,
+        cachedProductionSummary: "1 Big",
+      } as never)) as Id<"menuProducts">;
+
+      const customerId = (await ctx.db.insert("customers", {
+        name: "Sub Cafe T5-F",
+        phone: "+628111333555",
+        createdBy: "test",
+      } as never)) as Id<"customers">;
+
+      const subscriptionId = (await ctx.db.insert("subscriptions", {
+        customerId,
+        label: "Weekly T5-F",
+        status: "active",
+        billingModel: "prepaid_weekly_credit",
+        unitPrice: 7000,
+        confidentialPrice: false,
+        baselineDailyQty: 10,
+        weeklyQty: 70,
+        deliverByTime: "09:00",
+        creditRolloverPolicy: "expire",
+        changeCutoffHour: 13,
+        changeCutoffDayOffset: -1,
+        permanentChangeNoticeDays: 14,
+        terminationNoticeDays: 30,
+        cogsBasis: 4000,
+        startDate: weekStart,
+        scheduleTemplate: [
+          { dayOfWeek: 1, items: [{ menuProductId: productId, qty: 10 }] },
+        ],
+        createdBy: userId,
+      } as never)) as Id<"subscriptions">;
+
+      // Two planned days: one past, one future.
+      const weekId = (await ctx.db.insert("subscriptionWeeks", {
+        subscriptionId,
+        weekStart,
+        weekEnd,
+        status: "delivering",
+        plannedDays: [
+          {
+            date: pastDayTs,
+            deliverByTime: "09:00",
+            items: [{ menuProductId: productId, productName: "Test Product T5-F", qty: 10, unitPrice: 7000, lineTotal: 70000 }],
+            locked: false,
+          },
+          {
+            date: futureDayTs,
+            deliverByTime: "09:00",
+            items: [{ menuProductId: productId, productName: "Test Product T5-F", qty: 10, unitPrice: 7000, lineTotal: 70000 }],
+            locked: false,
+          },
+        ],
+        creditIssued: 100000,
+        creditConsumed: 0,
+        creditRemaining: 100000,
+        creditExpired: 0,
+        shortfall: 0,
+        shortfallFault: "none",
+        refundDue: 0,
+      } as never)) as Id<"subscriptionWeeks">;
+
+      // Fund the pool.
+      await ctx.db.insert("creditLedger", {
+        subscriptionId,
+        subscriptionWeekId: weekId,
+        type: "topup",
+        amount: 100000,
+        balanceAfter: 100000,
+        createdBy: userId,
+      } as never);
+
+      // Order whose deliveryDate WIB-date matches pastDayTs and status is DELIVERY_DONE.
+      // This order signals the past planned day has already been dispatched.
+      await ctx.db.insert("orders", {
+        orderNumber: "0629-T5F",
+        customerId,
+        customerName: "Sub Cafe T5-F",
+        customerPhone: "+628111333555",
+        status: "AwaitingDelivery",  // in DELIVERY_DONE_STATUSES
+        paymentStatus: "Paid",
+        orderDate: NOW,
+        deliveryDate: pastDayTs,     // WIB date matches the past planned day
+        totalAmount: 70000,
+        totalCost: 0,
+        totalMargin: 70000,
+        finalTotal: 70000,
+        deliveryType: "Delivery",
+        createdBy: "Test Manager T5",
+        createdByUserId: userId,
+        itemCount: 1,
+        isKitchenVisible: false,
+        subscriptionId,
+        subscriptionWeekId: weekId,
+        fundingSource: "deposit",
+        subscriptionCreditApplied: 70000,
+      } as never);
+
+      return { customerId, subscriptionId, weekId, productId };
+    });
+
+    const result = await t.query(api.subscriptions.queries.getSubscriptionCreditContext, {
+      customerId,
+      dueDate,
+      draftItems: [],
+      sessionId,
+    });
+
+    expect(result).toHaveLength(1);
+    // Past day: AwaitingDelivery order w/ deliveryDate matching it → excluded from remaining.
+    // Future day: no done order, dStr >= today → counted.
+    // Expected: 1 (only the future day).
+    expect(result[0].plannedDeliveriesRemaining).toBe(1);
+  });
+
+  it("(g) plannedDeliveriesRemaining: past day with no done-status order still counts as remaining", async () => {
+    const t = convexTest(schema, modules);
+    const { sessionId, userId } = await createManagerSession(t);
+    const NOW = Date.now();
+    const pastDayTs = NOW - 2 * 86400000;  // 2 days ago
+    const dueDate = NOW;
+
+    const weekStart = NOW - 3 * 86400000;
+    const weekEnd = NOW + 4 * 86400000;
+
+    const customerId = await t.run(async (ctx) => {
+      const productId = (await ctx.db.insert("menuProducts", {
+        code: "T5-PROD-G",
+        name: "Test Product T5-G",
+        grams: 80,
+        defaultPrice: 10000,
+        isActive: true,
+        unitCost: 5000,
+        cachedProductionSummary: "1 Big",
+      } as never)) as Id<"menuProducts">;
+
+      const customerId = (await ctx.db.insert("customers", {
+        name: "Sub Cafe T5-G",
+        phone: "+628111333666",
+        createdBy: "test",
+      } as never)) as Id<"customers">;
+
+      const subscriptionId = (await ctx.db.insert("subscriptions", {
+        customerId,
+        label: "Weekly T5-G",
+        status: "active",
+        billingModel: "prepaid_weekly_credit",
+        unitPrice: 7000,
+        confidentialPrice: false,
+        baselineDailyQty: 10,
+        weeklyQty: 70,
+        deliverByTime: "09:00",
+        creditRolloverPolicy: "expire",
+        changeCutoffHour: 13,
+        changeCutoffDayOffset: -1,
+        permanentChangeNoticeDays: 14,
+        terminationNoticeDays: 30,
+        cogsBasis: 4000,
+        startDate: weekStart,
+        scheduleTemplate: [
+          { dayOfWeek: 1, items: [{ menuProductId: productId, qty: 10 }] },
+        ],
+        createdBy: userId,
+      } as never)) as Id<"subscriptions">;
+
+      // Single planned day in the past — NO done-status order.
+      // Expected: still counts as remaining (dispatch not confirmed).
+      const weekId = (await ctx.db.insert("subscriptionWeeks", {
+        subscriptionId,
+        weekStart,
+        weekEnd,
+        status: "delivering",
+        plannedDays: [
+          {
+            date: pastDayTs,
+            deliverByTime: "09:00",
+            items: [{ menuProductId: productId, productName: "Test Product T5-G", qty: 10, unitPrice: 7000, lineTotal: 70000 }],
+            locked: false,
+          },
+        ],
+        creditIssued: 100000,
+        creditConsumed: 0,
+        creditRemaining: 100000,
+        creditExpired: 0,
+        shortfall: 0,
+        shortfallFault: "none",
+        refundDue: 0,
+      } as never)) as Id<"subscriptionWeeks">;
+
+      await ctx.db.insert("creditLedger", {
+        subscriptionId,
+        subscriptionWeekId: weekId,
+        type: "topup",
+        amount: 100000,
+        balanceAfter: 100000,
+        createdBy: userId,
+      } as never);
+
+      // No order for pastDayTs → deliveredWibDates is empty.
+      return customerId;
+    });
+
+    const result = await t.query(api.subscriptions.queries.getSubscriptionCreditContext, {
+      customerId,
+      dueDate,
+      draftItems: [],
+      sessionId,
+    });
+
+    expect(result).toHaveLength(1);
+    // Past day with no matching done-status order: NOT in deliveredWibDates → counted.
+    // Expected: 1.
+    expect(result[0].plannedDeliveriesRemaining).toBe(1);
+  });
+
   it("(e) Cancelled reserved order is excluded from reservation netting", async () => {
     const t = convexTest(schema, modules);
     const { customerId, subscriptionId, weekId, userId, sessionId } = await seedFundedWeek(t, {

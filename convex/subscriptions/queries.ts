@@ -256,7 +256,7 @@ export const getSubscriptionCreditContext = protectedQuery({
       const allowedProductIds = Array.from(
         new Set(
           sub.scheduleTemplate.flatMap((d) =>
-            d.items.map((it) => it.menuProductId as unknown as string),
+            d.items.map((it) => String(it.menuProductId)),
           ),
         ),
       );
