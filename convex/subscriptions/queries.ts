@@ -180,6 +180,63 @@ export const getOrderCreditStatus = protectedQuery({
 });
 
 // ---------------------------------------------------------------------------
+// listActiveSubscriptionsForCustomer — lightweight selector for the order
+// sheet's B2B subscription picker (Task T1). Returns only active subs with
+// the current-week reservation-aware credit remaining.
+// Roles: canAccessOrders route → order_staff + manager + admin (Pitfall #19).
+// D11: unitPrice (confidential partner price) is NOT returned.
+// ---------------------------------------------------------------------------
+
+export const listActiveSubscriptionsForCustomer = protectedQuery({
+  roles: ["order_staff", "manager", "admin"],
+  args: { customerId: v.id("customers") },
+  handler: async (ctx, args) => {
+    const subs = (
+      await ctx.db
+        .query("subscriptions")
+        .withIndex("by_customer", (q) => q.eq("customerId", args.customerId))
+        .collect()
+    ).filter((s) => s.status === "active");
+
+    const todayMs = Date.now();
+    const out: Array<{
+      subscriptionId: Id<"subscriptions">;
+      label: string;
+      creditRemaining: number | null;
+    }> = [];
+
+    for (const sub of subs) {
+      // Resolve the funded open week covering today (paid or delivering).
+      const weeks = await ctx.db
+        .query("subscriptionWeeks")
+        .withIndex("by_subscription_weekStart", (q) =>
+          q.eq("subscriptionId", sub._id),
+        )
+        .collect();
+      const week =
+        weeks.find(
+          (w) =>
+            w.weekStart <= todayMs &&
+            todayMs <= w.weekEnd &&
+            (w.status === "paid" || w.status === "delivering"),
+        ) ?? null;
+
+      let creditRemaining: number | null = null;
+      if (week) {
+        // CRM C10: derive from the pool — never re-key a denormalised total.
+        ({ availableCredit: creditRemaining } = await computeWeekAvailableCredit(
+          ctx,
+          week._id,
+        ));
+      }
+
+      out.push({ subscriptionId: sub._id, label: sub.label, creditRemaining });
+    }
+    return out;
+  },
+});
+
+// ---------------------------------------------------------------------------
 // getSubscriptionCreditContext — reservation-aware credit context for a
 // customer's active subscriptions. Used by Task 8 (frontend order form) to
 // show how much credit is available and how the current cart splits.
