@@ -1,0 +1,20 @@
+# gitleaks config — extends the built-in ruleset with an allowlist for
+# placeholders this repo intentionally ships. Used by the .githooks/pre-commit
+# guard (gitleaks protect --staged) when gitleaks is installed.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentional placeholders and example values"
+regexes = [
+  '''AAExample-DummyTokenReplaceWithYourOwn''',   # docs Telegram token example
+  '''<BOT_TOKEN>''',
+  '''<BEARER_TOKEN>''',
+  '''<[A-Z_]+_TOKEN>''',
+  '''your-project-name''',                         # .env.example
+  '''xnd_development_''',                          # Xendit sandbox keys (non-prod)
+]
+paths = [
+  '''\.env\.example$''',
+  '''tests/.*\.har$''',                            # test HAR captures (review separately)
+]
