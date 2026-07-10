@@ -19,6 +19,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.3.1] — 2026-07-10 — Remove the permanently-failing K3Mart token refresh workflow
+
+**For the team:** The nightly "Refresh K3Mart Token" GitHub Action has been failing every single night and emailing a failure notice each morning. It turns out it never worked — the `K3MART_EMAIL` / `K3MART_PASSWORD` secrets it needs were never added to the repo, so it died on its first step on all 100 recorded runs. Nothing depended on it: K3Mart sales sync gets its own token at call time and has been working fine. Removing the workflow stops the nightly failure emails with no loss of function.
+
+**Changed**
+- Deleted `.github/workflows/refresh-k3mart-token.yml` (scheduled `0 20 * * *`, i.e. 03:00 WIB).
+  - Every recorded run (100/100, back to 2026-04-01) failed in ~35s with
+    `ERROR: K3MART_EMAIL and K3MART_PASSWORD environment variables are required.`
+    `gh secret list` confirms only `CONVEX_DEPLOY_KEY` and `VERCEL_DEPLOY_HOOK` are set.
+  - `scripts/refresh-k3mart-token.ts` describes itself as a *fallback* for when the
+    HTTP-based Convex action fails. Prod logs show the HTTP path
+    (`integrations/k3mart/adapter:syncK3MartSales`) succeeding on the nightly
+    sales-summary run, so the fallback was guarding a failure mode that isn't occurring.
+
+**Kept (deliberately)**
+- `scripts/refresh-k3mart-token.ts` + the `refresh-k3mart-token` npm script — still usable
+  as a manual, local, `HEADED=1` escape hatch if K3Mart ever changes its auth flow.
+  Running it requires setting `K3MART_EMAIL` / `K3MART_PASSWORD` locally.
+- `platformCredentials.actions.refreshK3MartToken` — the admin-triggered public action,
+  wired to the UI via `src/hooks/convex/useExternalData.ts:190`. This is how a K3Mart
+  credential is rotated (the sync reads credentials from the DB row, not from env).
+
+**Note on stale docs:** `docs/API_REFERENCE.md`, `docs/apiS/INTEGRATION_REFERENCE.md`, and
+`docs/SCHEMA.md` still describe an "every 12 hours `refreshK3MartTokenCron`" Convex cron.
+That cron was deleted on 2026-02-24 in `5237f0da`; the `refreshK3MartTokenCron` internal
+action remains in `convex/platformCredentials/actions.ts` but is unreferenced. Not touched here.
+
 ## [2.3.0] — 2026-06-30 — Subscription order editing + add-more credit funding
 
 **For the team:** Order staff can now edit quantities on an undelivered subscription day-order (e.g. reduce items if the cafe calls in a change) directly from either the order slide-over or the order detail page. The credit reservation on the order is automatically re-derived to match the new total — no manual fix needed. Staff can also tap "Add more" on the OrderCreate screen to route additional credit-funded items through the existing credit checkout, without creating a separate non-credit order.
