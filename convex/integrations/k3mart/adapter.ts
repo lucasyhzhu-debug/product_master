@@ -19,7 +19,7 @@
 declare const process: { env: Record<string, string | undefined> };
 
 import { v } from "convex/values";
-import { action } from "../../_generated/server";
+import { action, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { ChannelAdapter } from "../_shared/channelAdapter";
@@ -69,6 +69,34 @@ async function getK3MartToken(ctx: {
     );
   }
   return token;
+}
+
+/**
+ * Re-login after a 401 and return the fresh JWT, or null if the re-login failed.
+ *
+ * K3Mart exposes no refresh-token grant, so recovery is a full re-login with the
+ * stored email/password — exactly what `refreshK3MartTokenCron` already does. It
+ * persists the new token to `platformCredentials` and records a `token_refresh`
+ * row in `externalSyncLogs`, so a lapse stays visible in sync history.
+ *
+ * Returns null (rather than throwing) when the re-login itself fails, so callers
+ * surface the original TOKEN_EXPIRED instead of a confusing secondary error.
+ *
+ * Callers MUST retry at most once — see `syncK3MartSales`. A retry loop against a
+ * genuinely-rejecting endpoint would hammer K3Mart's login route.
+ */
+async function reloginK3Mart(ctx: ActionCtx): Promise<string | null> {
+  const result = await ctx.runAction(
+    internal.platformCredentials.actions.refreshK3MartTokenCron,
+    {}
+  );
+  if (!result.success) return null;
+
+  const dbCred = await ctx.runQuery(
+    internal.platformCredentials.queries.getTokenInternal,
+    { platformId: "k3mart" }
+  );
+  return dbCred?.currentToken ?? null;
 }
 
 /**
@@ -509,12 +537,27 @@ export const syncK3MartSales = action({
       url.searchParams.set("from", fromDate);
       url.searchParams.set("to", toDate);
 
-      const response = await fetch(url.toString(), {
-        headers: {
-          Authorization: `JWT ${token}`,
-          ...K3MART_CONFIG.headers,
-        },
-      });
+      const fetchSales = (jwt: string) =>
+        fetch(url.toString(), {
+          headers: {
+            Authorization: `JWT ${jwt}`,
+            ...K3MART_CONFIG.headers,
+          },
+        });
+
+      let response = await fetchSales(token);
+
+      // Lazy re-login on 401, then retry EXACTLY once (GoBiz parity — see
+      // gobiz/adapter.ts:330). Before this, an expired JWT aborted the unattended
+      // nightly sync and waited for a human to press "Refresh Token" in Settings.
+      // If the re-login fails, `reloginK3Mart` returns null and we fall through to
+      // the TOKEN_EXPIRED branch below with the original 401 intact.
+      if (response.status === 401) {
+        const freshToken = await reloginK3Mart(ctx);
+        if (freshToken) {
+          response = await fetchSales(freshToken);
+        }
+      }
 
       if (response.status === 401) {
         await ctx.runMutation(
@@ -522,7 +565,9 @@ export const syncK3MartSales = action({
           {
             logId: syncLogId,
             status: "error",
-            errorMessage: "TOKEN_EXPIRED: K3Mart API token expired. Please update K3MART_API_TOKEN.",
+            errorMessage:
+              "TOKEN_EXPIRED: K3Mart rejected the token and automatic re-login failed. " +
+              "Check the K3Mart credentials in Settings, then press \"Refresh Token\".",
             durationMs: Date.now() - startTime,
           }
         );

@@ -1929,14 +1929,15 @@ Refresh K3Mart token by logging in via HTTP, validating the JWT, and storing it 
 #### `platformCredentials.actions.refreshK3MartTokenCron` (internal)
 Same as above, without the auth check (system-level).
 
-> **DEAD CODE — nothing calls this.** It was registered as a 12-hour cron until
-> 2026-02-24, when `5237f0da` removed all four token/sync crons. To refresh, use the
-> admin-only `refreshK3MartToken` action above (wired to the Settings UI via
-> `src/hooks/convex/useExternalData.ts`).
+> **Not a cron, despite the name.** It was registered as a 12-hour cron until 2026-02-24,
+> when `5237f0da` removed all four token/sync crons. Since 2026-07-10 it is the **lazy
+> re-login primitive**: `syncK3MartSales` calls it via `reloginK3Mart` when K3Mart returns
+> a 401, then retries the fetch exactly once (`k3mart/adapter.ts`). It persists the fresh
+> token to `platformCredentials` and writes a `token_refresh` row to `externalSyncLogs`,
+> so a lapse stays visible in sync history.
 >
-> Note that K3Mart has **no lazy refresh on 401** — unlike GoBiz, the adapter reads the
-> stored token and, on a 401, fails the sync with `TOKEN_EXPIRED` rather than re-logging in
-> (`k3mart/adapter.ts:519`). Recovery is a manual button press.
+> Admins can still force a refresh with `refreshK3MartToken` above (Settings UI, via
+> `src/hooks/convex/useExternalData.ts`).
 
 ### Cron Jobs
 
@@ -1982,9 +1983,10 @@ Defined in `convex/crons.ts` — that file is the single source of truth. 25 ent
 | Daily 05:25 | `subscriptions.enforcement.flipDayLocksAtCutoff` | Flip day locks just before the 05:30 cutoff nudge |
 
 **Not crons — common misconceptions:**
-- **K3Mart token refresh** — no cron, and no lazy 401 refresh either; refresh is a manual
-  admin action. The GitHub Action `refresh-k3mart-token.yml` was deleted 2026-07-10
-  (`423f1549`); it had never once succeeded (missing `K3MART_EMAIL` / `K3MART_PASSWORD`).
+- **K3Mart token refresh** — no cron. Since 2026-07-10 `syncK3MartSales` re-logs in lazily
+  on a 401 and retries once, matching GoBiz. The GitHub Action `refresh-k3mart-token.yml`
+  was deleted the same day (`423f1549`); it had never once succeeded (its
+  `K3MART_EMAIL` / `K3MART_PASSWORD` secrets were never set).
 - **GoBiz** — `autoSyncGoBizRevenue` has no cron entry. It is called best-effort inside
   the daily sales summary, and refreshes its own token lazily on a 401.
 - **POS (Block M)** — no cron. Pulled inside the daily sales summary and the `/sales` command.
