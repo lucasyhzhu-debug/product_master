@@ -1497,10 +1497,10 @@ Stores login credentials for external platforms (K3Mart, etc.) for automatic tok
 **Token Refresh Flow:**
 1. Admin enters credentials via Settings UI (`saveCredentials` mutation)
 2. `refreshK3MartToken` action: HTTP POST to K3Mart login -> extract JWT -> decode expiry -> validate via test API call -> store in DB
-3. Refresh is **on demand only** — triggered by the admin "Refresh Token" button. There is no
-   scheduled refresh: the 12-hour cron was removed 2026-02-24 (`5237f0da`) and the nightly
-   GitHub Action was removed 2026-07-10 (`423f1549`). The `refreshK3MartTokenCron` internal
-   action still exists but is unreferenced.
+3. There is no **scheduled** refresh (the 12-hour cron went in `5237f0da`, the nightly GitHub
+   Action in `423f1549`). Refresh happens two ways: **lazily**, when `syncK3MartSales` hits a
+   401 and calls `refreshK3MartTokenCron` to re-login and retry once; and **on demand**, via
+   the admin "Refresh Token" button.
 4. K3Mart adapter reads token from `platformCredentials` first, falls back to `K3MART_API_TOKEN` env var (`convex/integrations/k3mart/adapter.ts:65`)
 
 > **Rotating a K3Mart credential:** the sync reads from the `platformCredentials` **DB row**,

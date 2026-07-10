@@ -19,6 +19,33 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.3.2] — 2026-07-10 — K3Mart sales sync recovers from an expired token by itself
+
+**For the team:** K3Mart sales sync used to give up whenever its login token expired, and quietly stop importing sales until someone noticed and clicked "Refresh Token" in Settings. It now logs back in on its own and carries on. Nobody has to babysit it. If the automatic re-login *also* fails (wrong password, K3Mart down), you still get the old `TOKEN_EXPIRED` error — that now genuinely means a human needs to look.
+
+**Why now:** `2.3.1` removed the nightly GitHub Action that was *supposed* to keep this token warm. It had never once succeeded, so the gap it was meant to cover had been open the whole time. K3Mart was the only integration that could not recover its own token — GoBiz has done a lazy re-login on 401 since the GoFood Depot work (`gobiz/adapter.ts:330`).
+
+**Changed**
+- `convex/integrations/k3mart/adapter.ts`
+  - New `reloginK3Mart(ctx)` helper: calls the existing `refreshK3MartTokenCron` internal
+    action (a full re-login — K3Mart has no refresh-token grant), then re-reads the persisted
+    token. Returns `null` on failure so callers surface the original `TOKEN_EXPIRED` rather
+    than a confusing secondary error.
+  - `syncK3MartSales` now retries **exactly once** after a 401. A persistently-401 endpoint
+    must not loop against K3Mart's login route; this bound is pinned by a test.
+  - `TOKEN_EXPIRED` message reworded — it no longer says "update `K3MART_API_TOKEN`" (the sync
+    reads the DB row, not env; see `2.3.1`).
+- `refreshK3MartTokenCron` is no longer dead code. It persists the fresh token to
+  `platformCredentials` **and** writes a `token_refresh` row to `externalSyncLogs`, so a token
+  lapse now leaves an audit trail instead of vanishing.
+
+**Tests** — `convex/integrations/k3mart/__tests__/salesTokenRefresh.test.ts` (new, 4 cases):
+401 → re-login → retry → success (fresh token persisted); failed re-login still yields
+`TOKEN_EXPIRED` without masking; retry happens at most once; the `token_refresh` row is written.
+
+**Docs** — `API_REFERENCE.md`, `SCHEMA.md`, `apiS/INTEGRATION_REFERENCE.md` updated: K3Mart now
+self-heals, and `refreshK3MartTokenCron` is documented as the lazy re-login primitive.
+
 ## [2.3.1] — 2026-07-10 — Remove the permanently-failing K3Mart token refresh workflow
 
 **For the team:** The nightly "Refresh K3Mart Token" GitHub Action has been failing every single night and emailing a failure notice each morning. It turns out it never worked — the `K3MART_EMAIL` / `K3MART_PASSWORD` secrets it needs were never added to the repo, so it died on its first step on all 100 recorded runs. Nothing depended on it: K3Mart sales sync gets its own token at call time and has been working fine. Removing the workflow stops the nightly failure emails with no loss of function.
