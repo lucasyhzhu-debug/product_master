@@ -1927,18 +1927,67 @@ Refresh K3Mart token by logging in via HTTP, validating the JWT, and storing it 
 6. Store token + expiry in DB via `updateToken` internal mutation
 
 #### `platformCredentials.actions.refreshK3MartTokenCron` (internal)
-Same as above but called by the 12-hour cron job. No auth check (system-level).
+Same as above, without the auth check (system-level).
+
+> **DEAD CODE — nothing calls this.** It was registered as a 12-hour cron until
+> 2026-02-24, when `5237f0da` removed all four token/sync crons. To refresh, use the
+> admin-only `refreshK3MartToken` action above (wired to the Settings UI via
+> `src/hooks/convex/useExternalData.ts`).
+>
+> Note that K3Mart has **no lazy refresh on 401** — unlike GoBiz, the adapter reads the
+> stored token and, on a 401, fails the sync with `TOKEN_EXPIRED` rather than re-logging in
+> (`k3mart/adapter.ts:519`). Recovery is a manual button press.
 
 ### Cron Jobs
 
-| Schedule | Function | Description |
-|----------|----------|-------------|
-| Every 12 hours | `refreshK3MartTokenCron` | Auto-refresh K3Mart JWT token |
-| `0 1,3,5,7,9,11,13 * * *` | `autoSyncGoBizRevenue` | Auto-sync GoBiz revenue at WIB business hours (8,10,12,14,16,18,20 WIB) |
+Defined in `convex/crons.ts` — that file is the single source of truth. 25 entries as of 2026-07-10.
 
-**Note:** GoBiz auto-sync added in GoFood Depot integration. Runs at WIB business hours, includes Phase C (auto sticker deduction on GoFood sales). Falls back gracefully if no valid token.
+**Revenue sync**
 
-Defined in `convex/crons.ts`.
+| Schedule (UTC) | Function | Description |
+|----------------|----------|-------------|
+| Every 1 hour | `integrations.internal.adapter.syncInternalOrders` | Sync internal-order revenue |
+
+**Telegram pack list** (each slot has a `+15min` watchdog that re-sends only if no delivery receipt exists)
+
+| Schedule (UTC) | Function | Description |
+|----------------|----------|-------------|
+| Daily 00:00 / 00:15 | `telegram.sendPackList.{sendPackListResilient,watchdogPackList}` | Morning pack list (07:00 WIB) |
+| Daily 06:00 / 06:15 | `telegram.sendPackList.{sendPackListResilient,watchdogPackList}` | Midday "still pending" reminder (13:00 WIB) |
+
+**Sales summary** (the daily run best-effort refreshes GoFood / K3Mart / Internal / POS before posting)
+
+| Schedule (UTC) | Function | Description |
+|----------------|----------|-------------|
+| Daily 16:00 / 16:15 | `telegram.salesSummary.sendSalesSummary.*` | End-of-day summary (23:00 WIB) |
+| Mon 00:00 / 00:15 | `telegram.salesSummary.sendSalesSummary.*` | Weekly round-up (prior Mon–Sun) |
+| 1st 01:00 / 01:15 | `telegram.salesSummary.sendSalesSummary.*` | Monthly round-up (prior calendar month) |
+
+**Subscription reminders** (`telegram.subscriptionReminders.sendSubscriptionReminder.*`, each with a `+15min` watchdog)
+
+| Schedule (UTC) | `kind` | Description |
+|----------------|--------|-------------|
+| Sun 10:00 | `confirm-next-week` | Confirm next week's schedule (Sun 17:00 WIB) |
+| Mon 01:30 | `invoice-due` | Weekly invoice due (Mon 08:30 WIB) |
+| Daily 00:05 | `today-deliveries` | Today's deliveries (07:05 WIB) |
+| Daily 05:30 | `change-cutoff` | Tomorrow's change cutoff (12:30 WIB) |
+| Mon 02:00 | `reconcile` | Prior-week reconcile (Mon 09:00 WIB) |
+| Daily 11:00 | `weekly-delivery-progress` | Founders' delivery progress (18:00 WIB) |
+
+**Subscription enforcement** (idempotent internal mutations, no watchdog)
+
+| Schedule (UTC) | Function | Description |
+|----------------|----------|-------------|
+| Daily 04:10 | `subscriptions.enforcement.applyPendingBaselineChanges` | Apply pending baseline changes (11:10 WIB) |
+| Daily 05:25 | `subscriptions.enforcement.flipDayLocksAtCutoff` | Flip day locks just before the 05:30 cutoff nudge |
+
+**Not crons — common misconceptions:**
+- **K3Mart token refresh** — no cron, and no lazy 401 refresh either; refresh is a manual
+  admin action. The GitHub Action `refresh-k3mart-token.yml` was deleted 2026-07-10
+  (`423f1549`); it had never once succeeded (missing `K3MART_EMAIL` / `K3MART_PASSWORD`).
+- **GoBiz** — `autoSyncGoBizRevenue` has no cron entry. It is called best-effort inside
+  the daily sales summary, and refreshes its own token lazily on a 401.
+- **POS (Block M)** — no cron. Pulled inside the daily sales summary and the `/sales` command.
 
 ---
 

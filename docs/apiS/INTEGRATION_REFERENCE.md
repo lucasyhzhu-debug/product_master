@@ -11,9 +11,9 @@
 
 | Platform | Data Types | Automation Status | Token Lifespan | Cron Schedule | Auth Method |
 |----------|-----------|-------------------|----------------|---------------|-------------|
-| **K3 Mart** | Stock, Revenue (sales) | Fully automated (token auto-refresh + revenue cron planned) | ~24h JWT (auto-refreshed every 12h) | `refreshK3MartTokenCron` every 12h | Email/password login -> JWT |
-| **GoBiz (GoFood)** | Revenue (5-metric) | Fully automated (token cascade + revenue sync cron) | ~1h access token, days/weeks refresh token | `autoSyncGoBizRevenue` 7x daily at WIB business hours | Browser cookie paste (access_token + refresh_token) |
-| **Internal Orders** | Revenue | Manual trigger from Settings page | N/A (own database) | None | N/A |
+| **K3 Mart** | Stock, Revenue (sales) | Sales synced nightly; token refreshed on demand only | ~24h JWT (read from DB; **no** auto-refresh) | None — synced inside the daily sales summary | Email/password login -> JWT |
+| **GoBiz (GoFood)** | Revenue (5-metric) | Synced nightly; token refreshed lazily on 401 | ~1h access token, days/weeks refresh token | None — synced inside the daily sales summary | Browser cookie paste (access_token + refresh_token) |
+| **Internal Orders** | Revenue | Hourly cron + manual trigger from Settings page | N/A (own database) | `sync internal orders revenue` every 1h | N/A |
 
 **Source files:**
 - Registry: `convex/integrations/registry.ts`
@@ -34,7 +34,7 @@
 | **Auth type** | JWT Bearer token (`Authorization: JWT {token}`) |
 | **Portal URL** | `https://umkm.k3mart.id` |
 | **Token source** | Auto-login via `/vendor/login` with stored email/password |
-| **Token lifespan** | ~24 hours (auto-refreshed every 12 hours via cron) |
+| **Token lifespan** | ~24 hours (refreshed on demand — no scheduled refresh; see § 6) |
 | **Required headers** | `Origin: https://umkm.k3mart.id`, `Referer: https://umkm.k3mart.id/` |
 
 ### 2.2 Endpoints
@@ -60,7 +60,7 @@
 4. JWT decoded to extract expiry (payload.exp)
 5. Token validated with test API call to /vendor-stock/detail/{productId}
 6. Valid token stored in `platformCredentials.currentToken`
-7. Auto-refresh via cron every 12 hours
+7. Steps 2-6 run on demand only (admin "Refresh Token" button) — there is no scheduled refresh
 ```
 
 **Token resolution order** (in `getK3MartToken()`):
@@ -124,8 +124,9 @@
 2. Go to Settings page -> K3 Mart section
 3. Click "Refresh Stores" to discover outlets
 4. Click "Sync Now" to pull stock data
-5. Token auto-refreshes every 12 hours -- no manual intervention needed
+5. Token does **not** auto-refresh. If sync fails with `TOKEN_EXPIRED`, click "Refresh Token"
 6. To use different credentials: click "Configure" and enter new email/password
+   (the sync reads credentials from the DB row, not env — changing the env var alone does nothing)
 
 ### 2.8 SOP: Token Failure Recovery
 
@@ -620,22 +621,33 @@ The internal sync (`syncInternalOrders`) reads from the local Convex orders data
 
 ## 6. Cron Schedule
 
+**None of the three integrations on this page has its own cron.** All four platform crons
+(`refresh k3mart token`, `sync gobiz revenue`, `refresh gobiz token`, `weekly integrity check`)
+were removed on 2026-02-24 in `5237f0da`. The nightly `refresh-k3mart-token.yml` GitHub Action
+was removed on 2026-07-10 in `423f1549` — it had failed on all 100 recorded runs because its
+`K3MART_EMAIL` / `K3MART_PASSWORD` secrets were never set.
+
+Integration data is refreshed **inside the daily sales summary** instead:
+
 | Cron Name | Schedule | Action | Purpose |
 |-----------|----------|--------|---------|
-| `refresh k3mart token` | Every 12 hours | `platformCredentials.actions.refreshK3MartTokenCron` | Auto-login to K3Mart API and refresh JWT token |
-| `sync gobiz revenue` | `0 1,3,5,7,9,11,13 * * *` (7x daily) | `integrations.gobiz.adapter.autoSyncGoBizRevenue` | Sync GoFood revenue at 8, 10, 12, 14, 16, 18, 20 WIB |
-| `weekly integrity check` | `0 3 * * 0` (Sundays 10:00 WIB) | `integrityChecks.mutations.runWeeklyCheck` | Weekly data integrity verification |
+| `sync internal orders revenue` | Every 1 hour | `integrations.internal.adapter.syncInternalOrders` | Sync internal-order revenue |
+| `sales summary daily` | Daily 16:00 UTC (23:00 WIB) | `telegram.salesSummary.sendSalesSummary.sendSalesSummaryResilient` | Best-effort refresh of GoFood / K3Mart / Internal / POS, then post the summary |
 
-**WIB to UTC conversion for GoBiz cron:**
-| WIB Time | UTC Time | Cron Hour |
-|----------|----------|-----------|
-| 08:00 | 01:00 | 1 |
-| 10:00 | 03:00 | 3 |
-| 12:00 | 05:00 | 5 |
-| 14:00 | 07:00 | 7 |
-| 16:00 | 09:00 | 9 |
-| 18:00 | 11:00 | 11 |
-| 20:00 | 13:00 | 13 |
+Each of those four refreshes is wrapped in `runBestEffortSync`: a non-transient failure surfaces
+as a `✗` in the Telegram post and the summary still ships. A transient Convex error rethrows so
+the resilient wrapper retries the whole run. See `convex/telegram/salesSummary/sendSalesSummary.ts`.
+
+**Token handling without a cron — the two platforms differ, and it matters:**
+- **GoBiz** — refreshes **lazily on a 401** mid-sync (`gobiz/adapter.ts:330`), so a scheduled
+  pre-refresh was genuinely redundant. Self-healing.
+- **K3Mart** — does **not** self-heal. The adapter reads `platformCredentials.currentToken`,
+  falling back to `K3MART_API_TOKEN` (`k3mart/adapter.ts:65`). On a 401 it aborts the sync with
+  `TOKEN_EXPIRED` (`k3mart/adapter.ts:519`) and waits for an admin to press "Refresh Token".
+  If K3Mart sales stop updating, this is the first thing to check.
+
+`convex/crons.ts` is the single source of truth for the full 25-entry schedule; see
+`docs/API_REFERENCE.md` § Cron Jobs for the complete table.
 
 ---
 
@@ -645,7 +657,7 @@ The internal sync (`syncInternalOrders`) reads from the local Convex orders data
 
 | Problem | Cause | Resolution |
 |---------|-------|------------|
-| "TOKEN_EXPIRED" error | JWT expired and cron refresh failed | Go to Settings -> K3 Mart -> "Refresh Token". Check cron logs. |
+| "TOKEN_EXPIRED" error | JWT expired (there is no scheduled refresh — it is on demand) | Go to Settings -> K3 Mart -> "Refresh Token". |
 | Non-JSON response from login | Cloudflare challenge or API downtime | Wait 5-10 minutes, retry. Check if `consapi.k3mart.id` is reachable. |
 | "K3MART_API_TOKEN not set" | No credentials in DB or env | Go to Settings -> K3 Mart -> "Configure" to enter email/password. |
 | Missing outlets | Outlets not yet discovered | Run "Refresh Stores" to discover outlets from product detail API. |
