@@ -30,6 +30,7 @@ import {
   BookMarked,
   Building2,
   ClipboardCheck,
+  Contact,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
@@ -70,6 +71,7 @@ const HUB_AREAS: AreaCard[] = [
     primaryPath: "/orders",
     links: [
       { label: "Orders", path: "/orders" },
+      { label: "CRM", path: "/crm", permission: "canAccessCrm" },
       { label: "Kitchen", path: "/kitchen" },
       { label: "Packaging", path: "/packaging" },
     ],
@@ -188,6 +190,7 @@ const HUB_AREAS: AreaCard[] = [
 // Map area titles to icon sets for the link pills (optional extra icons)
 const LINK_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Orders: ShoppingCart,
+  CRM: Contact,
   Kitchen: UtensilsCrossed,
   Packaging: Package,
   Inventory: Warehouse,
