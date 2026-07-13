@@ -5,6 +5,7 @@ import { type AuthSession, type UserRole, ROLE_PERMISSIONS } from "../lib/types"
 import type { Id } from "../../convex/_generated/dataModel";
 import type { SessionId } from "convex-helpers/server/sessions";
 import { sessionSetterRef } from "../lib/sessionBridge";
+import { setLastUserId } from "../lib/lastUser";
 
 const AUTH_STORAGE_KEY = "malo_auth_session";
 
@@ -107,6 +108,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         sessionSetterRef.current(authSession.token as SessionId);
         setSession(authSession);
 
+        // Survives logout: pre-selects this user on the next visit to /login.
+        setLastUserId(authSession.userId);
+
         return { success: true };
       }
 
@@ -134,6 +138,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(SESSION_ID_KEY);
+    // NOTE: malo_last_user_id is intentionally NOT cleared -- surviving logout
+    // is the feature (see src/lib/lastUser.ts). Don't fold this into a
+    // clear-all-malo_* cleanup.
     // Clear SessionProvider's React state so useSessionMutation stops sending
     // the old auth token after logout.
     sessionSetterRef.current(undefined);

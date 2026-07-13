@@ -6,6 +6,8 @@ import { Button } from "../ui/button";
 interface PinPadProps {
   onSubmit: (pin: string) => void;
   onCancel: () => void;
+  /** Label for the cancel action. Defaults to "Cancel". */
+  cancelLabel?: string;
   isLoading?: boolean;
   error?: string;
   remainingAttempts?: number;
@@ -17,6 +19,7 @@ interface PinPadProps {
 export function PinPad({
   onSubmit,
   onCancel,
+  cancelLabel = "Cancel",
   isLoading = false,
   error,
   remainingAttempts,
@@ -150,14 +153,17 @@ export function PinPad({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex space-x-3 w-full max-w-xs">
+      <div className="flex space-x-3 w-full max-w-sm">
         <Button
           variant="ghost"
-          className="flex-1"
+          // min-w-0 is required: flex-1 sets min-width:auto and buttonVariants
+          // sets whitespace-nowrap, so a long cancelLabel would otherwise
+          // overflow the card instead of shrinking (breaks below ~400px).
+          className="flex-1 min-w-0 px-2"
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          <span className="truncate">{cancelLabel}</span>
         </Button>
 
         <Button
