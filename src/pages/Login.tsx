@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useQuery } from "convex/react";
@@ -10,6 +10,7 @@ import { AvatarGrid } from "../components/auth/AvatarGrid";
 import { PinPad } from "../components/auth/PinPad";
 import { ChefHat, ArrowLeft } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { getLastUserId, clearLastUserId } from "../lib/lastUser";
 
 export default function Login() {
   useDocumentTitle('Login');
@@ -21,10 +22,33 @@ export default function Login() {
   const [error, setError] = useState<string | undefined>();
   const [remainingAttempts, setRemainingAttempts] = useState<number | undefined>();
   const [lockedUntil, setLockedUntil] = useState<number | undefined>();
+  const [autoSelected, setAutoSelected] = useState(false);
 
   // Get selected user details
   const activeUsers = useQuery(api.auth.queries.getActiveUsers);
   const selectedUser = activeUsers?.find(u => u._id === selectedUserId);
+
+  // Pre-select whoever signed in last on this device, so the page opens
+  // straight on the PIN pad. Runs at most once -- activeUsers is a live
+  // subscription, and without the ref an update would snap the user back to
+  // the PIN pad after they tapped "Login as someone else".
+  const autoSelectAttempted = useRef(false);
+  useEffect(() => {
+    if (autoSelectAttempted.current || activeUsers === undefined) return;
+    autoSelectAttempted.current = true;
+
+    const lastUserId = getLastUserId();
+    if (!lastUserId) return;
+
+    // Deactivated or deleted since last login -- forget them, show the grid.
+    if (!activeUsers.some(u => u._id === lastUserId)) {
+      clearLastUserId();
+      return;
+    }
+
+    setSelectedUserId(lastUserId);
+    setAutoSelected(true);
+  }, [activeUsers]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -43,6 +67,7 @@ export default function Login() {
 
   const handleCancelPinEntry = () => {
     setSelectedUserId(null);
+    setAutoSelected(false);
     setError(undefined);
     setRemainingAttempts(undefined);
     setLockedUntil(undefined);
@@ -127,7 +152,7 @@ export default function Login() {
                   <div className="ml-3">
                     <div className="font-medium">{selectedUser?.name}</div>
                     <div className="text-sm text-muted-foreground">
-                      Enter your PIN
+                      {autoSelected ? "Welcome back — enter your PIN" : "Enter your PIN"}
                     </div>
                   </div>
                 </div>
@@ -137,6 +162,7 @@ export default function Login() {
               <PinPad
                 onSubmit={handlePinSubmit}
                 onCancel={handleCancelPinEntry}
+                cancelLabel={autoSelected ? "Login as someone else" : "Cancel"}
                 isLoading={isLoading}
                 error={error}
                 remainingAttempts={remainingAttempts}

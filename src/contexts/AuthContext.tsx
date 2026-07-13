@@ -5,6 +5,7 @@ import { type AuthSession, type UserRole, ROLE_PERMISSIONS } from "../lib/types"
 import type { Id } from "../../convex/_generated/dataModel";
 import type { SessionId } from "convex-helpers/server/sessions";
 import { sessionSetterRef } from "../lib/sessionBridge";
+import { setLastUserId } from "../lib/lastUser";
 
 const AUTH_STORAGE_KEY = "malo_auth_session";
 
@@ -106,6 +107,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // the correct auth token (not the random UUID it generated before login).
         sessionSetterRef.current(authSession.token as SessionId);
         setSession(authSession);
+
+        // Survives logout: pre-selects this user on the next visit to /login.
+        setLastUserId(authSession.userId);
 
         return { success: true };
       }

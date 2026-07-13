@@ -6,6 +6,8 @@ import { Button } from "../ui/button";
 interface PinPadProps {
   onSubmit: (pin: string) => void;
   onCancel: () => void;
+  /** Label for the cancel action. Defaults to "Cancel". */
+  cancelLabel?: string;
   isLoading?: boolean;
   error?: string;
   remainingAttempts?: number;
@@ -17,6 +19,7 @@ interface PinPadProps {
 export function PinPad({
   onSubmit,
   onCancel,
+  cancelLabel = "Cancel",
   isLoading = false,
   error,
   remainingAttempts,
@@ -150,14 +153,14 @@ export function PinPad({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex space-x-3 w-full max-w-xs">
+      <div className="flex space-x-3 w-full max-w-sm">
         <Button
           variant="ghost"
-          className="flex-1"
+          className="flex-1 text-sm"
           onClick={onCancel}
           disabled={isLoading}
         >
-          Cancel
+          {cancelLabel}
         </Button>
 
         <Button
