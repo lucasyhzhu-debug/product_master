@@ -156,11 +156,14 @@ export function PinPad({
       <div className="flex space-x-3 w-full max-w-sm">
         <Button
           variant="ghost"
-          className="flex-1 text-sm"
+          // min-w-0 is required: flex-1 sets min-width:auto and buttonVariants
+          // sets whitespace-nowrap, so a long cancelLabel would otherwise
+          // overflow the card instead of shrinking (breaks below ~400px).
+          className="flex-1 min-w-0 px-2"
           onClick={onCancel}
           disabled={isLoading}
         >
-          {cancelLabel}
+          <span className="truncate">{cancelLabel}</span>
         </Button>
 
         <Button

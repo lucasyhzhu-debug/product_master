@@ -37,16 +37,19 @@ export default function Login() {
     if (autoSelectAttempted.current || activeUsers === undefined) return;
     autoSelectAttempted.current = true;
 
-    const lastUserId = getLastUserId();
-    if (!lastUserId) return;
+    const storedId = getLastUserId();
+    if (!storedId) return;
 
-    // Deactivated or deleted since last login -- forget them, show the grid.
-    if (!activeUsers.some(u => u._id === lastUserId)) {
+    // The stored id is device-controlled, so resolve it against the server
+    // list rather than trusting it. No longer active (deactivated or deleted)
+    // -- forget them and fall back to the grid.
+    const lastUser = activeUsers.find(u => u._id === storedId);
+    if (!lastUser) {
       clearLastUserId();
       return;
     }
 
-    setSelectedUserId(lastUserId);
+    setSelectedUserId(lastUser._id);
     setAutoSelected(true);
   }, [activeUsers]);
 
@@ -131,6 +134,7 @@ export default function Login() {
                   size="sm"
                   onClick={handleCancelPinEntry}
                   className="mr-3"
+                  aria-label="Login as someone else"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </Button>

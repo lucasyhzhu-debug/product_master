@@ -19,6 +19,31 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.4.0] — 2026-07-13 — The login page remembers who signed in last
+
+**For the team:** On the device you use every day, Frollie Pro now opens straight on your PIN pad instead of making you find your face in the grid first — it remembers whoever signed in last on that device. If it's not you, tap **"Login as someone else"** to go back to the full list. Nothing changes about how you sign in; it just saves a tap.
+
+**What changed:**
+- The last **successful** sign-in on a device is remembered locally, and `/login` pre-selects that person so you land on the PIN entry screen.
+- "Login as someone else" (and the back arrow) returns to the avatar grid.
+- If the remembered person has since been deactivated, they're quietly forgotten and the grid shows as before.
+
+**Deliberate behaviours (don't "clean these up"):**
+- The memory **survives logout** — that's the point of the feature.
+- Only a **successful login** advances it. Tapping "Login as someone else" does *not* clear it, so a passer-by can't wipe the default for the person who actually uses the device. It's "last person who logged in", not "last person who touched the screen".
+- Only the **user id** is stored — never a PIN, never a session token. `getActiveUsers` already renders every active user publicly on the login page, so this exposes nothing new. See `docs/SECURITY.md` §2.
+
+**Files modified:**
+- `src/lib/lastUser.ts` (new) — localStorage helper; returns a plain `string` so callers must resolve it against the server user list rather than trusting a device-controlled value
+- `src/contexts/AuthContext.tsx` — records the id at the single point a login is known to have succeeded
+- `src/pages/Login.tsx` — auto-select-once effect (ref-guarded against live-query re-emissions)
+- `src/components/auth/PinPad.tsx` — optional `cancelLabel` prop
+- `src/lib/__tests__/lastUser.test.ts`, `src/pages/__tests__/Login.RememberLastUser.test.tsx` (new) — 15 tests
+
+No schema or backend changes.
+
+---
+
 ## [2.3.3] — 2026-07-13 — Invoices in the activity timeline are now clickable + easier-to-find filters
 
 **For the team:** In a customer's Activity timeline, invoice rows (and the "invoice that funded this" links on the funding dashboard and subscription week pages) used to do nothing when clicked — they quietly dropped you back to the login/home screen. They now open the invoice on its own page where you can view and print it. The type filters at the top of the timeline are also easier to spot now — they look and behave like real on/off toggles with a "Clear" button, instead of looking like plain labels. Finally, the home screen's Operations card now has a **CRM** shortcut right next to Orders.
