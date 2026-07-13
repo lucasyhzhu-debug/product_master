@@ -192,6 +192,11 @@ const SubscriptionWeeklyInvoicePage = lazyWithPreload(() =>
 const CrmFundingDashboardPage = lazyWithPreload(() =>
   import('./pages/crm/CrmFundingDashboardPage').then(m => ({ default: m.CrmFundingDashboardPage }))
 );
+// Canonical invoice view: /invoices/:invoiceId — the A1 target for timeline / funding
+// / week-back-reference invoice links (previously dead — no route existed).
+const InvoiceViewPage = lazyWithPreload(() =>
+  import('./pages/InvoiceViewPage').then(m => ({ default: m.InvoiceViewPage }))
+);
 // Phase D: /crm/customers/:customerId — customer hub (two-pane)
 const CustomerDashboard = lazyWithPreload(() =>
   import('./pages/crm/CustomerDashboard').then(m => ({ default: m.CustomerDashboard }))
@@ -822,6 +827,17 @@ function App() {
                     element={
                       <ProtectedRoute requiredPermission="canAccessCrm">
                         <CrmFundingDashboardPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  {/* Canonical invoice view (manager + admin — matches getById roles).
+                      The A1 target for /invoices/:id links from the activity timeline,
+                      funding dashboard, and week back-references. */}
+                  <Route
+                    path="invoices/:invoiceId"
+                    element={
+                      <ProtectedRoute requiredPermission="canAccessCrm">
+                        <InvoiceViewPage />
                       </ProtectedRoute>
                     }
                   />

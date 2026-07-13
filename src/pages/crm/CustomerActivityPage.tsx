@@ -156,6 +156,7 @@ export function CustomerActivityPage() {
         customerId={customerId}
         selectedTypes={selectedTypes}
         onToggleType={handleToggleType}
+        onClearTypes={() => setSelectedTypes([])}
       />
     </div>
   );
