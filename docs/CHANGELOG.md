@@ -19,6 +19,23 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.3.3] — 2026-07-13 — Invoices in the activity timeline are now clickable + easier-to-find filters
+
+**For the team:** In a customer's Activity timeline, invoice rows (and the "invoice that funded this" links on the funding dashboard and subscription week pages) used to do nothing when clicked — they quietly dropped you back to the login/home screen. They now open the invoice on its own page where you can view and print it. The type filters at the top of the timeline are also easier to spot now — they look and behave like real on/off toggles with a "Clear" button, instead of looking like plain labels. Finally, the home screen's Operations card now has a **CRM** shortcut right next to Orders.
+
+**Why now:** three separate CRM surfaces built `/invoices/:id` links, but that page never existed, so every one of them silently bounced to the catch-all. This adds the missing canonical invoice page once, fixing all of them (CRM principle A1: every entity has one canonical page reachable by link).
+
+**Changed**
+- **New** `src/pages/InvoiceViewPage.tsx` — the canonical read-only invoice page at `/invoices/:invoiceId`. Loads any invoice by id via `api.invoices.queries.getById` and renders the shared `InvoicePrintView` (Back + Print/PDF). Fixes the dead links from the activity timeline (`TimelineItem`), funding dashboard (`CrmFundingDashboardPage`), and week back-references (`WeekBackReferences`).
+- `src/App.tsx` — registered the `/invoices/:invoiceId` route, gated `canAccessCrm` (manager + admin, matching `getById`'s roles).
+- `src/components/crm/ActivityTimeline.tsx` — the type-filter now reads as a control: a "Filter by type" label, chips as real toggles (muted outline when off, filled when on), and a Clear affordance. Previously every chip rendered filled by default and read as a static legend. Toggle behavior + test IDs unchanged.
+- `src/pages/crm/CustomerActivityPage.tsx` — passes `onClearTypes` to reset the filter.
+- `src/pages/HubPage.tsx` — added **CRM** (`/crm`) to the Operations hub card, next to Orders, gated by `canAccessCrm`.
+
+**Verification** — `type-check` clean; `build` green (`InvoiceViewPage` chunk ~6 kB); `CustomerActivityPage` + `TimelineItem` + `CustomerDashboard` tests pass (27). Shipped in PR #233 (`31e4b639`).
+
+**Note** — `InvoiceViewPage` is read-only; subscription invoices' richer actions (mark-paid, reconcile) still live on the subscription-week page.
+
 ## [2.3.2] — 2026-07-10 — K3Mart sales sync recovers from an expired token by itself
 
 **For the team:** K3Mart sales sync used to give up whenever its login token expired, and quietly stop importing sales until someone noticed and clicked "Refresh Token" in Settings. It now logs back in on its own and carries on. Nobody has to babysit it. If the automatic re-login *also* fails (wrong password, K3Mart down), you still get the old `TOKEN_EXPIRED` error — that now genuinely means a human needs to look.
