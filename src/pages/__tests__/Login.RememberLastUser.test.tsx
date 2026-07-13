@@ -3,15 +3,14 @@
  *
  * These cover the invariants that `tsc` cannot protect:
  *
- *  - The auto-select must NOT be consumed by the Convex loading tick
- *    (`useQuery` returns `undefined` before it returns the array). If the
- *    one-shot ref were set before the undefined-guard, auto-select would
- *    never fire at all.
+ *  - The remembered user is applied once the Convex query resolves (`useQuery`
+ *    returns `undefined` first), not dropped on the loading tick.
  *  - After tapping "Login as someone else", a live-query re-emission of
  *    `activeUsers` (a fresh array identity) must NOT snap the operator back
- *    onto the PIN pad. This is the entire reason the ref guard exists; a
- *    future refactor that adds `selectedUserId` to the dep array, or converts
- *    the effect to derived state, silently reintroduces the bug.
+ *    onto the PIN pad. The selection is derived from an explicit-choice state
+ *    rather than synced in via an effect, so a re-emit just recomputes the
+ *    same values — this test locks that in against a refactor back to an
+ *    effect (which needs a one-shot guard to be correct at all).
  *  - A remembered user who is no longer active is forgotten, not offered.
  */
 import "@testing-library/jest-dom/vitest";
@@ -38,13 +37,17 @@ const RINA = { _id: "user_rina", name: "Rina", role: "order_staff", avatarUrl: u
 const BUDI = { _id: "user_budi", name: "Budi", role: "kitchen", avatarUrl: undefined };
 const USERS = [RINA, BUDI];
 
-function renderLogin() {
-  return render(
-    <MemoryRouter>
-      <Login />
-    </MemoryRouter>
-  );
-}
+// Must return a FRESH element each call. Passing the same element reference to
+// rerender() hits React's element-identity bailout: with no state change, the
+// re-render is skipped entirely and the component never sees the resolved
+// query — which silently turns the rerender-based tests below into no-ops.
+const loginUI = () => (
+  <MemoryRouter>
+    <Login />
+  </MemoryRouter>
+);
+
+const renderLogin = () => render(loginUI());
 
 const grid = () => screen.queryByText("Who's signing in?");
 const pinPadFor = (name: string) => screen.queryByText(name);
@@ -74,7 +77,7 @@ describe("Login — remember last signed-in user", () => {
     expect(screen.getByText("Login as someone else")).toBeInTheDocument();
   });
 
-  // The loading tick must not burn the one-shot ref.
+  // The loading tick must not drop the remembered user.
   it("still auto-selects when the user list resolves after mount", () => {
     localStorage.setItem("malo_last_user_id", RINA._id);
     mockUseQuery.mockReturnValue(undefined); // Convex still loading
@@ -83,12 +86,22 @@ describe("Login — remember last signed-in user", () => {
     expect(pinPadFor("Rina")).not.toBeInTheDocument();
 
     mockUseQuery.mockReturnValue(USERS); // data arrives
-    rerender(
-      <MemoryRouter>
-        <Login />
-      </MemoryRouter>
-    );
+    rerender(loginUI());
 
+    expect(pinPadFor("Rina")).toBeInTheDocument();
+  });
+
+  // The selection is derived, not synced in via an effect, so the PIN pad is
+  // on the FIRST frame that has data. An effect-based version would paint the
+  // avatar grid first and then snap — a visible flash of the wrong screen on
+  // every single login-page load.
+  it("never paints the avatar grid before snapping to the PIN pad", () => {
+    localStorage.setItem("malo_last_user_id", RINA._id);
+    mockUseQuery.mockReturnValue(USERS);
+    renderLogin();
+
+    // If the grid had painted first, this would have been rendered at least once.
+    expect(grid()).not.toBeInTheDocument();
     expect(pinPadFor("Rina")).toBeInTheDocument();
   });
 
@@ -121,8 +134,8 @@ describe("Login — remember last signed-in user", () => {
       expect(screen.queryByText("Welcome back — enter your PIN")).not.toBeInTheDocument();
     });
 
-    // Regression guard for the useRef one-shot. Without it, any live-query
-    // push (user renamed, user added) yanks the operator back to Rina's pad.
+    // Regression guard: any live-query push (user renamed, user added) must not
+    // yank the operator back to Rina's pad after they said "not me".
     it("survives a live re-emission of the user list", () => {
       localStorage.setItem("malo_last_user_id", RINA._id);
       mockUseQuery.mockReturnValue(USERS);
@@ -133,11 +146,7 @@ describe("Login — remember last signed-in user", () => {
 
       // Convex pushes a fresh array identity (same data, new reference).
       mockUseQuery.mockReturnValue([...USERS]);
-      rerender(
-        <MemoryRouter>
-          <Login />
-        </MemoryRouter>
-      );
+      rerender(loginUI());
 
       expect(grid()).toBeInTheDocument();
       expect(screen.queryByText("Welcome back — enter your PIN")).not.toBeInTheDocument();

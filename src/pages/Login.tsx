@@ -17,41 +17,40 @@ export default function Login() {
   const navigate = useNavigate();
   const { login, isAuthenticated, user } = useAuth();
 
-  const [selectedUserId, setSelectedUserId] = useState<Id<"users"> | null>(null);
+  // The user's explicit choice, NOT the effective selection:
+  //   undefined -> hasn't chosen; fall back to whoever signed in last
+  //   null      -> tapped "Login as someone else"; show the grid
+  //   Id        -> tapped this person in the grid
+  // The selection itself is DERIVED below. Keeping the choice (rather than the
+  // result) is what lets the remembered user be applied on the first frame that
+  // has data -- syncing it in via an effect would paint the grid first and then
+  // snap to the PIN pad, and would need a guard against live-query re-emissions.
+  const [explicitChoice, setExplicitChoice] = useState<Id<"users"> | null | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [remainingAttempts, setRemainingAttempts] = useState<number | undefined>();
   const [lockedUntil, setLockedUntil] = useState<number | undefined>();
-  const [autoSelected, setAutoSelected] = useState(false);
 
-  // Get selected user details
   const activeUsers = useQuery(api.auth.queries.getActiveUsers);
+
+  // Read storage once per mount. The stored id is device-controlled, so it is
+  // only ever used to look someone up in the server's active-user list.
+  const rememberedId = useRef(getLastUserId()).current;
+  const rememberedUser = activeUsers?.find(u => u._id === rememberedId) ?? null;
+
+  const selectedUserId = explicitChoice !== undefined ? explicitChoice : (rememberedUser?._id ?? null);
+  const autoSelected = explicitChoice === undefined && rememberedUser !== null;
   const selectedUser = activeUsers?.find(u => u._id === selectedUserId);
 
-  // Pre-select whoever signed in last on this device, so the page opens
-  // straight on the PIN pad. Runs at most once -- activeUsers is a live
-  // subscription, and without the ref an update would snap the user back to
-  // the PIN pad after they tapped "Login as someone else".
-  const autoSelectAttempted = useRef(false);
+  // One rule for what the escape hatch means, rendered twice (arrow + button).
+  const cancelLabel = autoSelected ? "Login as someone else" : "Cancel";
+
+  // Remembered user is no longer active (deactivated or deleted) -- forget them.
+  // Idempotent, so it needs no one-shot guard; the derived state above has
+  // already fallen back to the grid.
   useEffect(() => {
-    if (autoSelectAttempted.current || activeUsers === undefined) return;
-    autoSelectAttempted.current = true;
-
-    const storedId = getLastUserId();
-    if (!storedId) return;
-
-    // The stored id is device-controlled, so resolve it against the server
-    // list rather than trusting it. No longer active (deactivated or deleted)
-    // -- forget them and fall back to the grid.
-    const lastUser = activeUsers.find(u => u._id === storedId);
-    if (!lastUser) {
-      clearLastUserId();
-      return;
-    }
-
-    setSelectedUserId(lastUser._id);
-    setAutoSelected(true);
-  }, [activeUsers]);
+    if (activeUsers && rememberedId && !rememberedUser) clearLastUserId();
+  }, [activeUsers, rememberedId, rememberedUser]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -61,19 +60,20 @@ export default function Login() {
     }
   }, [isAuthenticated, user, navigate]);
 
-  const handleSelectUser = (userId: Id<"users">) => {
-    setSelectedUserId(userId);
+  const clearPinErrors = () => {
     setError(undefined);
     setRemainingAttempts(undefined);
     setLockedUntil(undefined);
   };
 
+  const handleSelectUser = (userId: Id<"users">) => {
+    setExplicitChoice(userId);
+    clearPinErrors();
+  };
+
   const handleCancelPinEntry = () => {
-    setSelectedUserId(null);
-    setAutoSelected(false);
-    setError(undefined);
-    setRemainingAttempts(undefined);
-    setLockedUntil(undefined);
+    setExplicitChoice(null);
+    clearPinErrors();
   };
 
   const handlePinSubmit = async (pin: string) => {
@@ -134,7 +134,7 @@ export default function Login() {
                   size="sm"
                   onClick={handleCancelPinEntry}
                   className="mr-3"
-                  aria-label="Login as someone else"
+                  aria-label={cancelLabel}
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
@@ -166,7 +166,7 @@ export default function Login() {
               <PinPad
                 onSubmit={handlePinSubmit}
                 onCancel={handleCancelPinEntry}
-                cancelLabel={autoSelected ? "Login as someone else" : "Cancel"}
+                cancelLabel={cancelLabel}
                 isLoading={isLoading}
                 error={error}
                 remainingAttempts={remainingAttempts}

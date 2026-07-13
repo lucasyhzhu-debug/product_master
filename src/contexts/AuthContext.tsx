@@ -138,6 +138,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     localStorage.removeItem(AUTH_STORAGE_KEY);
     localStorage.removeItem(SESSION_ID_KEY);
+    // NOTE: malo_last_user_id is intentionally NOT cleared -- surviving logout
+    // is the feature (see src/lib/lastUser.ts). Don't fold this into a
+    // clear-all-malo_* cleanup.
     // Clear SessionProvider's React state so useSessionMutation stops sending
     // the old auth token after logout.
     sessionSetterRef.current(undefined);
