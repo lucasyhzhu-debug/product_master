@@ -19,6 +19,20 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.4.1] — 2026-07-15 — QRIS payment stays visible on the order after it's paid
+
+**For the team:** When you charge an order with QRIS, the payment now stays visible on the order card even after it flips to Paid — you'll see a green **"QRIS Paid · Rp … · DANA"** line so it's obvious *how* an order was paid, not just that it was. While an order is awaiting payment, the button now reads **"Generate QRIS"** and, once a code is out, a **"QRIS ready · awaiting payment · View QR"** line lets you re-open the code to show or screenshot it. Nothing new needs to be turned on in the app — this only shows when QRIS is enabled for your deployment.
+
+**What changed (frontend-only, additive — no backend/webhook/schema change):**
+- New `OrderQrisStatus` read-only row shown on **both** order surfaces (slide-over + full page — Pitfall #20 mirror), gated on the QRIS feature flag + the presence of an active QRIS payment row (`useActiveQrisPayment`).
+  - **Paid** row is always shown (informational) — this is the "still see it after transition" ask.
+  - **Pending** row (with **View QR**) is suppressed on terminal orders (Cancelled/Complete) and once the 30-min window elapses, so a stale/dead QR is never re-presented as collectible.
+- Renamed the charge button **"Charge via QRIS" → "Generate QRIS"**. Kept its existing gate (`AwaitingPayment` + flag) unchanged.
+
+**Files:** `src/components/orders/OrderQrisStatus.tsx` (new + test), `src/components/orders/OrderSlideOver.tsx`, `src/pages/OrderDetail.tsx`.
+
+**Ops note (unchanged):** the QRIS button/indicator only appear where `QRIS_ENABLED=true` (dev already on; flip in prod + swap to live Xendit keys once KYB clears).
+
 ## [2.4.0] — 2026-07-13 — The login page remembers who signed in last
 
 **For the team:** On the device you use every day, Frollie Pro now opens straight on your PIN pad instead of making you find your face in the grid first — it remembers whoever signed in last on that device. If it's not you, tap **"Login as someone else"** to go back to the full list. Nothing changes about how you sign in; it just saves a tap.
