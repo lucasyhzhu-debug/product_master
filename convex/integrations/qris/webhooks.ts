@@ -84,10 +84,24 @@ export async function processWebhook(
   token: string | null,
   body: string,
   expectedToken: string | undefined,
+  opts?: { forwardSecret?: string | null; expectedForwardSecret?: string | undefined },
 ): Promise<WebhookResult> {
   // 1. Authenticate FIRST — 401 (NOT 200) with no mutation call, no state change.
   if (!verifyCallbackToken(token, expectedToken)) {
     return { status: 401, body: "Unauthorized" };
+  }
+
+  // 1b. Forward-secret gate (security review MEDIUM-3). The Xendit account is
+  //     SHARED with the Frollie POS, whose account-level webhook is authoritative;
+  //     THIS endpoint is reached ONLY via the POS→RM forwarder (never directly by
+  //     Xendit). When FROLLIE_FORWARD_SECRET is configured we therefore require a
+  //     second shared secret so a leaked Xendit token alone (public repo) cannot
+  //     forge a "paid" here. Absent config → skip (backward-compatible until set).
+  //     INVARIANT: forwarding is strictly POS→RM. This handler must NEVER forward.
+  if (opts?.expectedForwardSecret) {
+    if (!verifyCallbackToken(opts.forwardSecret ?? null, opts.expectedForwardSecret)) {
+      return { status: 401, body: "Unauthorized" };
+    }
   }
 
   // 2. Parse defensively; an invalid body must not 500.
@@ -98,6 +112,16 @@ export async function processWebhook(
     /* ignore — leaves payload {} so status check is a no-op */
   }
   const evt = payload?.data ?? payload; // A2: unwrap the { event, data } envelope.
+
+  // 2b. Refund deny-gate (security review HIGH-2). The subscribed Xendit event is
+  //     "QR code paid & REFUNDED"; a refund callback also carries status
+  //     "SUCCEEDED", which the paid-check below would misread as a payment and
+  //     could flip an order to Paid off a refund. Reject anything whose event
+  //     type mentions "refund" BEFORE the paid path.
+  const eventName = String(payload?.event ?? evt?.event ?? evt?.type ?? "").toLowerCase();
+  if (eventName.includes("refund")) {
+    return { status: 200, body: "OK (refund ignored)" };
+  }
 
   // 3. Only a SUCCESSFUL QR payment records payment + drives the transition.
   //    Xendit's QR Codes v2 (2022-07-31) reports a successful payment as
@@ -142,6 +166,8 @@ export async function processWebhook(
 export const handleXenditQrPayment = httpAction(async (ctx: ActionCtx, request: Request) => {
   const body = await request.text();
   const token = request.headers.get("x-callback-token"); // A1: confirm header live before go-live.
+  // Second shared secret injected by the POS forwarder (security review MEDIUM-3).
+  const forwardSecret = request.headers.get("x-frollie-forward-secret");
   const result = await processWebhook(
     {
       runMutation: (args) =>
@@ -154,6 +180,10 @@ export const handleXenditQrPayment = httpAction(async (ctx: ActionCtx, request: 
     // Keep both resolvers in lockstep so the x-callback-token compare succeeds
     // regardless of which name the deployment was provisioned with.
     process.env.XENDIT_WEBHOOK_TOKEN ?? process.env.XENDIT_CALLBACK_TOKEN,
+    {
+      forwardSecret,
+      expectedForwardSecret: process.env.FROLLIE_FORWARD_SECRET,
+    },
   );
   return new Response(result.body, { status: result.status });
 });
