@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Frollie Recipe Master** — Real-time recipe and product concept management for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis.
+**Frollie Pro** — Real-time recipe and product concept management for an Indonesian FMCG snack company. Tracks food recipes, packaging recipes, product concepts, orders, kitchen production, and inventory with full versioning, cost calculations, and margin analysis.
 
 **Architecture:** Convex (serverless backend + real-time database) + React 19 + TypeScript + Vite
 

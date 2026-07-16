@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 // ============================================
-// Frollie Recipe Master - Convex Schema
+// Frollie Pro - Convex Schema
 // Migrated from FastAPI + SQLAlchemy
 // ============================================
 

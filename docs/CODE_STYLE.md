@@ -1,6 +1,6 @@
 # Code Style Guide
 
-> **Purpose:** Coding conventions and patterns for Frollie Recipe Master.
+> **Purpose:** Coding conventions and patterns for Frollie Pro.
 > **When to read:** During implementation to ensure consistency.
 
 ## Table of Contents

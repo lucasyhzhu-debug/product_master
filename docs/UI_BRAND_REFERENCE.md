@@ -1,4 +1,4 @@
-# Frollie Recipe Master -- UI Brand Reference
+# Frollie Pro -- UI Brand Reference
 
 > **Source of truth** for all visual design decisions. Every page, component, and new feature must conform to this document.
 

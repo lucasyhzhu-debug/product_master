@@ -1,6 +1,6 @@
 # External API Integration Reference
 
-> Single reference document for all external API integrations in Frollie Recipe Master.
+> Single reference document for all external API integrations in Frollie Pro.
 > Covers endpoints, authentication, sync flows, cron schedules, and troubleshooting SOPs.
 >
 > Last updated: 2026-03-15

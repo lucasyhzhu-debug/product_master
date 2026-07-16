@@ -1,6 +1,6 @@
 # Security Documentation
 
-Frollie Recipe Master internal security overview. This doc covers our threat model, how auth works, why we made certain trade-offs, and what we knowingly accept as limitations.
+Frollie Pro internal security overview. This doc covers our threat model, how auth works, why we made certain trade-offs, and what we knowingly accept as limitations.
 
 ## 1. Threat Model
 

@@ -1,6 +1,6 @@
 # Developer Onboarding Guide
 
-> **Welcome to Frollie Recipe Master!** This is your starting point as a new developer.
+> **Welcome to Frollie Pro!** This is your starting point as a new developer.
 > **Last Updated:** 2026-02-03
 
 ---

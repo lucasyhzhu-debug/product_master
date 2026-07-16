@@ -1,4 +1,4 @@
-# Frollie Recipe Master
+# Frollie Pro
 
 What started as a recipe costing tool is now the full operations backbone for an Indonesian FMCG snack business — orders, kitchen production, inventory, multi-channel sales, accounting, payroll, and B2B subscriptions, all on one real-time backend.
 

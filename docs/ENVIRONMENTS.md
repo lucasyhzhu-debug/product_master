@@ -2,7 +2,7 @@
 
 ## Overview
 
-Frollie Recipe Master uses two separate Convex deployments with independent databases and quotas.
+Frollie Pro uses two separate Convex deployments with independent databases and quotas.
 
 ---
 

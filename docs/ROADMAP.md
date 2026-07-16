@@ -1,6 +1,6 @@
 # Roadmap & Development Progress
 
-> **Purpose:** Future plans and development progress for Frollie Recipe Master.
+> **Purpose:** Future plans and development progress for Frollie Pro.
 > **When to read:** When planning new features or understanding project status.
 
 ## Table of Contents

@@ -1,5 +1,5 @@
 /**
- * Shared formatter utilities for Frollie Recipe Master.
+ * Shared formatter utilities for Frollie Pro.
  * These functions are used across multiple components to ensure consistent formatting.
  */
 

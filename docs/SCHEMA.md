@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-> **Purpose:** Complete Convex database schema documentation for Frollie Recipe Master.
+> **Purpose:** Complete Convex database schema documentation for Frollie Pro.
 > **When to read:** Before making database changes, adding fields, or modifying relationships.
 
 ## Table of Contents

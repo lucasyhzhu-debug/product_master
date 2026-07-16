@@ -1,6 +1,6 @@
 # Deployment Guide
 
-> **Purpose:** Convex deployment guide for Frollie Recipe Master.
+> **Purpose:** Convex deployment guide for Frollie Pro.
 > **When to read:** When deploying to production or modifying deployment configuration.
 
 ## Table of Contents
