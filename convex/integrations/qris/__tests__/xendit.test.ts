@@ -48,4 +48,25 @@ describe("buildCreateQrBody (R1)", () => {
     expect(body.type).toBe("DYNAMIC");
     expect(body.currency).toBe("IDR");
   });
+
+  it("omits callback_url when no callbackUrl is passed (falls back to account webhook)", () => {
+    const body = buildCreateQrBody("0521-001", 35000);
+    expect(body).not.toHaveProperty("callback_url");
+  });
+
+  it("stamps a per-QR callback_url when provided (shared-account routing fix)", () => {
+    const body = buildCreateQrBody(
+      "0521-001",
+      35000,
+      "https://decisive-wombat-7.convex.site/api/xendit/qr-payment",
+    );
+    expect(body).toMatchObject({
+      reference_id: "0521-001",
+      external_id: "0521-001",
+      type: "DYNAMIC",
+      currency: "IDR",
+      amount: 35000,
+      callback_url: "https://decisive-wombat-7.convex.site/api/xendit/qr-payment",
+    });
+  });
 });
