@@ -36,6 +36,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { StatusActionButtons } from './StatusActionButtons';
 import { QrisChargeDialog } from './QrisChargeDialog';
+import { OrderQrisStatus } from './OrderQrisStatus';
 import { useQrisConfig, useActiveQrisPayment } from '@/hooks/convex/useQris';
 import { AuditTrail } from './AuditTrail';
 import { StepWhatsAppTemplate } from './StepWhatsAppTemplate';
@@ -718,7 +719,7 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                     }}
                   />
 
-                  {/* Charge via QRIS (Phase 84) — visible ONLY when the order is
+                  {/* Generate QRIS (Phase 84) — visible ONLY when the order is
                       AwaitingPayment AND the QRIS_ENABLED flag is on. The create
                       action re-checks flag + role + state server-side (D-01). */}
                   {orderId && order.status === 'AwaitingPayment' && qrisConfig?.enabled === true && (
@@ -727,8 +728,19 @@ export function OrderSlideOver({ orderId, open, onClose, autoShowWhatsApp }: Ord
                       onClick={() => setShowQrisDialog(true)}
                     >
                       <QrCode className="h-4 w-4 mr-2" />
-                      Charge via QRIS
+                      Generate QRIS
                     </Button>
+                  )}
+
+                  {/* Attached QRIS payment (pending/paid) — stays visible AFTER the
+                      order auto-transitions to paid, so a QRIS-funded payment is not
+                      invisible once the Generate button is gone. Mirror in OrderDetail.tsx. */}
+                  {qrisConfig?.enabled === true && (
+                    <OrderQrisStatus
+                      row={activeQris}
+                      orderStatus={order.status}
+                      onView={() => setShowQrisDialog(true)}
+                    />
                   )}
 
                   {/* Force Complete — manager/admin only */}

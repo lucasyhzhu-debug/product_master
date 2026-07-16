@@ -19,6 +19,24 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.4.1] — 2026-07-15 — QRIS payment stays visible on the order after it's paid
+
+**For the team:** When you charge an order with QRIS, the payment now stays visible on the order card even after it flips to Paid — you'll see a green **"QRIS Paid · Rp … · DANA"** line so it's obvious *how* an order was paid, not just that it was. While an order is awaiting payment, the button now reads **"Generate QRIS"** and, once a code is out, a **"QRIS ready · awaiting payment · View QR"** line lets you re-open the code to show or screenshot it. Nothing new needs to be turned on in the app — this only shows when QRIS is enabled for your deployment.
+
+**Frontend (visibility — additive):**
+- New `OrderQrisStatus` read-only row shown on **both** order surfaces (slide-over + full page — Pitfall #20 mirror), gated on the QRIS feature flag + the presence of an active QRIS payment row (`useActiveQrisPayment`).
+  - **Paid** row is always shown (informational) — this is the "still see it after transition" ask.
+  - **Pending** row (with **View QR**) is suppressed on terminal orders (Cancelled/Complete) and once the 30-min window elapses, so a stale/dead QR is never re-presented as collectible.
+- Renamed the charge button **"Charge via QRIS" → "Generate QRIS"**. Kept its existing gate (`AwaitingPayment` + flag) unchanged.
+
+**Backend (go-live enablement — no schema change):**
+- **Shared-Xendit-account routing fix:** the prod Xendit account is shared with the Frollie POS system, whose account-level "QR code paid" webhook is already set. `createQrisInvoice` now stamps a **per-QR `callback_url`** (self-targeting via Convex's `CONVEX_SITE_URL`) so this deployment's paid callbacks route to **its own** webhook and the POS webhook is left untouched. Omitted when `CONVEX_SITE_URL` is unset (falls back to the account webhook).
+- **Env-var name tolerance:** the Xendit secret + webhook token are now read as `XENDIT_API_KEY ?? XENDIT_SECRET_KEY` and `XENDIT_WEBHOOK_TOKEN ?? XENDIT_CALLBACK_TOKEN`, matching the names the prod deployment was provisioned with (no duplicated secrets required).
+
+**Files:** `src/components/orders/OrderQrisStatus.tsx` (new + test), `src/components/orders/OrderSlideOver.tsx`, `src/pages/OrderDetail.tsx`, `convex/integrations/qris/xendit.ts` (+test), `convex/integrations/qris/webhooks.ts`.
+
+**Ops note:** the QRIS button/indicator only appear where `QRIS_ENABLED=true`. Prod already has the live Xendit secret + callback token (under `XENDIT_SECRET_KEY` / `XENDIT_CALLBACK_TOKEN`); the remaining prod step is to set `QRIS_ENABLED=true`. Confirm the per-QR `callback_url` is honored with one live test payment before relying on it.
+
 ## [2.4.0] — 2026-07-13 — The login page remembers who signed in last
 
 **For the team:** On the device you use every day, Frollie Pro now opens straight on your PIN pad instead of making you find your face in the grid first — it remembers whoever signed in last on that device. If it's not you, tap **"Login as someone else"** to go back to the full list. Nothing changes about how you sign in; it just saves a tap.

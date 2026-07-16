@@ -149,7 +149,11 @@ export const handleXenditQrPayment = httpAction(async (ctx: ActionCtx, request: 
     },
     token,
     body,
-    process.env.XENDIT_WEBHOOK_TOKEN,
+    // Accept either env-var name: dev uses XENDIT_WEBHOOK_TOKEN, the prod
+    // deployment stores the same verification token under XENDIT_CALLBACK_TOKEN.
+    // Keep both resolvers in lockstep so the x-callback-token compare succeeds
+    // regardless of which name the deployment was provisioned with.
+    process.env.XENDIT_WEBHOOK_TOKEN ?? process.env.XENDIT_CALLBACK_TOKEN,
   );
   return new Response(result.body, { status: result.status });
 });

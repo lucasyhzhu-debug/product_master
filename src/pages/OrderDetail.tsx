@@ -24,6 +24,7 @@ import { StatusActionButtons } from '@/components/orders/StatusActionButtons';
 import { EditUndeliveredOrderControl } from '@/components/orders/EditUndeliveredOrderControl';
 import type { EditUndeliveredOrderItem } from '@/components/orders/EditUndeliveredOrderControl';
 import { QrisChargeDialog } from '@/components/orders/QrisChargeDialog';
+import { OrderQrisStatus } from '@/components/orders/OrderQrisStatus';
 import { AuditTrail } from '@/components/orders/AuditTrail';
 import { FulfillFromInventoryButton } from '@/components/inventory/FulfillFromInventoryButton';
 import { InvoiceSidebarCard } from '@/components/invoice/InvoiceSidebarCard';
@@ -476,7 +477,7 @@ export function OrderDetail() {
                 />
               )}
 
-              {/* Charge via QRIS (Phase 84) — rendered ONLY when the order is
+              {/* Generate QRIS (Phase 84) — rendered ONLY when the order is
                   AwaitingPayment AND the QRIS_ENABLED flag is on. Button is ABSENT
                   (not disabled) otherwise — same conditional-render pattern as the
                   WhatsApp card. The create action re-checks the flag + role + state
@@ -487,8 +488,19 @@ export function OrderDetail() {
                   onClick={() => setShowQrisDialog(true)}
                 >
                   <QrCode className="h-4 w-4 mr-2" />
-                  Charge via QRIS
+                  Generate QRIS
                 </Button>
+              )}
+
+              {/* Attached QRIS payment (pending/paid) — stays visible AFTER the
+                  order auto-transitions to paid, so a QRIS-funded payment is not
+                  invisible once the Generate button is gone. Mirror in OrderSlideOver.tsx. */}
+              {qrisConfig?.enabled === true && (
+                <OrderQrisStatus
+                  row={activeQris}
+                  orderStatus={order.status}
+                  onView={() => setShowQrisDialog(true)}
+                />
               )}
 
               {/* Admin: Force Complete (data fix) - manager/admin only */}
