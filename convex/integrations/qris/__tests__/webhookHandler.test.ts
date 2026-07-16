@@ -115,6 +115,76 @@ describe("processWebhook (handler-level, staffreview C6)", () => {
   });
 });
 
+// ─── Security review hardening ───────────────────────────────────────────────
+
+const FWD = "fwd_secret_deadbeefcafebabe";
+
+describe("processWebhook — refund deny-gate (HIGH-2)", () => {
+  it("a SUCCEEDED refund event does NOT record payment (event name gate)", async () => {
+    const runMutation = vi.fn().mockResolvedValue({ transitioned: true });
+    const body = JSON.stringify({
+      event: "qr.refund.succeeded",
+      data: { status: "SUCCEEDED", amount: 35000, qr_id: "qr_live_xyz", reference_id: "0521-001" },
+    });
+    const result = await processWebhook({ runMutation }, TOKEN, body, TOKEN);
+    expect(result.status).toBe(200);
+    expect(runMutation).not.toHaveBeenCalled();
+  });
+
+  it("a genuine qr.payment SUCCEEDED still records (gate is refund-specific)", async () => {
+    const runMutation = vi.fn().mockResolvedValue({ transitioned: true });
+    const body = JSON.stringify({
+      event: "qr.payment",
+      data: { status: "SUCCEEDED", amount: 35000, qr_id: "qr_live_xyz", reference_id: "0521-001" },
+    });
+    const result = await processWebhook({ runMutation }, TOKEN, body, TOKEN);
+    expect(result.status).toBe(200);
+    expect(runMutation).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("processWebhook — forward-secret gate (MEDIUM-3)", () => {
+  it("when configured, a missing forward secret → 401, no mutation", async () => {
+    const runMutation = vi.fn().mockResolvedValue({ transitioned: true });
+    const result = await processWebhook({ runMutation }, TOKEN, completedBody, TOKEN, {
+      forwardSecret: null,
+      expectedForwardSecret: FWD,
+    });
+    expect(result.status).toBe(401);
+    expect(runMutation).not.toHaveBeenCalled();
+  });
+
+  it("when configured, a wrong forward secret → 401, no mutation", async () => {
+    const runMutation = vi.fn().mockResolvedValue({ transitioned: true });
+    const result = await processWebhook({ runMutation }, TOKEN, completedBody, TOKEN, {
+      forwardSecret: "fwd_secret_WRONGWRONGWRONG",
+      expectedForwardSecret: FWD,
+    });
+    expect(result.status).toBe(401);
+    expect(runMutation).not.toHaveBeenCalled();
+  });
+
+  it("when configured, the correct forward secret → 200, mutation invoked", async () => {
+    const runMutation = vi.fn().mockResolvedValue({ transitioned: true });
+    const result = await processWebhook({ runMutation }, TOKEN, completedBody, TOKEN, {
+      forwardSecret: FWD,
+      expectedForwardSecret: FWD,
+    });
+    expect(result.status).toBe(200);
+    expect(runMutation).toHaveBeenCalledTimes(1);
+  });
+
+  it("when NOT configured (undefined), the gate is skipped (backward-compatible)", async () => {
+    const runMutation = vi.fn().mockResolvedValue({ transitioned: true });
+    const result = await processWebhook({ runMutation }, TOKEN, completedBody, TOKEN, {
+      forwardSecret: null,
+      expectedForwardSecret: undefined,
+    });
+    expect(result.status).toBe(200);
+    expect(runMutation).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("handleXenditQrPayment export", () => {
   it("is registered as an httpAction (callable handler)", () => {
     expect(handleXenditQrPayment).toBeDefined();

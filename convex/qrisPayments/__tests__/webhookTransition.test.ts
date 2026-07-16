@@ -156,4 +156,75 @@ describe("recordPaidAndTransition (R4b — non-vacuous idempotency)", () => {
     const order = await t.run((ctx) => ctx.db.get(seed.orderId));
     expect(order?.status).toBe("AwaitingPayment");
   });
+
+  it("a NON-matching qr_id does NOT fall through to externalId matching — no force-pay (MEDIUM-3)", async () => {
+    const t = convexTest(schema, modules);
+    const seed = await makeAwaitingPaymentOrder(t, { orderNumber: "0521-003", finalTotal: 35000 });
+    await makeQrisPayment(t, {
+      orderId: seed.orderId,
+      externalId: "0521-003",
+      xenditQrId: "qr_ours_real",
+      amount: 35000,
+      status: "pending",
+    });
+
+    // Payload carries a guessable externalId that WOULD match our pending order,
+    // but a qr_id we don't own. Because a qr_id is present, the externalId fallback
+    // must NOT run → no-op, order stays AwaitingPayment, row stays pending.
+    const result = await t.mutation(internal.qrisPayments.mutations.recordPaidAndTransition, {
+      xenditQrId: "qr_FOREIGN_not_ours",
+      externalId: "0521-003",
+      amount: 35000,
+    });
+
+    expect(result).toEqual({ transitioned: false });
+    const order = await t.run((ctx) => ctx.db.get(seed.orderId));
+    expect(order?.status).toBe("AwaitingPayment");
+    const row = await t.run((ctx) =>
+      ctx.db.query("qrisPayments").withIndex("by_order", (q) => q.eq("orderId", seed.orderId)).first(),
+    );
+    expect(row?.status).toBe("pending");
+  });
+
+  it("first-writer-wins: a redelivery does NOT overwrite paidAt / rawPayload / receiptId (LOW-8)", async () => {
+    const t = convexTest(schema, modules);
+    const seed = await makeAwaitingPaymentOrder(t, { orderNumber: "0521-004", finalTotal: 35000 });
+    await makeQrisPayment(t, {
+      orderId: seed.orderId,
+      externalId: "0521-004",
+      xenditQrId: "qr_fw",
+      amount: 35000,
+      status: "pending",
+    });
+
+    await t.mutation(internal.qrisPayments.mutations.recordPaidAndTransition, {
+      xenditQrId: "qr_fw",
+      externalId: "0521-004",
+      amount: 35000,
+      rawPayload: "FIRST",
+      receiptId: "RCPT_1",
+    });
+    const first = await t.run((ctx) =>
+      ctx.db.query("qrisPayments").withIndex("by_order", (q) => q.eq("orderId", seed.orderId)).first(),
+    );
+    expect(first?.status).toBe("paid");
+    expect(first?.rawPayload).toBe("FIRST");
+    expect(first?.receiptId).toBe("RCPT_1");
+    const firstPaidAt = first?.paidAt;
+
+    // Redelivery with DIFFERENT forensic fields must not overwrite the originals.
+    await t.mutation(internal.qrisPayments.mutations.recordPaidAndTransition, {
+      xenditQrId: "qr_fw",
+      externalId: "0521-004",
+      amount: 35000,
+      rawPayload: "SECOND",
+      receiptId: "RCPT_2",
+    });
+    const second = await t.run((ctx) =>
+      ctx.db.query("qrisPayments").withIndex("by_order", (q) => q.eq("orderId", seed.orderId)).first(),
+    );
+    expect(second?.rawPayload).toBe("FIRST");
+    expect(second?.receiptId).toBe("RCPT_1");
+    expect(second?.paidAt).toBe(firstPaidAt);
+  });
 });

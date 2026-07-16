@@ -19,6 +19,19 @@ After merging any code change, add a new entry with:
 
 ---
 
+## [2.4.2] — 2026-07-16 — QRIS webhook hardening (security review)
+
+**For the team:** Behind-the-scenes security hardening of how we record QRIS payments — no visible change. It closes gaps a security review found before we connect the shared-payment-account routing: a refund can no longer be mistaken for a payment, a guessed order number can't be forced "paid", duplicate/replayed callbacks can't overwrite the original payment record, and the payment endpoint can require a second shared secret.
+
+**What changed (backend-only, no schema change):**
+- **Refund deny-gate** — the webhook rejects any event whose type mentions "refund" before the paid path (the subscribed Xendit event is "QR paid **& refunded**", and refunds also report `SUCCEEDED`).
+- **Forgery** — the guessable `MMDD-NNN` externalId fallback now runs **only when no globally-unique QR id is supplied**; a payload carrying a QR id we don't own no-ops instead of matching a same-day order.
+- **Forward-secret gate** — `processWebhook` accepts an optional `x-frollie-forward-secret` (inert until `FROLLIE_FORWARD_SECRET` is set) so a leaked Xendit token alone can't forge a payment.
+- **First-writer-wins** — `paidAt` / `receiptId` / `rawPayload` are stamped only on the first paid delivery; replays no longer clobber the original forensics.
+- **Removed the dead per-QR `callback_url`** — proven live (order 0716-001) that Xendit v2 accepts but ignores it. Routing will be handled by a POS→RM forwarder (separate change).
+
+**Files:** `convex/integrations/qris/webhooks.ts`, `convex/qrisPayments/mutations.ts`, `convex/integrations/qris/xendit.ts` (+ tests). Credit: adversarial security review (Fable). 40 QRIS tests passing.
+
 ## [2.4.1] — 2026-07-15 — QRIS payment stays visible on the order after it's paid
 
 **For the team:** When you charge an order with QRIS, the payment now stays visible on the order card even after it flips to Paid — you'll see a green **"QRIS Paid · Rp … · DANA"** line so it's obvious *how* an order was paid, not just that it was. While an order is awaiting payment, the button now reads **"Generate QRIS"** and, once a code is out, a **"QRIS ready · awaiting payment · View QR"** line lets you re-open the code to show or screenshot it. Nothing new needs to be turned on in the app — this only shows when QRIS is enabled for your deployment.

@@ -35,23 +35,20 @@ const XENDIT_QR_API_VERSION = "2022-07-31";
  * Sends BOTH `reference_id` (newer field) and `external_id` (legacy) — the spike
  * does, and it is harmless (A4 fallback safety for whichever the webhook echoes).
  *
- * `callbackUrl` (optional) stamps a PER-QR webhook URL on the code. This is the
- * multi-tenant fix: the Xendit account is shared with another Frollie system (the
- * POS, savory-zebra-800) whose account-level "QR code paid" webhook is already
- * set. Without a per-QR override, THIS deployment's paid callbacks would be
- * delivered to the POS endpoint (which no-ops on our unknown refs) and our order
- * would never flip to paid. Stamping our own `CONVEX_SITE_URL` callback routes
- * only our QRs to us, leaving the account-level POS webhook untouched. Omitted →
- * field absent (Xendit falls back to the account-level webhook).
+ * DO NOT re-add a per-QR `callback_url` here: the Xendit account is shared with
+ * the Frollie POS (savory-zebra-800) whose account-level "QR code paid" webhook
+ * is authoritative. We PROVED live (order 0716-001, 2026-07-16) that Xendit's QR
+ * Codes v2 API ACCEPTS `callback_url` but IGNORES it for routing — the paid event
+ * still went to the account-level (POS) webhook. Routing to this deployment is
+ * handled by the POS→RM forwarder, not a per-QR override.
  */
-export function buildCreateQrBody(orderNumber: string, finalTotal: number, callbackUrl?: string) {
+export function buildCreateQrBody(orderNumber: string, finalTotal: number) {
   return {
     reference_id: orderNumber,
     external_id: orderNumber,
     type: "DYNAMIC" as const,
     currency: "IDR" as const,
     amount: finalTotal,
-    ...(callbackUrl ? { callback_url: callbackUrl } : {}),
   };
 }
 
@@ -76,13 +73,6 @@ export const xenditProvider: QrisProvider = {
     orderNumber: string;
     finalTotal: number;
   }): Promise<CreateInvoiceResult> {
-    // Per-QR callback URL self-targeting this deployment (CONVEX_SITE_URL is a
-    // Convex system env var → dev routes to the dev site, prod to the prod site).
-    // Must match the http.route path in convex/http.ts. Omitted if unset so the
-    // account-level webhook still applies as a fallback.
-    const siteUrl = process.env.CONVEX_SITE_URL;
-    const callbackUrl = siteUrl ? `${siteUrl}/api/xendit/qr-payment` : undefined;
-
     const res = await fetch(`${XENDIT_BASE}/qr_codes`, {
       method: "POST",
       headers: {
@@ -90,7 +80,7 @@ export const xenditProvider: QrisProvider = {
         "Content-Type": "application/json",
         "api-version": XENDIT_QR_API_VERSION,
       },
-      body: JSON.stringify(buildCreateQrBody(orderNumber, finalTotal, callbackUrl)),
+      body: JSON.stringify(buildCreateQrBody(orderNumber, finalTotal)),
     });
 
     if (!res.ok) {

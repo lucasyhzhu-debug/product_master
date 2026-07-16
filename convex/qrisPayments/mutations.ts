@@ -148,7 +148,12 @@ export const recordPaidAndTransition = internalMutation({
     if (args.xenditQrId) {
       row = await findByQrId(ctx, args.xenditQrId);
     }
-    if (!row) {
+    // Security review MEDIUM-3: run the externalId fallback ONLY when NO qr id was
+    // supplied. externalId (MMDD-NNN) is guessable and NOT globally unique, so a
+    // payload that carries a qr id we don't own must no-op — never fall through to
+    // matching a same-day order number. The QR id is globally unique (account-wide)
+    // and authoritative; a present-but-unmatched qr id means "not ours", full stop.
+    if (!row && !args.xenditQrId) {
       row = await findActiveByExternalId(ctx, args.externalId);
     }
 
@@ -168,16 +173,23 @@ export const recordPaidAndTransition = internalMutation({
     }
     const outcome = decideWebhookOutcome(order, row, { amount: args.amount });
 
-    // 4. ALWAYS record paid on the row, DURABLY, BEFORE the transition/reserve
-    //    (SPEC R4 — staffreview C3). The customer paid; honor it unconditionally.
-    await ctx.db.patch(row._id, {
-      status: "paid",
-      paidAt: Date.now(),
-      ...(args.receiptId !== undefined ? { receiptId: args.receiptId } : {}),
-      ...(args.source !== undefined ? { source: args.source } : {}),
-      ...(args.rawPayload !== undefined ? { rawPayload: args.rawPayload } : {}),
-      ...(outcome.needsReview ? { needsReview: true, reviewReason: outcome.reason } : {}),
-    });
+    // 4. Record paid on the row, DURABLY, BEFORE the transition/reserve (SPEC R4 —
+    //    staffreview C3). The customer paid; honor it. Security review LOW-8:
+    //    first-writer-wins — only stamp paid + forensics (paidAt/receiptId/source/
+    //    rawPayload) on the FIRST paid delivery. A redelivery/replay must NOT
+    //    overwrite the original paidAt or raw payload. The transition guards below
+    //    still run on every delivery (so a reserve that failed the first time can
+    //    be retried), keyed on order status, not on re-patching the row.
+    if (row.status !== "paid") {
+      await ctx.db.patch(row._id, {
+        status: "paid",
+        paidAt: Date.now(),
+        ...(args.receiptId !== undefined ? { receiptId: args.receiptId } : {}),
+        ...(args.source !== undefined ? { source: args.source } : {}),
+        ...(args.rawPayload !== undefined ? { rawPayload: args.rawPayload } : {}),
+        ...(outcome.needsReview ? { needsReview: true, reviewReason: outcome.reason } : {}),
+      });
+    }
 
     // 5. Idempotency guard — payment already recorded above; replay is a no-op.
     if (order.status === "PaymentReceived") {
